@@ -307,7 +307,7 @@ goalFields.addEventListener('input', (event) => {
   refresh();
 });
 
-/** A click on the backdrop lands on the dialog element itself. */
+/** Only a backdrop click lands on the dialog element itself; its content is wrapped in .dialog-body. */
 goalsDialog.addEventListener('click', (event) => {
   if (event.target === goalsDialog) goalsDialog.close();
 });
