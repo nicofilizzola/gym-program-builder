@@ -721,6 +721,20 @@ svg {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+/* The fill reads as one pill: round its outer ends, keep the direct/indirect join straight. */
+.volume-row .bar-direct {
+  border-radius: 999px 0 0 999px;
+}
+
+.volume-row .bar-indirect {
+  border-radius: 0 999px 999px 0;
+}
+
+.volume-row .bar.no-indirect .bar-direct,
+.volume-row .bar.no-direct .bar-indirect {
+  border-radius: 999px;
+}
+
 .split-key {
   list-style: none;
   display: flex;

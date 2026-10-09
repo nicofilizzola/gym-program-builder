@@ -205,6 +205,9 @@ function refresh() {
     const fill = barSegments(split[muscle].direct, split[muscle].indirect, goal ?? 10);
     row.querySelector('.bar-direct').style.width = `${fill.direct * 100}%`;
     row.querySelector('.bar-indirect').style.width = `${fill.indirect * 100}%`;
+    const bar = row.querySelector('.bar');
+    bar.classList.toggle('no-direct', fill.direct === 0);
+    bar.classList.toggle('no-indirect', fill.indirect === 0);
     row.querySelector('.split').textContent = splitText(muscle);
     if (result) row.dataset.status = result.status;
     else delete row.dataset.status;
