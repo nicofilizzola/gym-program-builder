@@ -35,6 +35,8 @@ MuscleGroup (fixed list, exactly these 10 values, in this order):
 5. **Reorder exercises.** Each exercise card has a drag handle. Dragging it with a mouse or by touch moves the exercise to a new position. When the handle has keyboard focus, the ↑ and ↓ arrow keys move the exercise up or down one place, and focus stays on the moved exercise's handle. Order does not affect volume.
 6. **Volume goals.** A "Set goals" button in the volume panel opens a dialog with one number field per muscle group, in `MuscleGroup` order. The user can set, change, or clear (empty the field) a goal for any muscle. Every goal is optional. Changes apply live as the user types. A "Done" button, Escape, or a click outside the dialog closes it; there is no Save/Cancel step. An invalid value shows an error next to its field and is not applied.
 7. **Volume relative to goals.** In the volume list, a muscle with a goal shows its volume against the goal (for example `7 / 10`), a bar filled to `volume ÷ goal` (capped at full), and a text status: **under**, **met**, or **over**. A muscle without a goal is shown exactly as before. The body map keeps its absolute heat colours; goals do not change it.
+8. **Export session.** An "Export" button downloads the current session (exercises in order, and goals) as a JSON file named `gym-session-YYYY-MM-DD.json`, using today's local date. Export is refused while any exercise is invalid: nothing is downloaded, and a message names the first invalid exercise (for example `Fix exercise 2 before exporting.`). A session with no exercises can be exported.
+9. **Import session.** An "Import" button opens a file picker for `.json` files. A valid file **replaces** the whole current session (exercises and goals). If the current session has any exercise or goal, the user is asked to confirm the replacement first; declining changes nothing. A file that is not valid JSON or does not match the session file format is **rejected as a whole**: the session does not change, and one error message says what is wrong (for example `Exercise 2: unknown muscle group "Glutes".`).
 
 ## Volume calculation (core business rule)
 
@@ -87,6 +89,31 @@ Using the volume from the volume worked example above, with goals Chest **7**, T
 | Quads   | 0      | 8    | `0 / 8`    | under  | 0        |
 | Biceps  | 1.5    | —    | `1.5`      | —      | —        |
 
+## Session file format (business rule)
+
+```json
+{
+  "version": 1,
+  "exercises": [
+    {
+      "name": "Bench press",
+      "sets": 4,
+      "repRange": { "min": 6, "max": 10 },
+      "primaryMuscles": ["Chest"],
+      "secondaryMuscles": ["Triceps", "Shoulders"]
+    }
+  ],
+  "goals": { "Chest": 10, "Triceps": 4.5 }
+}
+```
+
+- `version` must be exactly `1`. Any other value is rejected (`Unsupported file version.`).
+- `exercises` is an array, possibly empty, in session order. Each exercise must pass the same validation as the form (see **Validate input**). Muscle names must match `MuscleGroup` values exactly, with the same case.
+- `goals` is an object whose keys are `MuscleGroup` values and whose values are valid goals. It may be empty. A muscle without a key has no goal.
+- Unknown extra keys are ignored on import and never written on export.
+- Export writes JSON indented with 2 spaces.
+- **Round trip:** exporting a session and importing the file gives an identical session.
+
 ## Implementation guidelines for agents
 
 - **Keep the volume calculation in a pure function**, separate from the UI (for example `computeVolume(session) → Record<MuscleGroup, number>`). Unit-test it, including the worked example above.
@@ -97,10 +124,13 @@ Using the volume from the volume worked example above, with goals Chest **7**, T
 - **The goals dialog uses the native `<dialog>` element**, with no library.
 - **Keep reordering logic pure.** Moving an exercise is a pure function on the exercise list (for example `moveExercise(exercises, from, to) → Exercise[]`), unit-tested separately from the drag UI.
 - **Drag and drop uses pointer events, with no dependencies.** Do not use the native HTML5 drag API (unreliable on touch) or a library.
+- **Keep the session file logic pure**, separate from the UI: for example `serializeSession(session) → string` and `parseSession(text) → { session } | { error }`. Reuse `validateExercise`, `validateGoal`, and `MUSCLE_GROUPS`; do not duplicate the rules. Unit-test the round trip (with the volume worked example and the goal worked example) and every rejection case.
+- **File I/O uses browser built-ins only:** a `Blob` with an `<a download>` link for export, a hidden `<input type="file" accept=".json,application/json">` for import, and the native `confirm()` for the replace prompt. No libraries.
 
 ## Decided
 
 - **Volume goals** (2026-10-09): a single target per muscle, not a range. Volume above the goal is flagged as **over**. Goals are part of the single in-memory session; they are not persisted, like the rest of the session. The body map stays on absolute heat colours.
+- **Session import/export** (2026-10-09): one session per JSON file, with exercises and goals. Import replaces the whole session after a confirmation (asked only when the current session is not empty). Export is blocked until every exercise is valid. An invalid file is rejected as a whole. The file name is `gym-session-YYYY-MM-DD.json`. This is a manual, user-triggered file exchange; the app still keeps nothing between page loads.
 
 ## Open decisions (ask the user before deciding)
 
@@ -112,4 +142,4 @@ Using the volume from the volume worked example above, with goals Chest **7**, T
 
 ## Out of scope for the MVP
 
-Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope.
+Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope. For import/export: automatic saving, merging or appending an imported session, partial imports, several sessions per file, migrating other file versions, and other formats (CSV and so on) are out of scope.
