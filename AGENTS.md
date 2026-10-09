@@ -34,9 +34,10 @@ MuscleGroup (fixed list, exactly these 10 values, in this order):
 4. **Live volume panel.** A panel always shows the session's volume for each muscle group and updates on every edit. No submit or refresh step is needed.
 5. **Reorder exercises.** Each exercise card has a drag handle. Dragging it with a mouse or by touch moves the exercise to a new position. When the handle has keyboard focus, the ↑ and ↓ arrow keys move the exercise up or down one place, and focus stays on the moved exercise's handle. Order does not affect volume.
 6. **Volume goals.** A "Set goals" button in the volume panel opens a dialog with one number field per muscle group, in `MuscleGroup` order. The user can set, change, or clear (empty the field) a goal for any muscle. Every goal is optional. Changes apply live as the user types. A "Done" button, Escape, or a click outside the dialog closes it; there is no Save/Cancel step. An invalid value shows an error next to its field and is not applied.
-7. **Volume relative to goals.** In the volume list, a muscle with a goal shows its volume against the goal (for example `7 / 10`), a bar filled to `volume ÷ goal` (capped at full), and a text status: **under**, **met**, or **over**. A muscle without a goal is shown exactly as before. The body map keeps its absolute heat colours; goals do not change it.
+7. **Volume relative to goals.** In the volume list, a muscle with a goal shows its volume against the goal (for example `7 / 10`), a bar whose full length is the goal (see **Direct and indirect volume** for how it fills), and a text status: **under**, **met**, or **over**. A muscle without a goal is shown exactly as before. The body map keeps its absolute heat colours; goals do not change it.
 8. **Export session.** An "Export" button downloads the current session (exercises in order, and goals) as a JSON file named `gym-session-YYYY-MM-DD.json`, using today's local date. Export is refused while any exercise is invalid: nothing is downloaded, and a message names the first invalid exercise (for example `Fix exercise 2 before exporting.`). A session with no exercises can be exported.
 9. **Import session.** An "Import" button opens a file picker for `.json` files. A valid file **replaces** the whole current session (exercises and goals). If the current session has any exercise or goal, the user is asked to confirm the replacement first; declining changes nothing. A file that is not valid JSON or does not match the session file format is **rejected as a whole**: the session does not change, and one error message says what is wrong (for example `Exercise 2: unknown muscle group "Glutes".`).
+10. **Direct and indirect volume.** In the volume list, each muscle's bar has two stacked segments: **direct** volume (from exercises where it is a primary muscle) first, then **indirect** volume (from exercises where it is a secondary muscle). Direct is solid accent orange, like a selected primary chip; indirect is a soft orange fill with an orange outline, like a selected secondary chip. The bar no longer uses heat colours; the body map keeps them. A small "Direct / Indirect" key sits above the list (hidden on mobile, where bars are hidden). Each row still shows one number: the total, or `total / goal`. The split is shown as text in the readout (for example `Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`, or `Triceps 5 / 4 sets (3 direct · 2 indirect) · over · 2 exercises` with a goal), always naming both parts even when one is 0, and in a visually hidden text inside each row button for screen readers.
 
 ## Volume calculation (core business rule)
 
@@ -89,6 +90,43 @@ Using the volume from the volume worked example above, with goals Chest **7**, T
 | Quads   | 0      | 8    | `0 / 8`    | under  | 0        |
 | Biceps  | 1.5    | —    | `1.5`      | —      | —        |
 
+## Direct and indirect volume (business rule)
+
+For each muscle group:
+
+```
+direct(muscle)   = Σ sets         over exercises where muscle ∈ primaryMuscles
+indirect(muscle) = Σ sets × 0.5   over exercises where muscle ∈ secondaryMuscles
+volume(muscle)   = direct(muscle) + indirect(muscle)
+```
+
+- Indirect is **counted volume** (half sets), not raw secondary sets, so the two parts always add up to the volume.
+- Goal status still compares the total volume to the goal.
+
+The bar fills **direct first**, on the same scale for both segments:
+
+```
+scale         = goal, or 10 when the muscle has no goal
+directFill    = min(direct / scale, 1)
+indirectFill  = min(indirect / scale, 1 − directFill)   // cut off at the end of the bar
+```
+
+If direct alone reaches the scale, the bar is all direct.
+
+### Worked example (use as a test case)
+
+Using the volume worked example and the goal worked example above:
+
+| Muscle     | Direct | Indirect | Goal | Scale | Direct fill | Indirect fill |
+|------------|--------|----------|------|-------|-------------|---------------|
+| Chest      | 7      | 0        | 7    | 7     | 1           | 0             |
+| Triceps    | 3      | 2        | 4    | 4     | 0.75        | 0.25          |
+| Lats       | 3      | 0        | 6    | 6     | 0.5         | 0             |
+| Quads      | 0      | 0        | 8    | 8     | 0           | 0             |
+| Shoulders  | 0      | 3.5      | —    | 10    | 0           | 0.35          |
+| Biceps     | 0      | 1.5      | —    | 10    | 0           | 0.15          |
+| Upper back | 0      | 1.5      | —    | 10    | 0           | 0.15          |
+
 ## Session file format (business rule)
 
 ```json
@@ -117,6 +155,7 @@ Using the volume from the volume worked example above, with goals Chest **7**, T
 ## Implementation guidelines for agents
 
 - **Keep the volume calculation in a pure function**, separate from the UI (for example `computeVolume(session) → Record<MuscleGroup, number>`). Unit-test it, including the worked example above.
+- **Keep the direct/indirect split and the bar fill pure**, separate from the UI: for example `computeVolumeSplit(session) → Record<MuscleGroup, { direct, indirect }>`, with `computeVolume` derived from it (`direct + indirect`) so the volume rule lives in one place, and `barSegments(direct, indirect, scale) → { direct, indirect }`. Unit-test both, including the direct/indirect worked example. Compute them on render; never store them.
 - **Define the muscle group list once** as a single constant, and use it for the form choices, the volume panel, and validation.
 - **Prefer derived state.** Compute volume from the session on render. Do not store it separately.
 - **Validate input:** exercise names must not be empty, sets ≥ 1, rep range `min ≤ max`, goals are a positive multiple of 0.5 (an empty field clears the goal).
@@ -131,6 +170,7 @@ Using the volume from the volume worked example above, with goals Chest **7**, T
 
 - **Volume goals** (2026-10-09): a single target per muscle, not a range. Volume above the goal is flagged as **over**. Goals are part of the single in-memory session; they are not persisted, like the rest of the session. The body map stays on absolute heat colours.
 - **Session import/export** (2026-10-09): one session per JSON file, with exercises and goals. Import replaces the whole session after a confirmation (asked only when the current session is not empty). Export is blocked until every exercise is valid. An invalid file is rejected as a whole. The file name is `gym-session-YYYY-MM-DD.json`. This is a manual, user-triggered file exchange; the app still keeps nothing between page loads.
+- **Direct and indirect volume** (2026-10-09): indirect volume is counted volume (secondary sets × 0.5), so direct + indirect = volume. The volume-list bar shows two stacked segments, direct first, coloured like the primary and secondary chips; heat colours stay on the body map only. When volume exceeds the bar's scale, direct fills first and indirect is cut off. Rows show only the total; the split appears in the readout and in screen-reader text. Goals, the session file format, and the body map are unchanged.
 
 ## Open decisions (ask the user before deciding)
 
@@ -142,4 +182,4 @@ Using the volume from the volume worked example above, with goals Chest **7**, T
 
 ## Out of scope for the MVP
 
-Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope. For import/export: automatic saving, merging or appending an imported session, partial imports, several sessions per file, migrating other file versions, and other formats (CSV and so on) are out of scope.
+Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume (with its direct/indirect split) and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope. For import/export: automatic saving, merging or appending an imported session, partial imports, several sessions per file, migrating other file versions, and other formats (CSV and so on) are out of scope.
