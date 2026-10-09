@@ -104,9 +104,10 @@ function syncGoalFields() {
   });
 }
 
-/** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag. */
+/** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag and drops a now-stale file message. */
 function renderExercises() {
   drag = null;
+  fileMessage.textContent = '';
   list.replaceChildren(...session.exercises.map((ex, i) => {
     const card = document.createElement('li');
     card.className = 'exercise';
@@ -211,6 +212,7 @@ list.addEventListener('input', (event) => {
   if (field === 'min' || field === 'max') {
     ex.repRange = { ...ex.repRange, [field]: event.target.valueAsNumber };
   }
+  fileMessage.textContent = '';
   refresh();
 });
 
@@ -219,6 +221,7 @@ list.addEventListener('change', (event) => {
   if (!role) return;
   const i = indexOf(event.target);
   session.exercises[i] = toggleMuscle(session.exercises[i], role, muscle);
+  fileMessage.textContent = '';
   refresh();
 });
 
