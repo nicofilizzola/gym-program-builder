@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateExercise } from '../src/validate.js';
+import { validateExercise, validateGoal } from '../src/validate.js';
 
 function valid() {
   return {
@@ -70,4 +70,11 @@ test('rejects unknown muscle', () => {
 test('validate.js no longer exports validateSessionName', async () => {
   const mod = await import('../src/validate.js');
   assert.equal('validateSessionName' in mod, false);
+});
+
+test('goals must be a positive multiple of 0.5', () => {
+  for (const goal of [0.5, 1, 4.5, 10, 30]) assert.equal(validateGoal(goal), null);
+  for (const goal of [0, -1, -0.5, 7.3, 0.25, NaN, Infinity]) {
+    assert.equal(validateGoal(goal), 'Goal must be a positive multiple of 0.5.');
+  }
 });

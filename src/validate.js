@@ -39,3 +39,11 @@ export function validateExercise(ex) {
 
   return errors;
 }
+
+/**
+ * @param {number} goal
+ * @returns {string | null} error message, or null when the goal is a positive multiple of 0.5
+ */
+export function validateGoal(goal) {
+  return Number.isInteger(goal * 2) && goal > 0 ? null : 'Goal must be a positive multiple of 0.5.';
+}

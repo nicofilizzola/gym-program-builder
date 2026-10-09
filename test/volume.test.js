@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS } from '../src/muscles.js';
-import { computeVolume, volumeLevel } from '../src/volume.js';
+import { computeVolume, goalStatus, volumeLevel } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -55,4 +55,18 @@ test('keys follow MUSCLE_GROUPS order', () => {
 test('volumeLevel maps sets to fixed heat bands', () => {
   const cases = [[0, 0], [0.5, 1], [3.5, 1], [4, 2], [6.5, 2], [7, 3], [9.5, 3], [10, 4], [25, 4]];
   for (const [sets, level] of cases) assert.equal(volumeLevel(sets), level, `sets=${sets}`);
+});
+
+test('goal worked example from spec', () => {
+  assert.deepEqual(goalStatus(7, 7), { status: 'met', progress: 1 });
+  assert.deepEqual(goalStatus(5, 4), { status: 'over', progress: 1 });
+  assert.deepEqual(goalStatus(3, 6), { status: 'under', progress: 0.5 });
+  assert.deepEqual(goalStatus(0, 8), { status: 'under', progress: 0 });
+  assert.equal(goalStatus(1.5, undefined), null);
+});
+
+test('goal status works on half sets', () => {
+  assert.deepEqual(goalStatus(4.5, 4.5), { status: 'met', progress: 1 });
+  assert.deepEqual(goalStatus(12.5, 10), { status: 'over', progress: 1 });
+  assert.deepEqual(goalStatus(2.5, 10), { status: 'under', progress: 0.25 });
 });

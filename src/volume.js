@@ -36,3 +36,16 @@ export function volumeLevel(sets) {
   const i = LEVEL_LIMITS.findIndex((limit) => sets < limit);
   return i === -1 ? 4 : i + 1;
 }
+
+/**
+ * How a muscle's volume compares to its goal. Volume and goal are multiples of 0.5, so `===` is exact.
+ * @param {number} volume
+ * @param {number | undefined} goal
+ * @returns {{ status: 'under' | 'met' | 'over', progress: number } | null}
+ *   progress is volume ÷ goal capped at 1; null when there is no goal
+ */
+export function goalStatus(volume, goal) {
+  if (goal === undefined) return null;
+  const status = volume < goal ? 'under' : volume === goal ? 'met' : 'over';
+  return { status, progress: Math.min(volume / goal, 1) };
+}
