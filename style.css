@@ -97,7 +97,36 @@ fieldset label {
     grid-template-columns: 1fr;
   }
 
+  /* Keep the panel on screen while editing: a compact two-column grid pinned to the bottom. */
   .panel {
-    position: static;
+    top: auto;
+    bottom: 0;
+    padding: 8px 12px;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .panel h2 {
+    margin: 0 0 4px;
+    font-size: 1em;
+  }
+
+  .panel thead {
+    display: none;
+  }
+
+  .panel tbody {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+  }
+
+  .panel tr {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .panel td {
+    padding: 2px 0;
   }
 }
