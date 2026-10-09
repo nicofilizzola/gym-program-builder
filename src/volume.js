@@ -72,3 +72,13 @@ export function goalStatus(volume, goal) {
   const status = volume < goal ? 'under' : volume === goal ? 'met' : 'over';
   return { status, progress: Math.min(volume / goal, 1) };
 }
+
+/**
+ * Muscles the volume list shows: those with a goal, or with volume above 0.
+ * @param {Record<string, number>} volume from computeVolume
+ * @param {Partial<Record<string, number>>} goals
+ * @returns {string[]} in MUSCLE_GROUPS order
+ */
+export function visibleMuscles(volume, goals) {
+  return MUSCLE_GROUPS.filter((muscle) => goals[muscle] !== undefined || volume[muscle] > 0);
+}

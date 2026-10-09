@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS } from '../src/muscles.js';
-import { barSegments, computeVolume, computeVolumeSplit, goalStatus, volumeLevel } from '../src/volume.js';
+import { barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -126,4 +126,32 @@ test('barSegments caps the total at the scale, direct first', () => {
   assert.deepEqual(barSegments(12, 3, 10), { direct: 1, indirect: 0 });
   assert.deepEqual(barSegments(0, 6, 4), { direct: 0, indirect: 1 });
   assert.deepEqual(barSegments(5, 6, 10), { direct: 0.5, indirect: 0.5 }); // indirect cut off
+});
+
+test('visibleMuscles worked example from spec, no goals', () => {
+  assert.deepEqual(visibleMuscles(computeVolume(WORKED_EXAMPLE), {}),
+    ['Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps', 'Shoulders']);
+});
+
+test('visibleMuscles worked example from spec, with goals', () => {
+  const goals = { Chest: 7, Triceps: 4, Lats: 6, Quads: 8 };
+  assert.deepEqual(visibleMuscles(computeVolume(WORKED_EXAMPLE), goals),
+    ['Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps', 'Shoulders', 'Quads']);
+});
+
+test('visibleMuscles is empty for an empty session with no goals', () => {
+  assert.deepEqual(visibleMuscles(computeVolume({ exercises: [] }), {}), []);
+});
+
+test('visibleMuscles shows a goal muscle at 0 volume', () => {
+  assert.deepEqual(visibleMuscles(computeVolume({ exercises: [] }), { Calves: 6 }), ['Calves']);
+});
+
+test('visibleMuscles hides invalid-sets muscles', () => {
+  const session = { exercises: [exercise(NaN, ['Chest'], ['Triceps'])] };
+  assert.deepEqual(visibleMuscles(computeVolume(session), {}), []);
+});
+
+test('visibleMuscles keeps MUSCLE_GROUPS order, not goal-key order', () => {
+  assert.deepEqual(visibleMuscles(computeVolume({ exercises: [] }), { Calves: 2, Chest: 3 }), ['Chest', 'Calves']);
 });
