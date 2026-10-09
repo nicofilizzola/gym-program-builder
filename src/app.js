@@ -11,7 +11,7 @@ const session = { exercises: [] };
 let selectedMuscle = null;
 let hoveredMuscle = null;
 
-/** View state for a pointer drag in progress: the dragged card and its index when the drag started. */
+/** View state for a pointer drag in progress: the pointer, the dragged card, and its index when the drag started. */
 let drag = null;
 
 const list = document.querySelector('#exercises');
@@ -71,8 +71,9 @@ function renderPanel() {
   }));
 }
 
-/** Rebuild the exercise list. Only on load, add and remove, so typing keeps focus. */
+/** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag. */
 function renderExercises() {
+  drag = null;
   list.replaceChildren(...session.exercises.map((ex, i) => {
     const card = document.createElement('li');
     card.className = 'exercise';
@@ -98,8 +99,8 @@ function hitFor(ex) {
 
 /** Update everything derived from state without recreating inputs. */
 function refresh() {
-  list.querySelectorAll('.exercise').forEach((card, i) => {
-    const ex = session.exercises[i];
+  list.querySelectorAll('.exercise').forEach((card) => {
+    const ex = session.exercises[Number(card.dataset.index)];
     const errors = validateExercise(ex);
     card.querySelectorAll('[data-error]').forEach((el) => {
       el.textContent = errors[el.dataset.error] ?? '';
@@ -197,10 +198,10 @@ list.addEventListener('keydown', (event) => {
 
 list.addEventListener('pointerdown', (event) => {
   const handle = event.target.closest('.drag-handle');
-  if (!handle || event.button !== 0) return;
+  if (!handle || event.button !== 0 || drag) return;
   event.preventDefault();
   handle.setPointerCapture(event.pointerId);
-  drag = { card: handle.closest('.exercise'), from: indexOf(handle) };
+  drag = { pointerId: event.pointerId, card: handle.closest('.exercise'), from: indexOf(handle) };
   drag.card.classList.add('is-dragging');
 });
 
@@ -209,7 +210,7 @@ list.addEventListener('pointerdown', (event) => {
  * is never detached, because removing it from the document would release pointer capture.
  */
 list.addEventListener('pointermove', (event) => {
-  if (!drag) return;
+  if (event.pointerId !== drag?.pointerId) return;
   const others = [...list.children].filter((card) => card !== drag.card);
   const target = others.filter((card) => {
     const rect = card.getBoundingClientRect();
@@ -220,20 +221,23 @@ list.addEventListener('pointermove', (event) => {
   others.slice(target).forEach((card) => list.append(card));
 });
 
-list.addEventListener('pointerup', () => {
-  if (!drag) return;
+list.addEventListener('pointerup', (event) => {
+  if (event.pointerId !== drag?.pointerId) return;
   const { card, from } = drag;
   drag = null;
   card.classList.remove('is-dragging');
   commitMove(from, [...list.children].indexOf(card));
 });
 
-list.addEventListener('pointercancel', () => {
-  if (!drag) return;
-  drag = null;
+/** Abandon a drag: state was never changed, so rebuilding from it restores the order. */
+function cancelDrag(event) {
+  if (event.pointerId !== drag?.pointerId) return;
   renderExercises();
   refresh();
-});
+}
+
+list.addEventListener('pointercancel', cancelDrag);
+list.addEventListener('lostpointercapture', cancelDrag);
 
 document.querySelector('#add-exercise').addEventListener('click', () => {
   session.exercises.push(createExercise());
