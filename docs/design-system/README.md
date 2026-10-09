@@ -94,6 +94,8 @@ Secondary legend carries the hint "count as ½ set".
 
 A collapsed card hides its fields and shows a one-line summary below the header in `--muted` (for example `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders`). It wraps; it is never truncated.
 
+"Expand all" / "Collapse all" secondary buttons sit right-aligned above the exercise list, hidden when there are no exercises. When export is refused, the exercise it names expands and focus moves to its first invalid field.
+
 Highlight states, set from the selected muscle via `data-hit`:
 
 | `data-hit` | Look | Tag |

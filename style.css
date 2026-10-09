@@ -139,6 +139,17 @@ input:focus-visible {
   display: none;
 }
 
+.list-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.list-actions[hidden] {
+  display: none;
+}
+
 .exercises {
   list-style: none;
   padding: 0;

@@ -23,6 +23,7 @@ let collapsed = [];
 
 const list = document.querySelector('#exercises');
 const empty = document.querySelector('#empty');
+const listActions = document.querySelector('#list-actions');
 const panel = document.querySelector('.panel');
 const bodyMap = document.querySelector('#body-map');
 const readout = document.querySelector('#readout');
@@ -134,6 +135,7 @@ function renderExercises() {
     return card;
   }));
   empty.hidden = session.exercises.length > 0;
+  listActions.hidden = session.exercises.length === 0;
 }
 
 /** How the selected muscle is trained by an exercise: 'primary', 'secondary', 'none', or '' if nothing is selected. */
@@ -330,12 +332,34 @@ document.querySelector('#add-exercise').addEventListener('click', () => {
   list.lastElementChild.querySelector('[data-field="name"]').focus();
 });
 
-/** Download the session as JSON, unless an exercise is invalid. */
+document.querySelector('#expand-all').addEventListener('click', () => {
+  collapsed.fill(false);
+  refresh();
+});
+
+document.querySelector('#collapse-all').addEventListener('click', () => {
+  collapsed.fill(true);
+  refresh();
+});
+
+/** The field to focus for each validateExercise error key. */
+const ERROR_FIELDS = {
+  name: '[data-field="name"]',
+  sets: '[data-field="sets"]',
+  repRange: '[data-field="min"]',
+  muscles: 'input[data-role="primary"]:not(:disabled)',
+};
+
+/** Download the session as JSON, unless an exercise is invalid; then open that exercise at its first invalid field. */
 document.querySelector('#export-session').addEventListener('click', () => {
   fileMessage.textContent = '';
   const invalid = session.exercises.findIndex((ex) => Object.keys(validateExercise(ex)).length > 0);
   if (invalid !== -1) {
     fileMessage.textContent = `Fix exercise ${invalid + 1} before exporting.`;
+    collapsed[invalid] = false;
+    refresh();
+    const [firstError] = Object.keys(validateExercise(session.exercises[invalid]));
+    list.children[invalid].querySelector(ERROR_FIELDS[firstError]).focus();
     return;
   }
   const url = URL.createObjectURL(new Blob([serializeSession(session)], { type: 'application/json' }));
