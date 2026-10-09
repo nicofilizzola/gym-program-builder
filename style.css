@@ -662,6 +662,12 @@ svg {
   gap: 2px;
 }
 
+.volume-empty {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
 /* position: relative keeps the hidden split text inside the row, so it cannot widen the mobile chip scroller. */
 .volume-row {
   position: relative;
@@ -723,6 +729,10 @@ svg {
   padding: 0;
   font-size: 0.75rem;
   color: var(--muted);
+}
+
+.split-key[hidden] {
+  display: none;
 }
 
 .split-key li::before {

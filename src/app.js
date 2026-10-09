@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { barSegments, computeVolume, computeVolumeSplit, goalStatus, volumeLevel } from './volume.js';
+import { barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from './volume.js';
 import { validateExercise, validateGoal } from './validate.js';
 import { createExercise, exerciseSummary, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
@@ -28,6 +28,8 @@ const panel = document.querySelector('.panel');
 const bodyMap = document.querySelector('#body-map');
 const readout = document.querySelector('#readout');
 const volumeList = document.querySelector('#volume');
+const volumeEmpty = document.querySelector('#volume-empty');
+const splitKey = document.querySelector('#split-key');
 const orderStatus = document.querySelector('#order-status');
 const goalsDialog = document.querySelector('#goals-dialog');
 const goalFields = document.querySelector('#goal-fields');
@@ -187,9 +189,13 @@ function refresh() {
     el.classList.toggle('is-selected', muscle === selectedMuscle);
     el.classList.toggle('is-focus', muscle === focus);
   });
+  const visible = visibleMuscles(volume, session.goals);
+  volumeEmpty.hidden = visible.length > 0;
+  splitKey.hidden = visible.length === 0;
   volumeList.classList.toggle('has-goals', Object.keys(session.goals).length > 0);
   volumeList.querySelectorAll('.volume-row').forEach((row) => {
     const { muscle } = row.dataset;
+    row.parentElement.hidden = !visible.includes(muscle);
     const sets = volume[muscle];
     const goal = session.goals[muscle];
     const result = goalStatus(sets, goal);
