@@ -1,7 +1,7 @@
 import { MUSCLE_GROUPS } from './muscles.js';
 import { computeVolume, volumeLevel } from './volume.js';
 import { validateExercise } from './validate.js';
-import { createExercise, toggleMuscle } from './exercise.js';
+import { createExercise, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 
 /** The only domain state. Volume and errors are derived from it in refresh(). */
@@ -17,6 +17,7 @@ const panel = document.querySelector('.panel');
 const bodyMap = document.querySelector('#body-map');
 const readout = document.querySelector('#readout');
 const volumeList = document.querySelector('#volume');
+const orderStatus = document.querySelector('#order-status');
 
 function muscleChips(role) {
   return MUSCLE_GROUPS.map((muscle) => `
@@ -25,6 +26,9 @@ function muscleChips(role) {
 
 const CARD_HTML = `
   <div class="card-head">
+    <button type="button" class="drag-handle" aria-label="Reorder exercise" aria-describedby="reorder-hint">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+    </button>
     <span class="card-index"></span>
     <span class="hit-tag" data-hit-tag></span>
     <button type="button" class="icon-btn" data-action="remove" aria-label="Remove exercise">
@@ -140,6 +144,17 @@ function indexOf(el) {
   return Number(el.closest('.exercise').dataset.index);
 }
 
+/** Commit a reorder to state, rebuild the list, and keep focus on the moved exercise's handle. */
+function commitMove(from, to) {
+  if (from === to) return;
+  session.exercises = moveExercise(session.exercises, from, to);
+  renderExercises();
+  refresh();
+  list.children[to].querySelector('.drag-handle').focus();
+  const name = session.exercises[to].name.trim() || 'exercise';
+  orderStatus.textContent = `Moved ${name} to position ${to + 1} of ${session.exercises.length}.`;
+}
+
 list.addEventListener('input', (event) => {
   const { field } = event.target.dataset;
   if (!field) return;
@@ -165,6 +180,16 @@ list.addEventListener('click', (event) => {
   session.exercises.splice(indexOf(event.target), 1);
   renderExercises();
   refresh();
+});
+
+list.addEventListener('keydown', (event) => {
+  if (!event.target.classList.contains('drag-handle')) return;
+  const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
+  if (!step) return;
+  event.preventDefault();
+  const from = indexOf(event.target);
+  const to = from + step;
+  if (to >= 0 && to < session.exercises.length) commitMove(from, to);
 });
 
 document.querySelector('#add-exercise').addEventListener('click', () => {

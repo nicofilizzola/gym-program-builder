@@ -240,6 +240,43 @@ svg {
   stroke-linejoin: round;
 }
 
+.drag-handle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  transition: color 150ms ease;
+}
+
+.drag-handle:hover {
+  color: var(--text);
+}
+
+.drag-handle svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .numbers {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

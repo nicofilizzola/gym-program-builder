@@ -90,7 +90,7 @@ Real checkboxes, visually hidden but focusable, styled through the sibling `<spa
 Secondary legend carries the hint "count as ½ set".
 
 ### Exercise card
-`--surface` with a 4px left border. Header: "Exercise N" index, optional hit tag, trash icon button (44×44, turns `--error` on hover, `aria-label="Remove exercise"`).
+`--surface` with a 4px left border. Header: drag handle (⋮⋮ grip, 44×44, `cursor: grab`, `aria-label="Reorder exercise"`; drag it, or focus it and press ↑ / ↓, to move the card), "Exercise N" index, optional hit tag, trash icon button (44×44, turns `--error` on hover, `aria-label="Remove exercise"`). Moves are announced in a visually hidden live region.
 
 Highlight states, set from the selected muscle via `data-hit`:
 
