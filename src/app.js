@@ -11,6 +11,9 @@ const session = { exercises: [] };
 let selectedMuscle = null;
 let hoveredMuscle = null;
 
+/** View state for a pointer drag in progress: the dragged card and its index when the drag started. */
+let drag = null;
+
 const list = document.querySelector('#exercises');
 const empty = document.querySelector('#empty');
 const panel = document.querySelector('.panel');
@@ -190,6 +193,46 @@ list.addEventListener('keydown', (event) => {
   const from = indexOf(event.target);
   const to = from + step;
   if (to >= 0 && to < session.exercises.length) commitMove(from, to);
+});
+
+list.addEventListener('pointerdown', (event) => {
+  const handle = event.target.closest('.drag-handle');
+  if (!handle || event.button !== 0) return;
+  event.preventDefault();
+  handle.setPointerCapture(event.pointerId);
+  drag = { card: handle.closest('.exercise'), from: indexOf(handle) };
+  drag.card.classList.add('is-dragging');
+});
+
+/**
+ * While dragging, reorder DOM nodes only; state changes on drop. The dragged card itself
+ * is never detached, because removing it from the document would release pointer capture.
+ */
+list.addEventListener('pointermove', (event) => {
+  if (!drag) return;
+  const others = [...list.children].filter((card) => card !== drag.card);
+  const target = others.filter((card) => {
+    const rect = card.getBoundingClientRect();
+    return rect.top + rect.height / 2 < event.clientY;
+  }).length;
+  if ([...list.children].indexOf(drag.card) === target) return;
+  others.slice(0, target).forEach((card) => list.insertBefore(card, drag.card));
+  others.slice(target).forEach((card) => list.append(card));
+});
+
+list.addEventListener('pointerup', () => {
+  if (!drag) return;
+  const { card, from } = drag;
+  drag = null;
+  card.classList.remove('is-dragging');
+  commitMove(from, [...list.children].indexOf(card));
+});
+
+list.addEventListener('pointercancel', () => {
+  if (!drag) return;
+  drag = null;
+  renderExercises();
+  refresh();
 });
 
 document.querySelector('#add-exercise').addEventListener('click', () => {
