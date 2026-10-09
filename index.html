@@ -16,6 +16,12 @@
     <section class="builder">
       <p class="eyebrow">Gym Program Builder</p>
       <h1>Session builder</h1>
+      <div class="file-actions">
+        <button id="import-session" type="button" class="secondary-btn">Import</button>
+        <button id="export-session" type="button" class="secondary-btn">Export</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      </div>
+      <p id="file-message" class="error" role="alert"></p>
       <ol id="exercises" class="exercises"></ol>
       <p id="empty" class="empty">No exercises yet. Add one to start building your session.</p>
       <button id="add-exercise" class="add-btn" type="button">

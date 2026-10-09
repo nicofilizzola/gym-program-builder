@@ -3,6 +3,7 @@ import { computeVolume, goalStatus, volumeLevel } from './volume.js';
 import { validateExercise, validateGoal } from './validate.js';
 import { createExercise, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
+import { serializeSession, parseSession, exportFileName } from './session-file.js';
 
 /**
  * The only domain state. Volume, goal status and errors are derived from it in refresh().
@@ -26,6 +27,8 @@ const volumeList = document.querySelector('#volume');
 const orderStatus = document.querySelector('#order-status');
 const goalsDialog = document.querySelector('#goals-dialog');
 const goalFields = document.querySelector('#goal-fields');
+const fileInput = document.querySelector('#import-file');
+const fileMessage = document.querySelector('#file-message');
 
 function muscleChips(role) {
   return MUSCLE_GROUPS.map((muscle) => `
@@ -284,6 +287,47 @@ document.querySelector('#add-exercise').addEventListener('click', () => {
   renderExercises();
   refresh();
   list.lastElementChild.querySelector('[data-field="name"]').focus();
+});
+
+/** Download the session as JSON, unless an exercise is invalid. */
+document.querySelector('#export-session').addEventListener('click', () => {
+  fileMessage.textContent = '';
+  const invalid = session.exercises.findIndex((ex) => Object.keys(validateExercise(ex)).length > 0);
+  if (invalid !== -1) {
+    fileMessage.textContent = `Fix exercise ${invalid + 1} before exporting.`;
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([serializeSession(session)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = exportFileName();
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+document.querySelector('#import-session').addEventListener('click', () => {
+  fileMessage.textContent = '';
+  fileInput.click();
+});
+
+/** Replace the session with a valid file. A bad file is rejected before asking to confirm. */
+fileInput.addEventListener('change', async () => {
+  const [file] = fileInput.files;
+  if (!file) return;
+  fileInput.value = '';
+  fileMessage.textContent = '';
+  const text = await file.text();
+  const result = parseSession(text);
+  if (result.error) {
+    fileMessage.textContent = result.error;
+    return;
+  }
+  const hasContent = session.exercises.length > 0 || Object.keys(session.goals).length > 0;
+  if (hasContent && !confirm('Replace the current session? Its exercises and goals will be lost.')) return;
+  session.exercises = result.session.exercises;
+  session.goals = result.session.goals;
+  renderExercises();
+  refresh();
 });
 
 document.querySelector('#open-goals').addEventListener('click', () => {
