@@ -38,6 +38,7 @@ MuscleGroup (fixed list, exactly these 10 values, in this order):
 8. **Export session.** An "Export" button downloads the current session (exercises in order, and goals) as a JSON file named `gym-session-YYYY-MM-DD.json`, using today's local date. Export is refused while any exercise is invalid: nothing is downloaded, and a message names the first invalid exercise (for example `Fix exercise 2 before exporting.`). A session with no exercises can be exported.
 9. **Import session.** An "Import" button opens a file picker for `.json` files. A valid file **replaces** the whole current session (exercises and goals). If the current session has any exercise or goal, the user is asked to confirm the replacement first; declining changes nothing. A file that is not valid JSON or does not match the session file format is **rejected as a whole**: the session does not change, and one error message says what is wrong (for example `Exercise 2: unknown muscle group "Glutes".`).
 10. **Direct and indirect volume.** In the volume list, each muscle's bar has two stacked segments: **direct** volume (from exercises where it is a primary muscle) first, then **indirect** volume (from exercises where it is a secondary muscle). Direct is solid accent orange, like a selected primary chip; indirect is a soft orange fill with an orange outline, like a selected secondary chip. The bar no longer uses heat colours; the body map keeps them. A small "Direct / Indirect" key sits above the list (hidden on mobile, where bars are hidden). Each row still shows one number: the total, or `total / goal`. The split is shown as text in the readout (for example `Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`, or `Triceps 5 / 4 sets (3 direct · 2 indirect) · over · 2 exercises` with a goal), always naming both parts even when one is 0, and in a visually hidden text inside each row button for screen readers.
+11. **Expand and collapse exercises.** Each exercise card has a chevron toggle button in its header, between the highlight tag and the remove button. It hides or shows the card's fields; its `aria-expanded` reflects the state and its label is `Collapse exercise` or `Expand exercise`. A collapsed card keeps its header (drag handle, `Exercise N`, highlight tag, toggle, remove button) and shows a one-line summary below it instead of the fields (see **Exercise summary**). "Expand all" and "Collapse all" buttons sit above the exercise list and are hidden when the session has no exercises. A newly added exercise starts expanded; every exercise loaded by an import starts collapsed. A collapsed invalid exercise shows a `Needs fixing` text marker in its header. When export is refused, the exercise it names expands and its first invalid field gets focus. Collapsing changes nothing in the session: not volume, order, validation, or the exported file. Reordering (mouse, touch, keyboard), removing, and muscle highlighting work the same on collapsed cards, and an exercise keeps its collapsed state when it moves.
 
 ## Volume calculation (core business rule)
 
@@ -127,6 +128,29 @@ Using the volume worked example and the goal worked example above:
 | Biceps     | 0      | 1.5      | —    | 10    | 0           | 0.15          |
 | Upper back | 0      | 1.5      | —    | 10    | 0           | 0.15          |
 
+## Exercise summary (business rule)
+
+A collapsed card shows one line built from its exercise:
+
+```
+summary = name · sets × reps · primary muscles · secondary: secondary muscles
+```
+
+- **name**: trimmed; `Untitled exercise` when empty.
+- **reps**: `min–max` (en dash), or just `min` when `min = max`.
+- A sets, min or max value that is not a positive whole number shows as `?` (for example `? × 8–12`).
+- Muscles are joined with `, `, in `MuscleGroup` order. The primary part is left out when there are no primary muscles; the `secondary: …` part is left out when there are no secondary muscles.
+- Parts are joined with ` · `.
+
+### Worked example (use as a test case)
+
+| Exercise                                                  | Summary                                                          |
+|-----------------------------------------------------------|------------------------------------------------------------------|
+| Bench press, 4 sets, 6–10, Chest / Triceps, Shoulders     | `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders` |
+| Dips, 3 sets, 8–8, Chest, Triceps / Shoulders             | `Dips · 3 × 8 · Chest, Triceps · secondary: Shoulders`           |
+| New exercise (defaults)                                   | `Untitled exercise · 3 × 8–12`                                   |
+| `"  Row "`, sets empty, 8–12, no primary / Biceps         | `Row · ? × 8–12 · secondary: Biceps`                             |
+
 ## Session file format (business rule)
 
 ```json
@@ -164,6 +188,8 @@ Using the volume worked example and the goal worked example above:
 - **Keep reordering logic pure.** Moving an exercise is a pure function on the exercise list (for example `moveExercise(exercises, from, to) → Exercise[]`), unit-tested separately from the drag UI.
 - **Drag and drop uses pointer events, with no dependencies.** Do not use the native HTML5 drag API (unreliable on touch) or a library.
 - **Keep the session file logic pure**, separate from the UI: for example `serializeSession(session) → string` and `parseSession(text) → { session } | { error }`. Reuse `validateExercise`, `validateGoal`, and `MUSCLE_GROUPS`; do not duplicate the rules. Unit-test the round trip (with the volume worked example and the goal worked example) and every rejection case.
+- **Keep the exercise summary in a pure function**, separate from the UI (for example `exerciseSummary(exercise) → string`). Unit-test it, including the summary worked example above. Compute it on render; never store it.
+- **Collapsed state is view state**, not domain state: it is not a field of `Exercise` or `Session`, it is never exported, and it is not kept between page loads. Keep it in the UI next to the session (for example a boolean per exercise, in session order), and move it with the same pure `moveExercise` when exercises are reordered.
 - **File I/O uses browser built-ins only:** a `Blob` with an `<a download>` link for export, a hidden `<input type="file" accept=".json,application/json">` for import, and the native `confirm()` for the replace prompt. No libraries.
 
 ## Decided
@@ -171,6 +197,7 @@ Using the volume worked example and the goal worked example above:
 - **Volume goals** (2026-10-09): a single target per muscle, not a range. Volume above the goal is flagged as **over**. Goals are part of the single in-memory session; they are not persisted, like the rest of the session. The body map stays on absolute heat colours.
 - **Session import/export** (2026-10-09): one session per JSON file, with exercises and goals. Import replaces the whole session after a confirmation (asked only when the current session is not empty). Export is blocked until every exercise is valid. An invalid file is rejected as a whole. The file name is `gym-session-YYYY-MM-DD.json`. This is a manual, user-triggered file exchange; the app still keeps nothing between page loads.
 - **Direct and indirect volume** (2026-10-09): indirect volume is counted volume (secondary sets × 0.5), so direct + indirect = volume. The volume-list bar shows two stacked segments, direct first, coloured like the primary and secondary chips; heat colours stay on the body map only. When volume exceeds the bar's scale, direct fills first and indirect is cut off. Rows show only the total; the split appears in the readout and in screen-reader text. Goals, the session file format, and the body map are unchanged.
+- **Expand and collapse exercises** (2026-10-09): a chevron toggle per card plus "Expand all" / "Collapse all" above the list. A collapsed card shows its header and a one-line summary (name, sets × reps, primary and secondary muscles). New exercises start expanded; imported exercises start collapsed. A collapsed invalid exercise shows a `Needs fixing` marker, and a refused export expands the exercise it names and focuses its first invalid field. Collapsed state is UI-only: not in the session, not in the file, not persisted.
 
 ## Open decisions (ask the user before deciding)
 
@@ -182,4 +209,4 @@ Using the volume worked example and the goal worked example above:
 
 ## Out of scope for the MVP
 
-Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume (with its direct/indirect split) and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope. For import/export: automatic saving, merging or appending an imported session, partial imports, several sessions per file, migrating other file versions, and other formats (CSV and so on) are out of scope.
+Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume (with its direct/indirect split) and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope. For import/export: automatic saving, merging or appending an imported session, partial imports, several sessions per file, migrating other file versions, and other formats (CSV and so on) are out of scope. For collapsing: remembering collapsed state between page loads or in the session file, collapse animations, and collapsing the volume panel are out of scope.
