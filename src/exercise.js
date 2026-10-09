@@ -36,3 +36,19 @@ export function toggleMuscle(ex, role, muscle) {
     [otherKey]: MUSCLE_GROUPS.filter((m) => other.has(m)),
   };
 }
+
+/**
+ * Move one exercise to a new position. `to` is clamped to the list bounds;
+ * an out-of-range `from` leaves the order unchanged.
+ * @param {import('./volume.js').Exercise[]} exercises
+ * @param {number} from
+ * @param {number} to
+ * @returns {import('./volume.js').Exercise[]} a new array with the same exercise objects; `exercises` is not mutated
+ */
+export function moveExercise(exercises, from, to) {
+  const result = [...exercises];
+  if (from < 0 || from >= result.length) return result;
+  const [moved] = result.splice(from, 1);
+  result.splice(Math.min(Math.max(to, 0), result.length), 0, moved);
+  return result;
+}
