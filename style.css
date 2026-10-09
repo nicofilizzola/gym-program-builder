@@ -156,7 +156,8 @@ input:focus-visible {
   transition: opacity 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 
-.exercise > * + * {
+.exercise > * + *,
+.card-body > * + * {
   margin-top: 12px;
 }
 
@@ -179,8 +180,10 @@ input:focus-visible {
 
 .card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  row-gap: 4px;
 }
 
 .card-index {
@@ -213,7 +216,6 @@ input:focus-visible {
 }
 
 .icon-btn {
-  margin-left: auto;
   display: grid;
   place-items: center;
   width: 44px;
@@ -234,7 +236,49 @@ svg {
   display: block;
 }
 
+.fix-tag {
+  padding: 2px 10px;
+  border: 1px solid var(--error);
+  border-radius: 999px;
+  color: var(--error);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.toggle-btn {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.toggle-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.toggle-btn svg {
+  transition: transform 150ms ease;
+}
+
+.toggle-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.card-summary {
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
 .icon-btn svg,
+.toggle-btn svg,
 .add-btn svg {
   width: 20px;
   height: 20px;

@@ -90,7 +90,9 @@ Real checkboxes, visually hidden but focusable, styled through the sibling `<spa
 Secondary legend carries the hint "count as ½ set".
 
 ### Exercise card
-`--surface` with a 4px left border. Header: drag handle (⋮⋮ grip, 44×44, `cursor: grab`, `aria-label="Reorder exercise"`; drag it, or focus it and press ↑ / ↓, to move the card), "Exercise N" index, optional hit tag, trash icon button (44×44, turns `--error` on hover, `aria-label="Remove exercise"`). Moves are announced in a visually hidden live region.
+`--surface` with a 4px left border. Header: drag handle (⋮⋮ grip, 44×44, `cursor: grab`, `aria-label="Reorder exercise"`; drag it, or focus it and press ↑ / ↓, to move the card), "Exercise N" index, optional hit tag, `Needs fixing` marker (outlined `--error` pill, only on a collapsed invalid card), chevron toggle (44×44, `aria-expanded`, `aria-label` "Collapse exercise" / "Expand exercise", points up when expanded, hover `--text` on `--surface-2`), trash icon button (44×44, turns `--error` on hover, `aria-label="Remove exercise"`). The header wraps on narrow screens. Moves are announced in a visually hidden live region.
+
+A collapsed card hides its fields and shows a one-line summary below the header in `--muted` (for example `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders`). It wraps; it is never truncated.
 
 Highlight states, set from the selected muscle via `data-hit`:
 

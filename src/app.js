@@ -1,7 +1,7 @@
 import { MUSCLE_GROUPS } from './muscles.js';
 import { barSegments, computeVolume, computeVolumeSplit, goalStatus, volumeLevel } from './volume.js';
 import { validateExercise, validateGoal } from './validate.js';
-import { createExercise, moveExercise, toggleMuscle } from './exercise.js';
+import { createExercise, exerciseSummary, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 import { serializeSession, parseSession, exportFileName } from './session-file.js';
 
@@ -17,6 +17,9 @@ let hoveredMuscle = null;
 
 /** View state for a pointer drag in progress: the pointer, the dragged card, and its index when the drag started. */
 let drag = null;
+
+/** View state: whether each exercise is collapsed, in session order. Never part of the session. */
+let collapsed = [];
 
 const list = document.querySelector('#exercises');
 const empty = document.querySelector('#empty');
@@ -42,10 +45,16 @@ const CARD_HTML = `
     </button>
     <span class="card-index"></span>
     <span class="hit-tag" data-hit-tag></span>
+    <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
+    <button type="button" class="toggle-btn" data-action="toggle" aria-expanded="true" aria-label="Collapse exercise">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
     <button type="button" class="icon-btn" data-action="remove" aria-label="Remove exercise">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
     </button>
   </div>
+  <p class="card-summary" data-summary hidden></p>
+  <div class="card-body">
   <label class="field">Exercise name <input type="text" data-field="name" placeholder="e.g. Bench press" autocomplete="off"></label>
   <p class="error" data-error="name"></p>
   <div class="numbers">
@@ -57,7 +66,8 @@ const CARD_HTML = `
   <p class="error" data-error="repRange"></p>
   <fieldset class="chips primary"><legend>Primary muscles</legend>${muscleChips('primary')}</fieldset>
   <fieldset class="chips secondary"><legend>Secondary muscles <span class="hint">count as ½ set</span></legend>${muscleChips('secondary')}</fieldset>
-  <p class="error" data-error="muscles"></p>`;
+  <p class="error" data-error="muscles"></p>
+  </div>`;
 
 /** Build the panel once; refresh() only updates levels and numbers, so hover state survives. */
 function renderPanel() {
@@ -115,6 +125,8 @@ function renderExercises() {
     card.dataset.index = i;
     card.innerHTML = CARD_HTML;
     card.querySelector('.card-index').textContent = `Exercise ${i + 1}`;
+    card.querySelector('.card-body').id = `exercise-body-${i}`;
+    card.querySelector('[data-action="toggle"]').setAttribute('aria-controls', `exercise-body-${i}`);
     card.querySelector('[data-field="name"]').value = ex.name;
     card.querySelector('[data-field="sets"]').value = Number.isNaN(ex.sets) ? '' : ex.sets;
     card.querySelector('[data-field="min"]').value = Number.isNaN(ex.repRange.min) ? '' : ex.repRange.min;
@@ -135,8 +147,18 @@ function hitFor(ex) {
 /** Update everything derived from state without recreating inputs. */
 function refresh() {
   list.querySelectorAll('.exercise').forEach((card) => {
-    const ex = session.exercises[Number(card.dataset.index)];
+    const i = Number(card.dataset.index);
+    const ex = session.exercises[i];
     const errors = validateExercise(ex);
+    const isCollapsed = collapsed[i];
+    card.querySelector('.card-body').hidden = isCollapsed;
+    const summary = card.querySelector('[data-summary]');
+    summary.hidden = !isCollapsed;
+    summary.textContent = exerciseSummary(ex);
+    const toggle = card.querySelector('[data-action="toggle"]');
+    toggle.setAttribute('aria-expanded', String(!isCollapsed));
+    toggle.setAttribute('aria-label', isCollapsed ? 'Expand exercise' : 'Collapse exercise');
+    card.querySelector('[data-fix-tag]').hidden = !(isCollapsed && Object.keys(errors).length > 0);
     card.querySelectorAll('[data-error]').forEach((el) => {
       el.textContent = errors[el.dataset.error] ?? '';
     });
@@ -202,6 +224,7 @@ function indexOf(el) {
 function commitMove(from, to) {
   if (from === to) return;
   session.exercises = moveExercise(session.exercises, from, to);
+  collapsed = moveExercise(collapsed, from, to);
   renderExercises();
   refresh();
   list.children[to].querySelector('.drag-handle').focus();
@@ -232,8 +255,16 @@ list.addEventListener('change', (event) => {
 });
 
 list.addEventListener('click', (event) => {
-  if (!event.target.closest('[data-action="remove"]')) return;
-  session.exercises.splice(indexOf(event.target), 1);
+  const action = event.target.closest('[data-action]')?.dataset.action;
+  if (!action) return;
+  const i = indexOf(event.target);
+  if (action === 'toggle') {
+    collapsed[i] = !collapsed[i];
+    refresh();
+    return;
+  }
+  session.exercises.splice(i, 1);
+  collapsed.splice(i, 1);
   renderExercises();
   refresh();
 });
@@ -293,6 +324,7 @@ list.addEventListener('lostpointercapture', cancelDrag);
 
 document.querySelector('#add-exercise').addEventListener('click', () => {
   session.exercises.push(createExercise());
+  collapsed.push(false);
   renderExercises();
   refresh();
   list.lastElementChild.querySelector('[data-field="name"]').focus();
@@ -335,6 +367,7 @@ fileInput.addEventListener('change', async () => {
   if (hasContent && !confirm('Replace the current session? Its exercises and goals will be lost.')) return;
   session.exercises = result.session.exercises;
   session.goals = result.session.goals;
+  collapsed = result.session.exercises.map(() => true);
   renderExercises();
   refresh();
 });
