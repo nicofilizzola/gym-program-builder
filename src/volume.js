@@ -21,3 +21,18 @@ export function computeVolume(session) {
   }
   return volume;
 }
+
+/** Upper bounds (exclusive) of heat levels 1–3; 10+ sets is level 4. */
+const LEVEL_LIMITS = [4, 7, 10];
+
+/**
+ * Heat level for the body map, on fixed bands so colours mean the same in every session:
+ * 0 = untrained, 1 = under 4 sets, 2 = 4–6.5, 3 = 7–9.5, 4 = 10+.
+ * @param {number} sets
+ * @returns {0 | 1 | 2 | 3 | 4}
+ */
+export function volumeLevel(sets) {
+  if (sets <= 0) return 0;
+  const i = LEVEL_LIMITS.findIndex((limit) => sets < limit);
+  return i === -1 ? 4 : i + 1;
+}

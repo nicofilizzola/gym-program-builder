@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS } from '../src/muscles.js';
-import { computeVolume } from '../src/volume.js';
+import { computeVolume, volumeLevel } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -51,4 +51,9 @@ test('invalid sets contribute 0', () => {
 test('keys follow MUSCLE_GROUPS order', () => {
   const result = computeVolume({ name: 'x', exercises: [exercise(2, ['Calves'], ['Chest'])] });
   assert.deepEqual(Object.keys(result), [...MUSCLE_GROUPS]);
+});
+
+test('volumeLevel maps sets to fixed heat bands', () => {
+  const cases = [[0, 0], [0.5, 1], [3.5, 1], [4, 2], [6.5, 2], [7, 3], [9.5, 3], [10, 4], [25, 4]];
+  for (const [sets, level] of cases) assert.equal(volumeLevel(sets), level, `sets=${sets}`);
 });
