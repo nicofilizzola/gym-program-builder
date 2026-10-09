@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExercise, moveExercise, toggleMuscle } from '../src/exercise.js';
+import { createExercise, exerciseSummary, moveExercise, toggleMuscle } from '../src/exercise.js';
 
 test('createExercise returns independent defaults', () => {
   const a = createExercise();
@@ -71,4 +71,32 @@ test('moveExercise does not mutate and keeps object identity', () => {
   const result = moveExercise(list, 0, 2);
   assert.deepEqual(list, [A, B, C]);
   assert.equal(result[2], A);
+});
+
+const ex = (name, sets, min, max, primaryMuscles, secondaryMuscles) =>
+  ({ name, sets, repRange: { min, max }, primaryMuscles, secondaryMuscles });
+
+test('exerciseSummary worked example from spec', () => {
+  assert.equal(exerciseSummary(ex('Bench press', 4, 6, 10, ['Chest'], ['Triceps', 'Shoulders'])),
+    'Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders');
+  assert.equal(exerciseSummary(ex('Dips', 3, 8, 8, ['Chest', 'Triceps'], ['Shoulders'])),
+    'Dips · 3 × 8 · Chest, Triceps · secondary: Shoulders');
+  assert.equal(exerciseSummary(createExercise()), 'Untitled exercise · 3 × 8–12');
+  assert.equal(exerciseSummary(ex('  Row ', NaN, 8, 12, [], ['Biceps'])), 'Row · ? × 8–12 · secondary: Biceps');
+});
+
+test('exerciseSummary shows ? for each invalid number', () => {
+  assert.equal(exerciseSummary(ex('Squat', 2.5, 0, NaN, ['Quads'], [])), 'Squat · ? × ?–? · Quads');
+});
+
+test('exerciseSummary shows an inverted range as typed', () => {
+  assert.equal(exerciseSummary(ex('Squat', 3, 12, 8, ['Quads'], [])), 'Squat · 3 × 12–8 · Quads');
+});
+
+test('exerciseSummary treats a blank name as untitled', () => {
+  assert.equal(exerciseSummary(ex('   ', 3, 5, 5, ['Calves'], [])), 'Untitled exercise · 3 × 5 · Calves');
+});
+
+test('moveExercise moves any array, such as collapsed flags', () => {
+  assert.deepEqual(moveExercise([true, false, false], 0, 2), [false, false, true]);
 });
