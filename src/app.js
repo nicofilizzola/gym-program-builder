@@ -347,7 +347,8 @@ const ERROR_FIELDS = {
   name: '[data-field="name"]',
   sets: '[data-field="sets"]',
   repRange: '[data-field="min"]',
-  muscles: 'input[data-role="primary"]:not(:disabled)',
+  // When every muscle is secondary, all primary chips are disabled; fall back to the first secondary chip.
+  muscles: 'input[data-role="primary"]:not(:disabled), input[data-role="secondary"]',
 };
 
 /** Download the session as JSON, unless an exercise is invalid; then open that exercise at its first invalid field. */
