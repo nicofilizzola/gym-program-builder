@@ -1,11 +1,14 @@
 import { MUSCLE_GROUPS } from './muscles.js';
 import { computeVolume, volumeLevel } from './volume.js';
-import { validateExercise } from './validate.js';
+import { validateExercise, validateGoal } from './validate.js';
 import { createExercise, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 
-/** The only domain state. Volume and errors are derived from it in refresh(). */
-const session = { exercises: [] };
+/**
+ * The only domain state. Volume, goal status and errors are derived from it in refresh().
+ * `goals` has a key only for muscles with a valid goal.
+ */
+const session = { exercises: [], goals: {} };
 
 /** View state for the volume panel: the clicked muscle, and the one under the mouse. */
 let selectedMuscle = null;
@@ -21,6 +24,8 @@ const bodyMap = document.querySelector('#body-map');
 const readout = document.querySelector('#readout');
 const volumeList = document.querySelector('#volume');
 const orderStatus = document.querySelector('#order-status');
+const goalsDialog = document.querySelector('#goals-dialog');
+const goalFields = document.querySelector('#goal-fields');
 
 function muscleChips(role) {
   return MUSCLE_GROUPS.map((muscle) => `
@@ -69,6 +74,30 @@ function renderPanel() {
     button.querySelector('.name').textContent = muscle;
     return item;
   }));
+}
+
+/** Build the goal fields once, one per muscle. */
+function renderGoalFields() {
+  goalFields.replaceChildren(...MUSCLE_GROUPS.map((muscle) => {
+    const item = document.createElement('div');
+    item.innerHTML = `
+      <label class="field"><span></span><input type="number" min="0.5" step="0.5" inputmode="decimal"></label>
+      <p class="error"></p>`;
+    item.querySelector('span').textContent = muscle;
+    item.querySelector('input').dataset.goal = muscle;
+    item.querySelector('.error').dataset.goalError = muscle;
+    return item;
+  }));
+}
+
+/** Show the applied goals in the fields and drop any discarded text and errors. */
+function syncGoalFields() {
+  goalFields.querySelectorAll('[data-goal]').forEach((input) => {
+    input.value = session.goals[input.dataset.goal] ?? '';
+  });
+  goalFields.querySelectorAll('[data-goal-error]').forEach((el) => {
+    el.textContent = '';
+  });
 }
 
 /** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag. */
@@ -246,6 +275,32 @@ document.querySelector('#add-exercise').addEventListener('click', () => {
   list.lastElementChild.querySelector('[data-field="name"]').focus();
 });
 
+document.querySelector('#open-goals').addEventListener('click', () => {
+  syncGoalFields();
+  goalsDialog.showModal();
+});
+
+/** Apply a goal as it is typed. Empty clears it; an invalid value shows an error and keeps the old goal. */
+goalFields.addEventListener('input', (event) => {
+  const { goal: muscle } = event.target.dataset;
+  if (!muscle) return;
+  const error = goalFields.querySelector(`[data-goal-error="${muscle}"]`);
+  if (event.target.value.trim() === '' && !event.target.validity.badInput) {
+    delete session.goals[muscle];
+    error.textContent = '';
+  } else {
+    const message = validateGoal(event.target.valueAsNumber);
+    error.textContent = message ?? '';
+    if (!message) session.goals[muscle] = event.target.valueAsNumber;
+  }
+  refresh();
+});
+
+/** A click on the backdrop lands on the dialog element itself. */
+goalsDialog.addEventListener('click', (event) => {
+  if (event.target === goalsDialog) goalsDialog.close();
+});
+
 panel.addEventListener('click', (event) => {
   const target = event.target.closest('[data-muscle]');
   if (!target) return;
@@ -268,5 +323,6 @@ panel.addEventListener('pointerleave', () => {
 });
 
 renderPanel();
+renderGoalFields();
 renderExercises();
 refresh();

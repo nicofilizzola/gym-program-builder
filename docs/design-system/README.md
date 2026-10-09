@@ -103,15 +103,19 @@ Highlight states, set from the selected muscle via `data-hit`:
 
 ### Buttons
 - **Primary ("Add exercise")**: full width, 52px tall, `--accent` fill, display font uppercase, plus icon.
+- **Secondary ("Set goals")**: 44px tall, transparent, `--border` outline that turns `--accent` on hover, display font uppercase.
 - **Icon buttons**: 44×44 transparent, always with an `aria-label`.
 - Icons are inline SVG strokes (2px, round caps) using `currentColor`.
 
 ### Volume panel
-1. Header: "Volume" + "sets per muscle".
+1. Header: "Volume" + "sets per muscle" + the "Set goals" secondary button.
 2. **Body map**: front and back figures side by side (`src/body.js`).
 3. **Readout** (`aria-live="polite"`): hovered or selected muscle, its sets and exercise count; otherwise a hint.
 4. **Legend** of the five heat levels.
 5. **Volume list**: one `<button aria-pressed>` per muscle with name, bar (full at 10 sets) and value. This is the keyboard and screen-reader equivalent of the body map, which is `aria-hidden`.
+
+### Goals dialog
+Native `<dialog>` opened with `showModal()` from "Set goals": `--surface`, `--radius`, `min(420px, 100vw − 32px)` wide, 60% black backdrop. One number field per muscle (`step 0.5`) in a two-column grid at every width, so "Done" stays on screen on a phone. Values apply to the session as they are typed; an invalid value shows its error under the field and leaves the previous goal in place; an empty field clears the goal. "Done" (primary button), Escape or a backdrop click close it, and focus returns to "Set goals". On open, the fields show the applied goals with no errors.
 
 ## Body map
 

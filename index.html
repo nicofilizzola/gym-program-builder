@@ -30,6 +30,7 @@
       <div class="panel-head">
         <h2 id="volume-title">Volume</h2>
         <span class="unit">sets per muscle</span>
+        <button id="open-goals" type="button" class="secondary-btn">Set goals</button>
       </div>
       <div id="body-map" class="body-map"></div>
       <p id="readout" class="readout" aria-live="polite"></p>
@@ -43,5 +44,12 @@
       <ul id="volume" class="volume-list"></ul>
     </aside>
   </main>
+
+  <dialog id="goals-dialog" class="goals-dialog" aria-labelledby="goals-title">
+    <h2 id="goals-title">Volume goals</h2>
+    <p class="dialog-hint">Target sets per muscle. Leave empty for no goal.</p>
+    <div id="goal-fields" class="goal-fields"></div>
+    <form method="dialog"><button class="add-btn">Done</button></form>
+  </dialog>
 </body>
 </html>
