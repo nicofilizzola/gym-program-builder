@@ -654,6 +654,40 @@ svg {
   color: var(--muted);
 }
 
+/* With any goal set, every row gets fixed value and status columns so the bars line up. */
+.volume-list.has-goals .volume-row {
+  grid-template-columns: 76px 1fr 72px 44px;
+  gap: 8px;
+}
+
+.volume-row .value {
+  white-space: nowrap;
+}
+
+.volume-row .status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.volume-row .status:empty {
+  display: none;
+}
+
+.volume-row[data-status="met"] .status {
+  color: var(--accent);
+}
+
+.volume-row[data-status="over"] .status {
+  justify-self: start;
+  padding: 0 5px;
+  border: 1px solid var(--lvl-4);
+  border-radius: 999px;
+  color: var(--lvl-4);
+}
+
 @media (max-width: 760px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
@@ -707,8 +741,9 @@ svg {
     scrollbar-width: none;
   }
 
-  .volume-row {
-    grid-template-columns: auto auto;
+  .volume-row,
+  .volume-list.has-goals .volume-row {
+    grid-template-columns: auto auto auto;
     gap: 6px;
     width: auto;
     white-space: nowrap;

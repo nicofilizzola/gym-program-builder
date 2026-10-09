@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { computeVolume, volumeLevel } from './volume.js';
+import { computeVolume, goalStatus, volumeLevel } from './volume.js';
 import { validateExercise, validateGoal } from './validate.js';
 import { createExercise, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
@@ -68,6 +68,7 @@ function renderPanel() {
         <span class="name"></span>
         <span class="bar"><span class="bar-fill"></span></span>
         <span class="value"></span>
+        <span class="status"></span>
       </button>`;
     const button = item.querySelector('button');
     button.dataset.muscle = muscle;
@@ -155,11 +156,18 @@ function refresh() {
     el.classList.toggle('is-selected', muscle === selectedMuscle);
     el.classList.toggle('is-focus', muscle === focus);
   });
+  volumeList.classList.toggle('has-goals', Object.keys(session.goals).length > 0);
   volumeList.querySelectorAll('.volume-row').forEach((row) => {
-    const sets = volume[row.dataset.muscle];
-    row.setAttribute('aria-pressed', String(row.dataset.muscle === selectedMuscle));
-    row.querySelector('.value').textContent = String(sets);
-    row.querySelector('.bar-fill').style.width = `${Math.min(sets / 10, 1) * 100}%`;
+    const { muscle } = row.dataset;
+    const sets = volume[muscle];
+    const goal = session.goals[muscle];
+    const result = goalStatus(sets, goal);
+    row.setAttribute('aria-pressed', String(muscle === selectedMuscle));
+    row.querySelector('.value').textContent = result ? `${sets} / ${goal}` : String(sets);
+    row.querySelector('.status').textContent = result?.status ?? '';
+    row.querySelector('.bar-fill').style.width = `${(result ? result.progress : Math.min(sets / 10, 1)) * 100}%`;
+    if (result) row.dataset.status = result.status;
+    else delete row.dataset.status;
   });
 
   if (focus) {
@@ -167,7 +175,10 @@ function refresh() {
       ex.primaryMuscles.includes(focus) || ex.secondaryMuscles.includes(focus)).length;
     const name = document.createElement('strong');
     name.textContent = focus;
-    readout.replaceChildren(name, ` ${volume[focus]} sets · ${count} exercise${count === 1 ? '' : 's'}`);
+    const goal = session.goals[focus];
+    const progress = goal === undefined ? '' : ` / ${goal}`;
+    const status = goal === undefined ? '' : ` · ${goalStatus(volume[focus], goal).status}`;
+    readout.replaceChildren(name, ` ${volume[focus]}${progress} sets${status} · ${count} exercise${count === 1 ? '' : 's'}`);
   } else {
     readout.textContent = 'Tap a muscle to highlight its exercises.';
   }

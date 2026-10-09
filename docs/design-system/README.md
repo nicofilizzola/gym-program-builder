@@ -113,6 +113,10 @@ Highlight states, set from the selected muscle via `data-hit`:
 3. **Readout** (`aria-live="polite"`): hovered or selected muscle, its sets and exercise count; otherwise a hint.
 4. **Legend** of the five heat levels.
 5. **Volume list**: one `<button aria-pressed>` per muscle with name, bar (full at 10 sets) and value. This is the keyboard and screen-reader equivalent of the body map, which is `aria-hidden`.
+   - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar is full at the goal, and a text status follows: `under` in `--muted`, `met` in `--accent`, `over` in `--lvl-4` amber with an outline pill. The bar keeps its heat colour.
+   - **Without a goal** the row is unchanged. Once any goal is set, the list gets `.has-goals` and every row uses fixed value and status columns (`76px 1fr 72px 44px`) so bars stay aligned and comparable.
+   - The readout adds the goal and status for a muscle that has one (`Chest 7 / 10 sets · under · 2 exercises`).
+   - Goals never change the body map: it always shows absolute heat.
 
 ### Goals dialog
 Native `<dialog>` opened with `showModal()` from "Set goals": `--surface`, `--radius`, `min(420px, 100vw − 32px)` wide, 60% black backdrop. One number field per muscle (`step 0.5`) in a two-column grid at every width, so "Done" stays on screen on a phone. Values apply to the session as they are typed; an invalid value shows its error under the field and leaves the previous goal in place; an empty field clears the goal. "Done" (primary button), Escape or a backdrop click close it, and focus returns to "Set goals". On open, the fields show the applied goals with no errors.
