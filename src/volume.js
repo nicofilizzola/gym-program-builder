@@ -7,19 +7,42 @@ import { MUSCLE_GROUPS } from './muscles.js';
  */
 
 /**
- * Set volume per muscle group: sets × 1 for primary, sets × 0.5 for secondary.
- * Exercises whose sets are not an integer >= 1 contribute nothing.
+ * Set volume per muscle group, split by source: direct = sets where the muscle is primary,
+ * indirect = sets × 0.5 where it is secondary. Exercises whose sets are not an integer >= 1 contribute nothing.
+ * @param {Session} session
+ * @returns {Record<string, { direct: number, indirect: number }>} one key per MUSCLE_GROUPS entry, in order
+ */
+export function computeVolumeSplit(session) {
+  const split = Object.fromEntries(MUSCLE_GROUPS.map((muscle) => [muscle, { direct: 0, indirect: 0 }]));
+  for (const { sets, primaryMuscles, secondaryMuscles } of session.exercises) {
+    if (!Number.isInteger(sets) || sets < 1) continue;
+    for (const muscle of primaryMuscles) split[muscle].direct += sets;
+    for (const muscle of secondaryMuscles) split[muscle].indirect += sets * 0.5;
+  }
+  return split;
+}
+
+/**
+ * Set volume per muscle group: direct + indirect from computeVolumeSplit.
  * @param {Session} session
  * @returns {Record<string, number>} one key per MUSCLE_GROUPS entry, in order
  */
 export function computeVolume(session) {
-  const volume = Object.fromEntries(MUSCLE_GROUPS.map((muscle) => [muscle, 0]));
-  for (const { sets, primaryMuscles, secondaryMuscles } of session.exercises) {
-    if (!Number.isInteger(sets) || sets < 1) continue;
-    for (const muscle of primaryMuscles) volume[muscle] += sets;
-    for (const muscle of secondaryMuscles) volume[muscle] += sets * 0.5;
-  }
-  return volume;
+  return Object.fromEntries(Object.entries(computeVolumeSplit(session))
+    .map(([muscle, { direct, indirect }]) => [muscle, direct + indirect]));
+}
+
+/**
+ * Widths (0 to 1) of the bar's two segments on a shared scale, filled direct first;
+ * indirect is cut off at the end of the bar.
+ * @param {number} direct
+ * @param {number} indirect
+ * @param {number} scale the goal, or 10 when there is no goal
+ * @returns {{ direct: number, indirect: number }}
+ */
+export function barSegments(direct, indirect, scale) {
+  const directFill = Math.min(direct / scale, 1);
+  return { direct: directFill, indirect: Math.min(indirect / scale, 1 - directFill) };
 }
 
 /** Upper bounds (exclusive) of heat levels 1–3; 10+ sets is level 4. */

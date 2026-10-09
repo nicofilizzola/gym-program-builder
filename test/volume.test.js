@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS } from '../src/muscles.js';
-import { computeVolume, goalStatus, volumeLevel } from '../src/volume.js';
+import { barSegments, computeVolume, computeVolumeSplit, goalStatus, volumeLevel } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -69,4 +69,61 @@ test('goal status works on half sets', () => {
   assert.deepEqual(goalStatus(4.5, 4.5), { status: 'met', progress: 1 });
   assert.deepEqual(goalStatus(12.5, 10), { status: 'over', progress: 1 });
   assert.deepEqual(goalStatus(2.5, 10), { status: 'under', progress: 0.25 });
+});
+
+const WORKED_EXAMPLE = {
+  exercises: [
+    exercise(4, ['Chest'], ['Triceps', 'Shoulders']),
+    exercise(3, ['Chest', 'Triceps'], ['Shoulders']),
+    exercise(3, ['Lats'], ['Biceps', 'Upper back']),
+  ],
+};
+
+test('computeVolumeSplit worked example from spec', () => {
+  assert.deepEqual(computeVolumeSplit(WORKED_EXAMPLE), {
+    Chest: { direct: 7, indirect: 0 },
+    Lats: { direct: 3, indirect: 0 },
+    'Upper back': { direct: 0, indirect: 1.5 },
+    Biceps: { direct: 0, indirect: 1.5 },
+    Triceps: { direct: 3, indirect: 2 },
+    Shoulders: { direct: 0, indirect: 3.5 },
+    Abs: { direct: 0, indirect: 0 },
+    Quads: { direct: 0, indirect: 0 },
+    Hamstrings: { direct: 0, indirect: 0 },
+    Calves: { direct: 0, indirect: 0 },
+  });
+});
+
+test('computeVolumeSplit keys follow MUSCLE_GROUPS order', () => {
+  assert.deepEqual(Object.keys(computeVolumeSplit({ exercises: [] })), [...MUSCLE_GROUPS]);
+});
+
+test('computeVolumeSplit skips invalid sets', () => {
+  for (const sets of [NaN, 0, -2, 2.5]) {
+    const { Quads, Abs } = computeVolumeSplit({ exercises: [exercise(sets, ['Quads'], ['Abs'])] });
+    assert.deepEqual([Quads, Abs], [{ direct: 0, indirect: 0 }, { direct: 0, indirect: 0 }], `sets=${sets}`);
+  }
+});
+
+test('computeVolume equals direct + indirect', () => {
+  const split = computeVolumeSplit(WORKED_EXAMPLE);
+  const volume = computeVolume(WORKED_EXAMPLE);
+  for (const muscle of MUSCLE_GROUPS) {
+    assert.equal(volume[muscle], split[muscle].direct + split[muscle].indirect, muscle);
+  }
+});
+
+test('barSegments worked example from spec', () => {
+  assert.deepEqual(barSegments(7, 0, 7), { direct: 1, indirect: 0 });       // Chest, goal 7
+  assert.deepEqual(barSegments(3, 2, 4), { direct: 0.75, indirect: 0.25 }); // Triceps, goal 4
+  assert.deepEqual(barSegments(3, 0, 6), { direct: 0.5, indirect: 0 });     // Lats, goal 6
+  assert.deepEqual(barSegments(0, 0, 8), { direct: 0, indirect: 0 });       // Quads, goal 8
+  assert.deepEqual(barSegments(0, 3.5, 10), { direct: 0, indirect: 0.35 }); // Shoulders, no goal
+  assert.deepEqual(barSegments(0, 1.5, 10), { direct: 0, indirect: 0.15 }); // Biceps, Upper back
+});
+
+test('barSegments caps the total at the scale, direct first', () => {
+  assert.deepEqual(barSegments(12, 3, 10), { direct: 1, indirect: 0 });
+  assert.deepEqual(barSegments(0, 6, 4), { direct: 0, indirect: 1 });
+  assert.deepEqual(barSegments(5, 6, 10), { direct: 0.5, indirect: 0.5 }); // indirect cut off
 });
