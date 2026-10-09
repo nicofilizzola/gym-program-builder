@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateExercise, validateSessionName } from '../src/validate.js';
+import { validateExercise } from '../src/validate.js';
 
 function valid() {
   return {
@@ -20,8 +20,6 @@ test('empty and whitespace names are rejected', () => {
   for (const name of ['', '   ']) {
     assert.equal(validateExercise({ ...valid(), name }).name, 'Name is required.');
   }
-  assert.equal(validateSessionName('  '), 'Name is required.');
-  assert.equal(validateSessionName('Push day'), null);
 });
 
 test('sets must be integer >= 1', () => {
@@ -67,4 +65,9 @@ test('rejects overlap', () => {
 test('rejects unknown muscle', () => {
   const errors = validateExercise({ ...valid(), primaryMuscles: ['Glutes'] });
   assert.equal(errors.muscles, 'Unknown muscle group.');
+});
+
+test('validate.js no longer exports validateSessionName', async () => {
+  const mod = await import('../src/validate.js');
+  assert.equal('validateSessionName' in mod, false);
 });

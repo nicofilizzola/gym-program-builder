@@ -56,7 +56,6 @@ Loaded from Google Fonts in `index.html`; falls back to `Arial Narrow` / `system
 |---|---|
 | `h1` | 2.5rem (2rem on mobile) |
 | Panel `h2` | 1.5rem (1.1rem on mobile) |
-| Session name input | 1.5rem display |
 | Body / inputs | 16px, line-height 1.5 |
 | Labels, chips, list rows | 0.875rem |
 | Captions, legend, tags | 0.75rem |

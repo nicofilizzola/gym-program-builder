@@ -6,7 +6,7 @@ const isPositiveInteger = (n) => Number.isInteger(n) && n >= 1;
  * @param {string} name
  * @returns {string | null} error message, or null when valid
  */
-export function validateSessionName(name) {
+function requireName(name) {
   return name.trim() ? null : 'Name is required.';
 }
 
@@ -17,7 +17,7 @@ export function validateSessionName(name) {
  */
 export function validateExercise(ex) {
   const errors = {};
-  const nameError = validateSessionName(ex.name);
+  const nameError = requireName(ex.name);
   if (nameError) errors.name = nameError;
 
   if (!isPositiveInteger(ex.sets)) {

@@ -10,8 +10,7 @@ This is an **MVP**. Keep the tech stack and the code as simple as possible. Do n
 
 ```
 Session
-├── name: string (required)
-└── exercises: Exercise[]
+└── exercises: Exercise[]   // ordered; the user controls the order
 
 Exercise
 ├── name: string (required)
@@ -26,10 +25,11 @@ MuscleGroup (fixed list, exactly these 10 values, in this order):
 
 ## Functional requirements
 
-1. **Session form.** The user can create a session template: set its name, add exercises, edit them, and remove them.
+1. **Session form.** The user can create a session template: add exercises, edit them, remove them, and reorder them. A session has no name.
 2. **Exercise fields.** For each exercise the user sets the name, the number of sets, the rep range, the primary muscle groups, and the secondary muscle groups.
 3. **Muscle group choices.** Primary and secondary muscle groups come only from the fixed `MuscleGroup` list above. Users cannot add custom muscle groups.
 4. **Live volume panel.** A panel always shows the session's volume for each muscle group and updates on every edit. No submit or refresh step is needed.
+5. **Reorder exercises.** Each exercise card has a drag handle. Dragging it with a mouse or by touch moves the exercise to a new position. When the handle has keyboard focus, the ↑ and ↓ arrow keys move the exercise up or down one place, and focus stays on the moved exercise's handle. Order does not affect volume.
 
 ## Volume calculation (core business rule)
 
@@ -60,7 +60,9 @@ Expected volume: Chest **7**, Triceps **5**, Shoulders **3.5**, Lats **3**, Bice
 - **Keep the volume calculation in a pure function**, separate from the UI (for example `computeVolume(session) → Record<MuscleGroup, number>`). Unit-test it, including the worked example above.
 - **Define the muscle group list once** as a single constant, and use it for the form choices, the volume panel, and validation.
 - **Prefer derived state.** Compute volume from the session on render. Do not store it separately.
-- **Validate input:** names must not be empty, sets ≥ 1, rep range `min ≤ max`.
+- **Validate input:** exercise names must not be empty, sets ≥ 1, rep range `min ≤ max`.
+- **Keep reordering logic pure.** Moving an exercise is a pure function on the exercise list (for example `moveExercise(exercises, from, to) → Exercise[]`), unit-tested separately from the drag UI.
+- **Drag and drop uses pointer events, with no dependencies.** Do not use the native HTML5 drag API (unreliable on touch) or a library.
 
 ## Open decisions (ask the user before deciding)
 

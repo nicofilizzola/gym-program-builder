@@ -17,7 +17,6 @@ test('MUSCLE_GROUPS has the 10 spec values in order', () => {
 
 test('worked example from spec', () => {
   const session = {
-    name: 'Push/pull',
     exercises: [
       exercise(4, ['Chest'], ['Triceps', 'Shoulders']),
       exercise(3, ['Chest', 'Triceps'], ['Shoulders']),
@@ -31,25 +30,25 @@ test('worked example from spec', () => {
 });
 
 test('empty session gives all zeros', () => {
-  const result = computeVolume({ name: 'x', exercises: [] });
+  const result = computeVolume({ exercises: [] });
   for (const muscle of MUSCLE_GROUPS) assert.equal(result[muscle], 0);
 });
 
 test('rep range does not affect volume', () => {
-  const low = computeVolume({ name: 'x', exercises: [exercise(3, ['Quads'], ['Abs'], { min: 1, max: 1 })] });
-  const high = computeVolume({ name: 'x', exercises: [exercise(3, ['Quads'], ['Abs'], { min: 20, max: 30 })] });
+  const low = computeVolume({ exercises: [exercise(3, ['Quads'], ['Abs'], { min: 1, max: 1 })] });
+  const high = computeVolume({ exercises: [exercise(3, ['Quads'], ['Abs'], { min: 20, max: 30 })] });
   assert.deepEqual(low, high);
 });
 
 test('invalid sets contribute 0', () => {
   for (const sets of [NaN, 0, -2, 2.5]) {
-    const result = computeVolume({ name: 'x', exercises: [exercise(sets, ['Quads'])] });
+    const result = computeVolume({ exercises: [exercise(sets, ['Quads'])] });
     assert.equal(result.Quads, 0, `sets=${sets}`);
   }
 });
 
 test('keys follow MUSCLE_GROUPS order', () => {
-  const result = computeVolume({ name: 'x', exercises: [exercise(2, ['Calves'], ['Chest'])] });
+  const result = computeVolume({ exercises: [exercise(2, ['Calves'], ['Chest'])] });
   assert.deepEqual(Object.keys(result), [...MUSCLE_GROUPS]);
 });
 

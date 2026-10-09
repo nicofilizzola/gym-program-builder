@@ -1,18 +1,16 @@
 import { MUSCLE_GROUPS } from './muscles.js';
 import { computeVolume, volumeLevel } from './volume.js';
-import { validateExercise, validateSessionName } from './validate.js';
+import { validateExercise } from './validate.js';
 import { createExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 
 /** The only domain state. Volume and errors are derived from it in refresh(). */
-const session = { name: '', exercises: [] };
+const session = { exercises: [] };
 
 /** View state for the volume panel: the clicked muscle, and the one under the mouse. */
 let selectedMuscle = null;
 let hoveredMuscle = null;
 
-const nameInput = document.querySelector('#session-name');
-const nameError = document.querySelector('#session-name-error');
 const list = document.querySelector('#exercises');
 const empty = document.querySelector('#empty');
 const panel = document.querySelector('.panel');
@@ -93,8 +91,6 @@ function hitFor(ex) {
 
 /** Update everything derived from state without recreating inputs. */
 function refresh() {
-  nameError.textContent = validateSessionName(session.name) ?? '';
-
   list.querySelectorAll('.exercise').forEach((card, i) => {
     const ex = session.exercises[i];
     const errors = validateExercise(ex);
@@ -143,11 +139,6 @@ function refresh() {
 function indexOf(el) {
   return Number(el.closest('.exercise').dataset.index);
 }
-
-nameInput.addEventListener('input', () => {
-  session.name = nameInput.value;
-  refresh();
-});
 
 list.addEventListener('input', (event) => {
   const { field } = event.target.dataset;
