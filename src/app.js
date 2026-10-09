@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { computeVolume, goalStatus, volumeLevel } from './volume.js';
+import { barSegments, computeVolume, computeVolumeSplit, goalStatus, volumeLevel } from './volume.js';
 import { validateExercise, validateGoal } from './validate.js';
 import { createExercise, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
@@ -69,9 +69,10 @@ function renderPanel() {
     item.innerHTML = `
       <button type="button" class="volume-row" aria-pressed="false">
         <span class="name"></span>
-        <span class="bar"><span class="bar-fill"></span></span>
+        <span class="bar"><span class="bar-direct"></span><span class="bar-indirect"></span></span>
         <span class="value"></span>
         <span class="status"></span>
+        <span class="split visually-hidden"></span>
       </button>`;
     const button = item.querySelector('button');
     button.dataset.muscle = muscle;
@@ -152,6 +153,8 @@ function refresh() {
   });
 
   const volume = computeVolume(session);
+  const split = computeVolumeSplit(session);
+  const splitText = (muscle) => ` (${split[muscle].direct} direct · ${split[muscle].indirect} indirect)`;
   const focus = hoveredMuscle ?? selectedMuscle;
   panel.classList.toggle('has-selection', selectedMuscle !== null);
   panel.querySelectorAll('[data-muscle]').forEach((el) => {
@@ -169,7 +172,10 @@ function refresh() {
     row.setAttribute('aria-pressed', String(muscle === selectedMuscle));
     row.querySelector('.value').textContent = result ? `${sets} / ${goal}` : String(sets);
     row.querySelector('.status').textContent = result?.status ?? '';
-    row.querySelector('.bar-fill').style.width = `${(result ? result.progress : Math.min(sets / 10, 1)) * 100}%`;
+    const fill = barSegments(split[muscle].direct, split[muscle].indirect, goal ?? 10);
+    row.querySelector('.bar-direct').style.width = `${fill.direct * 100}%`;
+    row.querySelector('.bar-indirect').style.width = `${fill.indirect * 100}%`;
+    row.querySelector('.split').textContent = splitText(muscle);
     if (result) row.dataset.status = result.status;
     else delete row.dataset.status;
   });
@@ -182,7 +188,7 @@ function refresh() {
     const goal = session.goals[focus];
     const progress = goal === undefined ? '' : ` / ${goal}`;
     const status = goal === undefined ? '' : ` · ${goalStatus(volume[focus], goal).status}`;
-    readout.replaceChildren(name, ` ${volume[focus]}${progress} sets${status} · ${count} exercise${count === 1 ? '' : 's'}`);
+    readout.replaceChildren(name, ` ${volume[focus]}${progress} sets${splitText(focus)}${status} · ${count} exercise${count === 1 ? '' : 's'}`);
   } else {
     readout.textContent = 'Tap a muscle to highlight its exercises.';
   }

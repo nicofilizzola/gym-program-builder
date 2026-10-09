@@ -8,7 +8,7 @@ When you change a value, change it in `style.css` first and then update this fil
 
 - **One accent.** Orange (`--accent`) marks actions, selected state and training heat. Do not introduce a second accent colour.
 - **Volume is the hero.** The body map and volume list must always be visible while editing (sticky sidebar on desktop, pinned bottom strip on mobile).
-- **Colour never stands alone.** Every heat colour is paired with a number (volume list, readout), and every highlight with a text tag.
+- **Colour never stands alone.** Every heat colour is paired with a number (volume list, readout), the direct/indirect bar segments with the split as text (readout, row accessible name), and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
 
 ## Colour tokens
@@ -31,7 +31,7 @@ Placeholder and hint text use `#64748b`. Contrast on `--surface` is at least 4.5
 
 ### Heat scale (muscle volume)
 
-Fixed, absolute bands so a colour means the same thing in every session. The mapping lives in the pure function `volumeLevel(sets)` in `src/volume.js` (unit-tested); CSS only maps a `data-level` attribute to a colour.
+Used by the body map only (the volume-list bars show direct/indirect instead). Fixed, absolute bands so a colour means the same thing in every session. The mapping lives in the pure function `volumeLevel(sets)` in `src/volume.js` (unit-tested); CSS only maps a `data-level` attribute to a colour.
 
 | Level | Sets | Token | Value |
 |---|---|---|---|
@@ -110,12 +110,15 @@ Highlight states, set from the selected muscle via `data-hit`:
 ### Volume panel
 1. Header: "Volume" + "sets per muscle" + the "Set goals" secondary button.
 2. **Body map**: front and back figures side by side (`src/body.js`).
-3. **Readout** (`aria-live="polite"`): hovered or selected muscle, its sets and exercise count; otherwise a hint.
-4. **Legend** of the five heat levels.
-5. **Volume list**: one `<button aria-pressed>` per muscle with name, bar (full at 10 sets) and value. This is the keyboard and screen-reader equivalent of the body map, which is `aria-hidden`.
-   - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar is full at the goal, and a text status follows: `under` in `--muted`, `met` in `--accent`, `over` in `--lvl-4` amber with an outline pill. The bar keeps its heat colour.
-   - **Without a goal** the row is unchanged. Once any goal is set, the list gets `.has-goals` and every row uses fixed value and status columns (`76px 1fr 72px 44px`) so bars stay aligned and comparable.
-   - The readout adds the goal and status for a muscle that has one (`Chest 7 / 10 sets · under · 2 exercises`).
+3. **Readout** (`aria-live="polite"`): hovered or selected muscle, its sets with the direct/indirect split, and exercise count (`Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`); otherwise a hint.
+4. **Legend** of the five heat levels (`aria-label="Body map colour scale"`). It describes the body map only.
+5. **Split key**: "Direct" (`--accent` swatch) and "Indirect" (`--accent-soft` swatch with an inset `--accent` outline), left-aligned above the list, `aria-hidden` because each row carries the split as text. Hidden on mobile, with the bars.
+6. **Volume list**: one `<button aria-pressed>` per muscle with name, bar and value. This is the keyboard and screen-reader equivalent of the body map, which is `aria-hidden`.
+   - **Bar**: two stacked segments from `barSegments` in `src/volume.js`: direct (solid `--accent`, like a selected primary chip) then indirect (`--accent-soft` fill with an inset 1px `--accent` outline, like a selected secondary chip). Full at the goal, or at 10 sets without one; direct fills first and indirect is cut off at the end. The bar does not use heat colours.
+   - A visually hidden `(3 direct · 2 indirect)` inside each button puts the split in its accessible name. `.volume-row` is `position: relative` so that absolutely positioned text cannot widen the mobile chip scroller.
+   - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar is full at the goal, and a text status follows: `under` in `--muted`, `met` in `--accent`, `over` in `--lvl-4` amber with an outline pill.
+   - **Without a goal** the row keeps a plain value. Once any goal is set, the list gets `.has-goals` and every row uses fixed value and status columns (`76px 1fr 72px 44px`) so bars stay aligned and comparable.
+   - The readout adds the goal and status for a muscle that has one (`Chest 7 / 10 sets (7 direct · 0 indirect) · under · 2 exercises`).
    - Goals never change the body map: it always shows absolute heat.
 
 ### Goals dialog
