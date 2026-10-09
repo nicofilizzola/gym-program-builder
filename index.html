@@ -3,30 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>Gym Program Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="style.css">
   <script type="module" src="src/app.js"></script>
 </head>
 <body>
   <main class="layout">
     <section class="builder">
+      <p class="eyebrow">Gym Program Builder</p>
       <h1>Session builder</h1>
-      <label class="field">
+      <label class="field session-name">
         Session name
-        <input id="session-name" type="text" placeholder="e.g. Push day">
+        <input id="session-name" type="text" placeholder="e.g. Push day" autocomplete="off">
       </label>
       <p id="session-name-error" class="error"></p>
 
       <ol id="exercises" class="exercises"></ol>
-      <button id="add-exercise" type="button">Add exercise</button>
+      <p id="empty" class="empty">No exercises yet. Add one to start building your session.</p>
+      <button id="add-exercise" class="add-btn" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Add exercise
+      </button>
     </section>
 
-    <aside class="panel">
-      <h2>Volume (sets)</h2>
-      <table>
-        <thead><tr><th>Muscle group</th><th>Sets</th></tr></thead>
-        <tbody id="volume"></tbody>
-      </table>
+    <aside class="panel" aria-labelledby="volume-title">
+      <div class="panel-head">
+        <h2 id="volume-title">Volume</h2>
+        <span class="unit">sets per muscle</span>
+      </div>
+      <div id="body-map" class="body-map"></div>
+      <p id="readout" class="readout" aria-live="polite"></p>
+      <ul class="legend" aria-label="Colour scale">
+        <li data-level="0">0</li>
+        <li data-level="1">&lt;4</li>
+        <li data-level="2">4–6.5</li>
+        <li data-level="3">7–9.5</li>
+        <li data-level="4">10+</li>
+      </ul>
+      <ul id="volume" class="volume-list"></ul>
     </aside>
   </main>
 </body>
