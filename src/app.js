@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from './volume.js';
+import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from './volume.js';
 import { validateExercise, validateGoal } from './validate.js';
 import { createExercise, exerciseSummary, moveExercise, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
@@ -82,7 +82,7 @@ function renderPanel() {
     item.innerHTML = `
       <button type="button" class="volume-row" aria-pressed="false">
         <span class="name"></span>
-        <span class="bar"><span class="bar-direct"></span><span class="bar-indirect"></span></span>
+        <span class="bar"><span class="bar-direct"></span><span class="bar-indirect"></span><span class="bar-goal" aria-hidden="true"></span></span>
         <span class="value"></span>
         <span class="status"></span>
         <span class="split visually-hidden"></span>
@@ -193,6 +193,7 @@ function refresh() {
   volumeEmpty.hidden = visible.length > 0;
   splitKey.hidden = visible.length === 0;
   volumeList.classList.toggle('has-goals', Object.keys(session.goals).length > 0);
+  const scale = barScale(volume, session.goals);
   volumeList.querySelectorAll('.volume-row').forEach((row) => {
     const { muscle } = row.dataset;
     row.parentElement.hidden = !visible.includes(muscle);
@@ -202,12 +203,15 @@ function refresh() {
     row.setAttribute('aria-pressed', String(muscle === selectedMuscle));
     row.querySelector('.value').textContent = result ? `${sets} / ${goal}` : String(sets);
     row.querySelector('.status').textContent = result?.status ?? '';
-    const fill = barSegments(split[muscle].direct, split[muscle].indirect, goal ?? 10);
+    const fill = barSegments(split[muscle].direct, split[muscle].indirect, scale);
     row.querySelector('.bar-direct').style.width = `${fill.direct * 100}%`;
     row.querySelector('.bar-indirect').style.width = `${fill.indirect * 100}%`;
     const bar = row.querySelector('.bar');
     bar.classList.toggle('no-direct', fill.direct === 0);
     bar.classList.toggle('no-indirect', fill.indirect === 0);
+    const marker = row.querySelector('.bar-goal');
+    marker.hidden = goal === undefined;
+    if (goal !== undefined) marker.style.left = `${goal / scale * 100}%`;
     row.querySelector('.split').textContent = splitText(muscle);
     if (result) row.dataset.status = result.status;
     else delete row.dataset.status;

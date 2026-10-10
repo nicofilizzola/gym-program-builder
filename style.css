@@ -698,11 +698,11 @@ svg {
 
 /* Two stacked segments, direct first; coloured like the primary and secondary chips. */
 .volume-row .bar {
+  position: relative;
   display: flex;
   height: 6px;
   border-radius: 999px;
   background: var(--surface-2);
-  overflow: hidden;
 }
 
 .volume-row .bar-direct,
@@ -733,6 +733,22 @@ svg {
 .volume-row .bar.no-indirect .bar-direct,
 .volume-row .bar.no-direct .bar-indirect {
   border-radius: 999px;
+}
+
+/* Goal marker: a thin tick at the goal's position, drawn over the fill. */
+.volume-row .bar-goal {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--text);
+  transform: translate(-50%, -50%);
+  transition: left 250ms ease;
+}
+
+.volume-row .bar-goal[hidden] {
+  display: none;
 }
 
 .split-key {
