@@ -358,10 +358,157 @@ svg {
   border: 0;
 }
 
-.numbers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+.slider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slider-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.slider-value {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-value.is-empty {
+  color: var(--muted);
+}
+
+/* A 44px-tall hit area around a 6px track. Track and fill are inset by half a thumb,
+   so the fill ends under the thumb's centre at every value. */
+.slider {
+  --thumb: 22px;
+  --from: 0;
+  --to: 0;
+  position: relative;
+  isolation: isolate; /* keeps the top thumb's z-index inside the slider, under the pinned mobile panel */
+  height: 44px;
+}
+
+.slider::before,
+.slider-fill {
+  content: '';
+  position: absolute;
+  top: 50%;
+  height: 6px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+}
+
+.slider::before {
+  left: calc(var(--thumb) / 2);
+  right: calc(var(--thumb) / 2);
+  background: var(--surface-2);
+}
+
+.slider-fill {
+  left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--from));
+  width: calc((100% - var(--thumb)) * (var(--to) - var(--from)));
+  background: var(--accent);
+}
+
+.slider input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* The thumb carries the focus ring, not the input's box. */
+.slider input[type="range"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+
+.slider input[type="range"]::-moz-range-track {
+  height: 100%;
+  background: transparent;
+}
+
+.slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: var(--thumb);
+  height: var(--thumb);
+  margin-top: calc((44px - var(--thumb)) / 2);
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: grab;
+  transition: box-shadow 150ms ease;
+}
+
+.slider input[type="range"]::-moz-range-thumb {
+  box-sizing: border-box;
+  width: var(--thumb);
+  height: var(--thumb);
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: grab;
+  transition: box-shadow 150ms ease;
+}
+
+.slider input[type="range"]:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 0 6px var(--accent-soft);
+}
+
+.slider input[type="range"]:hover::-moz-range-thumb {
+  box-shadow: 0 0 0 6px var(--accent-soft);
+}
+
+.slider input[type="range"]:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.slider input[type="range"]:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+.slider input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.slider input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+/* Two thumbs on one track: only the thumbs take pointer input, and the last-touched one is on top. */
+.slider.is-range input[type="range"] {
+  pointer-events: none;
+}
+
+.slider.is-range input[type="range"]::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+
+.slider.is-range input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+}
+
+.slider.is-range input.is-top {
+  z-index: 2;
 }
 
 .chips {
@@ -928,10 +1075,6 @@ svg {
 
   .volume-row .bar {
     display: none;
-  }
-
-  .numbers {
-    gap: 8px;
   }
 }
 

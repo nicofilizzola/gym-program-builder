@@ -1,7 +1,7 @@
 import { MUSCLE_GROUPS } from './muscles.js';
 import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from './volume.js';
-import { validateExercise, validateGoal } from './validate.js';
-import { createExercise, exerciseSummary, moveExercise, toggleMuscle } from './exercise.js';
+import { LIMITS, validateExercise, validateGoal } from './validate.js';
+import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 import { serializeSession, parseSession, exportFileName } from './session-file.js';
 
@@ -41,6 +41,18 @@ function muscleChips(role) {
     <label class="chip"><input type="checkbox" data-role="${role}" data-muscle="${muscle}"><span>${muscle}</span></label>`).join('');
 }
 
+/** `min`, `max` and `step` attributes for a range input. */
+const rangeAttrs = ({ min, max, step }) => `min="${min}" max="${max}" step="${step}"`;
+
+/** Position of a value along a slider's limits, from 0 to 1. */
+const fraction = (value, { min, max }) => (value - min) / (max - min);
+
+/** Fill a slider's track between two fractions (0 to 1). */
+function setFill(slider, from, to) {
+  slider.style.setProperty('--from', from);
+  slider.style.setProperty('--to', to);
+}
+
 const CARD_HTML = `
   <div class="card-head">
     <button type="button" class="drag-handle" aria-label="Reorder exercise" aria-describedby="reorder-hint">
@@ -60,10 +72,16 @@ const CARD_HTML = `
   <div class="card-body">
   <label class="field">Exercise name <input type="text" data-field="name" placeholder="e.g. Bench press" autocomplete="off"></label>
   <p class="error" data-error="name"></p>
-  <div class="numbers">
-    <label class="field">Sets <input type="number" min="1" step="1" inputmode="numeric" data-field="sets"></label>
-    <label class="field">Reps min <input type="number" min="1" step="1" inputmode="numeric" data-field="min"></label>
-    <label class="field">Reps max <input type="number" min="1" step="1" inputmode="numeric" data-field="max"></label>
+  <div class="slider-field">
+    <div class="slider-head"><span>Sets</span><span class="slider-value" data-value="sets" aria-hidden="true"></span></div>
+    <div class="slider"><span class="slider-fill"></span>
+      <input type="range" ${rangeAttrs(LIMITS.sets)} data-field="sets" aria-label="Sets"></div>
+  </div>
+  <div class="slider-field">
+    <div class="slider-head"><span>Reps</span><span class="slider-value" data-value="reps" aria-hidden="true"></span></div>
+    <div class="slider is-range"><span class="slider-fill"></span>
+      <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="min" aria-label="Reps min">
+      <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="max" aria-label="Reps max"></div>
   </div>
   <p class="error" data-error="sets"></p>
   <p class="error" data-error="repRange"></p>
@@ -131,9 +149,6 @@ function renderExercises() {
     card.querySelector('.card-body').id = `exercise-body-${i}`;
     card.querySelector('[data-action="toggle"]').setAttribute('aria-controls', `exercise-body-${i}`);
     card.querySelector('[data-field="name"]').value = ex.name;
-    card.querySelector('[data-field="sets"]').value = Number.isNaN(ex.sets) ? '' : ex.sets;
-    card.querySelector('[data-field="min"]').value = Number.isNaN(ex.repRange.min) ? '' : ex.repRange.min;
-    card.querySelector('[data-field="max"]').value = Number.isNaN(ex.repRange.max) ? '' : ex.repRange.max;
     return card;
   }));
   empty.hidden = session.exercises.length > 0;
@@ -162,6 +177,15 @@ function refresh() {
     const toggle = card.querySelector('[data-action="toggle"]');
     toggle.setAttribute('aria-expanded', String(!isCollapsed));
     toggle.setAttribute('aria-label', isCollapsed ? 'Expand exercise' : 'Collapse exercise');
+    const { min, max } = ex.repRange;
+    const setsInput = card.querySelector('[data-field="sets"]');
+    setsInput.value = ex.sets;
+    card.querySelector('[data-field="min"]').value = min;
+    card.querySelector('[data-field="max"]').value = max;
+    card.querySelector('[data-value="sets"]').textContent = String(ex.sets);
+    card.querySelector('[data-value="reps"]').textContent = min === max ? String(min) : `${min}–${max}`;
+    setFill(setsInput.parentElement, 0, fraction(ex.sets, LIMITS.sets));
+    setFill(card.querySelector('.slider.is-range'), fraction(min, LIMITS.reps), fraction(max, LIMITS.reps));
     card.querySelector('[data-fix-tag]').hidden = !(isCollapsed && Object.keys(errors).length > 0);
     card.querySelectorAll('[data-error]').forEach((el) => {
       el.textContent = errors[el.dataset.error] ?? '';
@@ -254,7 +278,7 @@ list.addEventListener('input', (event) => {
   if (field === 'name') ex.name = event.target.value;
   if (field === 'sets') ex.sets = event.target.valueAsNumber;
   if (field === 'min' || field === 'max') {
-    ex.repRange = { ...ex.repRange, [field]: event.target.valueAsNumber };
+    ex.repRange = setRepBound(ex.repRange, field, event.target.valueAsNumber);
   }
   fileMessage.textContent = '';
   refresh();
@@ -293,6 +317,15 @@ list.addEventListener('keydown', (event) => {
   const to = from + step;
   if (to >= 0 && to < session.exercises.length) commitMove(from, to);
 });
+
+/** Put the last-touched thumb of a two-thumb slider on top, so it can be dragged where the thumbs overlap. */
+function raiseThumb(event) {
+  const input = event.target;
+  if (!input.parentElement?.classList.contains('is-range')) return;
+  input.parentElement.querySelectorAll('input').forEach((el) => el.classList.toggle('is-top', el === input));
+}
+list.addEventListener('pointerdown', raiseThumb);
+list.addEventListener('focusin', raiseThumb);
 
 list.addEventListener('pointerdown', (event) => {
   const handle = event.target.closest('.drag-handle');

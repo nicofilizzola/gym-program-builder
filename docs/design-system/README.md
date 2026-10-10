@@ -81,6 +81,16 @@ Numbers in the volume list use `font-variant-numeric: tabular-nums` so columns l
 
 ### Inputs
 44px minimum height, `--surface-2` background, `--border` border. Focus: `--accent` border plus a 3px `--accent-soft` halo. Labels always visible above the field (never placeholder-only). Errors sit directly under the field they belong to.
+Numbers (sets, rep range, goals) are never typed: they use sliders (below). Text fields remain only for names.
+
+### Sliders
+Native `<input type="range">` with no library, in a `.slider` wrapper (`src/app.js` builds them; limits come from `LIMITS` in `src/validate.js`).
+
+- **Shape:** a 6px `--surface-2` track with a radius of 999px, like the volume bars, and an `--accent` fill from the start (or the min thumb) to the thumb. The thumb is a 22px `--accent` circle with a 3px `--surface` ring. The wrapper is 44px tall, so the whole row is a touch target.
+- **Alignment:** the track and fill are inset by half a thumb, and `--from` / `--to` (0–1, set by `setFill`) place the fill. Its ends always sit under the thumb's centre.
+- **States:** hover shows a 6px `--accent-soft` halo on the thumb. Focus-visible puts the design system ring on the thumb (`0 0 0 2px --surface, 0 0 0 4px --accent`) instead of a box around the input. The cursor shows `grab` / `grabbing`.
+- **Value text:** in `.slider-head`, the label sits on the left and `.slider-value` on the right (display font, 700, `tabular-nums`, `--text`). `.is-empty` (e.g. `No goal`) turns the text `--muted`. The value text is `aria-hidden`, because the input announces its own value.
+- **Two thumbs** (`.slider.is-range`, the rep range): two inputs overlap on one track. Only their thumbs take pointer input, and the last-touched one gets `.is-top`. Moving one thumb past the other pushes it (`setRepBound`), so min ≤ max always holds. The wrapper uses `isolation: isolate`, so `.is-top` never paints over the pinned mobile panel.
 
 ### Muscle chips
 Real checkboxes, visually hidden but focusable, styled through the sibling `<span>`.
