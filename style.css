@@ -384,10 +384,14 @@ svg {
   color: var(--muted);
 }
 
-/* A 44px-tall hit area around a 6px track. Track and fill are inset by half a thumb,
-   so the fill ends under the thumb's centre at every value. */
+/* A 44px-tall hit area around a 6px track. The thumb's hit box is 44px square; its visible
+   22px knob is drawn by --knob. Track and fill are inset by half a thumb, so the fill ends
+   under the knob's centre at every value. */
 .slider {
-  --thumb: 22px;
+  --thumb: 44px;
+  --knob: radial-gradient(circle, var(--accent) 7.5px, var(--surface) 8px 10.5px, transparent 11px);
+  --knob-hover: radial-gradient(circle, var(--accent) 7.5px, var(--surface) 8px 10.5px, var(--accent-soft) 11px 16.5px, transparent 17px);
+  --knob-focus: radial-gradient(circle, var(--accent) 7.5px, var(--surface) 8px 12.5px, var(--accent) 13px 14.5px, transparent 15px);
   --from: 0;
   --to: 0;
   position: relative;
@@ -447,34 +451,30 @@ svg {
 
 .slider input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  box-sizing: border-box;
   width: var(--thumb);
   height: var(--thumb);
   margin-top: calc((44px - var(--thumb)) / 2);
-  border: 3px solid var(--surface);
+  border: 0;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--knob);
   cursor: grab;
-  transition: box-shadow 150ms ease;
 }
 
 .slider input[type="range"]::-moz-range-thumb {
-  box-sizing: border-box;
   width: var(--thumb);
   height: var(--thumb);
-  border: 3px solid var(--surface);
+  border: 0;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--knob);
   cursor: grab;
-  transition: box-shadow 150ms ease;
 }
 
 .slider input[type="range"]:hover::-webkit-slider-thumb {
-  box-shadow: 0 0 0 6px var(--accent-soft);
+  background: var(--knob-hover);
 }
 
 .slider input[type="range"]:hover::-moz-range-thumb {
-  box-shadow: 0 0 0 6px var(--accent-soft);
+  background: var(--knob-hover);
 }
 
 .slider input[type="range"]:active::-webkit-slider-thumb {
@@ -486,11 +486,11 @@ svg {
 }
 
 .slider input[type="range"]:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  background: var(--knob-focus);
 }
 
 .slider input[type="range"]:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  background: var(--knob-focus);
 }
 
 /* Two thumbs on one track: only the thumbs take pointer input, and the last-touched one is on top. */
@@ -707,10 +707,17 @@ svg {
   font-size: 0.875rem;
 }
 
+.goals-dialog form {
+  position: sticky;
+  bottom: 0;
+  padding-block: 12px;
+  background: var(--surface);
+}
+
 .goal-fields {
   display: grid;
   gap: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
 }
 
 /* One row per muscle, like the volume list: name, slider, value. */
@@ -1098,6 +1105,22 @@ svg {
 
   .volume-row .bar {
     display: none;
+  }
+
+  /* Name and value on one line, the slider full width below, so each 0.5 step is wide enough to land on. */
+  .goal-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+
+  .goal-row .slider-value {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .goal-row .slider {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 
