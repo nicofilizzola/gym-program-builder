@@ -34,12 +34,13 @@ MuscleGroup (fixed list, exactly these 10 values, in this order):
 4. **Live volume panel.** A panel always shows the session's volume per muscle group and updates on every edit. No submit or refresh step is needed. The volume list shows only the muscle groups that are relevant to the session (see requirement 12).
 5. **Reorder exercises.** Each exercise card has a drag handle. Dragging it with a mouse or by touch moves the exercise to a new position. When the handle has keyboard focus, the ↑ and ↓ arrow keys move the exercise up or down one place, and focus stays on the moved exercise's handle. Order does not affect volume.
 6. **Volume goals.** A "Set goals" button in the volume panel opens a dialog with one number field per muscle group, in `MuscleGroup` order. The user can set, change, or clear (empty the field) a goal for any muscle. Every goal is optional. Changes apply live as the user types. A "Done" button, Escape, or a click outside the dialog closes it; there is no Save/Cancel step. An invalid value shows an error next to its field and is not applied.
-7. **Volume relative to goals.** In the volume list, a muscle with a goal shows its volume against the goal (for example `7 / 10`), a bar whose full length is the goal (see **Direct and indirect volume** for how it fills), and a text status: **under**, **met**, or **over**. A muscle without a goal is shown exactly as before. The body map keeps its absolute heat colours; goals do not change it.
+7. **Volume relative to goals.** In the volume list, a muscle with a goal shows its volume against the goal (for example `7 / 10`), a bar with a goal marker (see requirement 13), and a text status: **under**, **met**, or **over**. A muscle without a goal shows its volume alone, with no marker and no status. The body map keeps its absolute heat colours; goals do not change it.
 8. **Export session.** An "Export" button downloads the current session (exercises in order, and goals) as a JSON file named `gym-session-YYYY-MM-DD.json`, using today's local date. Export is refused while any exercise is invalid: nothing is downloaded, and a message names the first invalid exercise (for example `Fix exercise 2 before exporting.`). A session with no exercises can be exported.
 9. **Import session.** An "Import" button opens a file picker for `.json` files. A valid file **replaces** the whole current session (exercises and goals). If the current session has any exercise or goal, the user is asked to confirm the replacement first; declining changes nothing. A file that is not valid JSON or does not match the session file format is **rejected as a whole**: the session does not change, and one error message says what is wrong (for example `Exercise 2: unknown muscle group "Glutes".`).
-10. **Direct and indirect volume.** In the volume list, each muscle's bar has two stacked segments: **direct** volume (from exercises where it is a primary muscle) first, then **indirect** volume (from exercises where it is a secondary muscle). Direct is solid accent orange, like a selected primary chip; indirect is a soft orange fill with an orange outline, like a selected secondary chip. The bar no longer uses heat colours; the body map keeps them. The filled part of the bar reads as one rounded pill: its left end and the right end of its last visible segment are fully rounded, like the track, and the join between direct and indirect stays straight. This holds for every bar (direct only, indirect only, or both, including a full bar), and the indirect segment's orange outline follows its rounded ends instead of being clipped into a square corner. A small "Direct / Indirect" key sits above the list (hidden on mobile, where bars are hidden). Each row still shows one number: the total, or `total / goal`. The split is shown as text in the readout (for example `Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`, or `Triceps 5 / 4 sets (3 direct · 2 indirect) · over · 2 exercises` with a goal), always naming both parts even when one is 0, and in a visually hidden text inside each row button for screen readers.
+10. **Direct and indirect volume.** In the volume list, each muscle's bar has two stacked segments: **direct** volume (from exercises where it is a primary muscle) first, then **indirect** volume (from exercises where it is a secondary muscle). Direct is a solid fill of the bar's colour; indirect is a soft fill of the same colour with an outline of that colour. The bar's colour comes from its goal status (see requirement 13). The bar does not use heat colours; the body map keeps them. The filled part of the bar reads as one rounded pill: its left end and the right end of its last visible segment are fully rounded, like the track, and the join between direct and indirect stays straight. This holds for every bar (direct only, indirect only, or both, including a full bar), and the indirect segment's orange outline follows its rounded ends instead of being clipped into a square corner. A small "Direct / Indirect" key sits above the list (hidden on mobile, where bars are hidden); its swatches use the neutral no-goal colour. Each row still shows one number: the total, or `total / goal`. The split is shown as text in the readout (for example `Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`, or `Triceps 5 / 4 sets (3 direct · 2 indirect) · over · 2 exercises` with a goal), always naming both parts even when one is 0, and in a visually hidden text inside each row button for screen readers.
 11. **Expand and collapse exercises.** Each exercise card has a chevron toggle button in its header, between the highlight tag and the remove button. It hides or shows the card's fields; its `aria-expanded` reflects the state and its label is `Collapse exercise` or `Expand exercise`. A collapsed card keeps its header (drag handle, `Exercise N`, highlight tag, toggle, remove button) and shows a one-line summary below it instead of the fields (see **Exercise summary**). "Expand all" and "Collapse all" buttons sit above the exercise list and are hidden when the session has no exercises. A newly added exercise starts expanded; every exercise loaded by an import starts collapsed. A collapsed invalid exercise shows a `Needs fixing` text marker in its header. When export is refused, the exercise it names expands and its first invalid field gets focus. Collapsing changes nothing in the session: not volume, order, validation, or the exported file. Reordering (mouse, touch, keyboard), removing, and muscle highlighting work the same on collapsed cards, and an exercise keeps its collapsed state when it moves.
 12. **Hide irrelevant muscles in the volume list.** The volume list hides a muscle's row when the muscle has **no goal and** its volume is **0** (both must be true; see **Visible volume rows**). Visible rows keep `MuscleGroup` order. Rows appear and disappear live on every edit, including goal edits. When no row is visible, the list shows `No volume yet. Add an exercise or set a goal.` and the "Direct / Indirect" key is hidden. The body map is unchanged: it still shows every muscle with its heat colour. Selecting a muscle works the same whether or not its row is visible (for example by clicking a body map region); a hidden row stays hidden even when its muscle is selected, and the readout still describes it.
+13. **Goal-coloured bars on a shared scale.** In the volume list, each bar's colour shows its goal status: **amber** when under, **green** when met, **red** when over, and a **neutral grey-blue** for a muscle without a goal. Direct and indirect segments both use that colour (solid and soft, see requirement 10), and the status text uses it too. A muscle with 0 volume shows only the grey empty track. All bars share one scale, so one set has the same length in every row (see **Bar scale**). A muscle with a goal shows a thin vertical **goal marker** on its bar at the goal's position; the fill can run past the marker, so the user sees by how much they are over. The marker is visual only (`aria-hidden`); the `volume / goal` value and the status text carry the same information. Nothing is cut off: the scale always fits the largest volume. Bars, marker and key stay hidden on mobile. The body map keeps its heat colours.
 
 ## Volume calculation (core business rule)
 
@@ -73,7 +74,6 @@ For a muscle with a goal:
 status = under   if volume < goal
          met     if volume = goal
          over    if volume > goal
-progress = min(volume / goal, 1)   // bar fill, 0 to 1
 ```
 
 - A muscle with no goal has no status. It is never shown as under.
@@ -84,13 +84,13 @@ progress = min(volume / goal, 1)   // bar fill, 0 to 1
 
 Using the volume from the volume worked example above, with goals Chest **7**, Triceps **4**, Lats **6**, Quads **8**:
 
-| Muscle  | Volume | Goal | Shown      | Status | Progress |
-|---------|--------|------|------------|--------|----------|
-| Chest   | 7      | 7    | `7 / 7`    | met    | 1        |
-| Triceps | 5      | 4    | `5 / 4`    | over   | 1        |
-| Lats    | 3      | 6    | `3 / 6`    | under  | 0.5      |
-| Quads   | 0      | 8    | `0 / 8`    | under  | 0        |
-| Biceps  | 1.5    | —    | `1.5`      | —      | —        |
+| Muscle  | Volume | Goal | Shown      | Status |
+|---------|--------|------|------------|--------|
+| Chest   | 7      | 7    | `7 / 7`    | met    |
+| Triceps | 5      | 4    | `5 / 4`    | over   |
+| Lats    | 3      | 6    | `3 / 6`    | under  |
+| Quads   | 0      | 8    | `0 / 8`    | under  |
+| Biceps  | 1.5    | —    | `1.5`      | —      |
 
 ## Direct and indirect volume (business rule)
 
@@ -105,29 +105,53 @@ volume(muscle)   = direct(muscle) + indirect(muscle)
 - Indirect is **counted volume** (half sets), not raw secondary sets, so the two parts always add up to the volume.
 - Goal status still compares the total volume to the goal.
 
-The bar fills **direct first**, on the same scale for both segments:
+The bar fills **direct first**, on the same scale for both segments (the shared `scale` from **Bar scale**):
 
 ```
-scale         = goal, or 10 when the muscle has no goal
 directFill    = min(direct / scale, 1)
-indirectFill  = min(indirect / scale, 1 − directFill)   // cut off at the end of the bar
+indirectFill  = min(indirect / scale, 1 − directFill)
 ```
 
-If direct alone reaches the scale, the bar is all direct.
+The shared scale always fits the largest volume, so in practice nothing is cut off; the `min` caps are only a safeguard.
+
+## Bar scale (business rule)
+
+All bars in the volume list use one scale: the number of sets that fills a whole bar.
+
+```
+maxGoal   = the largest goal, or none when no goal is set
+maxVolume = the largest volume over all muscles
+scale     = max(maxGoal / 0.75, maxVolume)   if a goal is set
+            maxVolume / 0.75                  if no goal is set and maxVolume > 0
+            1                                 otherwise (nothing is visible; avoids dividing by 0)
+marker(muscle) = goal(muscle) / scale        // only for a muscle with a goal; 0 to 1 from the bar's left end
+```
+
+- The largest goal's marker sits at 75% of the bar, unless some volume is larger than `maxGoal / 0.75`: then the scale grows to fit that volume, the largest volume fills the whole bar, and every marker moves left.
+- With no goals, the largest volume fills 75% of the bar.
+- The scale is computed on render from the volume and the goals; never store it. It changes live on every exercise or goal edit.
+- Fill widths and marker positions are fractions and do not have to be multiples of 0.5. Tests compare them with a small tolerance.
 
 ### Worked example (use as a test case)
 
-Using the volume worked example and the goal worked example above:
+Volume worked example with the goal worked example's goals (Chest 7, Triceps 4, Lats 6, Quads 8): maxGoal = 8, maxVolume = 7, scale = max(8 / 0.75, 7) = 32/3 ≈ 10.667.
 
-| Muscle     | Direct | Indirect | Goal | Scale | Direct fill | Indirect fill |
-|------------|--------|----------|------|-------|-------------|---------------|
-| Chest      | 7      | 0        | 7    | 7     | 1           | 0             |
-| Triceps    | 3      | 2        | 4    | 4     | 0.75        | 0.25          |
-| Lats       | 3      | 0        | 6    | 6     | 0.5         | 0             |
-| Quads      | 0      | 0        | 8    | 8     | 0           | 0             |
-| Shoulders  | 0      | 3.5      | —    | 10    | 0           | 0.35          |
-| Biceps     | 0      | 1.5      | —    | 10    | 0           | 0.15          |
-| Upper back | 0      | 1.5      | —    | 10    | 0           | 0.15          |
+| Muscle     | Direct | Indirect | Goal | Colour  | Direct fill | Indirect fill | Marker  |
+|------------|--------|----------|------|---------|-------------|---------------|---------|
+| Chest      | 7      | 0        | 7    | green   | 0.65625     | 0             | 0.65625 |
+| Triceps    | 3      | 2        | 4    | red     | 0.28125     | 0.1875        | 0.375   |
+| Lats       | 3      | 0        | 6    | amber   | 0.28125     | 0             | 0.5625  |
+| Quads      | 0      | 0        | 8    | amber   | 0           | 0             | 0.75    |
+| Shoulders  | 0      | 3.5      | —    | neutral | 0           | 0.328125      | —       |
+| Biceps     | 0      | 1.5      | —    | neutral | 0           | 0.140625      | —       |
+| Upper back | 0      | 1.5      | —    | neutral | 0           | 0.140625      | —       |
+
+Other cases:
+
+- Volume worked example, no goals: scale = 7 / 0.75 = 28/3 ≈ 9.333; Chest fills 0.75.
+- Volume worked example, only goal Chest 4: scale = max(4 / 0.75, 7) = 7; Chest fills the whole bar (direct fill 1), its marker is at 4/7 ≈ 0.571, and it is red (over).
+- Empty session, goal Calves 6: scale = 6 / 0.75 = 8; Calves fill 0, marker 0.75.
+- Empty session, no goals: scale = 1.
 
 ## Exercise summary (business rule)
 
@@ -200,7 +224,8 @@ visible(muscle) = goal(muscle) is set  OR  volume(muscle) > 0
 - **Define the muscle group list once** as a single constant, and use it for the form choices, the volume panel, and validation.
 - **Prefer derived state.** Compute volume from the session on render. Do not store it separately.
 - **Validate input:** exercise names must not be empty, sets ≥ 1, rep range `min ≤ max`, goals are a positive multiple of 0.5 (an empty field clears the goal).
-- **Keep goal status in a pure function**, separate from the UI (for example `goalStatus(volume, goal) → { status, progress } | null`). Unit-test it, including the goal worked example above. Compute it on render; never store status or progress.
+- **Keep goal status in a pure function**, separate from the UI (for example `goalStatus(volume, goal) → { status } | null`). Unit-test it, including the goal worked example above. Compute it on render; never store status.
+- **Keep the bar scale in a pure function**, separate from the UI (for example `barScale(volume, goals) → number`), and feed it to `barSegments` and the marker position. Unit-test it, including the bar scale worked example. Compute it on render; never store it.
 - **The goals dialog uses the native `<dialog>` element**, with no library.
 - **Keep reordering logic pure.** Moving an exercise is a pure function on the exercise list (for example `moveExercise(exercises, from, to) → Exercise[]`), unit-tested separately from the drag UI.
 - **Drag and drop uses pointer events, with no dependencies.** Do not use the native HTML5 drag API (unreliable on touch) or a library.
@@ -218,6 +243,7 @@ visible(muscle) = goal(muscle) is set  OR  volume(muscle) > 0
 - **Expand and collapse exercises** (2026-10-09): a chevron toggle per card plus "Expand all" / "Collapse all" above the list. A collapsed card shows its header and a one-line summary (name, sets × reps, primary and secondary muscles). New exercises start expanded; imported exercises start collapsed. A collapsed invalid exercise shows a `Needs fixing` marker, and a refused export expands the exercise it names and focuses its first invalid field. Collapsed state is UI-only: not in the session, not in the file, not persisted.
 - **Hide irrelevant muscles** (2026-10-09): the volume list hides a muscle when it has no goal and 0 computed volume (empty or invalid sets count as 0). It applies to the volume list only; the body map still shows every muscle. Visible rows keep `MuscleGroup` order. When nothing is visible, a short `No volume yet. Add an exercise or set a goal.` message replaces the list and the Direct / Indirect key is hidden. Selecting a muscle whose row is hidden keeps working (body map and readout); the row is not forced visible and the selection is not cleared.
 - **Rounded bar ends** (2026-10-09): the filled part of each volume-list bar is one pill. The outer ends (left end, and the right end of the last visible segment) are fully rounded, and the direct/indirect join stays straight. It applies to all bars, not only those with indirect volume. The indirect outline is drawn around its rounded ends, including when the fill reaches the full bar. Visual only: volume, fill widths (`barSegments`), goals, and the body map are unchanged.
+- **Goal-coloured bars on a shared scale** (2026-10-10): this replaces the orange bar colours and the per-row scale (goal, or 10) from the direct/indirect decision. Bar colour comes from goal status: amber under, green met, red over, neutral grey-blue without a goal; 0 volume shows only the grey track. The direct/indirect split stays (solid and soft of the status colour), and the status text takes the same colour. One shared scale for all bars: the largest goal's marker sits at 75%, and the scale grows when a volume would pass the bar's end, so nothing is cut off. With no goals, the largest volume fills 75%. A thin goal marker shows the goal on each bar that has one. This adds status colours next to the orange accent; the design system is updated to match. `goalStatus` no longer returns `progress`. The body map, the readout text, the session file format, and mobile (bars hidden) are unchanged.
 
 ## Open decisions (ask the user before deciding)
 
