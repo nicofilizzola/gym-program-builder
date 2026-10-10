@@ -797,12 +797,19 @@ svg {
   stroke-width: 1.2;
 }
 
+/* Always two lines tall, so switching between the hint and a muscle's details never shifts the panel. */
 .readout {
-  min-height: 1.5em;
+  display: grid;
+  align-items: center;
+  min-height: 3em;
   margin: 12px 0 0;
   text-align: center;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.readout p {
+  margin: 0;
 }
 
 .readout strong {
