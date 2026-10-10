@@ -6,9 +6,9 @@ When you change a value, change it in `style.css` first and then update this fil
 
 ## Principles
 
-- **One accent.** Orange (`--accent`) marks actions, selected state and training heat. Do not introduce a second accent colour.
+- **One accent.** Orange (`--accent`) marks actions, selected state and training heat. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`), reserved for the volume-list bars and status text.
 - **Volume is the hero.** The body map and volume list must always be visible while editing (sticky sidebar on desktop, pinned bottom strip on mobile).
-- **Colour never stands alone.** Every heat colour is paired with a number (volume list, readout), the direct/indirect bar segments with the split as text (readout, row accessible name), and every highlight with a text tag.
+- **Colour never stands alone.** Every heat colour is paired with a number (volume list, readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with its status text and `volume / goal` value, and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
 
 ## Colour tokens
@@ -26,6 +26,10 @@ When you change a value, change it in `style.css` first and then update this fil
 | `--on-accent` | `#0f172a` | Text on `--accent` |
 | `--error` | `#fca5a5` | Validation messages |
 | `--body` | `#252f3c` | Body-map silhouette (non-muscle areas) |
+| `--under` / `--under-soft` | `#fbbf24` / `rgba(251,191,36,.14)` | Volume bar and status text, under the goal |
+| `--met` / `--met-soft` | `#4ade80` / `rgba(74,222,128,.14)` | Volume bar and status text, goal met |
+| `--over` / `--over-soft` | `#f87171` / `rgba(248,113,113,.14)` | Volume bar and status text, over the goal |
+| `--no-goal` / `--no-goal-soft` | `#94a3b8` / `rgba(148,163,184,.14)` | Volume bar without a goal; split key swatches |
 
 Placeholder and hint text use `#64748b`. Contrast on `--surface` is at least 4.5:1 for `--text`, `--muted` and `--error`.
 
@@ -116,11 +120,12 @@ Highlight states, set from the selected muscle via `data-hit`:
 2. **Body map**: front and back figures side by side (`src/body.js`).
 3. **Readout** (`aria-live="polite"`): hovered or selected muscle, its sets with the direct/indirect split, and exercise count (`Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`); otherwise a hint.
 4. **Legend** of the five heat levels (`aria-label="Body map colour scale"`). It describes the body map only.
-5. **Split key**: "Direct" (`--accent` swatch) and "Indirect" (`--accent-soft` swatch with an inset `--accent` outline), left-aligned above the list, `aria-hidden` because each row carries the split as text. Hidden on mobile, with the bars.
+5. **Split key**: "Direct" (`--no-goal` swatch) and "Indirect" (`--no-goal-soft` swatch with an inset `--no-goal` outline), left-aligned above the list, `aria-hidden` because each row carries the split as text. Hidden on mobile, with the bars.
 6. **Volume list**: one `<button aria-pressed>` per muscle with name, bar and value. This is the keyboard and screen-reader equivalent of the body map, which is `aria-hidden`.
-   - **Bar**: two stacked segments from `barSegments` in `src/volume.js`: direct (solid `--accent`, like a selected primary chip) then indirect (`--accent-soft` fill with an inset 1px `--accent` outline, like a selected secondary chip). Full at the goal, or at 10 sets without one; direct fills first and indirect is cut off at the end. The bar does not use heat colours.
+   - **Bar**: two stacked segments from `barSegments` in `src/volume.js`: direct (solid `--bar`) then indirect (`--bar-soft` fill with an inset 1px `--bar` outline). Each row's `data-status` sets `--bar` / `--bar-soft` to the under, met or over pair, or to the no-goal pair without a goal. All bars share one scale from `barScale`: the largest goal sits at 75% of the bar, and the scale grows so the largest volume always fits; with no goals the largest volume fills 75%. Nothing is cut off. The bar does not use heat colours.
+   - **Goal marker**: a 2px × 14px `--text` tick (`.bar-goal`, `aria-hidden`) at `goal / scale`, drawn over the fill, so overshoot shows as fill past the marker. Hidden without a goal.
    - A visually hidden `(3 direct · 2 indirect)` inside each button puts the split in its accessible name. `.volume-row` is `position: relative` so that absolutely positioned text cannot widen the mobile chip scroller.
-   - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar is full at the goal, and a text status follows: `under` in `--muted`, `met` in `--accent`, `over` in `--lvl-4` amber with an outline pill.
+   - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar shows the goal marker, and a text status follows in the bar's colour: `under` in `--under`, `met` in `--met`, `over` in `--over` with an outline pill.
    - **Without a goal** the row keeps a plain value. Once any goal is set, the list gets `.has-goals` and every row uses fixed value and status columns (`76px 1fr 72px 44px`) so bars stay aligned and comparable.
    - The readout adds the goal and status for a muscle that has one (`Chest 7 / 10 sets (7 direct · 0 indirect) · under · 2 exercises`).
    - Goals never change the body map: it always shows absolute heat.

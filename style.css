@@ -18,6 +18,16 @@
   --lvl-3: #f97316;
   --lvl-4: #fbbf24;
 
+  /* Goal status colours for the volume-list bars and status text. */
+  --under: #fbbf24;
+  --under-soft: rgba(251, 191, 36, 0.14);
+  --met: #4ade80;
+  --met-soft: rgba(74, 222, 128, 0.14);
+  --over: #f87171;
+  --over-soft: rgba(248, 113, 113, 0.14);
+  --no-goal: #94a3b8;
+  --no-goal-soft: rgba(148, 163, 184, 0.14);
+
   --radius: 12px;
   --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
   --font-body: 'Barlow', system-ui, sans-serif;
@@ -696,7 +706,28 @@ svg {
   background: var(--accent-soft);
 }
 
-/* Two stacked segments, direct first; coloured like the primary and secondary chips. */
+/* The row's goal status picks the bar colour; direct is solid, indirect soft with an outline. */
+.volume-row {
+  --bar: var(--no-goal);
+  --bar-soft: var(--no-goal-soft);
+}
+
+.volume-row[data-status="under"] {
+  --bar: var(--under);
+  --bar-soft: var(--under-soft);
+}
+
+.volume-row[data-status="met"] {
+  --bar: var(--met);
+  --bar-soft: var(--met-soft);
+}
+
+.volume-row[data-status="over"] {
+  --bar: var(--over);
+  --bar-soft: var(--over-soft);
+}
+
+/* Two stacked segments, direct first. */
 .volume-row .bar {
   position: relative;
   display: flex;
@@ -713,12 +744,12 @@ svg {
 }
 
 .volume-row .bar-direct {
-  background: var(--accent);
+  background: var(--bar);
 }
 
 .volume-row .bar-indirect {
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--bar-soft);
+  box-shadow: inset 0 0 0 1px var(--bar);
 }
 
 /* The fill reads as one pill: round its outer ends, keep the direct/indirect join straight. */
@@ -776,12 +807,12 @@ svg {
 }
 
 .split-key .direct::before {
-  background: var(--accent);
+  background: var(--no-goal);
 }
 
 .split-key .indirect::before {
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--no-goal-soft);
+  box-shadow: inset 0 0 0 1px var(--no-goal);
 }
 
 .volume-row .value {
@@ -811,23 +842,18 @@ svg {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--bar);
 }
 
 .volume-row .status:empty {
   display: none;
 }
 
-.volume-row[data-status="met"] .status {
-  color: var(--accent);
-}
-
 .volume-row[data-status="over"] .status {
   justify-self: start;
   padding: 0 5px;
-  border: 1px solid var(--lvl-4);
+  border: 1px solid var(--bar);
   border-radius: 999px;
-  color: var(--lvl-4);
 }
 
 @media (max-width: 760px) {
