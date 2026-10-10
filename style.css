@@ -112,8 +112,7 @@ h1 {
   color: var(--muted);
 }
 
-input[type="text"],
-input[type="number"] {
+input[type="text"] {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
@@ -710,9 +709,33 @@ svg {
 
 .goal-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
+  gap: 4px;
   margin-bottom: 20px;
+}
+
+/* One row per muscle, like the volume list: name, slider, value. */
+.goal-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 56px;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.goal-row .slider-value {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.goal-row .slider-value.is-empty {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .body-map {

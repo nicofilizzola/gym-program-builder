@@ -1,6 +1,6 @@
 import { MUSCLE_GROUPS } from './muscles.js';
 import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from './volume.js';
-import { LIMITS, validateExercise, validateGoal } from './validate.js';
+import { LIMITS, validateExercise } from './validate.js';
 import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 import { serializeSession, parseSession, exportFileName } from './session-file.js';
@@ -112,27 +112,40 @@ function renderPanel() {
   }));
 }
 
-/** Build the goal fields once, one per muscle. */
+/** Build the goal sliders once, one row per muscle. 0 on the slider means no goal. */
 function renderGoalFields() {
   goalFields.replaceChildren(...MUSCLE_GROUPS.map((muscle) => {
-    const item = document.createElement('div');
-    item.innerHTML = `
-      <label class="field"><span></span><input type="number" min="0.5" step="0.5" inputmode="decimal"></label>
-      <p class="error"></p>`;
-    item.querySelector('span').textContent = muscle;
-    item.querySelector('input').dataset.goal = muscle;
-    item.querySelector('.error').dataset.goalError = muscle;
-    return item;
+    const row = document.createElement('div');
+    row.className = 'goal-row';
+    row.innerHTML = `
+      <span class="goal-name"></span>
+      <div class="slider"><span class="slider-fill"></span>
+        <input type="range" min="0" max="${LIMITS.goal.max}" step="${LIMITS.goal.step}"></div>
+      <span class="slider-value" aria-hidden="true"></span>`;
+    row.querySelector('.goal-name').textContent = muscle;
+    const input = row.querySelector('input');
+    input.dataset.goal = muscle;
+    input.setAttribute('aria-label', `${muscle} goal`);
+    return row;
   }));
 }
 
-/** Show the applied goals in the fields and drop any discarded text and errors. */
+/** Show a goal slider's value text and fill; 0 reads `No goal`. */
+function showGoal(input) {
+  const value = input.valueAsNumber;
+  const text = input.closest('.goal-row').querySelector('.slider-value');
+  text.textContent = value === 0 ? 'No goal' : String(value);
+  text.classList.toggle('is-empty', value === 0);
+  if (value === 0) input.setAttribute('aria-valuetext', 'No goal');
+  else input.removeAttribute('aria-valuetext');
+  setFill(input.parentElement, 0, value / LIMITS.goal.max);
+}
+
+/** Show the applied goals on the sliders; a muscle without a goal sits at 0. */
 function syncGoalFields() {
   goalFields.querySelectorAll('[data-goal]').forEach((input) => {
-    input.value = session.goals[input.dataset.goal] ?? '';
-  });
-  goalFields.querySelectorAll('[data-goal-error]').forEach((el) => {
-    el.textContent = '';
+    input.value = session.goals[input.dataset.goal] ?? 0;
+    showGoal(input);
   });
 }
 
@@ -448,19 +461,14 @@ document.querySelector('#open-goals').addEventListener('click', () => {
   goalsDialog.showModal();
 });
 
-/** Apply a goal as it is typed. Empty clears it; an invalid value shows an error and keeps the old goal. */
+/** Apply a goal while sliding. 0 clears it. */
 goalFields.addEventListener('input', (event) => {
   const { goal: muscle } = event.target.dataset;
   if (!muscle) return;
-  const error = goalFields.querySelector(`[data-goal-error="${muscle}"]`);
-  if (event.target.value.trim() === '' && !event.target.validity.badInput) {
-    delete session.goals[muscle];
-    error.textContent = '';
-  } else {
-    const message = validateGoal(event.target.valueAsNumber);
-    error.textContent = message ?? '';
-    if (!message) session.goals[muscle] = event.target.valueAsNumber;
-  }
+  const value = event.target.valueAsNumber;
+  if (value === 0) delete session.goals[muscle];
+  else session.goals[muscle] = value;
+  showGoal(event.target);
   refresh();
 });
 

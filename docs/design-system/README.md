@@ -141,7 +141,7 @@ Highlight states, set from the selected muscle via `data-hit`:
    - Goals never change the body map: it always shows absolute heat.
 
 ### Goals dialog
-Native `<dialog>` opened with `showModal()` from "Set goals": `--surface`, `--radius`, `min(420px, 100vw − 32px)` wide, 60% black backdrop. One number field per muscle (`step 0.5`) in a two-column grid at every width, so "Done" stays on screen on a phone. Values apply to the session as they are typed; an invalid value shows its error under the field and leaves the previous goal in place; an empty field clears the goal. "Done" (primary button), Escape or a backdrop click close it, and focus returns to "Set goals". On open, the fields show the applied goals with no errors.
+Native `<dialog>` opened with `showModal()` from "Set goals": `--surface`, `--radius`, `min(420px, 100vw − 32px)` wide, 60% black backdrop. One slider row per muscle in a single column, like the volume list (`.goal-row`: `88px` name, slider, `56px` value). Each slider runs from 0 to `LIMITS.goal.max` in `LIMITS.goal.step` steps. Its far-left 0 means no goal, and reads `No goal` (`.is-empty`, `--muted`, with `aria-valuetext="No goal"`). Values apply to the session while sliding; a slider at 0 deletes the goal. A slider cannot hold an invalid value, so the dialog has no goal errors. "Done" (primary button), Escape or a backdrop click close it, and focus returns to "Set goals". On open, the sliders show the applied goals (0 for a muscle without one).
 
 ## Body map
 
