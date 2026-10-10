@@ -6,9 +6,9 @@ When you change a value, change it in `style.css` first and then update this fil
 
 ## Principles
 
-- **One accent.** Orange (`--accent`) marks actions, selected state and training heat. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`), reserved for the volume-list bars and status text.
+- **One accent.** Orange (`--accent`) marks actions and selected state. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`) plus `--untrained`, reserved for the volume-list bars, status text and body map.
 - **Volume is the hero.** The body map and volume list must always be visible while editing (sticky sidebar on desktop, pinned bottom strip on mobile).
-- **Colour never stands alone.** Every heat colour is paired with a number (volume list, readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with its status text and `volume / goal` value, and every highlight with a text tag.
+- **Colour never stands alone.** Every body map colour is paired with the volume list's number and status text (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with its status text and `volume / goal` value, and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
 
 ## Colour tokens
@@ -23,29 +23,29 @@ When you change a value, change it in `style.css` first and then update this fil
 | `--muted` | `#94a3b8` | Labels, captions, secondary text |
 | `--accent` | `#f97316` | Primary action, selected chip, focus ring, primary highlight |
 | `--accent-soft` | `rgba(249,115,22,.14)` | Tinted backgrounds (secondary chip, pressed row, focus halo) |
+| `--accent-deep` | `#c2410c` | Secondary highlight: card left edge and tag outline |
 | `--on-accent` | `#0f172a` | Text on `--accent` |
 | `--error` | `#fca5a5` | Validation messages |
 | `--body` | `#252f3c` | Body-map silhouette (non-muscle areas) |
 | `--under` / `--under-soft` | `#fbbf24` / `rgba(251,191,36,.14)` | Volume bar and status text, under the goal |
 | `--met` / `--met-soft` | `#4ade80` / `rgba(74,222,128,.14)` | Volume bar and status text, goal met |
 | `--over` / `--over-soft` | `#f87171` / `rgba(248,113,113,.14)` | Volume bar and status text, over the goal |
-| `--no-goal` / `--no-goal-soft` | `#94a3b8` / `rgba(148,163,184,.14)` | Volume bar without a goal; split key swatches |
+| `--no-goal` / `--no-goal-soft` | `#94a3b8` / `rgba(148,163,184,.14)` | Volume bar and body map muscle without a goal; split key swatches |
+| `--untrained` | `#3a4656` | Body map muscle with no goal and no volume |
 
 Placeholder and hint text use `#64748b`. Contrast on `--surface` is at least 4.5:1 for `--text`, `--muted` and `--error`.
 
-### Heat scale (muscle volume)
+### Body map colours
 
-Used by the body map only (the volume-list bars show direct/indirect instead). Fixed, absolute bands so a colour means the same thing in every session. The mapping lives in the pure function `volumeLevel(sets)` in `src/volume.js` (unit-tested); CSS only maps a `data-level` attribute to a colour.
+The body map uses the volume bars' colours: one solid fill per muscle, with no direct/indirect split and no legend (the volume list and readout carry the numbers and status as text). The pure function `bodyMapTone(volume, goal)` in `src/volume.js` (unit-tested, built on `goalStatus`) picks the tone; CSS only maps a `data-tone` attribute to a colour.
 
-| Level | Sets | Token | Value |
-|---|---|---|---|
-| 0 | 0 | `--lvl-0` | `#3a4656` |
-| 1 | > 0 and < 4 | `--lvl-1` | `#7c2d12` |
-| 2 | 4 – 6.5 | `--lvl-2` | `#c2410c` |
-| 3 | 7 – 9.5 | `--lvl-3` | `#f97316` |
-| 4 | 10+ | `--lvl-4` | `#fbbf24` |
-
-If the bands change, update `LEVEL_LIMITS` in `src/volume.js`, its test, the legend in `index.html`, and this table together.
+| Tone | When | Token |
+|---|---|---|
+| `under` | goal set, volume below it (including 0 volume) | `--under` |
+| `met` | goal set, volume equal to it | `--met` |
+| `over` | goal set, volume above it | `--over` |
+| `trained` | no goal, volume above 0 | `--no-goal` |
+| `untrained` | no goal, 0 volume | `--untrained` |
 
 ## Typography
 
@@ -62,7 +62,7 @@ Loaded from Google Fonts in `index.html`; falls back to `Arial Narrow` / `system
 | Panel `h2` | 1.5rem (1.1rem on mobile) |
 | Body / inputs | 16px, line-height 1.5 |
 | Labels, chips, list rows | 0.875rem |
-| Captions, legend, tags | 0.75rem |
+| Captions, tags | 0.75rem |
 
 Numbers in the volume list use `font-variant-numeric: tabular-nums` so columns line up. Volumes are shown as-is (e.g. `4.5`), never rounded.
 
@@ -75,7 +75,7 @@ Numbers in the volume list use `font-variant-numeric: tabular-nums` so columns l
 ## Layout
 
 - **Desktop (> 760px):** two-column grid, `minmax(0, 1fr) 340px`, max width 1120px, sticky panel at `top: 24px`.
-- **Mobile (≤ 760px):** single column (`minmax(0, 1fr)`, which prevents the chip row from causing horizontal scroll); the panel is pinned to the bottom with 120px-tall figures, the legend hidden, and the muscle list turned into one horizontally scrolling row of chips.
+- **Mobile (≤ 760px):** single column (`minmax(0, 1fr)`, which prevents the chip row from causing horizontal scroll); the panel is pinned to the bottom with 120px-tall figures and the muscle list turned into one horizontally scrolling row of chips.
 
 ## Components
 
@@ -115,7 +115,7 @@ Highlight states, set from the selected muscle via `data-hit`:
 | `data-hit` | Look | Tag |
 |---|---|---|
 | `primary` | Solid `--accent` border + glow | Solid orange "Primary · Muscle" |
-| `secondary` | Dashed border, `--lvl-2` left border | Outlined "Secondary · Muscle" |
+| `secondary` | Dashed border, `--accent-deep` left border | Outlined "Secondary · Muscle" |
 | `none` | 45% opacity | none |
 | empty | Default | none |
 
@@ -129,16 +129,15 @@ Highlight states, set from the selected muscle via `data-hit`:
 1. Header: "Volume" + "sets per muscle" + the "Set goals" secondary button.
 2. **Body map**: front and back figures side by side (`src/body.js`).
 3. **Readout** (`aria-live="polite"`): hovered or selected muscle, its sets with the direct/indirect split, and exercise count (`Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`); otherwise a hint.
-4. **Legend** of the five heat levels (`aria-label="Body map colour scale"`). It describes the body map only.
-5. **Split key**: "Direct" (`--no-goal` swatch) and "Indirect" (`--no-goal-soft` swatch with an inset `--no-goal` outline), left-aligned above the list, `aria-hidden` because each row carries the split as text. Hidden on mobile, with the bars.
-6. **Volume list**: one `<button aria-pressed>` per muscle with name, bar and value. This is the keyboard and screen-reader equivalent of the body map, which is `aria-hidden`.
-   - **Bar**: two stacked segments from `barSegments` in `src/volume.js`: direct (solid `--bar`) then indirect (`--bar-soft` fill with an inset 1px `--bar` outline). Each row's `data-status` sets `--bar` / `--bar-soft` to the under, met or over pair, or to the no-goal pair without a goal. All bars share one scale from `barScale`: the largest goal sits at 75% of the bar, and the scale grows so the largest volume always fits; with no goals the largest volume fills 75%. Nothing is cut off. The bar does not use heat colours.
+4. **Split key**: "Direct" (`--no-goal` swatch) and "Indirect" (`--no-goal-soft` swatch with an inset `--no-goal` outline), left-aligned above the list, `aria-hidden` because each row carries the split as text. Hidden on mobile, with the bars.
+5. **Volume list**: one `<button aria-pressed>` per muscle with name, bar and value. This is the keyboard and screen-reader equivalent of the body map, which is `aria-hidden`.
+   - **Bar**: two stacked segments from `barSegments` in `src/volume.js`: direct (solid `--bar`) then indirect (`--bar-soft` fill with an inset 1px `--bar` outline). Each row's `data-status` sets `--bar` / `--bar-soft` to the under, met or over pair, or to the no-goal pair without a goal. All bars share one scale from `barScale`: the largest goal sits at 75% of the bar, and the scale grows so the largest volume always fits; with no goals the largest volume fills 75%. Nothing is cut off. The body map uses the same colours (see Body map colours).
    - **Goal marker**: a 2px × 14px `--text` tick (`.bar-goal`, `aria-hidden`) at `goal / scale`, drawn over the fill, so overshoot shows as fill past the marker. Hidden without a goal.
    - A visually hidden `(3 direct · 2 indirect)` inside each button puts the split in its accessible name. `.volume-row` is `position: relative` so that absolutely positioned text cannot widen the mobile chip scroller.
    - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar shows the goal marker, and a text status follows in the bar's colour: `under` in `--under`, `met` in `--met`, `over` in `--over` with an outline pill.
    - **Without a goal** the row keeps a plain value. Once any goal is set, the list gets `.has-goals` and every row uses fixed value and status columns (`76px 1fr 72px 44px`) so bars stay aligned and comparable.
    - The readout adds the goal and status for a muscle that has one (`Chest 7 / 10 sets (7 direct · 0 indirect) · under · 2 exercises`).
-   - Goals never change the body map: it always shows absolute heat.
+   - Goals colour the body map the same way as the bars (see Body map colours).
 
 ### Goals dialog
 Native `<dialog>` opened with `showModal()` from "Set goals": `--surface`, `--radius`, `min(420px, 100vw − 32px)` wide, 60% black backdrop. One slider row per muscle in a single column, like the volume list (`.goal-row`: `88px` name, slider, `56px` value). On phones (≤ 760px) each row stacks, with name and value on one line and a full-width slider below. "Done" is `position: sticky` at the bottom, so it stays on screen while the list scrolls. Each slider runs from 0 to `LIMITS.goal.max` in `LIMITS.goal.step` steps. Its far-left 0 means no goal, and reads `No goal` (`.is-empty`, `--muted`, with `aria-valuetext="No goal"`). Values apply to the session while sliding; a slider at 0 deletes the goal. A slider cannot hold an invalid value, so the dialog has no goal errors. "Done" (primary button), Escape or a backdrop click close it, and focus returns to "Set goals". On open, the sliders show the applied goals (0 for a muscle without one).
@@ -152,7 +151,7 @@ Native `<dialog>` opened with `showModal()` from "Set goals": `--surface`, `--ra
 | Front | Chest, Shoulders, Biceps, Abs, Quads |
 | Back | Upper back, Lats, Shoulders, Triceps, Hamstrings, Calves |
 
-Each muscle is a `<g class="region" data-muscle="…">`. The app sets `data-level` (heat) and the classes `is-selected` / `is-focus` on it. Muscle names must match `MUSCLE_GROUPS` exactly.
+Each muscle is a `<g class="region" data-muscle="…">`. The app sets `data-tone` (from `bodyMapTone`) and the classes `is-selected` / `is-focus` on it. Muscle names must match `MUSCLE_GROUPS` exactly.
 
 ## Interaction
 
@@ -166,7 +165,7 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 
 ## Motion
 
-- 150ms for colour/border changes on controls, 200–250ms for heat fills, bars and card highlights, `ease` timing.
+- 150ms for colour/border changes on controls, 200–250ms for body map fills, bars and card highlights, `ease` timing.
 - Only colour, opacity, width of bars and a tiny press scale are animated.
 - `prefers-reduced-motion: reduce` turns all transitions off.
 

@@ -238,6 +238,7 @@ function refresh() {
     const goal = session.goals[muscle];
     const result = goalStatus(sets, goal);
     row.setAttribute('aria-pressed', String(muscle === selectedMuscle));
+    row.classList.toggle('is-zero', sets === 0);
     row.querySelector('.value').textContent = result ? `${sets} / ${goal}` : String(sets);
     row.querySelector('.status').textContent = result?.status ?? '';
     const fill = barSegments(split[muscle].direct, split[muscle].indirect, scale);

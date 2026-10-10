@@ -7,16 +7,10 @@
   --muted: #94a3b8;
   --accent: #f97316;
   --accent-soft: rgba(249, 115, 22, 0.14);
+  --accent-deep: #c2410c; /* secondary highlight edge */
   --on-accent: #0f172a;
   --error: #fca5a5;
   --body: #252f3c;
-
-  /* Heat scale for muscle volume, level 0 (untrained) to 4 (10+ sets). */
-  --lvl-0: #3a4656;
-  --lvl-1: #7c2d12;
-  --lvl-2: #c2410c;
-  --lvl-3: #f97316;
-  --lvl-4: #fbbf24;
 
   /* Goal status colours for the volume-list bars and status text. */
   --under: #fbbf24;
@@ -27,6 +21,7 @@
   --over-soft: rgba(248, 113, 113, 0.14);
   --no-goal: #94a3b8;
   --no-goal-soft: rgba(148, 163, 184, 0.14);
+  --untrained: #3a4656; /* body map muscle with no goal and no volume */
 
   --radius: 12px;
   --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
@@ -189,7 +184,7 @@ input:focus-visible {
 
 .exercise[data-hit="secondary"] {
   border-color: var(--border);
-  border-left-color: var(--lvl-2);
+  border-left-color: var(--accent-deep);
   border-style: dashed;
   border-left-style: solid;
 }
@@ -231,8 +226,8 @@ input:focus-visible {
 
 .exercise[data-hit="secondary"] .hit-tag {
   background: transparent;
-  color: var(--lvl-3);
-  border: 1px solid var(--lvl-2);
+  color: var(--accent);
+  border: 1px solid var(--accent-deep);
 }
 
 .icon-btn {
@@ -780,16 +775,17 @@ svg {
 }
 
 .region path {
-  fill: var(--lvl-0);
+  fill: var(--untrained);
   stroke: var(--surface);
   stroke-width: 0.8;
   transition: fill 250ms ease, opacity 200ms ease, stroke 150ms ease;
 }
 
-.region[data-level="1"] path { fill: var(--lvl-1); }
-.region[data-level="2"] path { fill: var(--lvl-2); }
-.region[data-level="3"] path { fill: var(--lvl-3); }
-.region[data-level="4"] path { fill: var(--lvl-4); }
+/* Same colours as the volume bars: goal status, or trained/untrained without a goal. */
+.region[data-tone="trained"] path { fill: var(--no-goal); }
+.region[data-tone="under"] path { fill: var(--under); }
+.region[data-tone="met"] path { fill: var(--met); }
+.region[data-tone="over"] path { fill: var(--over); }
 
 .has-selection .region:not(.is-selected) path {
   opacity: 0.4;
@@ -813,33 +809,6 @@ svg {
   color: var(--text);
   font-weight: 600;
 }
-
-.legend {
-  list-style: none;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin: 8px 0 16px;
-  padding: 0;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.legend li::before {
-  content: '';
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 4px;
-  border-radius: 3px;
-  vertical-align: -1px;
-  background: var(--lvl-0);
-}
-
-.legend [data-level="1"]::before { background: var(--lvl-1); }
-.legend [data-level="2"]::before { background: var(--lvl-2); }
-.legend [data-level="3"]::before { background: var(--lvl-3); }
-.legend [data-level="4"]::before { background: var(--lvl-4); }
 
 .volume-list {
   list-style: none;
@@ -963,7 +932,7 @@ svg {
   list-style: none;
   display: flex;
   gap: 12px;
-  margin: 0 0 8px;
+  margin: 16px 0 8px; /* the gap the removed heat legend used to give below the readout */
   padding: 0;
   font-size: 0.75rem;
   color: var(--muted);
@@ -1000,7 +969,7 @@ svg {
   font-variant-numeric: tabular-nums;
 }
 
-.volume-row[data-level="0"] .value {
+.volume-row.is-zero .value {
   color: var(--muted);
 }
 
@@ -1073,7 +1042,6 @@ svg {
     font-size: 0.85rem;
   }
 
-  .legend,
   .split-key {
     display: none;
   }
