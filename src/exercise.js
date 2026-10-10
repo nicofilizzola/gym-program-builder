@@ -38,6 +38,19 @@ export function toggleMuscle(ex, role, muscle) {
 }
 
 /**
+ * Set one end of a rep range. Moving min above max, or max below min, pushes the other end along,
+ * so min ≤ max always holds.
+ * @param {{ min: number, max: number }} repRange
+ * @param {'min' | 'max'} bound
+ * @param {number} value
+ * @returns {{ min: number, max: number }} a new range; `repRange` is not mutated
+ */
+export function setRepBound(repRange, bound, value) {
+  const range = { ...repRange, [bound]: value };
+  return range.min > range.max ? { min: value, max: value } : range;
+}
+
+/**
  * Move one exercise to a new position. `to` is clamped to the list bounds;
  * an out-of-range `from` leaves the order unchanged.
  * Also used for any list kept in session order, such as collapsed flags.

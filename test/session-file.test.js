@@ -86,7 +86,7 @@ test('rejects wrong types without throwing', () => {
   for (const text of texts) {
     assert.equal(errorOf(text), 'Exercise 1: invalid format.', text);
   }
-  assert.equal(errorOf(exerciseFile({ sets: '4' })), 'Exercise 1: Sets must be a whole number of at least 1.');
+  assert.equal(errorOf(exerciseFile({ sets: '4' })), 'Exercise 1: Sets must be a whole number from 1 to 10.');
 });
 
 test('rejects unknown muscle', () => {
@@ -103,7 +103,7 @@ test('rejects exercises the form would reject', () => {
   assert.equal(errorOf(exerciseFile({ name: '  ' })), 'Exercise 1: Name is required.');
   assert.equal(
     errorOf(exerciseFile({ repRange: { min: 10, max: 8 } })),
-    'Exercise 1: Reps must be whole numbers of at least 1, with min ≤ max.',
+    'Exercise 1: Reps must be whole numbers from 1 to 30, with min ≤ max.',
   );
   assert.equal(errorOf(exerciseFile({ primaryMuscles: [] })), 'Exercise 1: Pick at least one primary muscle.');
   assert.equal(
@@ -114,10 +114,10 @@ test('rejects exercises the form would reject', () => {
 
 test('rejects bad goals', () => {
   assert.equal(errorOf(file({ goals: { Glutes: 5 } })), 'Goal for unknown muscle group "Glutes".');
-  for (const value of [0, 7.3, '7', null]) {
+  for (const value of [0, 7.3, '7', null, 30.5, 40]) {
     assert.equal(
       errorOf(file({ goals: { Chest: value } })),
-      'Goal for Chest must be a positive multiple of 0.5.',
+      'Goal for Chest must be a multiple of 0.5 from 0.5 to 30.',
       `goal=${value}`,
     );
   }
@@ -125,4 +125,12 @@ test('rejects bad goals', () => {
 
 test('export file name uses local date', () => {
   assert.equal(exportFileName(new Date(2026, 0, 5)), 'gym-session-2026-01-05.json');
+});
+
+test('rejects values outside the slider limits', () => {
+  assert.equal(errorOf(exerciseFile({ sets: 15 })), 'Exercise 1: Sets must be a whole number from 1 to 10.');
+  assert.equal(
+    errorOf(exerciseFile({ repRange: { min: 8, max: 40 } })),
+    'Exercise 1: Reps must be whole numbers from 1 to 30, with min ≤ max.',
+  );
 });

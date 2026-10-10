@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { validateExercise, validateGoal } from './validate.js';
+import { GOAL_RULE, validateExercise, validateGoal } from './validate.js';
 
 /** @typedef {import('./volume.js').Exercise} Exercise */
 /** @typedef {{ exercises: Exercise[], goals: Partial<Record<string, number>> }} Session */
@@ -81,7 +81,7 @@ export function parseSession(text) {
   for (const [muscle, goal] of Object.entries(data.goals)) {
     if (!MUSCLE_GROUPS.includes(muscle)) return { error: `Goal for unknown muscle group "${muscle}".` };
     if (typeof goal !== 'number' || validateGoal(goal)) {
-      return { error: `Goal for ${muscle} must be a positive multiple of 0.5.` };
+      return { error: `Goal for ${muscle} ${GOAL_RULE}` };
     }
   }
 

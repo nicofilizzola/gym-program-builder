@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExercise, exerciseSummary, moveExercise, toggleMuscle } from '../src/exercise.js';
+import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from '../src/exercise.js';
 
 test('createExercise returns independent defaults', () => {
   const a = createExercise();
@@ -99,4 +99,22 @@ test('exerciseSummary treats a blank name as untitled', () => {
 
 test('moveExercise moves any array, such as collapsed flags', () => {
   assert.deepEqual(moveExercise([true, false, false], 0, 2), [false, false, true]);
+});
+
+test('setRepBound moves one bound inside the range', () => {
+  assert.deepEqual(setRepBound({ min: 8, max: 12 }, 'min', 10), { min: 10, max: 12 });
+  assert.deepEqual(setRepBound({ min: 8, max: 12 }, 'max', 20), { min: 8, max: 20 });
+});
+
+test('setRepBound pushes the other bound', () => {
+  assert.deepEqual(setRepBound({ min: 8, max: 12 }, 'min', 15), { min: 15, max: 15 });
+  assert.deepEqual(setRepBound({ min: 8, max: 12 }, 'max', 5), { min: 5, max: 5 });
+  assert.deepEqual(setRepBound({ min: 8, max: 8 }, 'min', 9), { min: 9, max: 9 });
+  assert.deepEqual(setRepBound({ min: 30, max: 30 }, 'max', 29), { min: 29, max: 29 });
+});
+
+test('setRepBound does not mutate', () => {
+  const range = { min: 8, max: 12 };
+  setRepBound(range, 'min', 15);
+  assert.deepEqual(range, { min: 8, max: 12 });
 });
