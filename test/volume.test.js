@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS } from '../src/muscles.js';
-import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from '../src/volume.js';
+import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -50,11 +50,6 @@ test('invalid sets contribute 0', () => {
 test('keys follow MUSCLE_GROUPS order', () => {
   const result = computeVolume({ exercises: [exercise(2, ['Calves'], ['Chest'])] });
   assert.deepEqual(Object.keys(result), [...MUSCLE_GROUPS]);
-});
-
-test('volumeLevel maps sets to fixed heat bands', () => {
-  const cases = [[0, 0], [0.5, 1], [3.5, 1], [4, 2], [6.5, 2], [7, 3], [9.5, 3], [10, 4], [25, 4]];
-  for (const [sets, level] of cases) assert.equal(volumeLevel(sets), level, `sets=${sets}`);
 });
 
 test('goal worked example from spec', () => {
@@ -129,6 +124,30 @@ test('barSegments caps the total at the scale, direct first', () => {
 });
 
 const GOALS = { Chest: 7, Triceps: 4, Lats: 6, Quads: 8 };
+
+test('bodyMapTone worked example from spec', () => {
+  const volume = computeVolume(WORKED_EXAMPLE);
+  const tones = (goals) => Object.fromEntries(MUSCLE_GROUPS.map((m) => [m, bodyMapTone(volume[m], goals[m])]));
+  assert.deepEqual(tones(GOALS), {
+    Chest: 'met', Lats: 'under', 'Upper back': 'trained', Biceps: 'trained', Triceps: 'over',
+    Shoulders: 'trained', Abs: 'untrained', Quads: 'under', Hamstrings: 'untrained', Calves: 'untrained',
+  });
+  assert.deepEqual(tones({}), {
+    Chest: 'trained', Lats: 'trained', 'Upper back': 'trained', Biceps: 'trained', Triceps: 'trained',
+    Shoulders: 'trained', Abs: 'untrained', Quads: 'untrained', Hamstrings: 'untrained', Calves: 'untrained',
+  });
+});
+
+test('bodyMapTone: a goal at 0 volume is under, not untrained', () => {
+  assert.equal(bodyMapTone(0, 6), 'under');
+  assert.equal(bodyMapTone(0, undefined), 'untrained');
+  assert.equal(bodyMapTone(0.5, undefined), 'trained');
+});
+
+test('volume.js no longer exports the heat scale', async () => {
+  const mod = await import('../src/volume.js');
+  assert.equal('volumeLevel' in mod, false);
+});
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ≈ ${expected}`);
 
 test('barScale worked example from spec', () => {

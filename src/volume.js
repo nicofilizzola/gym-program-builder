@@ -59,21 +59,6 @@ export function barScale(volume, goals) {
   return maxVolume > 0 ? maxVolume / 0.75 : 1;
 }
 
-/** Upper bounds (exclusive) of heat levels 1–3; 10+ sets is level 4. */
-const LEVEL_LIMITS = [4, 7, 10];
-
-/**
- * Heat level for the body map, on fixed bands so colours mean the same in every session:
- * 0 = untrained, 1 = under 4 sets, 2 = 4–6.5, 3 = 7–9.5, 4 = 10+.
- * @param {number} sets
- * @returns {0 | 1 | 2 | 3 | 4}
- */
-export function volumeLevel(sets) {
-  if (sets <= 0) return 0;
-  const i = LEVEL_LIMITS.findIndex((limit) => sets < limit);
-  return i === -1 ? 4 : i + 1;
-}
-
 /**
  * How a muscle's volume compares to its goal. Volume and goal are multiples of 0.5, so `===` is exact.
  * @param {number} volume
@@ -94,4 +79,15 @@ export function goalStatus(volume, goal) {
  */
 export function visibleMuscles(volume, goals) {
   return MUSCLE_GROUPS.filter((muscle) => goals[muscle] !== undefined || volume[muscle] > 0);
+}
+
+/**
+ * Body map colour for one muscle, from the same goal status as its bar.
+ * A muscle with a goal is under, met or over (under at 0 volume); without one it is trained or untrained.
+ * @param {number} volume
+ * @param {number | undefined} goal
+ * @returns {'under' | 'met' | 'over' | 'trained' | 'untrained'}
+ */
+export function bodyMapTone(volume, goal) {
+  return goalStatus(volume, goal)?.status ?? (volume > 0 ? 'trained' : 'untrained');
 }
