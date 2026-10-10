@@ -155,6 +155,24 @@ function setOpen(part, open) {
   part.toggleAttribute('inert', !open);
 }
 
+/**
+ * Scroll a field into view once its card part has finished opening, so it is not measured at 0 height.
+ * Reveals at once when nothing is animating (the part was already open, or motion is reduced).
+ */
+function revealWhenOpen(part, field) {
+  const reveal = () => {
+    part.firstElementChild.scrollTop = 0;
+    field.scrollIntoView({ block: 'center' });
+  };
+  getComputedStyle(part).gridTemplateRows; // flush styles so a starting transition is visible to getAnimations()
+  if (part.getAnimations().length === 0) return reveal();
+  part.addEventListener('transitionend', function onEnd(event) {
+    if (event.target !== part || event.propertyName !== 'grid-template-rows') return;
+    part.removeEventListener('transitionend', onEnd);
+    reveal();
+  });
+}
+
 /** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag and drops a now-stale file message. */
 function renderExercises() {
   drag = null;
@@ -425,7 +443,10 @@ document.querySelector('#export-session').addEventListener('click', () => {
     collapsed[invalid] = false;
     refresh();
     const [firstError] = Object.keys(validateExercise(session.exercises[invalid]));
-    list.children[invalid].querySelector(ERROR_FIELDS[firstError]).focus();
+    const card = list.children[invalid];
+    const field = card.querySelector(ERROR_FIELDS[firstError]);
+    field.focus({ preventScroll: true });
+    revealWhenOpen(card.querySelector('[data-collapse="body"]'), field);
     return;
   }
   const url = URL.createObjectURL(new Blob([serializeSession(session)], { type: 'application/json' }));

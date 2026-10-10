@@ -313,6 +313,12 @@ svg {
   transition: padding 200ms ease-out;
 }
 
+/* 4px of room below the fields so the last chip row's focus ring is not clipped; the margin keeps the layout. */
+.collapsible > .card-body {
+  padding-bottom: 4px;
+  margin-bottom: -4px;
+}
+
 /* The summary keeps the 1em space below it that it had as a plain paragraph. */
 .collapsible > .card-summary {
   padding-bottom: 1em;
