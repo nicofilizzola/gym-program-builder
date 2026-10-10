@@ -108,6 +108,8 @@ Secondary legend carries the hint "count as ½ set".
 
 A collapsed card hides its fields and shows a one-line summary below the header in `--muted` (for example `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders`). It wraps; it is never truncated.
 
+Collapsing and expanding slide: the summary and the fields each sit in a `.collapsible` wrapper whose single grid row animates between `1fr` and `0fr`, with opacity and the 12px gap below the header (`padding-top`) shrinking alongside, all 200ms `ease-out`. A closed part has `.is-closed` and `inert` (unfocusable, hidden from screen readers). The inner element has 4px of inline room (`margin: 0 -4px; padding-inline: 4px`) so input focus halos are not clipped by its `overflow: hidden`. Cards built fresh (load, add, import, reorder, remove) get their state before the first style pass, so they never animate; reduced motion makes it instant.
+
 "Expand all" / "Collapse all" secondary buttons sit right-aligned above the exercise list, hidden when there are no exercises. When export is refused, the exercise it names expands and focus moves to its first invalid field.
 
 Highlight states, set from the selected muscle via `data-hit`:
@@ -165,8 +167,8 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 
 ## Motion
 
-- 150ms for colour/border changes on controls, 200–250ms for body map fills, bars and card highlights, `ease` timing.
-- Only colour, opacity, width of bars and a tiny press scale are animated.
+- 150ms for colour/border changes on controls, 200–250ms for body map fills, bars and card highlights, `ease` timing; 200ms `ease-out` for card collapse/expand.
+- Only colour, opacity, width of bars, card collapse (grid row and padding) and a tiny press scale are animated.
 - `prefers-reduced-motion: reduce` turns all transitions off.
 
 ## Accessibility checklist

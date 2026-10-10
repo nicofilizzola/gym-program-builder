@@ -286,6 +286,43 @@ svg {
   transform: rotate(180deg);
 }
 
+/* Summary and fields slide open and closed: the row track animates from 1fr to 0fr while the part fades.
+   Cards built fresh get their state before the first style pass, so they never animate. */
+.exercise > .collapsible {
+  margin-top: 0;
+}
+
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 200ms ease-out, opacity 200ms ease-out;
+}
+
+.collapsible.is-closed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+/* The 12px gap below the header lives inside the part and shrinks with it (padding cannot be squeezed by 0fr). */
+.collapsible > * {
+  min-height: 0;
+  overflow: hidden;
+  margin: 0 -4px; /* 4px of room on each side so focus halos are not clipped */
+  padding: 12px 4px 0;
+  transition: padding 200ms ease-out;
+}
+
+/* The summary keeps the 1em space below it that it had as a plain paragraph. */
+.collapsible > .card-summary {
+  padding-bottom: 1em;
+}
+
+.collapsible.is-closed > * {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .card-summary {
   color: var(--muted);
   font-size: 0.875rem;

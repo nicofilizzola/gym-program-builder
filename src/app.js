@@ -68,8 +68,8 @@ const CARD_HTML = `
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
     </button>
   </div>
-  <p class="card-summary" data-summary hidden></p>
-  <div class="card-body">
+  <div class="collapsible" data-collapse="summary"><p class="card-summary" data-summary></p></div>
+  <div class="collapsible" data-collapse="body"><div class="card-body">
   <label class="field">Exercise name <input type="text" data-field="name" placeholder="e.g. Bench press" autocomplete="off"></label>
   <p class="error" data-error="name"></p>
   <div class="slider-field">
@@ -88,7 +88,7 @@ const CARD_HTML = `
   <fieldset class="chips primary"><legend>Primary muscles</legend>${muscleChips('primary')}</fieldset>
   <fieldset class="chips secondary"><legend>Secondary muscles <span class="hint">count as ½ set</span></legend>${muscleChips('secondary')}</fieldset>
   <p class="error" data-error="muscles"></p>
-  </div>`;
+  </div></div>`;
 
 /** Build the panel once; refresh() only updates levels and numbers, so hover state survives. */
 function renderPanel() {
@@ -149,6 +149,12 @@ function syncGoalFields() {
   });
 }
 
+/** Open or close a card's collapsible part; a closed part is unfocusable and hidden from screen readers. */
+function setOpen(part, open) {
+  part.classList.toggle('is-closed', !open);
+  part.toggleAttribute('inert', !open);
+}
+
 /** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag and drops a now-stale file message. */
 function renderExercises() {
   drag = null;
@@ -183,10 +189,9 @@ function refresh() {
     const ex = session.exercises[i];
     const errors = validateExercise(ex);
     const isCollapsed = collapsed[i];
-    card.querySelector('.card-body').hidden = isCollapsed;
-    const summary = card.querySelector('[data-summary]');
-    summary.hidden = !isCollapsed;
-    summary.textContent = exerciseSummary(ex);
+    setOpen(card.querySelector('[data-collapse="body"]'), !isCollapsed);
+    setOpen(card.querySelector('[data-collapse="summary"]'), isCollapsed);
+    card.querySelector('[data-summary]').textContent = exerciseSummary(ex);
     const toggle = card.querySelector('[data-action="toggle"]');
     toggle.setAttribute('aria-expanded', String(!isCollapsed));
     toggle.setAttribute('aria-label', isCollapsed ? 'Expand exercise' : 'Collapse exercise');
