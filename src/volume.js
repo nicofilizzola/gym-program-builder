@@ -34,15 +34,29 @@ export function computeVolume(session) {
 
 /**
  * Widths (0 to 1) of the bar's two segments on a shared scale, filled direct first;
- * indirect is cut off at the end of the bar.
+ * capped at the end of the bar.
  * @param {number} direct
  * @param {number} indirect
- * @param {number} scale the goal, or 10 when there is no goal
+ * @param {number} scale the shared scale from barScale
  * @returns {{ direct: number, indirect: number }}
  */
 export function barSegments(direct, indirect, scale) {
   const directFill = Math.min(direct / scale, 1);
   return { direct: directFill, indirect: Math.min(indirect / scale, 1 - directFill) };
+}
+
+/**
+ * Sets that fill a whole bar, shared by every row: the largest goal sits at 75%,
+ * growing to fit any larger volume; with no goal, the largest volume sits at 75%.
+ * @param {Record<string, number>} volume from computeVolume
+ * @param {Partial<Record<string, number>>} goals
+ * @returns {number} always > 0; 1 when there is no goal and no volume
+ */
+export function barScale(volume, goals) {
+  const maxVolume = Math.max(...Object.values(volume));
+  const goalValues = Object.values(goals);
+  if (goalValues.length > 0) return Math.max(Math.max(...goalValues) / 0.75, maxVolume);
+  return maxVolume > 0 ? maxVolume / 0.75 : 1;
 }
 
 /** Upper bounds (exclusive) of heat levels 1–3; 10+ sets is level 4. */
@@ -64,13 +78,12 @@ export function volumeLevel(sets) {
  * How a muscle's volume compares to its goal. Volume and goal are multiples of 0.5, so `===` is exact.
  * @param {number} volume
  * @param {number | undefined} goal
- * @returns {{ status: 'under' | 'met' | 'over', progress: number } | null}
- *   progress is volume ÷ goal capped at 1; null when there is no goal
+ * @returns {{ status: 'under' | 'met' | 'over' } | null} null when there is no goal
  */
 export function goalStatus(volume, goal) {
   if (goal === undefined) return null;
   const status = volume < goal ? 'under' : volume === goal ? 'met' : 'over';
-  return { status, progress: Math.min(volume / goal, 1) };
+  return { status };
 }
 
 /**

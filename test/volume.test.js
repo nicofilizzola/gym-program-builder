@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS } from '../src/muscles.js';
-import { barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from '../src/volume.js';
+import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles, volumeLevel } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -58,17 +58,17 @@ test('volumeLevel maps sets to fixed heat bands', () => {
 });
 
 test('goal worked example from spec', () => {
-  assert.deepEqual(goalStatus(7, 7), { status: 'met', progress: 1 });
-  assert.deepEqual(goalStatus(5, 4), { status: 'over', progress: 1 });
-  assert.deepEqual(goalStatus(3, 6), { status: 'under', progress: 0.5 });
-  assert.deepEqual(goalStatus(0, 8), { status: 'under', progress: 0 });
+  assert.deepEqual(goalStatus(7, 7), { status: 'met' });
+  assert.deepEqual(goalStatus(5, 4), { status: 'over' });
+  assert.deepEqual(goalStatus(3, 6), { status: 'under' });
+  assert.deepEqual(goalStatus(0, 8), { status: 'under' });
   assert.equal(goalStatus(1.5, undefined), null);
 });
 
 test('goal status works on half sets', () => {
-  assert.deepEqual(goalStatus(4.5, 4.5), { status: 'met', progress: 1 });
-  assert.deepEqual(goalStatus(12.5, 10), { status: 'over', progress: 1 });
-  assert.deepEqual(goalStatus(2.5, 10), { status: 'under', progress: 0.25 });
+  assert.deepEqual(goalStatus(4.5, 4.5), { status: 'met' });
+  assert.deepEqual(goalStatus(12.5, 10), { status: 'over' });
+  assert.deepEqual(goalStatus(2.5, 10), { status: 'under' });
 });
 
 const WORKED_EXAMPLE = {
@@ -126,6 +126,54 @@ test('barSegments caps the total at the scale, direct first', () => {
   assert.deepEqual(barSegments(12, 3, 10), { direct: 1, indirect: 0 });
   assert.deepEqual(barSegments(0, 6, 4), { direct: 0, indirect: 1 });
   assert.deepEqual(barSegments(5, 6, 10), { direct: 0.5, indirect: 0.5 }); // indirect cut off
+});
+
+const GOALS = { Chest: 7, Triceps: 4, Lats: 6, Quads: 8 };
+const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ≈ ${expected}`);
+
+test('barScale worked example from spec', () => {
+  const volume = computeVolume(WORKED_EXAMPLE);
+  const split = computeVolumeSplit(WORKED_EXAMPLE);
+  const scale = barScale(volume, GOALS);
+  close(scale, 32 / 3);
+  close(barSegments(split.Chest.direct, split.Chest.indirect, scale).direct, 0.65625);
+  const triceps = barSegments(split.Triceps.direct, split.Triceps.indirect, scale);
+  close(triceps.direct, 0.28125);
+  close(triceps.indirect, 0.1875);
+  close(barSegments(split.Shoulders.direct, split.Shoulders.indirect, scale).indirect, 0.328125);
+  close(barSegments(split.Biceps.direct, split.Biceps.indirect, scale).indirect, 0.140625);
+  close(GOALS.Chest / scale, 0.65625); // markers
+  close(GOALS.Triceps / scale, 0.375);
+  close(GOALS.Lats / scale, 0.5625);
+  close(GOALS.Quads / scale, 0.75);
+});
+
+test('barScale with no goals puts the largest volume at 75%', () => {
+  close(barScale(computeVolume(WORKED_EXAMPLE), {}), 28 / 3);
+});
+
+test('barScale grows to fit a volume past the largest goal', () => {
+  const scale = barScale(computeVolume(WORKED_EXAMPLE), { Chest: 4 });
+  assert.equal(scale, 7);
+  close(4 / scale, 4 / 7);
+});
+
+test('barScale follows the remaining goals when the largest is cleared', () => {
+  const volume = computeVolume(WORKED_EXAMPLE);
+  close(barScale(volume, GOALS), 32 / 3);
+  close(barScale(volume, { Chest: 7, Triceps: 4, Lats: 6 }), 28 / 3);
+});
+
+test('barScale on an empty session', () => {
+  const volume = computeVolume({ exercises: [] });
+  assert.equal(barScale(volume, { Calves: 6 }), 8);
+  assert.equal(barScale(volume, {}), 1);
+});
+
+test('barScale ignores exercises with invalid sets', () => {
+  const volume = computeVolume({ exercises: [exercise(NaN, ['Quads']), exercise(0, ['Abs'])] });
+  assert.equal(barScale(volume, {}), 1);
+  assert.equal(barScale(volume, { Calves: 6 }), 8);
 });
 
 test('visibleMuscles worked example from spec, no goals', () => {
