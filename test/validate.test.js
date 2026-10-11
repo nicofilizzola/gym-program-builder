@@ -77,10 +77,10 @@ test('validate.js no longer exports validateSessionName', async () => {
   assert.equal('validateSessionName' in mod, false);
 });
 
-test('goals must be a multiple of 0.5 from 0.5 to 30', () => {
-  for (const goal of [0.5, 1, 4.5, 10, 30]) assert.equal(validateGoal(goal), null);
-  for (const goal of [0, -1, -0.5, 7.3, 0.25, NaN, Infinity, 30.5, 40]) {
-    assert.equal(validateGoal(goal), 'Goal must be a multiple of 0.5 from 0.5 to 30.');
+test('goals must be a multiple of 0.5 from 0.5 to 12', () => {
+  for (const goal of [0.5, 1, 4.5, 10, 12]) assert.equal(validateGoal(goal), null);
+  for (const goal of [0, -1, -0.5, 7.3, 0.25, NaN, Infinity, 12.5, 30, 30.5, 40]) {
+    assert.equal(validateGoal(goal), 'Goal must be a multiple of 0.5 from 0.5 to 12.');
   }
 });
 
@@ -88,7 +88,7 @@ test('LIMITS defines the slider limits once', () => {
   assert.deepEqual(LIMITS, {
     sets: { min: 1, max: 10, step: 1 },
     reps: { min: 1, max: 30, step: 1 },
-    goal: { min: 0.5, max: 30, step: 0.5 },
+    goal: { min: 0.5, max: 12, step: 0.5 },
   });
   assert.ok(Object.isFrozen(LIMITS));
 });

@@ -120,13 +120,14 @@ test('rejects exercises the form would reject', () => {
 
 test('rejects bad goals', () => {
   assert.equal(errorOf(file({ goals: { Glutes: 5 } })), 'Goal for unknown muscle group "Glutes".');
-  for (const value of [0, 7.3, '7', null, 30.5, 40]) {
+  for (const value of [0, 7.3, '7', null, 12.5, 30]) {
     assert.equal(
       errorOf(file({ goals: { Chest: value } })),
-      'Goal for Chest must be a multiple of 0.5 from 0.5 to 30.',
+      'Goal for Chest must be a multiple of 0.5 from 0.5 to 12.',
       `goal=${value}`,
     );
   }
+  assert.deepEqual(parseSession(file({ goals: { Chest: 12 } })).session.goals, { Chest: 12 });
 });
 
 test('export file name uses local date', () => {
