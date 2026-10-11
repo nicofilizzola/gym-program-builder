@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
-import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalRangeCheck, goalStatus, visibleMuscles } from './volume.js';
+import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles } from './volume.js';
 import { LIMITS, validateExercise } from './validate.js';
 import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
@@ -140,7 +140,6 @@ function renderGoalFields() {
       <div class="slider"><span class="slider-fill"></span>
         <input type="range" min="0" max="${LIMITS.goal.max}" step="${LIMITS.goal.step}"></div>
       <span class="slider-value" aria-hidden="true"></span>
-      <p class="goal-hint" aria-live="polite"></p>
       <div class="goal-info" id="goal-info-${index}" hidden>
         <p><strong>Productive sets</strong> <span class="info-sets"></span></p>
         <p><strong>Programming</strong> <span class="info-notes"></span></p>
@@ -156,32 +155,15 @@ function renderGoalFields() {
   }));
 }
 
-/** The line under a goal slider: the recommended range, or a warning when the goal is outside it. */
-function goalHint(muscle, goal) {
-  const { recommended } = MUSCLE_INFO[muscle];
-  const range = `${recommended.min}–${recommended.max}`;
-  const check = goalRangeCheck(goal, recommended);
-  if (check === 'above') return { text: `Above the recommended range (${range}).`, warning: true };
-  if (check === 'below') return { text: `Below the recommended range (${range}).`, warning: true };
-  return { text: `Recommended ${range}`, warning: false };
-}
-
-/** Show a goal slider's value text, fill and range hint; 0 reads `No goal`. */
+/** Show a goal slider's value text and fill; 0 reads `No goal`. */
 function showGoal(input) {
   const value = input.valueAsNumber;
-  const row = input.closest('.goal-row');
-  const text = row.querySelector('.slider-value');
+  const text = input.closest('.goal-row').querySelector('.slider-value');
   text.textContent = value === 0 ? 'No goal' : String(value);
   text.classList.toggle('is-empty', value === 0);
   if (value === 0) input.setAttribute('aria-valuetext', 'No goal');
   else input.removeAttribute('aria-valuetext');
   setFill(input.parentElement, 0, value / LIMITS.goal.max);
-
-  // Write the hint only when it changes, so its live region is not re-announced on every step.
-  const hint = row.querySelector('.goal-hint');
-  const { text: hintText, warning } = goalHint(input.dataset.goal, value === 0 ? undefined : value);
-  if (hint.textContent !== hintText) hint.textContent = hintText;
-  hint.classList.toggle('is-warning', warning);
 }
 
 /** Show or hide one muscle's info panel in the goals dialog. */

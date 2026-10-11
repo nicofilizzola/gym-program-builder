@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from '../src/muscles.js';
-import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalRangeCheck, goalStatus, visibleMuscles } from '../src/volume.js';
+import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -225,25 +225,10 @@ test('visibleMuscles keeps MUSCLE_GROUPS order, not goal-key order', () => {
   assert.deepEqual(visibleMuscles(computeVolume({ exercises: [] }), { Calves: 2, Chest: 3 }), ['Chest', 'Calves']);
 });
 
-test('MUSCLE_INFO has one entry per muscle with the spec ranges', () => {
+test('MUSCLE_INFO has one entry per muscle with info text', () => {
   assert.deepEqual(Object.keys(MUSCLE_INFO), [...MUSCLE_GROUPS]);
-  const ranges = Object.fromEntries(MUSCLE_GROUPS.map((m) => [m, `${MUSCLE_INFO[m].recommended.min}–${MUSCLE_INFO[m].recommended.max}`]));
-  assert.deepEqual(ranges, {
-    Chest: '4–8', Lats: '4–8', 'Upper back': '4–8', Biceps: '4–8', Triceps: '4–8',
-    'Front delts': '3–6', 'Side delts': '3–8', 'Rear delts': '3–8', Abs: '2–6',
-    Quads: '4–8', Hamstrings: '4–8', Calves: '4–8',
-  });
+  for (const m of MUSCLE_GROUPS) assert.deepEqual(Object.keys(MUSCLE_INFO[m]), ['sets', 'notes'], m);
   for (const m of MUSCLE_GROUPS) assert.ok(MUSCLE_INFO[m].sets && MUSCLE_INFO[m].notes, m);
   assert.equal(MUSCLE_INFO['Side delts'].notes, 'Direct lateral raises allow targeted loading with limited systemic fatigue.');
   assert.ok(Object.isFrozen(MUSCLE_INFO) && Object.isFrozen(MUSCLE_INFO.Chest));
-});
-
-test('goalRangeCheck worked example from spec', () => {
-  const r = (m) => MUSCLE_INFO[m].recommended;
-  assert.equal(goalRangeCheck(10, r('Chest')), 'above');
-  assert.equal(goalRangeCheck(8, r('Chest')), null);
-  assert.equal(goalRangeCheck(4, r('Chest')), null);
-  assert.equal(goalRangeCheck(2.5, r('Front delts')), 'below');
-  assert.equal(goalRangeCheck(2, r('Abs')), null);
-  assert.equal(goalRangeCheck(undefined, r('Side delts')), null);
 });

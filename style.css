@@ -841,18 +841,6 @@ svg {
   stroke-linejoin: round;
 }
 
-/* Recommended range under the slider; amber when the goal is outside it. */
-.goal-hint {
-  grid-column: 2 / -1;
-  margin: -2px 0 6px;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-.goal-hint.is-warning {
-  color: var(--under);
-}
-
 .goal-info {
   grid-column: 1 / -1;
   margin-bottom: 8px;
@@ -1267,13 +1255,8 @@ svg {
     grid-row: 2;
   }
 
-  .goal-hint {
-    grid-column: 1 / -1;
-    grid-row: 3;
-  }
-
   .goal-info {
-    grid-row: 4;
+    grid-row: 3;
   }
 }
 
