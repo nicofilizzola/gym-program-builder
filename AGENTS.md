@@ -20,10 +20,10 @@ Exercise
 ├── primaryMuscles: MuscleGroup[]
 └── secondaryMuscles: MuscleGroup[]
 
-Goal value: multiple of 0.5 from 0.5 to 30 (for example 10 or 4.5)
+Goal value: multiple of 0.5 from 0.5 to 12 (for example 10 or 4.5)
 
-MuscleGroup (fixed list, exactly these 10 values, in this order):
-  Chest, Lats, Upper back, Biceps, Triceps, Shoulders, Abs, Quads, Hamstrings, Calves
+MuscleGroup (fixed list, exactly these 12 values, in this order):
+  Chest, Lats, Upper back, Biceps, Triceps, Front delts, Side delts, Rear delts, Abs, Quads, Hamstrings, Calves
 ```
 
 ## Functional requirements
@@ -33,18 +33,18 @@ MuscleGroup (fixed list, exactly these 10 values, in this order):
 3. **Muscle group choices.** Primary and secondary muscle groups come only from the fixed `MuscleGroup` list above. Users cannot add custom muscle groups.
 4. **Live volume panel.** A panel always shows the session's volume per muscle group and updates on every edit. No submit or refresh step is needed. The volume list shows only the muscle groups that are relevant to the session (see requirement 12).
 5. **Reorder exercises.** Each exercise card has a drag handle. Dragging it with a mouse or by touch moves the exercise to a new position. When the handle has keyboard focus, the ↑ and ↓ arrow keys move the exercise up or down one place, and focus stays on the moved exercise's handle. Order does not affect volume.
-6. **Volume goals.** A "Set goals" button in the volume panel opens a dialog with one goal slider per muscle group, in `MuscleGroup` order (see requirement 14). The user can set, change, or clear a goal for any muscle; sliding to the far left (0, shown as `No goal`) clears it. Every goal is optional. Changes apply live while the user slides. A "Done" button, Escape, or a click outside the dialog closes it; there is no Save/Cancel step. A slider cannot hold an invalid value, so the dialog shows no goal errors.
+6. **Volume goals.** A "Set goals" button in the volume panel opens a dialog with one goal slider per muscle group, in `MuscleGroup` order (see requirement 14). The user can set, change, or clear a goal for any muscle; sliding to the far left (0, shown as `No goal`) clears it. Every goal is optional. Changes apply live while the user slides. A "Done" button, Escape, or a click outside the dialog closes it; there is no Save/Cancel step. A slider cannot hold an invalid value, so the dialog shows no goal errors; it only shows non-blocking recommended-range warnings (see requirement 19) and muscle info (see requirement 20).
 7. **Volume relative to goals.** In the volume list, a muscle with a goal shows its volume against the goal (for example `7 / 10`), a bar with a goal marker (see requirement 13), and a text status: **under**, **met**, or **over**. A muscle without a goal shows its volume alone, with no marker and no status. The body map uses the same goal-status colours (see requirement 15).
 8. **Export session.** An "Export" button downloads the current session (exercises in order, and goals) as a JSON file named `gym-session-YYYY-MM-DD.json`, using today's local date. Export is refused while any exercise is invalid: nothing is downloaded, and a message names the first invalid exercise (for example `Fix exercise 2 before exporting.`). A session with no exercises can be exported.
 9. **Import session.** An "Import" button opens a file picker for `.json` files. A valid file **replaces** the whole current session (exercises and goals). If the current session has any exercise or goal, the user is asked to confirm the replacement first; declining changes nothing. A file that is not valid JSON or does not match the session file format is **rejected as a whole**: the session does not change, and one error message says what is wrong (for example `Exercise 2: unknown muscle group "Glutes".`).
 10. **Direct and indirect volume.** In the volume list, each muscle's bar has two stacked segments: **direct** volume (from exercises where it is a primary muscle) first, then **indirect** volume (from exercises where it is a secondary muscle). Direct is a solid fill of the bar's colour; indirect is a soft fill of the same colour with an outline of that colour. The bar's colour comes from its goal status (see requirement 13). The bar does not use heat colours. The filled part of the bar reads as one rounded pill: its left end and the right end of its last visible segment are fully rounded, like the track, and the join between direct and indirect stays straight. This holds for every bar (direct only, indirect only, or both, including a full bar), and the indirect segment's orange outline follows its rounded ends instead of being clipped into a square corner. A small "Direct / Indirect" key sits above the list (hidden on mobile, where bars are hidden); its swatches use the neutral no-goal colour. Each row still shows one number: the total, or `total / goal`. The split is shown as text in the readout (for example `Triceps 5 sets (3 direct · 2 indirect) · 2 exercises`, or `Triceps 5 / 4 sets (3 direct · 2 indirect) · over · 2 exercises` with a goal), always naming both parts even when one is 0, and in a visually hidden text inside each row button for screen readers.
-11. **Expand and collapse exercises.** Each exercise card has a chevron toggle button in its header, between the highlight tag and the remove button. It hides or shows the card's fields; its `aria-expanded` reflects the state and its label is `Collapse exercise` or `Expand exercise`. A collapsed card keeps its header (drag handle, `Exercise N`, highlight tag, toggle, remove button) and shows a one-line summary below it instead of the fields (see **Exercise summary**). "Expand all" and "Collapse all" buttons sit above the exercise list and are hidden when the session has no exercises. A newly added exercise starts expanded; every exercise loaded by an import starts collapsed. A collapsed invalid exercise shows a `Needs fixing` text marker in its header. When export is refused, the exercise it names expands and its first invalid field gets focus. Collapsing changes nothing in the session: not volume, order, validation, or the exported file. Reordering (mouse, touch, keyboard), removing, and muscle highlighting work the same on collapsed cards, and an exercise keeps its collapsed state when it moves. Collapsing and expanding animate (see requirement 16).
+11. **Expand and collapse exercises.** Each exercise card has a chevron toggle button in its header, between the highlight tag and the remove button. It hides or shows the card's fields; its `aria-expanded` reflects the state and its label is `Collapse exercise` or `Expand exercise`. A collapsed card keeps its header (drag handle, `Exercise N`, highlight tag, toggle, remove button) and shows a one-line summary below it instead of the fields (see **Exercise summary**). "Expand all" and "Collapse all" buttons sit in the session toolbar above the exercise list (see requirement 21) and are hidden when the session has no exercises. A newly added exercise starts expanded; every exercise loaded by an import starts collapsed. A collapsed invalid exercise shows a `Needs fixing` text marker in its header. When export is refused, the exercise it names expands and its first invalid field gets focus. Collapsing changes nothing in the session: not volume, order, validation, or the exported file. Reordering (mouse, touch, keyboard), removing, and muscle highlighting work the same on collapsed cards, and an exercise keeps its collapsed state when it moves. Collapsing and expanding animate (see requirement 16).
 12. **Hide irrelevant muscles in the volume list.** The volume list hides a muscle's row when the muscle has **no goal and** its volume is **0** (both must be true; see **Visible volume rows**). Visible rows keep `MuscleGroup` order. Rows appear and disappear live on every edit, including goal edits. When no row is visible, the list shows `No volume yet. Add an exercise or set a goal.` and the "Direct / Indirect" key is hidden. The body map is unchanged by this rule: it still shows every muscle, in its body map colour (see requirement 15). Selecting a muscle works the same whether or not its row is visible (for example by clicking a body map region); a hidden row stays hidden even when its muscle is selected, and the readout still describes it.
 13. **Goal-coloured bars on a shared scale.** In the volume list, each bar's colour shows its goal status: **amber** when under, **green** when met, **red** when over, and a **neutral grey-blue** for a muscle without a goal. Direct and indirect segments both use that colour (solid and soft, see requirement 10), and the status text uses it too. A muscle with 0 volume shows only the grey empty track. All bars share one scale, so one set has the same length in every row (see **Bar scale**). A muscle with a goal shows a thin vertical **goal marker** on its bar at the goal's position; the fill can run past the marker, so the user sees by how much they are over. The marker is visual only (`aria-hidden`); the `volume / goal` value and the status text carry the same information. Nothing is cut off: the scale always fits the largest volume. Bars, marker and key stay hidden on mobile. The body map uses the same colours (see requirement 15).
 14. **Sliders for numbers.** Every number the user enters is set with a slider instead of a number field; there is no typing.
     - **Sets:** one slider, whole numbers from 1 to 10.
     - **Rep range:** one slider with two thumbs (min and max), whole numbers from 1 to 30; the part of the track between the thumbs is filled. min can never pass max: moving one thumb past the other pushes the other thumb along, so min ≤ max always holds and the rep range error can no longer appear in the form.
-    - **Goals:** one slider per muscle, from 0 to 30 in steps of 0.5; 0 means no goal and is shown as `No goal`. A new dialog opens with every slider at its applied goal, or at 0.
+    - **Goals:** one slider per muscle, from 0 to 12 in steps of 0.5; 0 means no goal and is shown as `No goal`. A new dialog opens with every slider at its applied goal, or at 0.
     - Each slider shows its current value as text next to its label, updating live while the user slides: sets as `3`, reps as `8–12` (en dash) or `8` when min = max, goals as `4.5` or `No goal`.
     - Every change applies on every movement (no release step needed), like typing did before; volume, goal status, summary and validation update live.
     - Sliders are native `<input type="range">` elements: they work with mouse, touch and keyboard (arrow keys, Home, End, Page Up/Down), have a visible focus ring, an accessible name (for example `Sets`, `Reps min`, `Reps max`, `Chest goal`), and a value text for screen readers (`No goal` at 0).
@@ -57,6 +57,10 @@ MuscleGroup (fixed list, exactly these 10 values, in this order):
     - **Readout crossfade:** when the readout switches subject (hint → muscle, muscle → hint, or muscle A → muscle B, by hover, tap, click or keyboard), the old text fades out and the new text fades in, about 150 ms in total, `ease-out`. Live updates for the same subject (for example its numbers changing while the user moves a slider or edits an exercise) change the text at once, with no fade. If the subject changes again during a fade, the readout goes straight to the newest subject; it never shows a stale muscle. It works the same on desktop and mobile. With `prefers-reduced-motion: reduce` the change is instant. The readout keeps its reserved two-line height (requirement 16), its text, and its `aria-live` behaviour; screen readers hear only the final text.
     - **No dead zones between rows:** in the volume list, neighbouring rows' hover areas touch: there is no gap between rows that belongs to no muscle. The rows look the same as before (the visual spacing comes from inside the row, not from space between rows).
     - **Hover grace:** when the mouse leaves a muscle (a volume row or a body map region) for a spot that is not a muscle, the readout and the hover highlight keep that muscle for about 150 ms before going back to the selected muscle or the hint. If the mouse reaches another muscle within that time, the readout goes straight to it, with no hint in between. Leaving the volume panel works the same way. Hovering never changes the selection.
+18. **Three delt muscles.** `Shoulders` is replaced by **Front delts**, **Side delts** and **Rear delts** everywhere a muscle appears: the exercise muscle choices, the volume list, the readout, the goals dialog, the summary and the session file. On the body map, the front figure shows **Front delts** and the back figure shows **Rear delts**, each in the inner part of the old shoulder shape; **Side delts** is a thin cap on the outer edge of the shoulder, drawn on both figures. All three regions colour, hover, focus and select like every other muscle (see requirement 15). A file that names `Shoulders` is rejected like any unknown muscle group (`Exercise 1: unknown muscle group "Shoulders".`); there is no migration.
+19. **Recommended volume ranges.** Each muscle has a fixed recommended range of sets per session (see **Recommended volume ranges**). In the goals dialog, under each muscle's slider, a quiet line shows `Recommended 4–8` (en dash). When the muscle's goal is outside the range, that line is replaced by an amber warning: `Above the recommended range (4–8).` or `Below the recommended range (4–8).` The range is inclusive: a goal equal to its min or max shows no warning. `No goal` never warns. The warning updates live while the user slides, is non-blocking (the goal still applies, Done still closes), and is announced politely to screen readers (`aria-live="polite"`). Warnings appear only in the goals dialog; the volume list, the body map, the readout and import are unchanged by them.
+20. **Muscle info.** In the goals dialog, each muscle's label row has a small info button (an "i" icon) with the accessible name `About Chest` (and so on). Clicking it toggles an inline panel below that muscle's slider that shows the muscle's info text (see **Muscle info**): a "Productive sets" line and a "Programming" line. The button's `aria-expanded` reflects the state and `aria-controls` points to the panel. Several panels can be open at once. Every panel starts closed each time the dialog opens. Opening a panel changes nothing in the session.
+21. **Session toolbar.** Import, Export, Expand all and Collapse all sit in one row above the exercise list: Import and Export at the left end, Expand all and Collapse all at the right end. The row wraps on narrow screens. Each button shows an inline SVG icon before its text (Import: arrow into a tray, Export: arrow out of a tray, Expand all: chevron down, Collapse all: chevron up), drawn like the "Add exercise" icon (`currentColor` stroke, `aria-hidden`); the text labels stay. Expand all and Collapse all stay hidden when the session has no exercises; Import and Export are always shown. The file message (export refused, import error) shows below the row. The buttons work exactly as before.
 
 ## Volume calculation (core business rule)
 
@@ -76,11 +80,11 @@ volume(muscle) = Σ over exercises:
 
 | Exercise    | Sets | Primary          | Secondary          |
 |-------------|------|------------------|--------------------|
-| Bench press | 4    | Chest            | Triceps, Shoulders |
-| Dips        | 3    | Chest, Triceps   | Shoulders          |
+| Bench press | 4    | Chest            | Triceps, Front delts |
+| Dips        | 3    | Chest, Triceps   | Front delts          |
 | Pull-ups    | 3    | Lats             | Biceps, Upper back |
 
-Expected volume: Chest **7**, Triceps **5**, Shoulders **3.5**, Lats **3**, Biceps **1.5**, Upper back **1.5**. Every other muscle group is **0**.
+Expected volume: Chest **7**, Triceps **5**, Front delts **3.5**, Lats **3**, Biceps **1.5**, Upper back **1.5**. Every other muscle group is **0**.
 
 ## Goal status (business rule)
 
@@ -158,7 +162,7 @@ Volume worked example with the goal worked example's goals (Chest 7, Triceps 4, 
 | Triceps    | 3      | 2        | 4    | red     | 0.28125     | 0.1875        | 0.375   |
 | Lats       | 3      | 0        | 6    | amber   | 0.28125     | 0             | 0.5625  |
 | Quads      | 0      | 0        | 8    | amber   | 0           | 0             | 0.75    |
-| Shoulders  | 0      | 3.5      | —    | neutral | 0           | 0.328125      | —       |
+| Front delts| 0      | 3.5      | —    | neutral | 0           | 0.328125      | —       |
 | Biceps     | 0      | 1.5      | —    | neutral | 0           | 0.140625      | —       |
 | Upper back | 0      | 1.5      | —    | neutral | 0           | 0.140625      | —       |
 
@@ -187,8 +191,8 @@ summary = name · sets × reps · primary muscles · secondary: secondary muscle
 
 | Exercise                                                  | Summary                                                          |
 |-----------------------------------------------------------|------------------------------------------------------------------|
-| Bench press, 4 sets, 6–10, Chest / Triceps, Shoulders     | `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders` |
-| Dips, 3 sets, 8–8, Chest, Triceps / Shoulders             | `Dips · 3 × 8 · Chest, Triceps · secondary: Shoulders`           |
+| Bench press, 4 sets, 6–10, Chest / Triceps, Front delts   | `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Front delts` |
+| Dips, 3 sets, 8–8, Chest, Triceps / Front delts           | `Dips · 3 × 8 · Chest, Triceps · secondary: Front delts`           |
 | New exercise (defaults)                                   | `Untitled exercise · 3 × 8–12`                                   |
 | `"  Row "`, sets empty, 8–12, no primary / Biceps         | `Row · ? × 8–12 · secondary: Biceps`                             |
 
@@ -203,8 +207,8 @@ visible(muscle) = goal(muscle) is set  OR  volume(muscle) > 0
 
 ### Worked example (use as a test case)
 
-- Volume worked example, no goals: visible = Chest, Lats, Upper back, Biceps, Triceps, Shoulders. Hidden = Abs, Quads, Hamstrings, Calves.
-- Volume worked example with the goals from the goal worked example (Chest 7, Triceps 4, Lats 6, Quads 8): visible = Chest, Lats, Upper back, Biceps, Triceps, Shoulders, Quads. Hidden = Abs, Hamstrings, Calves.
+- Volume worked example, no goals: visible = Chest, Lats, Upper back, Biceps, Triceps, Front delts. Hidden = Side delts, Rear delts, Abs, Quads, Hamstrings, Calves.
+- Volume worked example with the goals from the goal worked example (Chest 7, Triceps 4, Lats 6, Quads 8): visible = Chest, Lats, Upper back, Biceps, Triceps, Front delts, Quads. Hidden = Side delts, Rear delts, Abs, Hamstrings, Calves.
 - Empty session, no goals: no muscle is visible.
 - Empty session, goal Calves 6: visible = Calves.
 
@@ -224,11 +228,11 @@ tone(muscle) = goalStatus(volume, goal).status   if the muscle has a goal   // u
 
 Volume worked example with the goal worked example's goals (Chest 7, Triceps 4, Lats 6, Quads 8):
 
-| Muscle | Chest | Lats | Upper back | Biceps | Triceps | Shoulders | Abs | Quads | Hamstrings | Calves |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Tone | met | under | trained | trained | over | trained | untrained | under | untrained | untrained |
+| Muscle | Chest | Lats | Upper back | Biceps | Triceps | Front delts | Side delts | Rear delts | Abs | Quads | Hamstrings | Calves |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Tone | met | under | trained | trained | over | trained | untrained | untrained | untrained | under | untrained | untrained |
 
-With no goals, the same session gives trained for Chest, Lats, Upper back, Biceps, Triceps and Shoulders, and untrained for the rest.
+With no goals, the same session gives trained for Chest, Lats, Upper back, Biceps, Triceps and Front delts, and untrained for the rest.
 
 ## Session file format (business rule)
 
@@ -241,7 +245,7 @@ With no goals, the same session gives trained for Chest, Lats, Upper back, Bicep
       "sets": 4,
       "repRange": { "min": 6, "max": 10 },
       "primaryMuscles": ["Chest"],
-      "secondaryMuscles": ["Triceps", "Shoulders"]
+      "secondaryMuscles": ["Triceps", "Front delts"]
     }
   ],
   "goals": { "Chest": 10, "Triceps": 4.5 }
@@ -249,12 +253,59 @@ With no goals, the same session gives trained for Chest, Lats, Upper back, Bicep
 ```
 
 - `version` must be exactly `1`. Any other value is rejected (`Unsupported file version.`).
-- Values must be within the slider limits (sets 1–10, reps 1–30, goals 0.5–30); a value outside them rejects the whole file, for example `Exercise 2: Sets must be a whole number from 1 to 10.` or `Goal for Chest must be a multiple of 0.5 from 0.5 to 30.`
+- Values must be within the slider limits (sets 1–10, reps 1–30, goals 0.5–12); a value outside them rejects the whole file, for example `Exercise 2: Sets must be a whole number from 1 to 10.` or `Goal for Chest must be a multiple of 0.5 from 0.5 to 12.`
 - `exercises` is an array, possibly empty, in session order. Each exercise must pass the same validation as the form (see **Validate input**). Muscle names must match `MuscleGroup` values exactly, with the same case.
 - `goals` is an object whose keys are `MuscleGroup` values and whose values are valid goals. It may be empty. A muscle without a key has no goal.
 - Unknown extra keys are ignored on import and never written on export.
 - Export writes JSON indented with 2 spaces.
 - **Round trip:** exporting a session and importing the file gives an identical session.
+
+## Recommended volume ranges (business rule)
+
+| Muscle | Recommended |
+|---|---|
+| Chest, Lats, Upper back, Biceps, Triceps, Quads, Hamstrings, Calves | 4–8 |
+| Front delts | 3–6 |
+| Side delts, Rear delts | 3–8 |
+| Abs | 2–6 |
+
+```
+rangeCheck(goal, range) = below   if goal < range.min
+                          above   if goal > range.max
+                          none    otherwise, or when there is no goal
+```
+
+- Ranges are fixed in the code; the user cannot edit them. They are not part of the session or the file.
+- Only the goal is compared, never the volume.
+
+### Worked example (use as a test case)
+
+| Muscle | Goal | Range | Result | Shown under the slider |
+|---|---|---|---|---|
+| Chest | 10 | 4–8 | above | `Above the recommended range (4–8).` |
+| Chest | 8 | 4–8 | none | `Recommended 4–8` |
+| Front delts | 2.5 | 3–6 | below | `Below the recommended range (3–6).` |
+| Abs | 2 | 2–6 | none | `Recommended 2–6` |
+| Side delts | — (No goal) | 3–8 | none | `Recommended 3–8` |
+
+## Muscle info (content)
+
+Shown by the info button in the goals dialog (requirement 20). Keep this text in the code next to the muscle list, keyed by `MuscleGroup`.
+
+| Muscle | Productive sets | Programming |
+|---|---|---|
+| Chest | 4–8 direct sets per session. | Combine pressing and flyes; pressing fatigue can impair later performance. |
+| Lats | 4–8 direct sets per session. | Include shoulder-adduction and extension patterns; consider grip fatigue. |
+| Upper back | 4–8 direct sets per session. | Chest support may reduce lower-back fatigue; diversify scapular loading. |
+| Biceps | 2–6 additional direct sets after pulling; 4–8 if trained largely alone. | Account for pulling; use curls targeting different elbow-flexor functions; monitor tendon symptoms. |
+| Triceps | 2–6 additional direct sets after pressing; 4–8 if trained largely alone. | Overhead extensions complement pressing; monitor elbow fatigue. |
+| Front delts | 0–4 additional direct sets after substantial pressing; around 3–6 with little pressing. | Often receive sufficient work without front raises; manage shoulder-press fatigue. |
+| Side delts | 3–8 direct sets per session. | Direct lateral raises allow targeted loading with limited systemic fatigue. |
+| Rear delts | 2–6 additional direct sets after rowing; around 3–8 with little rowing. | Reverse flyes and rear-delt rows can complement broader back work. |
+| Quads | 4–8 direct sets per session. | High-fatigue compound movements often justify fewer sets than isolated extensions. |
+| Hamstrings | 4–8 combined hip-extension and knee-flexion sets. | Include both functions; stretched-position and eccentric loading may increase recovery demand. |
+| Calves | 4–8 direct sets per session. | Consider gastrocnemius and soleus; use controlled stretch and full ROM. |
+| Abs | 2–6 direct sets per session. | Use progressively loaded spinal-flexion and/or anti-extension exercises; manage trunk fatigue. |
 
 ## Implementation guidelines for agents
 
@@ -262,13 +313,16 @@ With no goals, the same session gives trained for Chest, Lats, Upper back, Bicep
 - **Keep the direct/indirect split and the bar fill pure**, separate from the UI: for example `computeVolumeSplit(session) → Record<MuscleGroup, { direct, indirect }>`, with `computeVolume` derived from it (`direct + indirect`) so the volume rule lives in one place, and `barSegments(direct, indirect, scale) → { direct, indirect }`. Unit-test both, including the direct/indirect worked example. Compute them on render; never store them.
 - **Define the muscle group list once** as a single constant, and use it for the form choices, the volume panel, and validation.
 - **Prefer derived state.** Compute volume from the session on render. Do not store it separately.
-- **Validate input:** exercise names must not be empty, sets are a whole number from 1 to 10, reps are whole numbers from 1 to 30 with `min ≤ max`, goals are a multiple of 0.5 from 0.5 to 30 (a goal slider at 0 clears the goal). The form's sliders cannot produce out-of-range values, but validation still checks them, because imported files are validated with the same rules.
-- **Define the slider limits once** (sets 1–10, reps 1–30, goals 0.5–30 in steps of 0.5) as a single constant, and use it for the slider `min`/`max`/`step` attributes and for validation.
+- **Validate input:** exercise names must not be empty, sets are a whole number from 1 to 10, reps are whole numbers from 1 to 30 with `min ≤ max`, goals are a multiple of 0.5 from 0.5 to 12 (a goal slider at 0 clears the goal). The form's sliders cannot produce out-of-range values, but validation still checks them, because imported files are validated with the same rules.
+- **Define the slider limits once** (sets 1–10, reps 1–30, goals 0.5–12 in steps of 0.5) as a single constant, and use it for the slider `min`/`max`/`step` attributes and for validation.
 - **Keep the rep range push rule in a pure function**, separate from the UI (for example `setRepBound(repRange, bound, value) → repRange`, where moving `min` above `max` raises `max` to it and moving `max` below `min` lowers `min` to it). Unit-test it.
 - **Sliders use native `<input type="range">` with no library.** The two-thumb rep range is two overlapping range inputs on one track, styled with CSS.
 - **Keep goal status in a pure function**, separate from the UI (for example `goalStatus(volume, goal) → { status } | null`). Unit-test it, including the goal worked example above. Compute it on render; never store status.
 - **Keep the bar scale in a pure function**, separate from the UI (for example `barScale(volume, goals) → number`), and feed it to `barSegments` and the marker position. Unit-test it, including the bar scale worked example. Compute it on render; never store it.
 - **The goals dialog uses the native `<dialog>` element**, with no library.
+- **Keep the recommended ranges and the muscle info as data next to `MUSCLE_GROUPS`** (for example `MUSCLE_INFO: Record<MuscleGroup, { recommended: { min, max }, sets, notes }>`), with exactly one entry per muscle. Unit-test that every muscle has an entry.
+- **Keep the range check in a pure function**, separate from the UI (for example `goalRangeCheck(goal, range) → 'below' | 'above' | null`). Unit-test it, including the recommended range worked example. Compute it on render; never store it.
+- **Icons are inline SVG** in the markup, with no icon library or font.
 - **Keep reordering logic pure.** Moving an exercise is a pure function on the exercise list (for example `moveExercise(exercises, from, to) → Exercise[]`), unit-tested separately from the drag UI.
 - **Drag and drop uses pointer events, with no dependencies.** Do not use the native HTML5 drag API (unreliable on touch) or a library.
 - **Keep the session file logic pure**, separate from the UI: for example `serializeSession(session) → string` and `parseSession(text) → { session } | { error }`. Reuse `validateExercise`, `validateGoal`, and `MUSCLE_GROUPS`; do not duplicate the rules. Unit-test the round trip (with the volume worked example and the goal worked example) and every rejection case.
@@ -291,6 +345,7 @@ With no goals, the same session gives trained for Chest, Lats, Upper back, Bicep
 - **Body map in goal-status colours** (2026-10-10): this replaces the body map's absolute heat colours (from the volume goals, direct/indirect and goal-coloured bars decisions). The body map uses the bars' status colours: amber under, green met, red over, neutral grey-blue for volume without a goal, dark grey for no goal and 0 volume. A muscle with a goal and 0 volume is amber (under). One solid colour per muscle, with no direct/indirect split. The heat legend is removed on all screen sizes, and the heat-level function, its bands and its colour tokens are removed. The Direct / Indirect key, the volume list, the readout, and the session file are unchanged.
 - **Smooth collapse and stable readout** (2026-10-10): collapsing and expanding a card animate (height slide plus fade, 200 ms ease-out, summary and fields cross over), for single toggles, the bulk buttons and a refused export alike; newly built cards and reduced-motion users get no animation. This replaces the earlier "no collapse animations" scope line. The readout reserves two lines of height on every screen size, so hovering or selecting a muscle never shifts the panel; its text is unchanged.
 - **Smooth readout and steady hover** (2026-10-11): the readout crossfades (about 150 ms, ease-out) when its subject changes, by hover, tap, click or keyboard, on every screen size. Same-subject live updates stay instant, and reduced-motion users get no fade. Moving the mouse between muscles no longer flashes the hint: volume rows touch with no gap between them (same look), and leaving a muscle waits about 150 ms before the readout falls back, which also covers gaps in the body map. Readout text, height, and selection behaviour are unchanged. This adds a second allowed animation next to the collapse slide.
+- **Delts, recommended ranges, muscle info and toolbar** (2026-10-11): `Shoulders` is split into Front delts, Side delts and Rear delts (12 muscles). On the body map, front delts are on the front figure, rear delts on the back figure, and side delts are an outer shoulder cap on both. Old files with `Shoulders` are rejected; no migration, the file version stays 1. The goal limit drops from 30 to 12 for the slider and for import validation (no clamping). Each muscle has a fixed, inclusive recommended range; the goals dialog always shows it and replaces it with a non-blocking amber above/below warning when the goal is outside it. An info button per muscle toggles an inline panel with the productive-sets and programming notes. Import, Export, Expand all and Collapse all share one toolbar row (file buttons left, bulk buttons right) with inline SVG icons and their text labels.
 
 ## Open decisions (ask the user before deciding)
 
@@ -302,4 +357,4 @@ With no goals, the same session gives trained for Chest, Lats, Upper back, Bicep
 
 ## Out of scope for the MVP
 
-Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume (with its direct/indirect split) and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope. For import/export: automatic saving, merging or appending an imported session, partial imports, several sessions per file, migrating other file versions, and other formats (CSV and so on) are out of scope. For collapsing: remembering collapsed state between page loads or in the session file, and collapsing the volume panel are out of scope; animations beyond the collapse/expand slide (requirement 16) and the readout crossfade (requirement 17) are out of scope. For hiding muscles: a "show all muscles" toggle, sorting rows by volume, and hide/show animations are out of scope.
+Authentication, multiple users, exercise libraries or presets, weight/RPE tracking, scheduling, and analytics beyond per-muscle set volume (with its direct/indirect split) and per-muscle volume goals. Goal presets or templates, and goal ranges (min–max), are out of scope. For import/export: automatic saving, merging or appending an imported session, partial imports, several sessions per file, migrating other file versions, and other formats (CSV and so on) are out of scope. For collapsing: remembering collapsed state between page loads or in the session file, and collapsing the volume panel are out of scope; animations beyond the collapse/expand slide (requirement 16) and the readout crossfade (requirement 17) are out of scope. For hiding muscles: a "show all muscles" toggle, sorting rows by volume, and hide/show animations are out of scope. For recommended ranges and muscle info: editable or per-user ranges, warnings outside the goals dialog, blocking or clamping goals to the range, and migrating `Shoulders` in old files are out of scope.
