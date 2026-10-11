@@ -168,7 +168,7 @@ function showGoal(input) {
 }
 
 /** The goals dialog's one shown info tooltip, if any; `pinned` once clicked, so it outlasts hover and focus. */
-let shownTip = null; // { button, pinned }
+let shownTip = null; // { button, pinned, byFocus }: a focus peek outlasts the mouse and hides on blur
 let tipHideTimer = 0;
 
 const tipFor = (button) => document.getElementById(button.getAttribute('aria-controls'));
@@ -194,7 +194,7 @@ function showTip(button, pinned) {
     tip.showPopover();
   }
   button.setAttribute('aria-expanded', 'true');
-  shownTip = { button, pinned };
+  shownTip = { button, pinned, byFocus: false };
 }
 
 function hideTip() {
@@ -610,14 +610,16 @@ goalFields.addEventListener('pointerover', (event) => {
 
 /** Leaving both the button and its tooltip hides a peeked tooltip after a short grace. */
 goalFields.addEventListener('pointerout', (event) => {
-  if (event.pointerType !== 'mouse' || !shownTip || shownTip.pinned) return;
+  if (event.pointerType !== 'mouse' || !shownTip || shownTip.pinned || shownTip.byFocus) return;
   if (infoButtonAt(event.relatedTarget) === shownTip.button) return;
   clearTimeout(tipHideTimer);
   tipHideTimer = setTimeout(hideTip, 150);
 });
 
 goalFields.addEventListener('focusin', (event) => {
-  if (event.target.matches('.info-btn:focus-visible') && shownTip?.button !== event.target) showTip(event.target, false);
+  if (!event.target.matches('.info-btn:focus-visible')) return;
+  if (shownTip?.button !== event.target) showTip(event.target, false);
+  shownTip.byFocus = true;
 });
 
 goalFields.addEventListener('focusout', (event) => {
