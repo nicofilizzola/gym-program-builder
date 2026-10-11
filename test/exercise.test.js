@@ -77,10 +77,10 @@ const ex = (name, sets, min, max, primaryMuscles, secondaryMuscles) =>
   ({ name, sets, repRange: { min, max }, primaryMuscles, secondaryMuscles });
 
 test('exerciseSummary worked example from spec', () => {
-  assert.equal(exerciseSummary(ex('Bench press', 4, 6, 10, ['Chest'], ['Triceps', 'Shoulders'])),
-    'Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders');
-  assert.equal(exerciseSummary(ex('Dips', 3, 8, 8, ['Chest', 'Triceps'], ['Shoulders'])),
-    'Dips · 3 × 8 · Chest, Triceps · secondary: Shoulders');
+  assert.equal(exerciseSummary(ex('Bench press', 4, 6, 10, ['Chest'], ['Triceps', 'Front delts'])),
+    'Bench press · 4 × 6–10 · Chest · secondary: Triceps, Front delts');
+  assert.equal(exerciseSummary(ex('Dips', 3, 8, 8, ['Chest', 'Triceps'], ['Front delts'])),
+    'Dips · 3 × 8 · Chest, Triceps · secondary: Front delts');
   assert.equal(exerciseSummary(createExercise()), 'Untitled exercise · 3 × 8–12');
   assert.equal(exerciseSummary(ex('  Row ', NaN, 8, 12, [], ['Biceps'])), 'Row · ? × 8–12 · secondary: Biceps');
 });

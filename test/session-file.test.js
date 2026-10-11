@@ -5,8 +5,8 @@ import { computeVolume } from '../src/volume.js';
 
 const workedExample = () => ({
   exercises: [
-    { name: 'Bench press', sets: 4, repRange: { min: 6, max: 10 }, primaryMuscles: ['Chest'], secondaryMuscles: ['Triceps', 'Shoulders'] },
-    { name: 'Dips', sets: 3, repRange: { min: 8, max: 12 }, primaryMuscles: ['Chest', 'Triceps'], secondaryMuscles: ['Shoulders'] },
+    { name: 'Bench press', sets: 4, repRange: { min: 6, max: 10 }, primaryMuscles: ['Chest'], secondaryMuscles: ['Triceps', 'Front delts'] },
+    { name: 'Dips', sets: 3, repRange: { min: 8, max: 12 }, primaryMuscles: ['Chest', 'Triceps'], secondaryMuscles: ['Front delts'] },
     { name: 'Pull-ups', sets: 3, repRange: { min: 5, max: 8 }, primaryMuscles: ['Lats'], secondaryMuscles: ['Upper back', 'Biceps'] },
   ],
   goals: { Chest: 7, Triceps: 4, Lats: 6, Quads: 8 },
@@ -21,7 +21,7 @@ test('round trip keeps the worked example', () => {
   assert.deepEqual(parsed, session);
   assert.deepEqual(computeVolume(parsed), {
     Chest: 7, Lats: 3, 'Upper back': 1.5, Biceps: 1.5, Triceps: 5,
-    Shoulders: 3.5, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
+    'Front delts': 3.5, 'Side delts': 0, 'Rear delts': 0, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
   });
 });
 
@@ -52,8 +52,14 @@ test('parse ignores unknown keys', () => {
 });
 
 test('parse normalizes muscle order', () => {
-  const { session } = parseSession(exerciseFile({ secondaryMuscles: ['Shoulders', 'Triceps'] }));
-  assert.deepEqual(session.exercises[0].secondaryMuscles, ['Triceps', 'Shoulders']);
+  const { session } = parseSession(exerciseFile({ secondaryMuscles: ['Front delts', 'Triceps'] }));
+  assert.deepEqual(session.exercises[0].secondaryMuscles, ['Triceps', 'Front delts']);
+});
+
+test('rejects the removed Shoulders muscle', () => {
+  assert.equal(errorOf(exerciseFile({ secondaryMuscles: ['Shoulders'] })),
+    'Exercise 1: unknown muscle group "Shoulders".');
+  assert.equal(errorOf(file({ goals: { Shoulders: 5 } })), 'Goal for unknown muscle group "Shoulders".');
 });
 
 test('rejects invalid JSON', () => {

@@ -7,7 +7,9 @@ const SILHOUETTE = 'M50 26 L45 26 L45 33 Q33 34 25 38 Q18 42 17 52 L14 80 L11 10
   + 'L17 118 L21 100 L25 80 L28 66 L29 92 Q28 104 30 112 L29 140 Q29 160 32 176 L33 196 Q31 204 37 204 '
   + 'L42 204 Q44 200 43 194 L45 170 Q46 150 47 130 L49 116 L50 116 Z';
 
-const SHOULDER = 'M25 39 Q18 43 17.5 53 Q21 57 26.5 55 Q29 48 31 41 Q28 38 25 39 Z';
+/** The shoulder is split along one shared curve: an outer side-delt cap and an inner front (or rear) delt. */
+const SIDE_DELT = 'M25 39 Q18 43 17.5 53 Q19.5 55.5 22 55.8 Q21.5 46 25 39 Z';
+const INNER_DELT = 'M25 39 Q21.5 46 22 55.8 Q24.5 56 26.5 55 Q29 48 31 41 Q28 38 25 39 Z';
 const UPPER_ARM = 'M18 58 Q16 68 17 78 Q20 80 23.5 78 Q25.5 68 26 60 Q22 56 18 58 Z';
 const THIGH = 'M31 120 Q29 138 31 160 Q34 170 38 171 Q43 168 45 160 Q47 141 47.5 127 Q40 119 31 120 Z';
 
@@ -15,7 +17,8 @@ const THIGH = 'M31 120 Q29 138 31 160 Q34 170 38 171 Q43 168 45 160 Q47 141 47.5
 const REGIONS = {
   front: [
     ['Chest', 'M49.5 41 L33 41 Q29 44 28.5 54 Q32 63 42 63 Q48 62 49.5 59 Z'],
-    ['Shoulders', SHOULDER],
+    ['Front delts', INNER_DELT],
+    ['Side delts', SIDE_DELT],
     ['Biceps', UPPER_ARM],
     ['Abs', 'M49.5 66 L39 66 Q37 80 38 94 Q41 106 49.5 110 Z'],
     ['Quads', THIGH],
@@ -23,7 +26,8 @@ const REGIONS = {
   back: [
     ['Upper back', 'M50 30 L45 33 Q36 36 31 41 Q37 50 43 57 L50 61 Z'],
     ['Lats', 'M29.5 49 Q28.5 62 30 74 Q34 88 42 96 Q47 89 48.5 76 L48.5 65 Q41 61 35 53 Z'],
-    ['Shoulders', SHOULDER],
+    ['Rear delts', INNER_DELT],
+    ['Side delts', SIDE_DELT],
     ['Triceps', UPPER_ARM],
     ['Hamstrings', THIGH],
     ['Calves', 'M32 177 Q30 186 33 194 L38 195 Q42 188 43.5 179 Q38 173 32 177 Z'],

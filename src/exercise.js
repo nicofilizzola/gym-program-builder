@@ -72,7 +72,7 @@ export function moveExercise(exercises, from, to) {
 const countText = (n) => (Number.isInteger(n) && n >= 1 ? String(n) : '?');
 
 /**
- * One-line summary for a collapsed card, e.g. `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders`.
+ * One-line summary for a collapsed card, e.g. `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Front delts`.
  * @param {import('./volume.js').Exercise} ex
  * @returns {string}
  */

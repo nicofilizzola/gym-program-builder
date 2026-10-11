@@ -106,7 +106,7 @@ Secondary legend carries the hint "count as ½ set".
 ### Exercise card
 `--surface` with a 4px left border. Header: drag handle (⋮⋮ grip, 44×44, `cursor: grab`, `aria-label="Reorder exercise"`; drag it, or focus it and press ↑ / ↓, to move the card), "Exercise N" index, optional hit tag, `Needs fixing` marker (outlined `--error` pill, only on a collapsed invalid card), chevron toggle (44×44, `aria-expanded`, `aria-label` "Collapse exercise" / "Expand exercise", points up when expanded, hover `--text` on `--surface-2`), trash icon button (44×44, turns `--error` on hover, `aria-label="Remove exercise"`). The header wraps on narrow screens. Moves are announced in a visually hidden live region.
 
-A collapsed card hides its fields and shows a one-line summary below the header in `--muted` (for example `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Shoulders`). It wraps; it is never truncated.
+A collapsed card hides its fields and shows a one-line summary below the header in `--muted` (for example `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Front delts`). It wraps; it is never truncated.
 
 Collapsing and expanding slide: the summary and the fields each sit in a `.collapsible` wrapper whose single grid row animates between `1fr` and `0fr`, with opacity and the 12px gap below the header (`padding-top`) shrinking alongside, all 200ms `ease-out`. A closed part has `.is-closed` and `inert` (unfocusable, hidden from screen readers). The inner element has 4px of inline room (`margin: 0 -4px; padding-inline: 4px`) so input focus halos are not clipped by its `overflow: hidden`, and the fields get 4px of bottom room (`padding-bottom: 4px; margin-bottom: -4px`) for the last chip row's focus ring. A refused export focuses its field with `preventScroll` and scrolls it to the centre only after the body's `grid-template-rows` transition ends (at once when nothing animates), so the field is never measured at 0 height. Cards built fresh (load, add, import, reorder, remove) get their state before the first style pass, so they never animate; reduced motion makes it instant.
 
@@ -150,8 +150,8 @@ Native `<dialog>` opened with `showModal()` from "Set goals": `--surface`, `--ra
 
 | View | Muscles |
 |---|---|
-| Front | Chest, Shoulders, Biceps, Abs, Quads |
-| Back | Upper back, Lats, Shoulders, Triceps, Hamstrings, Calves |
+| Front | Chest, Front delts, Side delts (outer cap), Biceps, Abs, Quads |
+| Back | Upper back, Lats, Rear delts, Side delts (outer cap), Triceps, Hamstrings, Calves |
 
 Each muscle is a `<g class="region" data-muscle="…">`. The app sets `data-tone` (from `bodyMapTone`) and the classes `is-selected` / `is-focus` on it. Muscle names must match `MUSCLE_GROUPS` exactly.
 

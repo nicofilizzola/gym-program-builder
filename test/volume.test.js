@@ -7,10 +7,10 @@ function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min:
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
 }
 
-test('MUSCLE_GROUPS has the 10 spec values in order', () => {
+test('MUSCLE_GROUPS has the 12 spec values in order', () => {
   assert.deepEqual([...MUSCLE_GROUPS], [
     'Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps',
-    'Shoulders', 'Abs', 'Quads', 'Hamstrings', 'Calves',
+    'Front delts', 'Side delts', 'Rear delts', 'Abs', 'Quads', 'Hamstrings', 'Calves',
   ]);
   assert.ok(Object.isFrozen(MUSCLE_GROUPS));
 });
@@ -18,14 +18,14 @@ test('MUSCLE_GROUPS has the 10 spec values in order', () => {
 test('worked example from spec', () => {
   const session = {
     exercises: [
-      exercise(4, ['Chest'], ['Triceps', 'Shoulders']),
-      exercise(3, ['Chest', 'Triceps'], ['Shoulders']),
+      exercise(4, ['Chest'], ['Triceps', 'Front delts']),
+      exercise(3, ['Chest', 'Triceps'], ['Front delts']),
       exercise(3, ['Lats'], ['Biceps', 'Upper back']),
     ],
   };
   assert.deepEqual(computeVolume(session), {
     Chest: 7, Lats: 3, 'Upper back': 1.5, Biceps: 1.5, Triceps: 5,
-    Shoulders: 3.5, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
+    'Front delts': 3.5, 'Side delts': 0, 'Rear delts': 0, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
   });
 });
 
@@ -68,8 +68,8 @@ test('goal status works on half sets', () => {
 
 const WORKED_EXAMPLE = {
   exercises: [
-    exercise(4, ['Chest'], ['Triceps', 'Shoulders']),
-    exercise(3, ['Chest', 'Triceps'], ['Shoulders']),
+    exercise(4, ['Chest'], ['Triceps', 'Front delts']),
+    exercise(3, ['Chest', 'Triceps'], ['Front delts']),
     exercise(3, ['Lats'], ['Biceps', 'Upper back']),
   ],
 };
@@ -81,7 +81,9 @@ test('computeVolumeSplit worked example from spec', () => {
     'Upper back': { direct: 0, indirect: 1.5 },
     Biceps: { direct: 0, indirect: 1.5 },
     Triceps: { direct: 3, indirect: 2 },
-    Shoulders: { direct: 0, indirect: 3.5 },
+    'Front delts': { direct: 0, indirect: 3.5 },
+    'Side delts': { direct: 0, indirect: 0 },
+    'Rear delts': { direct: 0, indirect: 0 },
     Abs: { direct: 0, indirect: 0 },
     Quads: { direct: 0, indirect: 0 },
     Hamstrings: { direct: 0, indirect: 0 },
@@ -113,7 +115,7 @@ test('barSegments worked example from spec', () => {
   assert.deepEqual(barSegments(3, 2, 4), { direct: 0.75, indirect: 0.25 }); // Triceps, goal 4
   assert.deepEqual(barSegments(3, 0, 6), { direct: 0.5, indirect: 0 });     // Lats, goal 6
   assert.deepEqual(barSegments(0, 0, 8), { direct: 0, indirect: 0 });       // Quads, goal 8
-  assert.deepEqual(barSegments(0, 3.5, 10), { direct: 0, indirect: 0.35 }); // Shoulders, no goal
+  assert.deepEqual(barSegments(0, 3.5, 10), { direct: 0, indirect: 0.35 }); // Front delts, no goal
   assert.deepEqual(barSegments(0, 1.5, 10), { direct: 0, indirect: 0.15 }); // Biceps, Upper back
 });
 
@@ -130,11 +132,11 @@ test('bodyMapTone worked example from spec', () => {
   const tones = (goals) => Object.fromEntries(MUSCLE_GROUPS.map((m) => [m, bodyMapTone(volume[m], goals[m])]));
   assert.deepEqual(tones(GOALS), {
     Chest: 'met', Lats: 'under', 'Upper back': 'trained', Biceps: 'trained', Triceps: 'over',
-    Shoulders: 'trained', Abs: 'untrained', Quads: 'under', Hamstrings: 'untrained', Calves: 'untrained',
+    'Front delts': 'trained', 'Side delts': 'untrained', 'Rear delts': 'untrained', Abs: 'untrained', Quads: 'under', Hamstrings: 'untrained', Calves: 'untrained',
   });
   assert.deepEqual(tones({}), {
     Chest: 'trained', Lats: 'trained', 'Upper back': 'trained', Biceps: 'trained', Triceps: 'trained',
-    Shoulders: 'trained', Abs: 'untrained', Quads: 'untrained', Hamstrings: 'untrained', Calves: 'untrained',
+    'Front delts': 'trained', 'Side delts': 'untrained', 'Rear delts': 'untrained', Abs: 'untrained', Quads: 'untrained', Hamstrings: 'untrained', Calves: 'untrained',
   });
 });
 
@@ -159,7 +161,7 @@ test('barScale worked example from spec', () => {
   const triceps = barSegments(split.Triceps.direct, split.Triceps.indirect, scale);
   close(triceps.direct, 0.28125);
   close(triceps.indirect, 0.1875);
-  close(barSegments(split.Shoulders.direct, split.Shoulders.indirect, scale).indirect, 0.328125);
+  close(barSegments(split['Front delts'].direct, split['Front delts'].indirect, scale).indirect, 0.328125);
   close(barSegments(split.Biceps.direct, split.Biceps.indirect, scale).indirect, 0.140625);
   close(GOALS.Chest / scale, 0.65625); // markers
   close(GOALS.Triceps / scale, 0.375);
@@ -197,13 +199,13 @@ test('barScale ignores exercises with invalid sets', () => {
 
 test('visibleMuscles worked example from spec, no goals', () => {
   assert.deepEqual(visibleMuscles(computeVolume(WORKED_EXAMPLE), {}),
-    ['Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps', 'Shoulders']);
+    ['Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps', 'Front delts']);
 });
 
 test('visibleMuscles worked example from spec, with goals', () => {
   const goals = { Chest: 7, Triceps: 4, Lats: 6, Quads: 8 };
   assert.deepEqual(visibleMuscles(computeVolume(WORKED_EXAMPLE), goals),
-    ['Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps', 'Shoulders', 'Quads']);
+    ['Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps', 'Front delts', 'Quads']);
 });
 
 test('visibleMuscles is empty for an empty session with no goals', () => {
