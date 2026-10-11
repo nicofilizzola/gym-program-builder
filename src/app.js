@@ -560,11 +560,18 @@ panel.addEventListener('click', (event) => {
 
 /** Hover a muscle at once; let go of one (muscle = null) only after HOVER_GRACE_MS, unless another is hovered first. */
 function setHover(muscle) {
-  clearTimeout(hoverTimer);
   if (muscle === null) {
-    if (hoveredMuscle !== null) hoverTimer = setTimeout(() => setHoveredMuscle(null), HOVER_GRACE_MS);
+    // Arm once: crossing more non-muscle elements must not push the fallback back.
+    if (hoveredMuscle !== null && hoverTimer === null) {
+      hoverTimer = setTimeout(() => {
+        hoverTimer = null;
+        setHoveredMuscle(null);
+      }, HOVER_GRACE_MS);
+    }
     return;
   }
+  clearTimeout(hoverTimer);
+  hoverTimer = null;
   setHoveredMuscle(muscle);
 }
 
