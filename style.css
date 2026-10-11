@@ -780,10 +780,10 @@ svg {
   margin-bottom: 8px;
 }
 
-/* One row per muscle, like the volume list: name, slider, value. */
+/* One row per muscle, like the volume list: name, slider, value, then the info button in its own column so all line up. */
 .goal-row {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) 56px;
+  grid-template-columns: 120px minmax(0, 1fr) 56px 28px;
   align-items: center;
   gap: 8px;
 }
@@ -805,16 +805,8 @@ svg {
   font-weight: 500;
 }
 
-.goal-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
 .info-btn {
   display: grid;
-  flex: none;
   place-items: center;
   width: 28px;
   height: 28px;
@@ -841,24 +833,50 @@ svg {
   stroke-linejoin: round;
 }
 
-.goal-info {
-  grid-column: 1 / -1;
-  margin-bottom: 8px;
-  padding: 8px 10px;
+/* Info tooltip: a top-layer popover placed by tooltipPosition, so it never shifts or gets clipped by the dialog. */
+.info-tip {
+  position: fixed;
+  inset: auto;
+  width: min(280px, calc(100vw - 16px));
+  margin: 0;
+  padding: 10px 12px;
   background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   font-size: 0.75rem;
+  opacity: 0;
+  translate: 0 -4px;
+  transition:
+    opacity 150ms ease-out,
+    translate 150ms ease-out,
+    overlay 150ms ease-out allow-discrete,
+    display 150ms ease-out allow-discrete;
 }
 
-.goal-info[hidden] {
-  display: none;
+/* Above the button it slides up into place instead of down. */
+.info-tip[data-placement="above"] {
+  translate: 0 4px;
 }
 
-.goal-info p {
+.info-tip:popover-open {
+  opacity: 1;
+  translate: 0 0;
+}
+
+/* showTip measures and places a closed tip in this state; it then opens from here, so this is the entry's start. */
+.info-tip.is-measuring {
+  display: block;
+  visibility: hidden;
+  transition: none;
+}
+
+.info-tip p {
   margin: 0;
 }
 
-.goal-info p + p {
+.info-tip p + p {
   margin-top: 4px;
 }
 
@@ -1239,9 +1257,9 @@ svg {
     display: none;
   }
 
-  /* Name and value on one line, the slider full width below, so each 0.5 step is wide enough to land on. */
+  /* Name, value and info button on one line, the slider full width below, so each 0.5 step is wide enough to land on. */
   .goal-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto 28px;
     row-gap: 0;
   }
 
@@ -1255,8 +1273,9 @@ svg {
     grid-row: 2;
   }
 
-  .goal-info {
-    grid-row: 3;
+  .goal-row .info-btn {
+    grid-column: 3;
+    grid-row: 1;
   }
 }
 

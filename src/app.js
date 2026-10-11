@@ -3,6 +3,7 @@ import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, 
 import { LIMITS, validateExercise } from './validate.js';
 import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
+import { tooltipPosition } from './tooltip.js';
 import { serializeSession, parseSession, exportFileName } from './session-file.js';
 
 /**
@@ -133,14 +134,14 @@ function renderGoalFields() {
     const row = document.createElement('div');
     row.className = 'goal-row';
     row.innerHTML = `
-      <span class="goal-label"><span class="goal-name"></span>
-        <button type="button" class="info-btn" aria-expanded="false" aria-controls="goal-info-${index}">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
-        </button></span>
+      <span class="goal-name"></span>
       <div class="slider"><span class="slider-fill"></span>
         <input type="range" min="0" max="${LIMITS.goal.max}" step="${LIMITS.goal.step}"></div>
       <span class="slider-value" aria-hidden="true"></span>
-      <div class="goal-info" id="goal-info-${index}" hidden>
+      <button type="button" class="info-btn" aria-expanded="false" aria-controls="goal-info-${index}" aria-describedby="goal-info-${index}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      </button>
+      <div class="info-tip" id="goal-info-${index}" popover="manual">
         <p><strong>Productive sets</strong> <span class="info-sets"></span></p>
         <p><strong>Programming</strong> <span class="info-notes"></span></p>
       </div>`;
@@ -166,10 +167,49 @@ function showGoal(input) {
   setFill(input.parentElement, 0, value / LIMITS.goal.max);
 }
 
-/** Show or hide one muscle's info panel in the goals dialog. */
-function setInfoOpen(button, open) {
-  button.setAttribute('aria-expanded', String(open));
-  document.getElementById(button.getAttribute('aria-controls')).hidden = !open;
+/** The goals dialog's one shown info tooltip, if any; `pinned` once clicked, so it outlasts hover and focus. */
+let shownTip = null; // { button, pinned }
+let tipHideTimer = 0;
+
+const tipFor = (button) => document.getElementById(button.getAttribute('aria-controls'));
+
+/** Show a muscle's info tooltip next to its button, hiding any other one. */
+function showTip(button, pinned) {
+  clearTimeout(tipHideTimer);
+  if (shownTip && shownTip.button !== button) hideTip();
+  const tip = tipFor(button);
+  const isOpen = tip.matches(':popover-open');
+  // A closed tip is measured and placed while rendered hidden, so it opens from that spot: the entry slide then
+  // starts on the side matching its placement.
+  tip.classList.toggle('is-measuring', !isOpen);
+  const { width, height } = tip.getBoundingClientRect();
+  const { top, left, placement } = tooltipPosition(button.getBoundingClientRect(), { width, height },
+    { width: innerWidth, height: innerHeight });
+  tip.style.top = `${top}px`;
+  tip.style.left = `${left}px`;
+  tip.dataset.placement = placement;
+  if (!isOpen) {
+    getComputedStyle(tip).translate; // flush the placed, hidden style as the transition's start
+    tip.classList.remove('is-measuring');
+    tip.showPopover();
+  }
+  button.setAttribute('aria-expanded', 'true');
+  shownTip = { button, pinned };
+}
+
+function hideTip() {
+  clearTimeout(tipHideTimer);
+  if (!shownTip) return;
+  tipFor(shownTip.button).hidePopover();
+  shownTip.button.setAttribute('aria-expanded', 'false');
+  shownTip = null;
+}
+
+/** The info button a pointer or focus event is about: its own, or the one whose tooltip it is on. */
+function infoButtonAt(node) {
+  const target = node instanceof Element ? node.closest('.info-btn, .info-tip') : null;
+  if (!target) return null;
+  return target.matches('.info-btn') ? target : target.closest('.goal-row').querySelector('.info-btn');
 }
 
 /** Show the applied goals on the sliders; a muscle without a goal sits at 0. */
@@ -547,14 +587,58 @@ fileInput.addEventListener('change', async () => {
 
 document.querySelector('#open-goals').addEventListener('click', () => {
   syncGoalFields();
-  goalFields.querySelectorAll('.info-btn').forEach((button) => setInfoOpen(button, false));
+  hideTip();
   goalsDialog.showModal();
 });
 
+/** Clicking an info button pins its tooltip; clicking it again hides it. */
 goalFields.addEventListener('click', (event) => {
   const button = event.target.closest('.info-btn');
-  if (button) setInfoOpen(button, button.getAttribute('aria-expanded') !== 'true');
+  if (!button) return;
+  if (shownTip?.button === button && shownTip.pinned) hideTip();
+  else showTip(button, true);
 });
+
+/** A mouse over an info button, or its tooltip, peeks at the tooltip. */
+goalFields.addEventListener('pointerover', (event) => {
+  if (event.pointerType !== 'mouse') return;
+  const button = infoButtonAt(event.target);
+  if (!button) return;
+  if (shownTip?.button === button) clearTimeout(tipHideTimer);
+  else showTip(button, false);
+});
+
+/** Leaving both the button and its tooltip hides a peeked tooltip after a short grace. */
+goalFields.addEventListener('pointerout', (event) => {
+  if (event.pointerType !== 'mouse' || !shownTip || shownTip.pinned) return;
+  if (infoButtonAt(event.relatedTarget) === shownTip.button) return;
+  clearTimeout(tipHideTimer);
+  tipHideTimer = setTimeout(hideTip, 150);
+});
+
+goalFields.addEventListener('focusin', (event) => {
+  if (event.target.matches('.info-btn:focus-visible') && shownTip?.button !== event.target) showTip(event.target, false);
+});
+
+goalFields.addEventListener('focusout', (event) => {
+  if (shownTip?.button === event.target && !shownTip.pinned) hideTip();
+});
+
+/** A press anywhere but the shown button and its tooltip hides it. */
+goalsDialog.addEventListener('pointerdown', (event) => {
+  if (shownTip && infoButtonAt(event.target) !== shownTip.button) hideTip();
+}, true);
+
+/** Escape hides a shown tooltip first; the dialog closes on the next one. */
+goalsDialog.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !shownTip) return;
+  event.preventDefault();
+  hideTip();
+});
+
+goalsDialog.addEventListener('scroll', hideTip);
+goalsDialog.addEventListener('close', hideTip);
+window.addEventListener('resize', hideTip);
 
 /** Apply a goal while sliding. 0 clears it. */
 goalFields.addEventListener('input', (event) => {
