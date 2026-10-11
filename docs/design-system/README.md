@@ -6,9 +6,9 @@ When you change a value, change it in `style.css` first and then update this fil
 
 ## Principles
 
-- **One accent.** Orange (`--accent`) marks actions and selected state. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`) plus `--untrained`, reserved for the volume-list bars, status text and body map.
+- **One accent.** Orange (`--accent`) marks actions and selected state. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`) plus `--untrained`, reserved for the volume-list bars, the met checkmark and the body map.
 - **Volume is the hero.** The body map and volume list must always be visible while editing (sticky sidebar on desktop, pinned bottom strip on mobile).
-- **Colour never stands alone.** Every body map colour is paired with the volume list's number and status text (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with its status text and `volume / goal` value, and every highlight with a text tag.
+- **Colour never stands alone.** Every body map colour is paired with the volume list's number and status (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with the `volume / goal` value, the met checkmark and the hidden status word, and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
 
 ## Colour tokens
@@ -27,9 +27,9 @@ When you change a value, change it in `style.css` first and then update this fil
 | `--on-accent` | `#0f172a` | Text on `--accent` |
 | `--error` | `#fca5a5` | Validation messages |
 | `--body` | `#252f3c` | Body-map silhouette (non-muscle areas) |
-| `--under` / `--under-soft` | `#fbbf24` / `rgba(251,191,36,.14)` | Volume bar and status text, under the goal |
-| `--met` / `--met-soft` | `#4ade80` / `rgba(74,222,128,.14)` | Volume bar and status text, goal met |
-| `--over` / `--over-soft` | `#f87171` / `rgba(248,113,113,.14)` | Volume bar and status text, over the goal |
+| `--under` / `--under-soft` | `#fbbf24` / `rgba(251,191,36,.14)` | Volume bar, under the goal |
+| `--met` / `--met-soft` | `#4ade80` / `rgba(74,222,128,.14)` | Volume bar and checkmark, goal met |
+| `--over` / `--over-soft` | `#f87171` / `rgba(248,113,113,.14)` | Volume bar, over the goal |
 | `--no-goal` / `--no-goal-soft` | `#94a3b8` / `rgba(148,163,184,.14)` | Volume bar and body map muscle without a goal; split key swatches |
 | `--untrained` | `#3a4656` | Body map muscle with no goal and no volume |
 
@@ -137,8 +137,8 @@ Highlight states, set from the selected muscle via `data-hit`:
    - **Bar**: two stacked segments from `barSegments` in `src/volume.js`: direct (solid `--bar`) then indirect (`--bar-soft` fill with an inset 1px `--bar` outline). Each row's `data-status` sets `--bar` / `--bar-soft` to the under, met or over pair, or to the no-goal pair without a goal. All bars share one scale from `barScale`: the largest goal sits at 75% of the bar, and the scale grows so the largest volume always fits; with no goals the largest volume fills 75%. Nothing is cut off. The body map uses the same colours (see Body map colours).
    - **Goal marker**: a 2px × 14px `--text` tick (`.bar-goal`, `aria-hidden`) at `goal / scale`, drawn over the fill, so overshoot shows as fill past the marker. Hidden without a goal.
    - A visually hidden `(3 direct · 2 indirect)` inside each button puts the split in its accessible name. `.volume-row` is `position: relative` so that absolutely positioned text cannot widen the mobile chip scroller.
-   - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar shows the goal marker, and a text status follows in the bar's colour: `under` in `--under`, `met` in `--met`, `over` in `--over` with an outline pill.
-   - **Without a goal** the row keeps a plain value. Once any goal is set, the list gets `.has-goals` and every row uses fixed value and status columns (`76px 1fr 72px 44px`) so bars stay aligned and comparable.
+   - **With a goal** (from `goalStatus` in `src/volume.js`): the value reads `volume / goal` (e.g. `7 / 10`), the bar shows the goal marker, and a met goal adds a 16px `--met` checkmark (`.status`, inline SVG, `aria-hidden`). Under and over show no mark: the bar colour and the value carry them. The status word (`under`, `met`, `over`) sits in a visually hidden `.status-text` inside the button, so it stays in the accessible name.
+   - **Without a goal** the row keeps a plain value. Once any goal is set, the list gets `.has-goals` and every row uses fixed value and status columns (`76px 1fr 72px 20px`) so bars stay aligned and comparable.
    - The readout adds the goal and status for a muscle that has one (`Chest 7 / 10 sets (7 direct · 0 indirect) · under · 2 exercises`).
    - Goals colour the body map the same way as the bars (see Body map colours).
 

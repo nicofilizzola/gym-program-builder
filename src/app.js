@@ -118,7 +118,8 @@ function renderPanel() {
         <span class="name"></span>
         <span class="bar"><span class="bar-direct"></span><span class="bar-indirect"></span><span class="bar-goal" aria-hidden="true"></span></span>
         <span class="value"></span>
-        <span class="status"></span>
+        <span class="status" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+        <span class="status-text visually-hidden"></span>
         <span class="split visually-hidden"></span>
       </button>`;
     const button = item.querySelector('button');
@@ -334,7 +335,7 @@ function refresh() {
     row.setAttribute('aria-pressed', String(muscle === selectedMuscle));
     row.classList.toggle('is-zero', sets === 0);
     row.querySelector('.value').textContent = result ? `${sets} / ${goal}` : String(sets);
-    row.querySelector('.status').textContent = result?.status ?? '';
+    row.querySelector('.status-text').textContent = result?.status ?? '';
     const fill = barSegments(split[muscle].direct, split[muscle].indirect, scale);
     row.querySelector('.bar-direct').style.width = `${fill.direct * 100}%`;
     row.querySelector('.bar-indirect').style.width = `${fill.indirect * 100}%`;

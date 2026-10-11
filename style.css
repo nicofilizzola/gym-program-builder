@@ -1151,7 +1151,7 @@ svg {
 
 /* With any goal set, every row gets fixed value and status columns so the bars line up. */
 .volume-list.has-goals .volume-row {
-  grid-template-columns: 76px 1fr 72px 44px;
+  grid-template-columns: 76px 1fr 72px 20px;
   gap: 8px;
 }
 
@@ -1159,23 +1159,25 @@ svg {
   white-space: nowrap;
 }
 
+/* Only a met goal gets a mark; under and over read from the bar colour and the volume / goal value. */
 .volume-row .status {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--bar);
-}
-
-.volume-row .status:empty {
   display: none;
 }
 
-.volume-row[data-status="over"] .status {
-  justify-self: start;
-  padding: 0 5px;
-  border: 1px solid var(--bar);
-  border-radius: 999px;
+.volume-row[data-status="met"] .status {
+  display: grid;
+  place-items: center;
+  color: var(--met);
+}
+
+.volume-row .status svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 @media (max-width: 760px) {
@@ -1231,7 +1233,7 @@ svg {
     scrollbar-width: none;
   }
 
-  /* The status gets an implicit column only when it is shown, so no-goal chips keep their old size. */
+  /* The met checkmark gets an implicit column only when it is shown, so other chips keep their old size. */
   .volume-row,
   .volume-list.has-goals .volume-row {
     grid-template-columns: auto auto;
