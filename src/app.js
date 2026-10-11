@@ -15,6 +15,10 @@ const session = { exercises: [], goals: {} };
 let selectedMuscle = null;
 let hoveredMuscle = null;
 
+/** How long the hovered muscle outlives the pointer leaving it, so crossing a gap never flashes the hint. */
+const HOVER_GRACE_MS = 150;
+let hoverTimer = null;
+
 /** View state for a pointer drag in progress: the pointer, the dragged card, and its index when the drag started. */
 let drag = null;
 
@@ -512,18 +516,28 @@ panel.addEventListener('click', (event) => {
   refresh();
 });
 
-panel.addEventListener('pointerover', (event) => {
-  if (event.pointerType !== 'mouse') return;
-  const muscle = event.target.closest('[data-muscle]')?.dataset.muscle ?? null;
+/** Hover a muscle at once; let go of one (muscle = null) only after HOVER_GRACE_MS, unless another is hovered first. */
+function setHover(muscle) {
+  clearTimeout(hoverTimer);
+  if (muscle === null) {
+    if (hoveredMuscle !== null) hoverTimer = setTimeout(() => setHoveredMuscle(null), HOVER_GRACE_MS);
+    return;
+  }
+  setHoveredMuscle(muscle);
+}
+
+function setHoveredMuscle(muscle) {
   if (muscle === hoveredMuscle) return;
   hoveredMuscle = muscle;
   refresh();
+}
+
+panel.addEventListener('pointerover', (event) => {
+  if (event.pointerType !== 'mouse') return;
+  setHover(event.target.closest('[data-muscle]')?.dataset.muscle ?? null);
 });
 
-panel.addEventListener('pointerleave', () => {
-  hoveredMuscle = null;
-  refresh();
-});
+panel.addEventListener('pointerleave', () => setHover(null));
 
 renderPanel();
 renderGoalFields();

@@ -159,7 +159,7 @@ Each muscle is a `<g class="region" data-muscle="…">`. The app sets `data-tone
 
 | Action | Result |
 |---|---|
-| Hover a muscle (mouse only) | White outline on the region, row highlighted, readout shows its sets |
+| Hover a muscle (mouse only) | White outline on the region, row highlighted, readout shows its sets. Volume rows (and mobile chips) have touching hit areas, their visible box drawn by an inset `::before`; leaving a muscle keeps it hovered for 150 ms, so crossing a gap never flashes the hint |
 | Click / tap a muscle (body or list) | Selects it: other regions dim to 40%, matching exercise cards highlight, row shows pressed state |
 | Click the selected muscle again | Clears the selection |
 
