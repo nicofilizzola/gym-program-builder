@@ -1,5 +1,5 @@
-import { MUSCLE_GROUPS } from './muscles.js';
-import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles } from './volume.js';
+import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
+import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalRangeCheck, goalStatus, visibleMuscles } from './volume.js';
 import { LIMITS, validateExercise } from './validate.js';
 import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
@@ -129,15 +129,26 @@ function renderPanel() {
 
 /** Build the goal sliders once, one row per muscle. 0 on the slider means no goal. */
 function renderGoalFields() {
-  goalFields.replaceChildren(...MUSCLE_GROUPS.map((muscle) => {
+  goalFields.replaceChildren(...MUSCLE_GROUPS.map((muscle, index) => {
     const row = document.createElement('div');
     row.className = 'goal-row';
     row.innerHTML = `
-      <span class="goal-name"></span>
+      <span class="goal-label"><span class="goal-name"></span>
+        <button type="button" class="info-btn" aria-expanded="false" aria-controls="goal-info-${index}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+        </button></span>
       <div class="slider"><span class="slider-fill"></span>
         <input type="range" min="0" max="${LIMITS.goal.max}" step="${LIMITS.goal.step}"></div>
-      <span class="slider-value" aria-hidden="true"></span>`;
+      <span class="slider-value" aria-hidden="true"></span>
+      <p class="goal-hint" aria-live="polite"></p>
+      <div class="goal-info" id="goal-info-${index}" hidden>
+        <p><strong>Productive sets</strong> <span class="info-sets"></span></p>
+        <p><strong>Programming</strong> <span class="info-notes"></span></p>
+      </div>`;
     row.querySelector('.goal-name').textContent = muscle;
+    row.querySelector('.info-btn').setAttribute('aria-label', `About ${muscle}`);
+    row.querySelector('.info-sets').textContent = MUSCLE_INFO[muscle].sets;
+    row.querySelector('.info-notes').textContent = MUSCLE_INFO[muscle].notes;
     const input = row.querySelector('input');
     input.dataset.goal = muscle;
     input.setAttribute('aria-label', `${muscle} goal`);
@@ -145,15 +156,38 @@ function renderGoalFields() {
   }));
 }
 
-/** Show a goal slider's value text and fill; 0 reads `No goal`. */
+/** The line under a goal slider: the recommended range, or a warning when the goal is outside it. */
+function goalHint(muscle, goal) {
+  const { recommended } = MUSCLE_INFO[muscle];
+  const range = `${recommended.min}–${recommended.max}`;
+  const check = goalRangeCheck(goal, recommended);
+  if (check === 'above') return { text: `Above the recommended range (${range}).`, warning: true };
+  if (check === 'below') return { text: `Below the recommended range (${range}).`, warning: true };
+  return { text: `Recommended ${range}`, warning: false };
+}
+
+/** Show a goal slider's value text, fill and range hint; 0 reads `No goal`. */
 function showGoal(input) {
   const value = input.valueAsNumber;
-  const text = input.closest('.goal-row').querySelector('.slider-value');
+  const row = input.closest('.goal-row');
+  const text = row.querySelector('.slider-value');
   text.textContent = value === 0 ? 'No goal' : String(value);
   text.classList.toggle('is-empty', value === 0);
   if (value === 0) input.setAttribute('aria-valuetext', 'No goal');
   else input.removeAttribute('aria-valuetext');
   setFill(input.parentElement, 0, value / LIMITS.goal.max);
+
+  // Write the hint only when it changes, so its live region is not re-announced on every step.
+  const hint = row.querySelector('.goal-hint');
+  const { text: hintText, warning } = goalHint(input.dataset.goal, value === 0 ? undefined : value);
+  if (hint.textContent !== hintText) hint.textContent = hintText;
+  hint.classList.toggle('is-warning', warning);
+}
+
+/** Show or hide one muscle's info panel in the goals dialog. */
+function setInfoOpen(button, open) {
+  button.setAttribute('aria-expanded', String(open));
+  document.getElementById(button.getAttribute('aria-controls')).hidden = !open;
 }
 
 /** Show the applied goals on the sliders; a muscle without a goal sits at 0. */
@@ -531,7 +565,13 @@ fileInput.addEventListener('change', async () => {
 
 document.querySelector('#open-goals').addEventListener('click', () => {
   syncGoalFields();
+  goalFields.querySelectorAll('.info-btn').forEach((button) => setInfoOpen(button, false));
   goalsDialog.showModal();
+});
+
+goalFields.addEventListener('click', (event) => {
+  const button = event.target.closest('.info-btn');
+  if (button) setInfoOpen(button, button.getAttribute('aria-expanded') !== 'true');
 });
 
 /** Apply a goal while sliding. 0 clears it. */
