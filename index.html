@@ -16,16 +16,30 @@
     <section class="builder">
       <p class="eyebrow">Gym Program Builder</p>
       <h1>Session builder</h1>
-      <div class="file-actions">
-        <button id="import-session" type="button" class="secondary-btn">Import</button>
-        <button id="export-session" type="button" class="secondary-btn">Export</button>
-        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      <div class="toolbar">
+        <div class="file-actions">
+          <button id="import-session" type="button" class="secondary-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>
+            Import
+          </button>
+          <button id="export-session" type="button" class="secondary-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 15v4h16v-4"/></svg>
+            Export
+          </button>
+          <input id="import-file" type="file" accept=".json,application/json" hidden>
+        </div>
+        <div id="list-actions" class="list-actions" hidden>
+          <button id="expand-all" type="button" class="secondary-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            Expand all
+          </button>
+          <button id="collapse-all" type="button" class="secondary-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+            Collapse all
+          </button>
+        </div>
       </div>
       <p id="file-message" class="error" role="alert"></p>
-      <div id="list-actions" class="list-actions" hidden>
-        <button id="expand-all" type="button" class="secondary-btn">Expand all</button>
-        <button id="collapse-all" type="button" class="secondary-btn">Collapse all</button>
-      </div>
       <ol id="exercises" class="exercises"></ol>
       <p id="empty" class="empty">No exercises yet. Add one to start building your session.</p>
       <button id="add-exercise" class="add-btn" type="button">

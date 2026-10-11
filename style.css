@@ -93,6 +93,15 @@ h1 {
   font-size: 2.5rem;
 }
 
+/* Import / Export on the left, Expand all / Collapse all on the right; wraps on narrow screens. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
 .file-actions {
   display: flex;
   gap: 8px;
@@ -146,8 +155,7 @@ input:focus-visible {
 .list-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
-  margin-top: 16px;
+  margin-left: auto;
 }
 
 .list-actions[hidden] {
@@ -694,6 +702,9 @@ svg {
 }
 
 .secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--border);
@@ -710,6 +721,17 @@ svg {
 
 .secondary-btn:hover {
   border-color: var(--accent);
+}
+
+.secondary-btn svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ---------- Goals dialog ---------- */

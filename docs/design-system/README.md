@@ -125,6 +125,7 @@ Highlight states, set from the selected muscle via `data-hit`:
 - **Primary ("Add exercise")**: full width, 52px tall, `--accent` fill, display font uppercase, plus icon.
 - **Secondary ("Set goals")**: 44px tall, transparent, `--border` outline that turns `--accent` on hover, display font uppercase.
 - **Icon buttons**: 44×44 transparent, always with an `aria-label`.
+- **Session toolbar** (`.toolbar`): one wrapping flex row above the exercise list. Import and Export (`.file-actions`) sit at the left, Expand all and Collapse all (`#list-actions`, hidden with no exercises) at the right (`margin-left: auto`). Each is a secondary button with an 18px inline SVG icon before its text (tray arrow in/out, chevron down/up). The file message sits below the row.
 - Icons are inline SVG strokes (2px, round caps) using `currentColor`.
 
 ### Volume panel
