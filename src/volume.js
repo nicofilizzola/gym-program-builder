@@ -72,6 +72,18 @@ export function goalStatus(volume, goal) {
 }
 
 /**
+ * Where a goal sits against a muscle's recommended range; the range is inclusive.
+ * @param {number | undefined} goal
+ * @param {{ min: number, max: number }} range
+ * @returns {'below' | 'above' | null} null when the goal is inside the range or there is no goal
+ */
+export function goalRangeCheck(goal, range) {
+  if (goal === undefined) return null;
+  if (goal < range.min) return 'below';
+  return goal > range.max ? 'above' : null;
+}
+
+/**
  * Muscles the volume list shows: those with a goal, or with volume above 0.
  * @param {Record<string, number>} volume from computeVolume
  * @param {Partial<Record<string, number>>} goals
