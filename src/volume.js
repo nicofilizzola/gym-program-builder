@@ -81,6 +81,19 @@ export function visibleMuscles(volume, goals) {
   return MUSCLE_GROUPS.filter((muscle) => goals[muscle] !== undefined || volume[muscle] > 0);
 }
 
+/** Upper volume limits of body map heat levels 1–3; anything above the last one is level 4. */
+export const HEAT_BANDS = Object.freeze([3, 6, 9]);
+
+/**
+ * The body map's absolute heat level for a muscle's volume; goals play no part.
+ * @param {number} volume
+ * @returns {0 | 1 | 2 | 3 | 4} 0 at no volume, then one level per band the volume passes
+ */
+export function heatLevel(volume) {
+  if (volume <= 0) return 0;
+  return 1 + HEAT_BANDS.filter((limit) => volume > limit).length;
+}
+
 /**
  * Body map colour for one muscle, from the same goal status as its bar.
  * A muscle with a goal is under, met or over (under at 0 volume); without one it is trained or untrained.

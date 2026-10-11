@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from '../src/muscles.js';
-import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles } from '../src/volume.js';
+import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalStatus, HEAT_BANDS, heatLevel, visibleMuscles } from '../src/volume.js';
 
 function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min: 8, max: 12 }) {
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
@@ -126,6 +126,24 @@ test('barSegments caps the total at the scale, direct first', () => {
 });
 
 const GOALS = { Chest: 7, Triceps: 4, Lats: 6, Quads: 8 };
+
+test('heatLevel worked example from spec (goals make no difference)', () => {
+  const volume = computeVolume(WORKED_EXAMPLE);
+  assert.deepEqual(Object.fromEntries(MUSCLE_GROUPS.map((m) => [m, heatLevel(volume[m])])), {
+    Chest: 3, Lats: 1, 'Upper back': 1, Biceps: 1, Triceps: 2, 'Front delts': 2,
+    'Side delts': 0, 'Rear delts': 0, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
+  });
+});
+
+test('heatLevel band boundaries, including volume above 12', () => {
+  const cases = [[0, 0], [0.5, 1], [3, 1], [3.5, 2], [6, 2], [6.5, 3], [9, 3], [9.5, 4], [12, 4], [15, 4]];
+  for (const [v, level] of cases) assert.equal(heatLevel(v), level, `volume ${v}`);
+});
+
+test('HEAT_BANDS holds the spec limits, frozen', () => {
+  assert.deepEqual([...HEAT_BANDS], [3, 6, 9]);
+  assert.ok(Object.isFrozen(HEAT_BANDS));
+});
 
 test('bodyMapTone worked example from spec', () => {
   const volume = computeVolume(WORKED_EXAMPLE);
