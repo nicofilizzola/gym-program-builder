@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
-import { barScale, barSegments, bodyMapTone, computeVolume, computeVolumeSplit, goalStatus, visibleMuscles } from './volume.js';
+import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, heatLevel, visibleMuscles } from './volume.js';
 import { LIMITS, validateExercise } from './validate.js';
 import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
@@ -317,7 +317,7 @@ function refresh() {
   panel.classList.toggle('has-selection', selectedMuscle !== null);
   panel.querySelectorAll('[data-muscle]').forEach((el) => {
     const { muscle } = el.dataset;
-    el.dataset.tone = bodyMapTone(volume[muscle], session.goals[muscle]);
+    el.dataset.heat = heatLevel(volume[muscle]);
     el.classList.toggle('is-selected', muscle === selectedMuscle);
     el.classList.toggle('is-focus', muscle === focus);
   });

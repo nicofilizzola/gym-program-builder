@@ -12,7 +12,7 @@
   --error: #fca5a5;
   --body: #252f3c;
 
-  /* Goal status colours for the volume-list bars and status text. */
+  /* Goal status colours for the volume-list bars and the met checkmark. */
   --under: #fbbf24;
   --under-soft: rgba(251, 191, 36, 0.14);
   --met: #4ade80;
@@ -21,7 +21,13 @@
   --over-soft: rgba(248, 113, 113, 0.14);
   --no-goal: #94a3b8;
   --no-goal-soft: rgba(148, 163, 184, 0.14);
-  --untrained: #3a4656; /* body map muscle with no goal and no volume */
+  --untrained: #3a4656; /* body map muscle with 0 volume; heat legend 0 */
+
+  /* Body map volume heatmap: builds to the accent at the ideal 4–6 sets, then leans red. */
+  --heat-1: #9a4a1f;
+  --heat-2: var(--accent);
+  --heat-3: #f0522d;
+  --heat-4: #dc2626;
 
   --radius: 12px;
   --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
@@ -921,11 +927,11 @@ svg {
   transition: fill 250ms ease, opacity 200ms ease, stroke 150ms ease;
 }
 
-/* Same colours as the volume bars: goal status, or trained/untrained without a goal. */
-.region[data-tone="trained"] path { fill: var(--no-goal); }
-.region[data-tone="under"] path { fill: var(--under); }
-.region[data-tone="met"] path { fill: var(--met); }
-.region[data-tone="over"] path { fill: var(--over); }
+/* Absolute volume heat level from heatLevel(); level 0 keeps the untrained fill. */
+.region[data-heat="1"] path { fill: var(--heat-1); }
+.region[data-heat="2"] path { fill: var(--heat-2); }
+.region[data-heat="3"] path { fill: var(--heat-3); }
+.region[data-heat="4"] path { fill: var(--heat-4); }
 
 .has-selection .region:not(.is-selected) path {
   opacity: 0.4;
@@ -1108,11 +1114,39 @@ svg {
   list-style: none;
   display: flex;
   gap: 12px;
-  margin: 16px 0 8px; /* the gap the removed heat legend used to give below the readout */
+  margin: 16px 0 8px;
   padding: 0;
   font-size: 0.75rem;
   color: var(--muted);
 }
+
+.heat-key {
+  list-style: none;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.heat-key li::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+.heat-key [data-heat="0"]::before { background: var(--untrained); }
+.heat-key [data-heat="1"]::before { background: var(--heat-1); }
+.heat-key [data-heat="2"]::before { background: var(--heat-2); }
+.heat-key [data-heat="3"]::before { background: var(--heat-3); }
+.heat-key [data-heat="4"]::before { background: var(--heat-4); }
 
 .split-key[hidden] {
   display: none;

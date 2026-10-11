@@ -94,13 +94,3 @@ export function heatLevel(volume) {
   return 1 + HEAT_BANDS.filter((limit) => volume > limit).length;
 }
 
-/**
- * Body map colour for one muscle, from the same goal status as its bar.
- * A muscle with a goal is under, met or over (under at 0 volume); without one it is trained or untrained.
- * @param {number} volume
- * @param {number | undefined} goal
- * @returns {'under' | 'met' | 'over' | 'trained' | 'untrained'}
- */
-export function bodyMapTone(volume, goal) {
-  return goalStatus(volume, goal)?.status ?? (volume > 0 ? 'trained' : 'untrained');
-}
