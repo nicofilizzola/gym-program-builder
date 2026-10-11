@@ -19,6 +19,17 @@ let hoveredMuscle = null;
 const HOVER_GRACE_MS = 150;
 let hoverTimer = null;
 
+/**
+ * View state for the readout crossfade: the subject it shows now (a muscle, null for the hint, undefined before
+ * the first render), the newest { subject, write } waiting for a fade-out to end, and that fade's timer.
+ * The CSS opacity transition on #readout lasts READOUT_FADE_MS each way.
+ */
+const READOUT_FADE_MS = 75;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let readoutSubject;
+let pendingReadout = null;
+let readoutTimer = null;
+
 /** View state for a pointer drag in progress: the pointer, the dragged card, and its index when the drag started. */
 let drag = null;
 
@@ -282,6 +293,11 @@ function refresh() {
     else delete row.dataset.status;
   });
 
+  showReadout(focus, () => writeReadout(focus, volume, splitText));
+}
+
+/** Fill the readout with a muscle's details, or the hint when muscle is null. */
+function writeReadout(focus, volume, splitText) {
   if (focus) {
     const count = session.exercises.filter((ex) =>
       ex.primaryMuscles.includes(focus) || ex.secondaryMuscles.includes(focus)).length;
@@ -294,6 +310,32 @@ function refresh() {
   } else {
     readout.textContent = 'Tap a muscle to highlight its exercises.';
   }
+}
+
+/**
+ * Show the readout for a subject. A new subject fades the old text out, then writes the newest pending content
+ * and fades it in; the same subject, the first render, or reduced motion writes at once.
+ */
+function showReadout(subject, write) {
+  const fading = pendingReadout !== null;
+  if ((!fading && subject === readoutSubject) || readoutSubject === undefined || reducedMotion.matches) {
+    clearTimeout(readoutTimer);
+    pendingReadout = null;
+    readout.classList.remove('is-fading');
+    write();
+    readoutSubject = subject;
+    return;
+  }
+  pendingReadout = { subject, write };
+  if (fading) return;
+  readout.classList.add('is-fading');
+  readoutTimer = setTimeout(() => {
+    const { subject: next, write: writeNext } = pendingReadout;
+    pendingReadout = null;
+    writeNext();
+    readoutSubject = next;
+    readout.classList.remove('is-fading');
+  }, READOUT_FADE_MS);
 }
 
 function indexOf(el) {

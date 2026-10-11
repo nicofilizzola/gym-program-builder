@@ -851,8 +851,14 @@ svg {
   font-size: 0.9rem;
 }
 
+/* Crossfade: app.js swaps the text while it is faded out (READOUT_FADE_MS each way). */
 .readout p {
   margin: 0;
+  transition: opacity 75ms ease-out;
+}
+
+.readout p.is-fading {
+  opacity: 0;
 }
 
 .readout strong {
