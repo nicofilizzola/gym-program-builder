@@ -5,6 +5,7 @@ export const LIMITS = Object.freeze({
   sets: Object.freeze({ min: 1, max: 10, step: 1 }),
   reps: Object.freeze({ min: 1, max: 30, step: 1 }),
   goal: Object.freeze({ min: 0.5, max: 12, step: 0.5 }),
+  weeklyGoal: Object.freeze({ min: 0.5, max: 30, step: 0.5 }),
 });
 
 const inLimits = (n, { min, max }) => n >= min && n <= max;
@@ -57,4 +58,8 @@ export function validateExercise(ex) {
  */
 export function validateGoal(goal) {
   return Number.isInteger(goal * 2) && inLimits(goal, LIMITS.goal) ? null : `Goal ${GOAL_RULE}`;
+}
+
+export function validateGoalFor(goal, limits) {
+  return Number.isInteger(goal * 2) && inLimits(goal, limits) ? null : `Goal must be a multiple of 0.5 from ${limits.min} to ${limits.max}.`;
 }
