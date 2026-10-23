@@ -1369,7 +1369,7 @@ button:disabled {opacity:.5;cursor:default}
 @starting-style {.action-tooltip:popover-open {opacity:0}}
 @media(prefers-reduced-motion:reduce){.app-header nav a,.action-button,.action-tooltip{transition:none}}
 
-.library-toolbar {display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.library-toolbar {display:flex;justify-content:flex-start;align-items:center;gap:12px;flex-wrap:wrap}
 .library-toolbar .add-btn {width:auto;min-height:44px;padding:10px 16px;font-size:1rem}
 .library-toolbar .secondary-btn {display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px}
 .library-toolbar svg {width:20px;height:20px;flex-shrink:0}
@@ -1379,3 +1379,7 @@ button:disabled {opacity:.5;cursor:default}
 .library-item .item-actions {flex:0 0 auto;flex-wrap:nowrap;gap:8px}
 @media(max-width:375px){.library-toolbar{gap:8px}.library-toolbar .add-btn{padding:10px;font-size:.95rem;letter-spacing:0}.library-toolbar .secondary-btn{padding-inline:10px}}
 @media(prefers-reduced-motion:reduce){.library-item h2 a{transition:none}}
+
+.library h1 {overflow-wrap:anywhere}
+
+.library [data-empty]:empty {display:none}

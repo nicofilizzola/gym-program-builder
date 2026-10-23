@@ -19,7 +19,7 @@ export function mountActionTooltips(root){
  let trigger,showTimer,hideTimer,destroyed=false;
  const events=new AbortController(),options={signal:events.signal};
  function hide(){
-  clearTimeout(showTimer);clearTimeout(hideTimer);
+  clearTimeout(showTimer);showTimer=null;clearTimeout(hideTimer);
   if(trigger){
    const ids=(trigger.getAttribute('aria-describedby')||'').split(/\s+/).filter(id=>id&&id!==tip.id);
    if(ids.length)trigger.setAttribute('aria-describedby',ids.join(' '));else trigger.removeAttribute('aria-describedby');
@@ -28,9 +28,10 @@ export function mountActionTooltips(root){
   if(activeController===controller)activeController=null;
  }
  function schedule(button){
-  if(trigger===button){clearTimeout(hideTimer);return;}
+  if(trigger===button&&(tip.matches(':popover-open')||showTimer)){clearTimeout(hideTimer);return;}
   activeController?.hide();hide();activeController=controller;trigger=button;
   showTimer=setTimeout(()=>{
+   showTimer=null;
    if(destroyed||!button.isConnected||trigger!==button)return;
    tip.textContent=button.dataset.actionTooltip;tip.showPopover();
    const position=tooltipPosition(button.getBoundingClientRect(),tip.getBoundingClientRect(),{width:innerWidth,height:innerHeight});
@@ -38,7 +39,10 @@ export function mountActionTooltips(root){
    const ids=(button.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean);ids.push(tip.id);button.setAttribute('aria-describedby',ids.join(' '));
   },150);
  }
- function depart(){clearTimeout(showTimer);clearTimeout(hideTimer);hideTimer=setTimeout(hide,150);}
+ function depart(){
+  if(trigger===document.activeElement)return;
+  clearTimeout(showTimer);showTimer=null;clearTimeout(hideTimer);hideTimer=setTimeout(hide,150);
+ }
  function buttonAt(target){const button=target instanceof Element?target.closest('[data-action-tooltip]'):null;return button&&root.contains(button)?button:null;}
  root.addEventListener('pointerover',event=>{if(event.pointerType==='mouse'){const button=buttonAt(event.target);if(button)schedule(button);}},options);
  root.addEventListener('pointerout',event=>{const button=buttonAt(event.target);if(button&&!button.contains(event.relatedTarget)&&!tip.contains(event.relatedTarget))depart();},options);
