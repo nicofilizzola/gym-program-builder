@@ -109,7 +109,7 @@ async function renderRoute(){
  queue?.dispose();queue=null;active=null;saveStatus('');clearView();app.textContent='Loading…';
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);if(version!==routeVersion)return;
  mounted=mountLibrary(app,{
-  kind,records,
+  kind,records,recordHref:record=>`#/${route.view}/${record.id}`,
   onCreate:action(()=>create(kind,kind==='program'?createProgram():createTemplate())),
   onOpen:action(record=>navigate(`#/${route.view}/${record.id}`)),
   onDuplicate:action(async record=>{

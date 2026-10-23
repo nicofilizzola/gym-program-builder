@@ -18,5 +18,5 @@ test('program copies are independent and weekly goals and schedules survive mode
  await page.getByRole('button',{name:'Set weekly goals',exact:true}).click();await page.getByLabel('Chest weekly goal',{exact:true}).fill('30');await page.getByRole('button',{name:'Done',exact:true}).click();
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('7 / 30');await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.reload();await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Week A');await expect(page.getByLabel('Day for Source upper')).toHaveValue('6');
- await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'Open Source upper',exact:true}).click();await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('3');
+ await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:'Source upper',exact:true}).click();await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('3');
 });
