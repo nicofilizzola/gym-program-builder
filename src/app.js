@@ -1,3 +1,4 @@
+import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {createApiClient} from './api-client.js';
 import {createAutosave} from './autosave.js';
 import {createTemplate,createProgram,duplicateProgram} from './program.js';
@@ -10,11 +11,13 @@ const api=createApiClient(),app=document.querySelector('#app'),shell=document.qu
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
 let mounted,active,queue,routeVersion=0,currentHash=location.hash||'#/programs',authenticated=false,transitioning=false,creation=null,pendingRoute=false;
 const retryCreation=document.querySelector('#retry-creation');
+document.querySelector('#logout').innerHTML=actionIcon('logout');
+const shellTooltips=mountActionTooltips(document.querySelector('.app-header'));
 const uid=()=>crypto.randomUUID();
 const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
-function clearView(){mounted?.destroy();mounted=null;app.replaceChildren();}
+function clearView(){shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
  transitioning=true;shell.inert=true;
@@ -49,6 +52,7 @@ window.addEventListener('hashchange',action(async()=>{
  await transition(handleHashChange);
 }));
 function showLogin(resuming=false){
+ shellTooltips.hide();
  authenticated=false;shell.hidden=true;authHost.hidden=false;
  authHost.innerHTML='<form class="login-card"><p class="eyebrow">Gym Program Builder</p><h1>Your training, saved</h1><p>Sign in to your personal program library.</p><label class="field">Password<input type="password" name="password" autocomplete="current-password" required></label><p class="error" role="alert"></p><button class="add-btn" type="submit">Sign in</button></form>';
  const form=authHost.querySelector('form');form.addEventListener('submit',async event=>{

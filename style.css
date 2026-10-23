@@ -1351,3 +1351,20 @@ button:disabled {opacity:.5;cursor:default}
 .schedule-toggle {display:flex;align-items:center;gap:8px;min-height:44px}
 @media(max-width:800px){.program-grid{grid-template-columns:minmax(0,1fr)}.program-grid>[data-weekly-panel]{grid-row:1}.program-context{padding:16px 16px 0}}
 @media(max-width:600px){.app-header,.library,.program-page{padding:16px}.login-card{margin:10vh 16px}.library-item{padding:16px}.save-controls{font-size:.875rem}.weekly-goal{grid-template-columns:80px minmax(0,1fr) 50px}}
+
+/* Navigation and library action controls */
+.app-header nav {gap:8px}
+.app-header nav a {display:inline-flex;align-items:center;min-height:44px;padding:10px 14px;border:1px solid transparent;border-radius:8px;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.app-header nav a:hover {color:var(--text);background:var(--surface-2)}
+.app-header nav a[aria-current=page] {color:var(--accent);background:rgba(249,115,22,.1);border-bottom-color:var(--accent)}
+.app-header nav a:active {background:rgba(249,115,22,.18)}
+.action-button {display:inline-grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.action-button:hover,.action-button:focus-visible {color:var(--text);background:var(--surface-2);border-color:var(--muted)}
+.action-button:active {background:rgba(249,115,22,.15)}
+.action-button--delete:hover,.action-button--delete:focus-visible {color:var(--error);background:rgba(239,68,68,.12);border-color:var(--error)}
+.action-button svg {width:20px;height:20px}
+.app-header nav a:focus-visible,.action-button:focus-visible,.library-item h2 a:focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+.action-tooltip {position:fixed;inset:auto;margin:0;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.875rem;line-height:1.4;max-width:calc(100vw - 16px);box-shadow:0 4px 16px #0006;opacity:0;transition:opacity 150ms ease-out,display 150ms allow-discrete,overlay 150ms allow-discrete}
+.action-tooltip:popover-open {opacity:1}
+@starting-style {.action-tooltip:popover-open {opacity:0}}
+@media(prefers-reduced-motion:reduce){.app-header nav a,.action-button,.action-tooltip{transition:none}}
