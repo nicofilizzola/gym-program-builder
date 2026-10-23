@@ -1,5 +1,21 @@
 # Gym Program Builder
 
+## Current release: programs and persistence (2026-10-23)
+
+These approved requirements supersede the original MVP restrictions below wherever they conflict. Full design: docs/superpowers/specs/2026-10-23-programs-persistence-design.md; implementation plan: docs/superpowers/plans/2026-10-23-programs-persistence.md.
+
+- The app is personal, protected by one password, with named session templates in a library and named weekly programs.
+- Programs contain deep independent template copies. Edits never propagate between copies or back to the library.
+- Default simple sequence; optional Monday–Sunday schedule, multiple workouts per day, and Unscheduled. Preserve canonical order and day assignments when toggling modes.
+- Weekly volume counts every program workout once, including unscheduled; weekly goals are 0.5–30 by 0.5, separate from workout goals (0.5–12). Slider 0 clears either goal. Weekly panels use bars without the per-session heatmap or productive-set recommendations.
+- Autosave complete data and unfinished drafts to SQLite: local file for development, Turso/libSQL through Vercel Node.js 24 API for production. No browser persistence mirror, ORM or frontend framework.
+- Save revisions prevent stale cross-device overwrites; failures retain edits with Retry, conflicts offer Reload saved version or Save as copy. Do not store derived volume or transient hover/collapse state.
+- Version-2 JSON exports contain a named template or complete program; existing version-1 session files still import. Library imports create new records, editor imports replace after confirmation; reject invalid files as a whole.
+- Draft saving relaxes empty names and absent primary muscles only. Strict validation still gates import/export. Preserve all existing muscle, exercise, volume, slider, collapse, tooltip and accessibility behavior.
+- Password/session/database secrets stay server-side. Only index.html, style.css and browser src assets may be published. Preview and production databases/secrets are separate.
+- Verification: npm test, npm run test:e2e, npm run build. Run npm run db:migrate explicitly; never migrate production automatically during builds/requests.
+- Out of scope: multiple accounts, live collaboration, offline editing, calendar dates/history, workout logging, template-copy synchronization and whole-library backup UI.
+
 ## Purpose
 
 A simple interface for building gym session templates. While the user builds a session, they see the **training volume per muscle group** update in real time.
