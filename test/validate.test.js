@@ -89,6 +89,7 @@ test('LIMITS defines the slider limits once', () => {
     sets: { min: 1, max: 10, step: 1 },
     reps: { min: 1, max: 30, step: 1 },
     goal: { min: 0.5, max: 12, step: 0.5 },
+    weeklyGoal: { min: 0.5, max: 30, step: 0.5 },
   });
   assert.ok(Object.isFrozen(LIMITS));
 });
