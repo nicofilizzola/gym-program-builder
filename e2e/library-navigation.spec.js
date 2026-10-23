@@ -113,3 +113,15 @@ test('touch actions execute with a single tap',async({browser})=>{
   expect(await page.evaluate(()=>window.calls)).toEqual([['duplicate','one'],['export','one'],['delete','one']]);
  }finally{await context.close();}
 });
+test('tooltips flip at viewport edges, preserve descriptions and cancel pending work',async({page})=>{
+ await fixture(page);await page.emulateMedia({reducedMotion:'no-preference'});
+ const button=page.locator('.library-item').first().getByRole('button',{name:'Delete Same',exact:true});
+ await button.evaluate(el=>{el.style.cssText='position:fixed;right:4px;bottom:4px;z-index:2';el.setAttribute('aria-describedby','existing-description');const description=document.createElement('span');description.id='existing-description';description.hidden=true;description.textContent='Existing description';document.body.append(description);});
+ await button.focus();const tip=page.getByRole('tooltip');await expect(tip).toHaveText('Delete');
+ const bounds=await tip.boundingBox(),anchor=await button.boundingBox();
+ expect(bounds.x).toBeGreaterThanOrEqual(8);expect(bounds.x+bounds.width).toBeLessThanOrEqual(1272);expect(bounds.y+bounds.height).toBeLessThanOrEqual(anchor.y);
+ expect(await tip.evaluate(el=>getComputedStyle(el).transitionDuration)).toContain('0.15s');
+ await expect(button).toHaveAttribute('aria-describedby',/existing-description action-tooltip-/);
+ await page.setViewportSize({width:375,height:812});await expect(tip).toHaveCount(0);await expect(button).toHaveAttribute('aria-describedby','existing-description');
+ await button.evaluate(el=>el.blur());await button.focus();await page.evaluate(()=>window.library.destroy());await expect(tip).toHaveCount(0);
+});
