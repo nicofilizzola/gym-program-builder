@@ -1,0 +1,29 @@
+import {parseSession} from './session-file.js';
+import {validateDocument} from './document-validation.js';
+export const MAX_DOCUMENT_BYTES=1048576;
+export function serializeDocument(kind,value) {
+  const {document,error}=validateDocument(kind,value);
+  if(error) throw new Error(error);
+  const portable=structuredClone(document);
+  if(kind==='program') portable.workouts=portable.workouts.map(({id,...w})=>w);
+  return JSON.stringify({version:2,kind,[kind]:portable},null,2);
+}
+export function parseDocument(text,{makeId=()=>crypto.randomUUID()}={}) {
+  if(new TextEncoder().encode(text).length>MAX_DOCUMENT_BYTES) return {error:'File must be at most 1 MiB.'};
+  let data;
+  try {data=JSON.parse(text);} catch {return {error:'File is not valid JSON.'};}
+  if(data?.version===1) {
+    const result=parseSession(text);
+    return result.error?result:{kind:'template',document:{name:'Imported session template',...result.session}};
+  }
+  if(data?.version!==2) return {error:'Unsupported file version.'};
+  if(!['template','program'].includes(data.kind)) return {error:'Unknown document kind.'};
+  const value=structuredClone(data[data.kind]);
+  if(data.kind==='program'&&Array.isArray(value?.workouts)) value.workouts=value.workouts.map(w=>w&&typeof w==='object'?{...w,id:makeId()}:w);
+  const result=validateDocument(data.kind,value);
+  return result.error?result:{kind:data.kind,document:result.document};
+}
+export function documentFileName(kind,date=new Date()) {
+  const pad=n=>String(n).padStart(2,'0');
+  return `gym-${kind==='program'?'program':'session-template'}-${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}.json`;
+}
