@@ -3,3 +3,13 @@ node_modules/
 __pycache__/
 .claude/worktrees/
 .worktrees/
+.env*
+!.env.example
+*.db
+*.db-*
+public/
+test-results/
+playwright-report/
+baseline.log
+.vercel/
+.vercel
