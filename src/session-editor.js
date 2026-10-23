@@ -1,0 +1,699 @@
+import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
+import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, heatLevel, visibleMuscles } from './volume.js';
+import { LIMITS, validateExercise } from './validate.js';
+import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
+import { bodySvg } from './body.js';
+import { tooltipPosition } from './tooltip.js';
+import { parseDocument, serializeDocument, documentFileName } from './document-file.js';
+import { SESSION_MARKUP } from './session-markup.js';
+
+
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport}={}) {
+root.innerHTML=SESSION_MARKUP;
+/**
+ * The only domain state. Volume, goal status and errors are derived from it in refresh().
+ * `goals` has a key only for muscles with a valid goal.
+ */
+let session = structuredClone(workout);
+let lastDocument = JSON.stringify(session);
+const nameInput=root.querySelector("[data-template-name]");
+nameInput.value=session.name;
+nameInput.addEventListener("input",()=>{session.name=nameInput.value;refresh();});
+
+/** View state for the volume panel: the clicked muscle, and the one under the mouse. */
+let selectedMuscle = null;
+let hoveredMuscle = null;
+
+/** How long the hovered muscle outlives the pointer leaving it, so crossing a gap never flashes the hint. */
+const HOVER_GRACE_MS = 150;
+let hoverTimer = null;
+
+/**
+ * View state for the readout crossfade: the subject it shows now (a muscle, null for the hint, undefined before
+ * the first render), the newest { subject, write } waiting for a fade-out to end, and that fade's timer.
+ * The CSS opacity transition on #readout lasts READOUT_FADE_MS each way.
+ */
+const READOUT_FADE_MS = 75;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let readoutSubject;
+let pendingReadout = null;
+let readoutTimer = null;
+
+/** View state for a pointer drag in progress: the pointer, the dragged card, and its index when the drag started. */
+let drag = null;
+
+/** View state: whether each exercise is collapsed, in session order. Never part of the session. */
+let collapsed = session.exercises.map(() => true);
+
+const list = root.querySelector('#exercises');
+const empty = root.querySelector('#empty');
+const listActions = root.querySelector('#list-actions');
+const panel = root.querySelector('.panel');
+const bodyMap = root.querySelector('#body-map');
+const readout = root.querySelector('#readout');
+const volumeList = root.querySelector('#volume');
+const volumeEmpty = root.querySelector('#volume-empty');
+const splitKey = root.querySelector('#split-key');
+const orderStatus = root.querySelector('#order-status');
+const goalsDialog = root.querySelector('#goals-dialog');
+const goalFields = root.querySelector('#goal-fields');
+const fileInput = root.querySelector('#import-file');
+const fileMessage = root.querySelector('#file-message');
+
+function muscleChips(role) {
+  return MUSCLE_GROUPS.map((muscle) => `
+    <label class="chip"><input type="checkbox" data-role="${role}" data-muscle="${muscle}"><span>${muscle}</span></label>`).join('');
+}
+
+/** `min`, `max` and `step` attributes for a range input. */
+const rangeAttrs = ({ min, max, step }) => `min="${min}" max="${max}" step="${step}"`;
+
+/** Position of a value along a slider's limits, from 0 to 1. */
+const fraction = (value, { min, max }) => (value - min) / (max - min);
+
+/** Fill a slider's track between two fractions (0 to 1). */
+function setFill(slider, from, to) {
+  slider.style.setProperty('--from', from);
+  slider.style.setProperty('--to', to);
+}
+
+const CARD_HTML = `
+  <div class="card-head">
+    <button type="button" class="drag-handle" aria-label="Reorder exercise" aria-describedby="reorder-hint">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+    </button>
+    <span class="card-index"></span>
+    <span class="hit-tag" data-hit-tag></span>
+    <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
+    <button type="button" class="toggle-btn" data-action="toggle" aria-expanded="true" aria-label="Collapse exercise">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <button type="button" class="icon-btn" data-action="remove" aria-label="Remove exercise">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+    </button>
+  </div>
+  <div class="collapsible" data-collapse="summary"><p class="card-summary" data-summary></p></div>
+  <div class="collapsible" data-collapse="body"><div class="card-body">
+  <label class="field">Exercise name <input type="text" data-field="name" placeholder="e.g. Bench press" autocomplete="off"></label>
+  <p class="error" data-error="name"></p>
+  <div class="slider-field">
+    <div class="slider-head"><span>Sets</span><span class="slider-value" data-value="sets" aria-hidden="true"></span></div>
+    <div class="slider"><span class="slider-fill"></span>
+      <input type="range" ${rangeAttrs(LIMITS.sets)} data-field="sets" aria-label="Sets"></div>
+  </div>
+  <div class="slider-field">
+    <div class="slider-head"><span>Reps</span><span class="slider-value" data-value="reps" aria-hidden="true"></span></div>
+    <div class="slider is-range"><span class="slider-fill"></span>
+      <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="min" aria-label="Reps min">
+      <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="max" aria-label="Reps max"></div>
+  </div>
+  <p class="error" data-error="sets"></p>
+  <p class="error" data-error="repRange"></p>
+  <fieldset class="chips primary"><legend>Primary muscles</legend>${muscleChips('primary')}</fieldset>
+  <fieldset class="chips secondary"><legend>Secondary muscles <span class="hint">count as ½ set</span></legend>${muscleChips('secondary')}</fieldset>
+  <p class="error" data-error="muscles"></p>
+  </div></div>`;
+
+/** Build the panel once; refresh() only updates levels and numbers, so hover state survives. */
+function renderPanel() {
+  bodyMap.innerHTML = ['front', 'back']
+    .map((view) => `<figure>${bodySvg(view)}<figcaption>${view}</figcaption></figure>`)
+    .join('');
+  volumeList.replaceChildren(...MUSCLE_GROUPS.map((muscle) => {
+    const item = document.createElement('li');
+    item.innerHTML = `
+      <button type="button" class="volume-row" aria-pressed="false">
+        <span class="name"></span>
+        <span class="bar"><span class="bar-direct"></span><span class="bar-indirect"></span><span class="bar-goal" aria-hidden="true"></span></span>
+        <span class="value"></span>
+        <span class="status" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+        <span class="status-text visually-hidden"></span>
+        <span class="split visually-hidden"></span>
+      </button>`;
+    const button = item.querySelector('button');
+    button.dataset.muscle = muscle;
+    button.querySelector('.name').textContent = muscle;
+    return item;
+  }));
+}
+
+/** Build the goal sliders once, one row per muscle. 0 on the slider means no goal. */
+function renderGoalFields() {
+  goalFields.replaceChildren(...MUSCLE_GROUPS.map((muscle, index) => {
+    const row = document.createElement('div');
+    row.className = 'goal-row';
+    row.innerHTML = `
+      <span class="goal-name"></span>
+      <div class="slider"><span class="slider-fill"></span>
+        <input type="range" min="0" max="${LIMITS.goal.max}" step="${LIMITS.goal.step}"></div>
+      <span class="slider-value" aria-hidden="true"></span>
+      <button type="button" class="info-btn" aria-expanded="false" aria-controls="goal-info-${index}" aria-describedby="goal-info-${index}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      </button>
+      <div class="info-tip" id="goal-info-${index}" popover="manual">
+        <p><strong>Productive sets</strong> <span class="info-sets"></span></p>
+        <p><strong>Programming</strong> <span class="info-notes"></span></p>
+      </div>`;
+    row.querySelector('.goal-name').textContent = muscle;
+    row.querySelector('.info-btn').setAttribute('aria-label', `About ${muscle}`);
+    row.querySelector('.info-sets').textContent = MUSCLE_INFO[muscle].sets;
+    row.querySelector('.info-notes').textContent = MUSCLE_INFO[muscle].notes;
+    const input = row.querySelector('input');
+    input.dataset.goal = muscle;
+    input.setAttribute('aria-label', `${muscle} goal`);
+    return row;
+  }));
+}
+
+/** Show a goal slider's value text and fill; 0 reads `No goal`. */
+function showGoal(input) {
+  const value = input.valueAsNumber;
+  const text = input.closest('.goal-row').querySelector('.slider-value');
+  text.textContent = value === 0 ? 'No goal' : String(value);
+  text.classList.toggle('is-empty', value === 0);
+  if (value === 0) input.setAttribute('aria-valuetext', 'No goal');
+  else input.removeAttribute('aria-valuetext');
+  setFill(input.parentElement, 0, value / LIMITS.goal.max);
+}
+
+/** The goals dialog's one shown info tooltip, if any; `pinned` once clicked, so it outlasts hover and focus. */
+let shownTip = null; // { button, pinned, byFocus }: a focus peek outlasts the mouse and hides on blur
+let tipHideTimer = 0;
+
+const tipFor = (button) => document.getElementById(button.getAttribute('aria-controls'));
+
+/** Show a muscle's info tooltip next to its button, hiding any other one. */
+function showTip(button, pinned) {
+  clearTimeout(tipHideTimer);
+  if (shownTip && shownTip.button !== button) hideTip();
+  const tip = tipFor(button);
+  const isOpen = tip.matches(':popover-open');
+  // A closed tip is measured and placed while rendered hidden, so it opens from that spot: the entry slide then
+  // starts on the side matching its placement.
+  tip.classList.toggle('is-measuring', !isOpen);
+  const { width, height } = tip.getBoundingClientRect();
+  const { top, left, placement } = tooltipPosition(button.getBoundingClientRect(), { width, height },
+    { width: innerWidth, height: innerHeight });
+  tip.style.top = `${top}px`;
+  tip.style.left = `${left}px`;
+  tip.dataset.placement = placement;
+  if (!isOpen) {
+    getComputedStyle(tip).translate; // flush the placed, hidden style as the transition's start
+    tip.classList.remove('is-measuring');
+    tip.showPopover();
+  }
+  button.setAttribute('aria-expanded', 'true');
+  shownTip = { button, pinned, byFocus: false };
+}
+
+function hideTip() {
+  clearTimeout(tipHideTimer);
+  if (!shownTip) return;
+  tipFor(shownTip.button).hidePopover();
+  shownTip.button.setAttribute('aria-expanded', 'false');
+  shownTip = null;
+}
+
+/** The info button a pointer or focus event is about: its own, or the one whose tooltip it is on. */
+function infoButtonAt(node) {
+  const target = node instanceof Element ? node.closest('.info-btn, .info-tip') : null;
+  if (!target) return null;
+  return target.matches('.info-btn') ? target : target.closest('.goal-row').querySelector('.info-btn');
+}
+
+/** Show the applied goals on the sliders; a muscle without a goal sits at 0. */
+function syncGoalFields() {
+  goalFields.querySelectorAll('[data-goal]').forEach((input) => {
+    input.value = session.goals[input.dataset.goal] ?? 0;
+    showGoal(input);
+  });
+}
+
+/** Open or close a card's collapsible part; a closed part is unfocusable and hidden from screen readers. */
+function setOpen(part, open) {
+  part.classList.toggle('is-closed', !open);
+  part.toggleAttribute('inert', !open);
+}
+
+/**
+ * Scroll a field into view once its card part has finished opening, so it is not measured at 0 height.
+ * Reveals at once when nothing is animating (the part was already open, or motion is reduced).
+ */
+function revealWhenOpen(part, field) {
+  const reveal = () => {
+    part.firstElementChild.scrollTop = 0;
+    field.scrollIntoView({ block: 'center' });
+  };
+  getComputedStyle(part).gridTemplateRows; // flush styles so a starting transition is visible to getAnimations()
+  if (part.getAnimations().length === 0) return reveal();
+  part.addEventListener('transitionend', function onEnd(event) {
+    if (event.target !== part || event.propertyName !== 'grid-template-rows') return;
+    part.removeEventListener('transitionend', onEnd);
+    reveal();
+  });
+}
+
+/** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag and drops a now-stale file message. */
+function renderExercises() {
+  drag = null;
+  fileMessage.textContent = '';
+  list.replaceChildren(...session.exercises.map((ex, i) => {
+    const card = document.createElement('li');
+    card.className = 'exercise';
+    card.dataset.index = i;
+    card.innerHTML = CARD_HTML;
+    card.querySelector('.card-index').textContent = `Exercise ${i + 1}`;
+    card.querySelector('.card-body').id = `exercise-body-${i}`;
+    card.querySelector('[data-action="toggle"]').setAttribute('aria-controls', `exercise-body-${i}`);
+    card.querySelector('[data-field="name"]').value = ex.name;
+    return card;
+  }));
+  empty.hidden = session.exercises.length > 0;
+  listActions.hidden = session.exercises.length === 0;
+}
+
+/** How the selected muscle is trained by an exercise: 'primary', 'secondary', 'none', or '' if nothing is selected. */
+function hitFor(ex) {
+  if (!selectedMuscle) return '';
+  if (ex.primaryMuscles.includes(selectedMuscle)) return 'primary';
+  if (ex.secondaryMuscles.includes(selectedMuscle)) return 'secondary';
+  return 'none';
+}
+
+/** Update everything derived from state without recreating inputs. */
+function refresh() {
+  const fingerprint=JSON.stringify(session);
+  if(fingerprint!==lastDocument){lastDocument=fingerprint;onChange(structuredClone(session));}
+  list.querySelectorAll('.exercise').forEach((card) => {
+    const i = Number(card.dataset.index);
+    const ex = session.exercises[i];
+    const errors = validateExercise(ex);
+    const isCollapsed = collapsed[i];
+    setOpen(card.querySelector('[data-collapse="body"]'), !isCollapsed);
+    setOpen(card.querySelector('[data-collapse="summary"]'), isCollapsed);
+    card.querySelector('[data-summary]').textContent = exerciseSummary(ex);
+    const toggle = card.querySelector('[data-action="toggle"]');
+    toggle.setAttribute('aria-expanded', String(!isCollapsed));
+    toggle.setAttribute('aria-label', isCollapsed ? 'Expand exercise' : 'Collapse exercise');
+    const { min, max } = ex.repRange;
+    const setsInput = card.querySelector('[data-field="sets"]');
+    setsInput.value = ex.sets;
+    card.querySelector('[data-field="min"]').value = min;
+    card.querySelector('[data-field="max"]').value = max;
+    card.querySelector('[data-value="sets"]').textContent = String(ex.sets);
+    card.querySelector('[data-value="reps"]').textContent = min === max ? String(min) : `${min}–${max}`;
+    setFill(setsInput.parentElement, 0, fraction(ex.sets, LIMITS.sets));
+    setFill(card.querySelector('.slider.is-range'), fraction(min, LIMITS.reps), fraction(max, LIMITS.reps));
+    card.querySelector('[data-fix-tag]').hidden = !(isCollapsed && Object.keys(errors).length > 0);
+    card.querySelectorAll('[data-error]').forEach((el) => {
+      el.textContent = errors[el.dataset.error] ?? '';
+    });
+    card.querySelectorAll('input[type="checkbox"]').forEach((box) => {
+      const { role, muscle } = box.dataset;
+      const own = role === 'primary' ? ex.primaryMuscles : ex.secondaryMuscles;
+      const other = role === 'primary' ? ex.secondaryMuscles : ex.primaryMuscles;
+      box.checked = own.includes(muscle);
+      box.disabled = other.includes(muscle);
+    });
+    const hit = hitFor(ex);
+    card.dataset.hit = hit;
+    card.querySelector('[data-hit-tag]').textContent = hit === 'primary' || hit === 'secondary' ? `${hit} · ${selectedMuscle}` : '';
+  });
+
+  const volume = computeVolume(session);
+  const split = computeVolumeSplit(session);
+  const splitText = (muscle) => ` (${split[muscle].direct} direct · ${split[muscle].indirect} indirect)`;
+  const focus = hoveredMuscle ?? selectedMuscle;
+  panel.classList.toggle('has-selection', selectedMuscle !== null);
+  panel.querySelectorAll('[data-muscle]').forEach((el) => {
+    const { muscle } = el.dataset;
+    el.dataset.heat = heatLevel(volume[muscle]);
+    el.classList.toggle('is-selected', muscle === selectedMuscle);
+    el.classList.toggle('is-focus', muscle === focus);
+  });
+  const visible = visibleMuscles(volume, session.goals);
+  volumeEmpty.hidden = visible.length > 0;
+  splitKey.hidden = visible.length === 0;
+  volumeList.classList.toggle('has-goals', Object.keys(session.goals).length > 0);
+  const scale = barScale(volume, session.goals);
+  volumeList.querySelectorAll('.volume-row').forEach((row) => {
+    const { muscle } = row.dataset;
+    row.parentElement.hidden = !visible.includes(muscle);
+    const sets = volume[muscle];
+    const goal = session.goals[muscle];
+    const result = goalStatus(sets, goal);
+    row.setAttribute('aria-pressed', String(muscle === selectedMuscle));
+    row.classList.toggle('is-zero', sets === 0);
+    row.querySelector('.value').textContent = result ? `${sets} / ${goal}` : String(sets);
+    row.querySelector('.status-text').textContent = result?.status ?? '';
+    const fill = barSegments(split[muscle].direct, split[muscle].indirect, scale);
+    row.querySelector('.bar-direct').style.width = `${fill.direct * 100}%`;
+    row.querySelector('.bar-indirect').style.width = `${fill.indirect * 100}%`;
+    const bar = row.querySelector('.bar');
+    bar.classList.toggle('no-direct', fill.direct === 0);
+    bar.classList.toggle('no-indirect', fill.indirect === 0);
+    const marker = row.querySelector('.bar-goal');
+    marker.hidden = goal === undefined;
+    if (goal !== undefined) marker.style.left = `${goal / scale * 100}%`;
+    row.querySelector('.split').textContent = splitText(muscle);
+    if (result) row.dataset.status = result.status;
+    else delete row.dataset.status;
+  });
+
+  showReadout(focus, () => writeReadout(focus, volume, splitText));
+}
+
+/** Fill the readout with a muscle's details, or the hint when muscle is null. */
+function writeReadout(focus, volume, splitText) {
+  if (focus) {
+    const count = session.exercises.filter((ex) =>
+      ex.primaryMuscles.includes(focus) || ex.secondaryMuscles.includes(focus)).length;
+    const name = document.createElement('strong');
+    name.textContent = focus;
+    const goal = session.goals[focus];
+    const progress = goal === undefined ? '' : ` / ${goal}`;
+    const status = goal === undefined ? '' : ` · ${goalStatus(volume[focus], goal).status}`;
+    readout.replaceChildren(name, ` ${volume[focus]}${progress} sets${splitText(focus)}${status} · ${count} exercise${count === 1 ? '' : 's'}`);
+  } else {
+    readout.textContent = 'Tap a muscle to highlight its exercises.';
+  }
+}
+
+/**
+ * Show the readout for a subject. A new subject fades the old text out, then writes the newest pending content
+ * and fades it in; the same subject, the first render, or reduced motion writes at once.
+ */
+function showReadout(subject, write) {
+  const fading = pendingReadout !== null;
+  if ((!fading && subject === readoutSubject) || readoutSubject === undefined || reducedMotion.matches) {
+    clearTimeout(readoutTimer);
+    pendingReadout = null;
+    readout.classList.remove('is-fading');
+    write();
+    readoutSubject = subject;
+    return;
+  }
+  pendingReadout = { subject, write };
+  if (fading) return;
+  readout.classList.add('is-fading');
+  readoutTimer = setTimeout(() => {
+    const { subject: next, write: writeNext } = pendingReadout;
+    pendingReadout = null;
+    writeNext();
+    readoutSubject = next;
+    readout.classList.remove('is-fading');
+  }, READOUT_FADE_MS);
+}
+
+function indexOf(el) {
+  return Number(el.closest('.exercise').dataset.index);
+}
+
+/** Commit a reorder to state, rebuild the list, and keep focus on the moved exercise's handle. */
+function commitMove(from, to) {
+  if (from === to) return;
+  session.exercises = moveExercise(session.exercises, from, to);
+  collapsed = moveExercise(collapsed, from, to);
+  renderExercises();
+  refresh();
+  list.children[to].querySelector('.drag-handle').focus();
+  const name = session.exercises[to].name.trim() || 'exercise';
+  orderStatus.textContent = `Moved ${name} to position ${to + 1} of ${session.exercises.length}.`;
+}
+
+list.addEventListener('input', (event) => {
+  const { field } = event.target.dataset;
+  if (!field) return;
+  const ex = session.exercises[indexOf(event.target)];
+  if (field === 'name') ex.name = event.target.value;
+  if (field === 'sets') ex.sets = event.target.valueAsNumber;
+  if (field === 'min' || field === 'max') {
+    ex.repRange = setRepBound(ex.repRange, field, event.target.valueAsNumber);
+  }
+  fileMessage.textContent = '';
+  refresh();
+});
+
+list.addEventListener('change', (event) => {
+  const { role, muscle } = event.target.dataset;
+  if (!role) return;
+  const i = indexOf(event.target);
+  session.exercises[i] = toggleMuscle(session.exercises[i], role, muscle);
+  fileMessage.textContent = '';
+  refresh();
+});
+
+list.addEventListener('click', (event) => {
+  const action = event.target.closest('[data-action]')?.dataset.action;
+  if (!action) return;
+  const i = indexOf(event.target);
+  if (action === 'toggle') {
+    collapsed[i] = !collapsed[i];
+    refresh();
+    return;
+  }
+  session.exercises.splice(i, 1);
+  collapsed.splice(i, 1);
+  renderExercises();
+  refresh();
+});
+
+list.addEventListener('keydown', (event) => {
+  if (!event.target.classList.contains('drag-handle')) return;
+  const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
+  if (!step) return;
+  event.preventDefault();
+  const from = indexOf(event.target);
+  const to = from + step;
+  if (to >= 0 && to < session.exercises.length) commitMove(from, to);
+});
+
+/** Put the last-touched thumb of a two-thumb slider on top, so it can be dragged where the thumbs overlap. */
+function raiseThumb(event) {
+  const input = event.target;
+  if (!input.parentElement?.classList.contains('is-range')) return;
+  input.parentElement.querySelectorAll('input').forEach((el) => el.classList.toggle('is-top', el === input));
+}
+list.addEventListener('pointerdown', raiseThumb);
+list.addEventListener('focusin', raiseThumb);
+
+list.addEventListener('pointerdown', (event) => {
+  const handle = event.target.closest('.drag-handle');
+  if (!handle || event.button !== 0 || drag) return;
+  event.preventDefault();
+  handle.setPointerCapture(event.pointerId);
+  drag = { pointerId: event.pointerId, card: handle.closest('.exercise'), from: indexOf(handle) };
+  drag.card.classList.add('is-dragging');
+});
+
+/**
+ * While dragging, reorder DOM nodes only; state changes on drop. The dragged card itself
+ * is never detached, because removing it from the document would release pointer capture.
+ */
+list.addEventListener('pointermove', (event) => {
+  if (event.pointerId !== drag?.pointerId) return;
+  const others = [...list.children].filter((card) => card !== drag.card);
+  const target = others.filter((card) => {
+    const rect = card.getBoundingClientRect();
+    return rect.top + rect.height / 2 < event.clientY;
+  }).length;
+  if ([...list.children].indexOf(drag.card) === target) return;
+  others.slice(0, target).forEach((card) => list.insertBefore(card, drag.card));
+  others.slice(target).forEach((card) => list.append(card));
+});
+
+list.addEventListener('pointerup', (event) => {
+  if (event.pointerId !== drag?.pointerId) return;
+  const { card, from } = drag;
+  drag = null;
+  card.classList.remove('is-dragging');
+  commitMove(from, [...list.children].indexOf(card));
+});
+
+/** Abandon a drag: state was never changed, so rebuilding from it restores the order. */
+function cancelDrag(event) {
+  if (event.pointerId !== drag?.pointerId) return;
+  renderExercises();
+  refresh();
+}
+
+list.addEventListener('pointercancel', cancelDrag);
+list.addEventListener('lostpointercapture', cancelDrag);
+
+root.querySelector('#add-exercise').addEventListener('click', () => {
+  session.exercises.push(createExercise());
+  collapsed.push(false);
+  renderExercises();
+  refresh();
+  list.lastElementChild.querySelector('[data-field="name"]').focus();
+});
+
+root.querySelector('#expand-all').addEventListener('click', () => {
+  collapsed.fill(false);
+  refresh();
+});
+
+root.querySelector('#collapse-all').addEventListener('click', () => {
+  collapsed.fill(true);
+  refresh();
+});
+
+/** The field to focus for each validateExercise error key. */
+const ERROR_FIELDS = {
+  name: '[data-field="name"]',
+  sets: '[data-field="sets"]',
+  repRange: '[data-field="min"]',
+  // When every muscle is secondary, all primary chips are disabled; fall back to the first secondary chip.
+  muscles: 'input[data-role="primary"]:not(:disabled), input[data-role="secondary"]',
+};
+
+/** Download the session as JSON, unless an exercise is invalid; then open that exercise at its first invalid field. */
+function focusFirstError() {
+  if(!session.name.trim()){nameInput.focus();return true;}
+  const invalid=session.exercises.findIndex(ex=>Object.keys(validateExercise(ex)).length);
+  if(invalid<0)return false;
+  collapsed[invalid]=false;refresh();
+  fileMessage.textContent=`Fix exercise ${invalid+1} before exporting.`;
+  const field=list.children[invalid].querySelector(ERROR_FIELDS[Object.keys(validateExercise(session.exercises[invalid]))[0]]);
+  field.focus({preventScroll:true});revealWhenOpen(list.children[invalid].querySelector('[data-collapse="body"]'),field);
+  return true;
+}
+root.querySelector('#export-session').addEventListener('click',()=>{
+  if(focusFirstError())return;
+  if(onExport){onExport(session);return;}
+  const url=URL.createObjectURL(new Blob([serializeDocument('template',session)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download=documentFileName('template');link.click();URL.revokeObjectURL(url);
+});
+root.querySelector('#import-session').addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',async()=>{
+  const [file]=fileInput.files;if(!file)return;fileInput.value='';
+  const result=parseDocument(await file.text());
+  if(result.error){fileMessage.textContent=result.error;return;}
+  if(result.kind!=='template'){fileMessage.textContent='Import program files from Programs.';return;}
+  if((session.exercises.length||Object.keys(session.goals).length)&&!confirm('Replace this session template?'))return;
+  setWorkout(result.document);onImport?.(result.document);
+});
+function setWorkout(value){session=structuredClone(value);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
+
+root.querySelector('#open-goals').addEventListener('click', () => {
+  syncGoalFields();
+  hideTip();
+  goalsDialog.showModal();
+});
+
+/** Clicking an info button pins its tooltip; clicking it again hides it. */
+goalFields.addEventListener('click', (event) => {
+  const button = event.target.closest('.info-btn');
+  if (!button) return;
+  if (shownTip?.button === button && shownTip.pinned) hideTip();
+  else showTip(button, true);
+});
+
+/** A mouse over an info button, or its tooltip, peeks at the tooltip. */
+goalFields.addEventListener('pointerover', (event) => {
+  if (event.pointerType !== 'mouse') return;
+  const button = infoButtonAt(event.target);
+  if (!button) return;
+  if (shownTip?.button === button) clearTimeout(tipHideTimer);
+  else showTip(button, false);
+});
+
+/** Leaving both the button and its tooltip hides a peeked tooltip after a short grace. */
+goalFields.addEventListener('pointerout', (event) => {
+  if (event.pointerType !== 'mouse' || !shownTip || shownTip.pinned || shownTip.byFocus) return;
+  if (infoButtonAt(event.relatedTarget) === shownTip.button) return;
+  clearTimeout(tipHideTimer);
+  tipHideTimer = setTimeout(hideTip, 150);
+});
+
+goalFields.addEventListener('focusin', (event) => {
+  if (!event.target.matches('.info-btn:focus-visible')) return;
+  if (shownTip?.button !== event.target) showTip(event.target, false);
+  shownTip.byFocus = true;
+});
+
+goalFields.addEventListener('focusout', (event) => {
+  if (shownTip?.button === event.target && !shownTip.pinned) hideTip();
+});
+
+/** A press anywhere but the shown button and its tooltip hides it. */
+goalsDialog.addEventListener('pointerdown', (event) => {
+  if (shownTip && infoButtonAt(event.target) !== shownTip.button) hideTip();
+}, true);
+
+/** Escape hides a shown tooltip first; the dialog closes on the next one. */
+goalsDialog.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !shownTip) return;
+  event.preventDefault();
+  hideTip();
+});
+
+goalsDialog.addEventListener('scroll', hideTip);
+goalsDialog.addEventListener('close', hideTip);
+window.addEventListener('resize', hideTip);
+
+/** Apply a goal while sliding. 0 clears it. */
+goalFields.addEventListener('input', (event) => {
+  const { goal: muscle } = event.target.dataset;
+  if (!muscle) return;
+  const value = event.target.valueAsNumber;
+  if (value === 0) delete session.goals[muscle];
+  else session.goals[muscle] = value;
+  showGoal(event.target);
+  refresh();
+});
+
+/** Only a backdrop click lands on the dialog element itself; its content is wrapped in .dialog-body. */
+goalsDialog.addEventListener('click', (event) => {
+  if (event.target === goalsDialog) goalsDialog.close();
+});
+
+panel.addEventListener('click', (event) => {
+  const target = event.target.closest('[data-muscle]');
+  if (!target) return;
+  const { muscle } = target.dataset;
+  selectedMuscle = selectedMuscle === muscle ? null : muscle;
+  refresh();
+});
+
+/** Hover a muscle at once; let go of one (muscle = null) only after HOVER_GRACE_MS, unless another is hovered first. */
+function setHover(muscle) {
+  if (muscle === null) {
+    // Arm once: crossing more non-muscle elements must not push the fallback back.
+    if (hoveredMuscle !== null && hoverTimer === null) {
+      hoverTimer = setTimeout(() => {
+        hoverTimer = null;
+        setHoveredMuscle(null);
+      }, HOVER_GRACE_MS);
+    }
+    return;
+  }
+  clearTimeout(hoverTimer);
+  hoverTimer = null;
+  setHoveredMuscle(muscle);
+}
+
+function setHoveredMuscle(muscle) {
+  if (muscle === hoveredMuscle) return;
+  hoveredMuscle = muscle;
+  refresh();
+}
+
+panel.addEventListener('pointerover', (event) => {
+  if (event.pointerType !== 'mouse') return;
+  setHover(event.target.closest('[data-muscle]')?.dataset.muscle ?? null);
+});
+
+panel.addEventListener('pointerleave', () => setHover(null));
+
+renderPanel();
+renderGoalFields();
+renderExercises();
+refresh();
+
+return {setWorkout,focusFirstError,destroy(){
+  clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
+  hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
+}};
+
+}
