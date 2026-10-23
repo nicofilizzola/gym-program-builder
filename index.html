@@ -1,86 +1,16 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <title>Gym Program Builder</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css">
-  <script type="module" src="src/app.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark">
+<title>Gym Program Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css"><script type="module" src="src/app.js"></script>
 </head>
 <body>
-  <main class="layout">
-    <section class="builder">
-      <p class="eyebrow">Gym Program Builder</p>
-      <h1>Session builder</h1>
-      <div class="toolbar">
-        <div class="file-actions">
-          <button id="import-session" type="button" class="secondary-btn">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>
-            Import
-          </button>
-          <button id="export-session" type="button" class="secondary-btn">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 15v4h16v-4"/></svg>
-            Export
-          </button>
-          <input id="import-file" type="file" accept=".json,application/json" hidden>
-        </div>
-        <div id="list-actions" class="list-actions" hidden>
-          <button id="expand-all" type="button" class="secondary-btn">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-            Expand all
-          </button>
-          <button id="collapse-all" type="button" class="secondary-btn">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
-            Collapse all
-          </button>
-        </div>
-      </div>
-      <p id="file-message" class="error" role="alert"></p>
-      <ol id="exercises" class="exercises"></ol>
-      <p id="empty" class="empty">No exercises yet. Add one to start building your session.</p>
-      <button id="add-exercise" class="add-btn" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        Add exercise
-      </button>
-      <p id="reorder-hint" class="visually-hidden">Drag, or use the up and down arrow keys, to move this exercise.</p>
-      <p id="order-status" class="visually-hidden" aria-live="polite"></p>
-    </section>
-
-    <aside class="panel" aria-labelledby="volume-title">
-      <div class="panel-head">
-        <h2 id="volume-title">Volume</h2>
-        <span class="unit">sets per muscle</span>
-        <button id="open-goals" type="button" class="secondary-btn">Set goals</button>
-      </div>
-      <div id="body-map" class="body-map"></div>
-      <ul id="heat-key" class="heat-key" aria-hidden="true">
-        <li data-heat="0">0</li>
-        <li data-heat="1">1–3</li>
-        <li data-heat="2">4–6</li>
-        <li data-heat="3">7–9</li>
-        <li data-heat="4">10+</li>
-      </ul>
-      <div class="readout"><p id="readout" aria-live="polite"></p></div>
-      <ul id="split-key" class="split-key" aria-hidden="true">
-        <li class="direct">Direct</li>
-        <li class="indirect">Indirect</li>
-      </ul>
-      <ul id="volume" class="volume-list"></ul>
-      <p id="volume-empty" class="volume-empty" hidden>No volume yet. Add an exercise or set a goal.</p>
-    </aside>
-  </main>
-
-  <dialog id="goals-dialog" class="goals-dialog" aria-labelledby="goals-title">
-    <div class="dialog-body">
-      <h2 id="goals-title">Volume goals</h2>
-      <p class="dialog-hint">Target sets per muscle. Slide to the far left for no goal.</p>
-      <div id="goal-fields" class="goal-fields"></div>
-      <form method="dialog"><button class="add-btn">Done</button></form>
-    </div>
-  </dialog>
-</body>
-</html>
+<div id="auth" hidden></div>
+<div id="shell" hidden>
+<header class="app-header"><nav aria-label="Main"><a href="#/programs" data-nav="programs">Programs</a><a href="#/templates" data-nav="templates">Session templates</a></nav><div class="save-controls"><span data-testid="save-status" role="status" aria-live="polite"></span><button id="retry-save" class="secondary-btn" hidden>Retry</button><button id="reload-saved" class="secondary-btn" hidden>Reload saved version</button><button id="copy-saved" class="secondary-btn" hidden>Save as copy</button><button id="logout" class="secondary-btn">Log out</button></div></header>
+<p id="app-message" class="error app-message" role="alert"></p><div id="app"></div>
+</div>
+</body></html>
