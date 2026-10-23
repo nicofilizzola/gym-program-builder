@@ -9,12 +9,12 @@ import {validateExercise} from './validate.js';
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
 export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport}={}) {
-  let value=structuredClone(program),panel,editor,disposed=false;
-  function cleanup(){panel?.destroy();editor?.destroy();panel=editor=null;}
+  let value=structuredClone(program),panel,editor,disposed=false,viewGeneration=0;
+  function cleanup(){viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
   function showError(error){const el=root.querySelector('[data-program-error]');if(el)el.textContent=error.message||error;}
-  function run(fn){return async()=>{try{await fn();}catch(error){showError(error);}};}
+  function run(fn){return async()=>{try{await fn();}catch(error){if(!disposed)showError(error);}};}
   function focusError(){
     if(!value.name.trim()){root.querySelector('[data-program-name]')?.focus();return;}
     for(const workout of value.workouts)if(!workout.name.trim()||workout.exercises.some(e=>Object.keys(validateExercise(e)).length)){
@@ -68,11 +68,11 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     const mode=root.querySelector('[data-schedule]');mode.checked=value.mode==='schedule';mode.onchange=()=>{value.mode=mode.checked?'schedule':'simple';emit();renderWorkouts();};
     const picker=root.querySelector('[data-template]');
     for(const template of templates){const option=document.createElement('option');option.value=template.id;option.textContent=template.name.trim()||'Untitled template';picker.append(option);}
-    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const selected=picker.value,template=await onLoadTemplate(selected);if(disposed)return;const copy=copyWorkout(template.document,id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');});
+    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy=copyWorkout(template.document,id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');});
     root.querySelector('[data-add-empty]').onclick=()=>{const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');};
     root.querySelector('[data-export]').onclick=()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);focusError();return;}onExport(value);};
     const file=root.querySelector('[data-file]');root.querySelector('[data-import]').onclick=()=>file.click();
-    file.onchange=run(async()=>{const chosen=file.files[0];file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const parsed=parseDocument(await chosen.text());if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();renderOverview();});
+    file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();renderOverview();});
     panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();}});updateVolume();renderWorkouts();
   }
   renderOverview();return {update(next){value=structuredClone(next);renderOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;cleanup();root.replaceChildren();}};

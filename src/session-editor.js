@@ -10,6 +10,7 @@ import { SESSION_MARKUP } from './session-markup.js';
 
 export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport}={}) {
 root.innerHTML=SESSION_MARKUP;
+let destroyed=false;
 /**
  * The only domain state. Volume, goal status and errors are derived from it in refresh().
  * `goals` has a key only for muscles with a valid goal.
@@ -567,7 +568,10 @@ root.querySelector('#export-session').addEventListener('click',()=>{
 root.querySelector('#import-session').addEventListener('click',()=>fileInput.click());
 fileInput.addEventListener('change',async()=>{
   const [file]=fileInput.files;if(!file)return;fileInput.value='';
-  const result=parseDocument(await file.text());
+  if(file.size>1048576){fileMessage.textContent='File must be at most 1 MiB.';return;}
+  const text=await file.text();
+  if(destroyed)return;
+  const result=parseDocument(text);
   if(result.error){fileMessage.textContent=result.error;return;}
   if(result.kind!=='template'){fileMessage.textContent='Import program files from Programs.';return;}
   if((session.exercises.length||Object.keys(session.goals).length)&&!confirm('Replace this session template?'))return;
@@ -692,6 +696,7 @@ renderExercises();
 refresh();
 
 return {setWorkout,focusFirstError,destroy(){
+  destroyed=true;
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
 }};
