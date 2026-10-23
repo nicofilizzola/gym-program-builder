@@ -14,7 +14,8 @@ test('weekly sums count scheduled and unscheduled independent workouts once',()=
  assert.equal(contributingWorkouts(p,'Chest'),2);
  assert.deepEqual(computeProgramVolume({...p,mode:'schedule',workouts:[...p.workouts].reverse()}),v);
  assert.equal(computeProgramVolume({...p,workouts:p.workouts.slice(1)}).Chest,7);
- assert.equal(goalStatus(v.Chest,14),'met');assert.equal(goalStatus(v.Chest,15),'under');assert.equal(goalStatus(v.Chest,13),'over');
+ assert.equal(goalStatus(v.Chest,14).status,'met');assert.equal(goalStatus(v.Chest,15).status,'under');assert.equal(goalStatus(v.Chest,13).status,'over');
  const empty=computeProgramVolume({workouts:[]});assert.equal(empty.Chest,0);
  assert.deepEqual(visibleMuscles(empty,{Calves:30}),['Calves']);assert.equal(30/barScale(empty,{Calves:30}),0.75);
 });
+
