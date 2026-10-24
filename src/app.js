@@ -27,6 +27,7 @@ const uid=()=>crypto.randomUUID();
 const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
+function createViewHost(){return app.appendChild(document.createElement('div'));}
 function clearView(){shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
@@ -84,15 +85,16 @@ function showLogin(resuming=false){
 }
 document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
-reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!confirm('Discard local edits and reload the saved version?'))return;const record=await api.get(active.id);queue?.dispose();queue=null;active=null;await openRecord(record,++routeVersion);})));
+reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!confirm('Discard local edits and reload the saved version?'))return;const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
 copySaved.addEventListener('click',action(()=>transition(async()=>{if(!queue)return;const record=await queue.saveAsCopy();queue=null;active=null;history.pushState(null,'',`#/${record.kind==='program'?'programs':'templates'}/${record.id}`);await renderRoute();})));
 function download(kind,document){const text=serializeDocument(kind,document),url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=documentElement('a');a.href=url;a.download=documentFileName(kind);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function documentElement(tag){return window.document.createElement(tag);}
 async function finishCreation(){
- const operation=creation;
+ const operation=creation,version=routeVersion;
  try{
   const record=await api.create(operation.request);
   creation=null;retryCreation.hidden=true;
+  if(version!==routeVersion)return;
   if(operation.open)history.pushState(null,'',`#/${record.kind==='program'?'programs':'templates'}/${record.id}`);
   await renderRoute();
  }catch(error){retryCreation.hidden=false;throw error;}
@@ -104,9 +106,9 @@ async function prepareRecord(record){
  let mountProgramView,templates;
  if(record.kind==='program'){const [module,items]=await Promise.all([import('./program-view.js'),api.list('template')]);mountProgramView=module.mountProgramView;templates=items;}
  return ()=>{
-  const onChange=track(record);
-  if(record.kind==='template')mounted=mountSessionEditor(app,{workout:active.document,onChange});
-  else mounted=mountProgramView(app,{program:active.document,templates,onLoadTemplate:id=>api.get(id),onChange,onExport:document=>download('program',document)});
+  const onChange=track(record),host=createViewHost();
+  if(record.kind==='template')mounted=mountSessionEditor(host,{workout:active.document,onChange});
+  else mounted=mountProgramView(host,{program:active.document,templates,onLoadTemplate:id=>api.get(id),onChange,onExport:document=>download('program',document)});
  };
 }
 async function openRecord(record,version){
@@ -132,7 +134,7 @@ async function prepareRoute(route,version){
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.id)return prepareRecord(await api.get(route.id));
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
- return ()=>{mounted=mountLibrary(app,{
+ return ()=>{mounted=mountLibrary(createViewHost(),{
   kind,records,recordHref:record=>`#/${route.view}/${record.id}`,
   onCreate:action(()=>create(kind,kind==='program'?createProgram():createTemplate())),
   onOpen:action(record=>navigate(`#/${route.view}/${record.id}`)),

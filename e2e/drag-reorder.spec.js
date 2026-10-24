@@ -7,7 +7,7 @@ async function exerciseFixture(page) {
   document.body.innerHTML='<div id="fixture"></div>';
   window.changes=[];
   window.editor=mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Upper',goals:{},exercises:['Bench','Row','Curl'].map(name=>({name,sets:3,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}))},onChange:value=>window.changes.push(value)});
- });
+ });await page.evaluate(()=>document.fonts.ready);
 }
 async function startExerciseDrag(page) {
  const box=await page.locator('.exercise .drag-handle').first().boundingBox();
@@ -75,14 +75,22 @@ test('exercise neighbour motion respects preference',async({page})=>{
  expect(await page.locator('#exercises').evaluate(el=>el.getAnimations({subtree:true}).length)).toBe(0);
  await page.keyboard.press('Escape');await page.mouse.up();
 });
+test('small pointer movements preserve active neighbour animations',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await exerciseFixture(page);await startExerciseDrag(page);
+ const box=await page.locator('#exercises .exercise').last().boundingBox();await page.mouse.move(box.x+80,box.y+box.height-10);
+ await page.locator('#exercises').evaluate(el=>{window.neighbourAnimations=el.getAnimations({subtree:true});});
+ await page.mouse.move(box.x+81,box.y+box.height-10);
+ expect(await page.evaluate(()=>window.neighbourAnimations.length>0&&window.neighbourAnimations.every(a=>a.playState!=='idle'))).toBe(true);
+ await page.keyboard.press('Escape');await page.mouse.up();
+});
 
 async function programFixture(page,mode='simple') {
- await page.setViewportSize({width:1280,height:1200});await page.goto('/');
+ await page.setViewportSize({width:1280,height:mode==='schedule'?2400:1200});await page.goto('/');
  await page.evaluate(async mode=>{
   const {mountProgramView}=await import('/src/program-view.js');
   document.body.innerHTML='<div id="fixture"></div>';window.changes=[];
   window.programView=mountProgramView(document.querySelector('#fixture'),{templates:[],program:{name:'Week',mode,goals:{},workouts:[['a','Press',0],['b','Pull',6],['c','Extra',null]].map(([id,name,day])=>({id,name,day,goals:{},exercises:[{name,sets:3,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}]}))},onChange:p=>window.changes.push(p)});
- },mode);
+ },mode);await page.evaluate(()=>document.fonts.ready);
 }
 async function dragWorkout(page,id,target) {
  const box=await page.locator(`[data-workout="${id}"] .drag-handle`).boundingBox();await page.mouse.move(box.x+22,box.y+22);await page.mouse.down();

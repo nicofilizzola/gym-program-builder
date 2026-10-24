@@ -31,3 +31,9 @@ test('compact add alternatives wrap without overflow or small targets',async({pa
  await page.evaluate(()=>document.documentElement.style.fontSize='200%');expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
  await empty.click();await expect(page.locator('.workout-item')).toHaveCount(3);
 });
+test('session editor fits 320px with 200 percent text and bulk controls',async({page})=>{
+ await page.goto('/');await page.evaluate(async()=>{const {mountSessionEditor}=await import('/src/session-editor.js');document.body.innerHTML='<div id="fixture"></div>';mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Upper',goals:{},exercises:[{name:'Bench',sets:3,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}]}});});
+ await page.evaluate(()=>document.fonts.ready);await page.setViewportSize({width:320,height:1000});await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+ for(const name of ['Expand all','Collapse all','Set goals']){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(320);}
+});

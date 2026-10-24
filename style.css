@@ -1439,3 +1439,9 @@ button:disabled {opacity:.5;cursor:default}
 @media(prefers-reduced-motion:reduce){.workout-item,.workout-muscle-match{transition:none}}
 
 .navigation-status {position:fixed;right:16px;bottom:16px;z-index:1100;margin:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--muted);font-size:.875rem;box-shadow:0 4px 16px #0004;pointer-events:none}
+
+/* Enlarged text must wrap controls rather than widen the editor. */
+.list-actions,.file-actions {flex-wrap:wrap;max-width:100%}
+.layout>section,.layout>.panel {min-width:0}
+.layout .panel-head {flex-wrap:wrap}
+.layout .panel-head .secondary-btn,.list-actions .secondary-btn {max-width:100%;justify-content:center}

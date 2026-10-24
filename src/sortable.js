@@ -6,24 +6,29 @@ export function mountSortable(root,{itemSelector,handleSelector,getGroups,getKey
  const animations=new Map();
  const items=element=>[...element.querySelectorAll(itemSelector)].filter(el=>el!==drag?.item&&!el.classList.contains('sort-drag-copy'));
  function stopAnimations(){for(const a of animations.values())a.cancel();animations.clear();}
+ function layoutRect(element){
+  const rect=element.getBoundingClientRect(),transform=getComputedStyle(element).transform;
+  const matrix=transform==='none'?{m41:0,m42:0}:new DOMMatrixReadOnly(transform);
+  return {top:rect.top-matrix.m42,left:rect.left-matrix.m41,width:rect.width,height:rect.height};
+ }
  function targetAt(x,y){
   const group=getGroups().find(({element})=>{const r=element.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;});
   if(!group)return null;
-  const before=items(group.element).find(el=>{const r=el.getBoundingClientRect();return y<r.top+r.height/2;});
+  const before=items(group.element).find(el=>{const r=layoutRect(el);return y<r.top+r.height/2;});
   return {group,before};
  }
  function preview(){
   if(!drag?.copy)return;
   const d=drag;
   d.copy.style.transform=`translate(${d.x-d.offsetX}px, ${d.y-d.offsetY}px)`;
-  // Cancel previous transforms before measuring layout rather than measuring an animated box.
-  stopAnimations();
   const target=targetAt(d.x,d.y);d.target=target;
   d.copy.classList.toggle('is-invalid-drop',!target);
   if(!target)return;
   const {group,before}=target;
-  if(d.placeholder.parentElement===group.element&&d.placeholder.nextElementSibling===before)return;
+  const siblings=[...d.placeholder.parentElement.children],next=siblings.slice(siblings.indexOf(d.placeholder)+1).find(el=>el.matches(itemSelector)&&el!==d.item)||null;
+  if(d.placeholder.parentElement===group.element&&next===(before||null))return;
   const boxes=new Map(getGroups().flatMap(g=>items(g.element)).map(el=>[el,el.getBoundingClientRect()]));
+  stopAnimations();
   group.element.insertBefore(d.placeholder,before||null);
   if(!reduced.matches)for(const [el,old] of boxes){
    const next=el.getBoundingClientRect(),dy=old.top-next.top,dx=old.left-next.left;
