@@ -1,3 +1,4 @@
+import {actionIcon} from './action-controls.js';
 import {copyWorkout,createTemplate,assignDay,moveWorkout} from './program.js';
 import {computeProgramVolume,computeProgramVolumeSplit,contributingWorkouts} from './program-volume.js';
 import {mountVolumePanel} from './volume-panel.js';
@@ -85,7 +86,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         </fieldset>
         <div class="program-file-actions">
           <button type="button" class="secondary-btn" data-import><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>Import program</button>
-          <button type="button" class="secondary-btn" data-export><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15V3M7 8l5-5 5 5M4 15v4h16v-4"/></svg>Export program</button>
+          <button type="button" class="secondary-btn" data-export>${actionIcon('export')}Export program</button>
           <input type="file" accept=".json,application/json" hidden data-file>
         </div>
       </div>

@@ -3,7 +3,7 @@ import {tooltipPosition} from './tooltip.js';
 const paths={
  plus:'<path d="M12 5v14M5 12h14"/>',
  import:'<path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/>',
- export:'<path d="M12 15V3m-4 4 4-4 4 4M4 15v5h16v-5"/>',
+ export:'<path d="M12 15V3M8 7l4-4 4 4M4 15v5h16v-5"/>',
  duplicate:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>',
  delete:'<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
  logout:'<path d="M9 4H4v16h5m6-13 5 5-5 5M8 12h12"/>'

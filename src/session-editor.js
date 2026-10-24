@@ -1,3 +1,4 @@
+import { actionIcon } from './action-controls.js';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
 import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, heatLevel, visibleMuscles } from './volume.js';
 import { LIMITS, validateExercise } from './validate.js';
@@ -10,6 +11,7 @@ import { SESSION_MARKUP } from './session-markup.js';
 
 export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport}={}) {
 root.innerHTML=SESSION_MARKUP;
+root.querySelector('#export-session svg').outerHTML=actionIcon('export');
 let destroyed=false;
 /**
  * The only domain state. Volume, goal status and errors are derived from it in refresh().
