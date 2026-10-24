@@ -55,7 +55,7 @@
 
 **Interfaces:** Consume `mountVolumePanel(root, {onMuscleSelect: (muscle: string | null) => void, ...})`. Retain `updateWorkoutHighlights(): void` as the program's DOM-only update, without `emit()` or `onChange()`.
 
-- [ ] **Step 1: Update/add failing interaction tests.** In `program-overview.spec.js`, replace the existing expectation that hovering Lats highlights Pull. Assert the following with the existing four-workout fixture:
+- [x] **Step 1: Update/add failing interaction tests.** In `program-overview.spec.js`, replace the existing expectation that hovering Lats highlights Pull. Assert the following with the existing four-workout fixture:
   - Before selection, hover Chest row/map: readout previews Chest; `.is-muscle-match` count remains 0.
   - Click Chest: matching titles equal `['Press', 'Assistance']`; both badges read `Trains Chest`.
   - Hover Lats row/map: readout previews Lats; matching titles remain `['Press', 'Assistance']`.
@@ -65,11 +65,11 @@
   - Extend the fixture with a workout containing both primary and secondary Chest involvement across different exercises: it matches once and has one badge.
   - Preserve the existing request listener assertion `expect(writes).toEqual([])` around all selection/preview actions.
   Add a session editor reference test using Bench/Chest and Row/Lats: hover causes no card hit, select Chest highlights Bench, hover Lats keeps Bench selected, activate Chest again restores neutral cards. Use existing `data-hit` values rather than changing the reference implementation.
-- [ ] **Step 2: Run the targeted tests and confirm the new program selection assertions fail on current hover-driven behavior.** Run `npx playwright test e2e/program-overview.spec.js e2e/session-editor.spec.js`.
-- [ ] **Step 3: Change the program panel subscription from `onMuscleFocusChange` to `onMuscleSelect`.** Assign its muscle argument to the program's selected card state and call `updateWorkoutHighlights()`. Rename `highlightedMuscle` to `selectedMuscle` locally for clarity. Leave panel preview logic intact. Preserve primary OR secondary membership matching and existing reset semantics.
-- [ ] **Step 4: Update the release requirement in `AGENTS.md`.** Replace the statement that hovering or selecting highlights workouts with: hover/focus previews panel details; selecting a muscle highlights contributing workouts, matching the session template editor. Do not rewrite historical design documents.
-- [ ] **Step 5: Run `npx playwright test e2e/program-overview.spec.js e2e/session-editor.spec.js`.** Expect all tests to pass, including existing mutation/import/navigation coverage. Add explicit no-selection-after-return assertions where needed.
-- [ ] **Step 6: Commit only the Task 1 files.** Suggested message: `fix: highlight program workouts only for selected muscles`.
+- [x] **Step 2: Run the targeted tests and confirm the new program selection assertions fail on current hover-driven behavior.** Run `npx playwright test e2e/program-overview.spec.js e2e/session-editor.spec.js`.
+- [x] **Step 3: Change the program panel subscription from `onMuscleFocusChange` to `onMuscleSelect`.** Assign its muscle argument to the program's selected card state and call `updateWorkoutHighlights()`. Rename `highlightedMuscle` to `selectedMuscle` locally for clarity. Leave panel preview logic intact. Preserve primary OR secondary membership matching and existing reset semantics.
+- [x] **Step 4: Update the release requirement in `AGENTS.md`.** Replace the statement that hovering or selecting highlights workouts with: hover/focus previews panel details; selecting a muscle highlights contributing workouts, matching the session template editor. Do not rewrite historical design documents.
+- [x] **Step 5: Run `npx playwright test e2e/program-overview.spec.js e2e/session-editor.spec.js`.** Expect all tests to pass, including existing mutation/import/navigation coverage. Add explicit no-selection-after-return assertions where needed.
+- [x] **Step 6: Commit only the Task 1 files.** Suggested message: `fix: highlight program workouts only for selected muscles`.
 
 ## Task 2: Match workout card and badge appearance to exercise cards
 
@@ -77,14 +77,14 @@
 
 **Interfaces:** Preserve `.workout-item.is-muscle-match` and `[data-muscle-match]` selectors. Add `.is-muscle-muted` for nonmatching cards only while a muscle is selected. `updateWorkoutHighlights()` sets both classes and badge visibility; no stored style state.
 
-- [ ] **Step 1: Update/add failing visual regression assertions.** Change `workout highlight never changes geometry` to activate rows instead of hover. Assert hover alone leaves cards neutral. At 1280px, 375px, and 320px, record card and control bounds; selecting Chest, switching to Front delts, and deselecting must preserve those bounds. Compare computed base background, border-left width, radius, and selected border/shadow against an exercise card mounted in a separate reference fixture. Assert selected workout background remains the neutral surface, its single badge matches `.hit-tag` fill/text/radius, nonmatches reach opacity `0.45`, and deselection restores opacity `1`. Under normal motion expect the shared exercise transition timing of 200ms; under reduced motion expect no transition.
+- [x] **Step 1: Update/add failing visual regression assertions.** Change `workout highlight never changes geometry` to activate rows instead of hover. Assert hover alone leaves cards neutral. At 1280px, 375px, and 320px, record card and control bounds; selecting Chest, switching to Front delts, and deselecting must preserve those bounds. Compare computed base background, border-left width, radius, and selected border/shadow against an exercise card mounted in a separate reference fixture. Assert selected workout background remains the neutral surface, its single badge matches `.hit-tag` fill/text/radius, nonmatches reach opacity `0.45`, and deselection restores opacity `1`. Under normal motion expect the shared exercise transition timing of 200ms; under reduced motion expect no transition.
   Include `Front delts` and `Upper back` badge cases at 200% text and long workout titles: no horizontal document overflow, readable complete badge text, controls remain operable. Extend the existing program fixture with one nonmatching workout for dimming assertions.
-- [ ] **Step 2: Run `npx playwright test e2e/layout-polish.spec.js` and confirm the new style assertions fail for the current orange-background workout treatment.**
-- [ ] **Step 3: Share only the visual declarations in `style.css`.** Group `.workout-item` with `.exercise` for neutral surface, border geometry, radius, and opacity/border/shadow transition. Group `.workout-item.is-muscle-match` with `.exercise[data-hit="primary"]` for accent border and shadow, and `.is-muscle-muted` with `.exercise[data-hit="none"]` for opacity. Remove competing late workout background/transition overrides. Preserve exercise secondary styling and all existing layout-specific declarations.
-- [ ] **Step 4: Apply the shared badge treatment and stable layout.** Reuse `.hit-tag` on the existing program marker, with scoped rules to reserve its space while visually and accessibly hidden for nonmatches. Keep `aria-hidden` accurate. Reserve space using a hidden placeholder label when no muscle is selected, sized for the longest fixed muscle label in the current font; don't hardcode a width that clips enlarged text. Keep the count and badge in a responsive metadata layout. Retain drag-handle clearance and day/action controls; do not add exercise collapse functionality to workout cards.
-- [ ] **Step 5: Extend `updateWorkoutHighlights()` to set `.is-muscle-muted` when `selectedMuscle !== null && !matches`.** Clear both match/muted classes on deselection. Ensure each newly rendered card gets the current state after duplicate, remove, move, drag reorder, mode toggle, and day assignment.
-- [ ] **Step 6: Run `npx playwright test e2e/layout-polish.spec.js e2e/program-overview.spec.js e2e/drag-reorder.spec.js e2e/session-editor.spec.js`.** Expect pass. Inspect desktop/mobile screenshots with and without selection, comparing workout cards to collapsed exercise cards; verify neutral surfaces, accent edge/shadow, pill badge, dimming, readable focus rings, and stable layout. Save review screenshots outside published assets.
-- [ ] **Step 7: Commit only the Task 2 files.** Suggested message: `style: align program workout cards with exercise cards`.
+- [x] **Step 2: Run `npx playwright test e2e/layout-polish.spec.js` and confirm the new style assertions fail for the current orange-background workout treatment.**
+- [x] **Step 3: Share only the visual declarations in `style.css`.** Group `.workout-item` with `.exercise` for neutral surface, border geometry, radius, and opacity/border/shadow transition. Group `.workout-item.is-muscle-match` with `.exercise[data-hit="primary"]` for accent border and shadow, and `.is-muscle-muted` with `.exercise[data-hit="none"]` for opacity. Remove competing late workout background/transition overrides. Preserve exercise secondary styling and all existing layout-specific declarations.
+- [x] **Step 4: Apply the shared badge treatment and stable layout.** Reuse `.hit-tag` on the existing program marker, with scoped rules to reserve its space while visually and accessibly hidden for nonmatches. Keep `aria-hidden` accurate. Reserve space using a hidden placeholder label when no muscle is selected, sized for the longest fixed muscle label in the current font; don't hardcode a width that clips enlarged text. Keep the count and badge in a responsive metadata layout. Retain drag-handle clearance and day/action controls; do not add exercise collapse functionality to workout cards.
+- [x] **Step 5: Extend `updateWorkoutHighlights()` to set `.is-muscle-muted` when `selectedMuscle !== null && !matches`.** Clear both match/muted classes on deselection. Ensure each newly rendered card gets the current state after duplicate, remove, move, drag reorder, mode toggle, and day assignment.
+- [x] **Step 6: Run `npx playwright test e2e/layout-polish.spec.js e2e/program-overview.spec.js e2e/drag-reorder.spec.js e2e/session-editor.spec.js`.** Expect pass. Inspect desktop/mobile screenshots with and without selection, comparing workout cards to collapsed exercise cards; verify neutral surfaces, accent edge/shadow, pill badge, dimming, readable focus rings, and stable layout. Save review screenshots outside published assets.
+- [x] **Step 7: Commit only the Task 2 files.** Suggested message: `style: align program workout cards with exercise cards`.
 
 ## Task 3: Verify the complete change for shipping
 
@@ -92,11 +92,11 @@
 
 **Interfaces:** Task 1 selection behavior and Task 2 shared styles must work together in both sequence and schedule modes.
 
-- [ ] **Step 1: Run `npm test`.** Expect exit code 0 and no failing unit tests.
-- [ ] **Step 2: Run `npm run test:e2e`.** Expect exit code 0 and no failing Playwright tests, including program mutations, drag reorder, layout, and session editor regressions.
-- [ ] **Step 3: Run `npm run build`.** Expect exit code 0; inspect the resulting diff to ensure no secrets/server files were added to published assets.
-- [ ] **Step 4: Review `git diff --check`, the scoped branch diff, and `git status --short`.** Confirm no unrelated package changes are included. Check all five Review Focus cases against the tests and screenshots. If fixes are required, rerun the affected checks before claiming success.
-- [ ] **Step 5: Hand off the verified change with test results and screenshots.** Publishing/deployment is a separate action; this plan prepares the implementation for review and shipping.
+- [x] **Step 1: Run `npm test`.** Expect exit code 0 and no failing unit tests.
+- [x] **Step 2: Run `npm run test:e2e`.** Expect exit code 0 and no failing Playwright tests, including program mutations, drag reorder, layout, and session editor regressions.
+- [x] **Step 3: Run `npm run build`.** Expect exit code 0; inspect the resulting diff to ensure no secrets/server files were added to published assets.
+- [x] **Step 4: Review `git diff --check`, the scoped branch diff, and `git status --short`.** Confirm no unrelated package changes are included. Check all five Review Focus cases against the tests and screenshots. If fixes are required, rerun the affected checks before claiming success.
+- [x] **Step 5: Hand off the verified change with test results and screenshots.** Publishing/deployment is a separate action; this plan prepares the implementation for review and shipping.
 
 ## Plan self-review
 
