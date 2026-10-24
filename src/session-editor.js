@@ -98,24 +98,30 @@ const CARD_HTML = `
     </button>
   </div>
   <div class="collapsible" data-collapse="summary"><p class="card-summary" data-summary></p></div>
-  <div class="collapsible" data-collapse="body"><div class="card-body">
+  <div class="collapsible" data-collapse="body"><div class="card-body exercise-fields">
+  <div class="exercise-main-fields">
+  <div class="exercise-name-field">
   <label class="field">Exercise name <input type="text" data-field="name" placeholder="e.g. Bench press" autocomplete="off"></label>
   <p class="error" data-error="name"></p>
+  </div>
   <div class="slider-field">
     <div class="slider-head"><span>Sets</span><span class="slider-value" data-value="sets" aria-hidden="true"></span></div>
     <div class="slider"><span class="slider-fill"></span>
       <input type="range" ${rangeAttrs(LIMITS.sets)} data-field="sets" aria-label="Sets"></div>
+    <p class="error" data-error="sets"></p>
   </div>
   <div class="slider-field">
     <div class="slider-head"><span>Reps</span><span class="slider-value" data-value="reps" aria-hidden="true"></span></div>
     <div class="slider is-range"><span class="slider-fill"></span>
       <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="min" aria-label="Reps min">
       <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="max" aria-label="Reps max"></div>
+    <p class="error" data-error="repRange"></p>
   </div>
-  <p class="error" data-error="sets"></p>
-  <p class="error" data-error="repRange"></p>
+  </div>
+  <div class="exercise-muscle-fields">
   <fieldset class="chips primary"><legend>Primary muscles</legend>${muscleChips('primary')}</fieldset>
   <fieldset class="chips secondary"><legend>Secondary muscles <span class="hint">count as ½ set</span></legend>${muscleChips('secondary')}</fieldset>
+  </div>
   <p class="error" data-error="muscles"></p>
   </div></div>`;
 
