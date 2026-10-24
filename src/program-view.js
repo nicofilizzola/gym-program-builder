@@ -8,6 +8,7 @@ import {mountSessionEditor} from './session-editor.js';
 import {validateDocument} from './document-validation.js';
 import {parseDocument} from './document-file.js';
 import {validateExercise} from './validate.js';
+import {MUSCLE_GROUPS} from './muscles.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
@@ -28,6 +29,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       const workout=workouts.get(card.dataset.workout);
       const matches=selectedMuscle!==null&&workout?.exercises.some(ex=>ex.primaryMuscles.includes(selectedMuscle)||ex.secondaryMuscles.includes(selectedMuscle));
       card.classList.toggle('is-muscle-match',Boolean(matches));
+      card.classList.toggle('is-muscle-muted',selectedMuscle!==null&&!matches);
       const marker=card.querySelector('[data-muscle-match]');
       marker.classList.toggle('is-visible',Boolean(matches));marker.setAttribute('aria-hidden',String(!matches));if(matches)marker.textContent=`Trains ${selectedMuscle}`;
     });
@@ -64,8 +66,14 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         handle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';card.append(handle);
         handle.onkeydown=event=>{const step={ArrowUp:-1,ArrowDown:1}[event.key];if(!step)return;event.preventDefault();const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts();root.querySelector(`[data-workout="${workout.id}"] .drag-handle`)?.focus();};
         const title=document.createElement('h3');title.textContent=workout.name.trim()||'Untitled workout';card.append(title);
-        const marker=document.createElement('span');marker.dataset.muscleMatch='';marker.className='workout-muscle-match';marker.setAttribute('aria-hidden','true');
-        const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;const metadata=document.createElement('div');metadata.className='workout-metadata';metadata.append(count,marker);card.append(metadata);
+        const marker=document.createElement('span');marker.dataset.muscleMatch='';marker.className='workout-muscle-match hit-tag';marker.setAttribute('aria-hidden','true');
+        // Overlay all possible labels invisibly so switching badges never moves controls,
+        // even when the current font or enlarged text makes a different label widest.
+        const badgeSlot=document.createElement('span');badgeSlot.className='workout-muscle-slot';
+        const badgeSpace=document.createElement('span');badgeSpace.className='workout-badge-space hit-tag';badgeSpace.setAttribute('aria-hidden','true');
+        for(const muscle of MUSCLE_GROUPS){const label=document.createElement('span');label.textContent=`Trains ${muscle}`;badgeSpace.append(label);}
+        badgeSlot.append(badgeSpace,marker);
+        const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;const metadata=document.createElement('div');metadata.className='workout-metadata';metadata.append(count,badgeSlot);card.append(metadata);
         const actions=document.createElement('div');actions.className='item-actions';card.append(actions);
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [

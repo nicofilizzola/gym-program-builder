@@ -178,7 +178,8 @@ input:focus-visible {
   gap: 16px;
 }
 
-.exercise {
+.exercise,
+.workout-item {
   background: var(--surface);
   border: 1px solid var(--border);
   border-left: 4px solid var(--border);
@@ -193,7 +194,8 @@ input:focus-visible {
 }
 
 /* Highlight from the volume panel: which cards train the selected muscle. */
-.exercise[data-hit="primary"] {
+.exercise[data-hit="primary"],
+.workout-item.is-muscle-match {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(249, 115, 22, 0.15);
 }
@@ -205,7 +207,8 @@ input:focus-visible {
   border-left-style: solid;
 }
 
-.exercise[data-hit="none"] {
+.exercise[data-hit="none"],
+.workout-item.is-muscle-muted {
   opacity: 0.45;
 }
 
@@ -1332,7 +1335,7 @@ svg {
 .app-header a[aria-current=page] {color:var(--accent)}
 .app-message {max-width:1072px;margin:8px auto;padding:0 12px}
 .library,.program-page {max-width:1120px;margin:auto;padding:32px 24px}
-.library-item,.workout-item {border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:20px;margin:16px 0}
+.library-item {border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:20px;margin:16px 0}
 .library-item {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .library-item h2 {font-size:1.5rem;margin:0;overflow-wrap:anywhere}
 .login-card {max-width:420px;margin:10vh auto;padding:28px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
@@ -1353,8 +1356,6 @@ button:disabled {opacity:.5;cursor:default}
 .template-picker label {flex:1 1 200px;min-width:0}
 .template-picker select {width:100%;min-width:0}
 .workout-item h3 {font-size:1.25rem;margin:0;overflow-wrap:anywhere}
-.workout-item.is-muscle-match {border-color:var(--accent);background:var(--accent-soft)}
-.workout-muscle-match {display:inline-block;margin-top:6px;color:var(--accent);font-size:.875rem;font-weight:500;overflow-wrap:anywhere}
 .workout-item p {color:var(--muted);margin:6px 0 14px}
 .day-field {display:flex;align-items:center;gap:10px;margin-top:16px}
 .program-toolbar {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px}
@@ -1430,11 +1431,15 @@ button:disabled {opacity:.5;cursor:default}
 .template-picker label {flex:1 1 160px}
 .template-picker button {flex:0 0 auto;min-height:44px;padding:10px 12px;white-space:nowrap}
 .add-alternative {align-self:end;display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:.875rem}
-.workout-item {padding:16px 16px 16px 64px;margin:12px 0;transition:background-color 150ms ease-out,border-color 150ms ease-out}
-.workout-metadata {display:flex;align-items:center;gap:12px;min-width:0;margin:4px 0 12px}
+.workout-item {padding:16px 16px 16px 64px;margin:12px 0}
+.workout-metadata {display:flex;align-items:center;flex-wrap:wrap;gap:12px;min-width:0;margin:4px 0 12px}
 .workout-metadata p {flex:none;margin:0}
-.workout-muscle-match {flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;opacity:0;transition:opacity 150ms ease-out}
-.workout-muscle-match.is-visible {opacity:1}
+.workout-muscle-slot {display:grid;min-width:0;max-width:100%}
+.workout-badge-space,.workout-muscle-match {grid-area:1/1;min-width:0;overflow-wrap:anywhere}
+.workout-badge-space {display:grid;visibility:hidden;pointer-events:none}
+.workout-badge-space>span {grid-area:1/1}
+.workout-muscle-match {align-self:start;justify-self:start;visibility:hidden;opacity:0;transition:opacity 150ms ease-out}
+.workout-muscle-match.is-visible {visibility:visible;opacity:1}
 @media(max-width:600px){.layout,.library,.program-page{padding:16px}.template-picker label{flex-basis:100%}.workout-metadata{gap:8px}.template-picker button{white-space:normal;max-width:100%}.workout-item{padding-left:56px}.workout-item>.drag-handle{left:8px}}
 @media(prefers-reduced-motion:reduce){.workout-item,.workout-muscle-match{transition:none}}
 
