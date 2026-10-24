@@ -1437,3 +1437,5 @@ button:disabled {opacity:.5;cursor:default}
 .workout-muscle-match.is-visible {opacity:1}
 @media(max-width:600px){.layout,.library,.program-page{padding:16px}.template-picker label{flex-basis:100%}.workout-metadata{gap:8px}.template-picker button{white-space:normal;max-width:100%}.workout-item{padding-left:56px}.workout-item>.drag-handle{left:8px}}
 @media(prefers-reduced-motion:reduce){.workout-item,.workout-muscle-match{transition:none}}
+
+.navigation-status {position:fixed;right:16px;bottom:16px;z-index:1100;margin:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--muted);font-size:.875rem;box-shadow:0 4px 16px #0004;pointer-events:none}

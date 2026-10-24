@@ -17,7 +17,7 @@ test('navigation locks the old editor before a delayed document load',async({pag
  await start(page);const original=page.url();const created=await page.request.post('/api/documents',{headers:{origin:'http://127.0.0.1:3199'},data:{id:crypto.randomUUID(),kind:'template',document:{name:'Next document',exercises:[],goals:{}}}});const next=(await created.json()).record;
  let release;const held=new Promise(resolve=>{release=resolve;});await page.route(`**/api/documents/${next.id}`,async route=>{await held;await route.continue();});
  await page.evaluate(hash=>{location.hash=hash;},`#/templates/${next.id}`);
- await expect(page.getByLabel('Session template name')).toBeHidden();release();await expect(page.getByLabel('Session template name')).toHaveValue('Next document');await page.goto(original);await expect(page.getByLabel('Session template name')).toHaveValue('Untitled template');
+ await expect(page.getByLabel('Session template name')).toBeVisible();await expect.poll(()=>page.locator('#app').evaluate(el=>el.inert)).toBe(true);release();await expect(page.getByLabel('Session template name')).toHaveValue('Next document');await page.goto(original);await expect(page.getByLabel('Session template name')).toHaveValue('Untitled template');
 });
 test('creation retry reuses its ID after the server commits but the response is lost',async({page})=>{
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('link',{name:'Session templates',exact:true}).click();await expect(page.getByRole('heading',{name:'Session templates',exact:true})).toBeVisible();
@@ -28,5 +28,5 @@ test('browser back during a delayed load opens the newest requested route',async
  await start(page);const first=new URL(page.url()).hash;
  const created=await page.request.post('/api/documents',{headers:{origin:'http://127.0.0.1:3199'},data:{id:crypto.randomUUID(),kind:'template',document:{name:'Delayed destination',exercises:[],goals:{}}}});const next=(await created.json()).record;
  let release;const held=new Promise(resolve=>{release=resolve;});await page.route(`**/api/documents/${next.id}`,async route=>{await held;await route.continue();});
- await page.evaluate(hash=>{location.hash=hash;},`#/templates/${next.id}`);await expect(page.getByLabel('Session template name')).toBeHidden();await page.evaluate(()=>history.back());release();await expect(page.getByLabel('Session template name')).toHaveValue('Untitled template');expect(new URL(page.url()).hash).toBe(first);
+ await page.evaluate(hash=>{location.hash=hash;},`#/templates/${next.id}`);await expect(page.getByLabel('Session template name')).toBeVisible();await expect.poll(()=>page.locator('#app').evaluate(el=>el.inert)).toBe(true);await page.evaluate(()=>history.back());release();await expect(page.getByLabel('Session template name')).toHaveValue('Untitled template');expect(new URL(page.url()).hash).toBe(first);
 });

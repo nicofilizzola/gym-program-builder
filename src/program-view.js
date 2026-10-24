@@ -1,3 +1,4 @@
+import {createViewTransition} from './view-transition.js';
 import {mountSortable} from './sortable.js';
 import {actionIcon} from './action-controls.js';
 import {copyWorkout,createTemplate,assignDay,moveWorkout,placeWorkout} from './program.js';
@@ -11,6 +12,12 @@ import {validateExercise} from './validate.js';
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
 export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport}={}) {
+  const viewTransition=createViewTransition(root);
+  let overviewScroll=0,transitionGeneration=0;
+  function changeView(commit,focus){
+    const generation=++transitionGeneration;root.inert=true;
+    return viewTransition.swap(commit,{focus:()=>{root.inert=false;focus?.();}}).finally(()=>{if(generation===transitionGeneration)root.inert=false;});
+  }
   let value=structuredClone(program),panel,editor,disposed=false,viewGeneration=0,highlightedMuscle=null,sortable;
   function cleanup(){sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
@@ -27,17 +34,19 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   function showError(error){const el=root.querySelector('[data-program-error]');if(el)el.textContent=error.message||error;}
   function run(fn){return async()=>{try{await fn();}catch(error){if(!disposed)showError(error);}};}
-  function focusError(){
+  async function focusError(){
     if(!value.name.trim()){root.querySelector('[data-program-name]')?.focus();return;}
     for(const workout of value.workouts)if(!workout.name.trim()||workout.exercises.some(e=>Object.keys(validateExercise(e)).length)){
-      openWorkout(workout.id);editor.focusFirstError();showError(`Fix workout ${value.workouts.indexOf(workout)+1} before exporting.`);return;
+      await openWorkout(workout.id);if(disposed||!editor)return;editor.focusFirstError();showError(`Fix workout ${value.workouts.indexOf(workout)+1} before exporting.`);return;
     }
   }
-  function openWorkout(workoutId){
+  async function openWorkout(workoutId){
+    overviewScroll=scrollY;
     const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;
-    cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
-    root.querySelector('[data-back]').onclick=()=>{renderOverview();root.querySelector(`[data-edit="${workoutId}"]`)?.focus();};
+    await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
+    root.querySelector('[data-back]').onclick=run(()=>renderOverview(workoutId));
     editor=mountSessionEditor(root.querySelector('[data-editor]'),{workout,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
+    },()=>{window.scrollTo(0,0);root.querySelector('[data-template-name]')?.focus({preventScroll:true});});
   }
   function renderWorkouts(focusId,focusAction){
     sortable?.destroy();sortable=null;
@@ -60,7 +69,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         const actions=document.createElement('div');actions.className='item-actions';card.append(actions);
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [
-          ['Edit',()=>openWorkout(workout.id),false],
+          ['Edit',run(()=>openWorkout(workout.id)),false],
           ['Move up',()=>move(-1),workouts.indexOf(workout)===0],
           ['Move down',()=>move(1),workouts.indexOf(workout)===workouts.length-1],
           ['Duplicate',()=>{const copy={...copyWorkout(workout,id()),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);emit();renderWorkouts(copy.id,'Edit');},false],
@@ -88,7 +97,13 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     updateWorkoutHighlights();
     if(focusId){const controls=[...container.querySelectorAll(`[data-workout="${focusId}"] button`)];const target=controls.find(b=>b.dataset.action===focusAction&&!b.disabled)||controls.find(b=>!b.disabled);target?.focus();}
   }
-  function renderOverview(){
+  function renderOverview(returnId){
+    return changeView(buildOverview,()=>{
+      if(returnId){window.scrollTo(0,overviewScroll);root.querySelector(`[data-edit="${returnId}"]`)?.focus({preventScroll:true});}
+      else {const heading=root.querySelector('h1');heading.tabIndex=-1;heading.focus({preventScroll:true});}
+    });
+  }
+  function buildOverview(){
     highlightedMuscle=null;
     cleanup();root.innerHTML=`<section class="program-page"><p class="eyebrow">Weekly microcycle</p><h1>Program</h1>
       <label class="field">Program name<input type="text" data-program-name></label>
@@ -114,10 +129,10 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     for(const template of templates){const option=document.createElement('option');option.value=template.id;option.textContent=template.name.trim()||'Untitled template';picker.append(option);}
     root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy=copyWorkout(template.document,id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');});
     root.querySelector('[data-add-empty]').onclick=()=>{const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');};
-    root.querySelector('[data-export]').onclick=()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);focusError();return;}onExport(value);};
+    root.querySelector('[data-export]').onclick=run(async()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);await focusError();return;}onExport(value);});
     const file=root.querySelector('[data-file]');root.querySelector('[data-import]').onclick=()=>file.click();
-    file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();renderOverview();});
+    file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();await renderOverview();});
     panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleFocusChange:muscle=>{highlightedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
-  renderOverview();return {update(next){value=structuredClone(next);renderOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;cleanup();root.replaceChildren();}};
+  buildOverview();return {update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();root.replaceChildren();}};
 }
