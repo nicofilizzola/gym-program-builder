@@ -17,13 +17,17 @@ let nextWeekHelp=0;
 export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport}={}) {
   const weekHelpId='program-week-help-'+ ++nextWeekHelp;
   const viewTransition=createViewTransition(root);
-  let overviewScroll=0,transitionGeneration=0;
+  let overviewScroll=0,transitionGeneration=0,layoutTransition=null,layoutGeneration=0;
+  function cancelLayoutTransition(){
+    layoutGeneration++;layoutTransition?.cancel();
+    const container=root.querySelector('[data-workouts]');if(container)container.inert=false;
+  }
   function changeView(commit,focus){
     const generation=++transitionGeneration;root.inert=true;
     return viewTransition.swap(commit,{focus:()=>{root.inert=false;focus?.();}}).finally(()=>{if(generation===transitionGeneration)root.inert=false;});
   }
   let value=structuredClone(program),panel,editor,tooltips,disposed=false,viewGeneration=0,selectedMuscle=null,sortable;
-  function cleanup(){tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
+  function cleanup(){cancelLayoutTransition();layoutTransition?.destroy();layoutTransition=null;tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
   function updateWorkoutHighlights(){
@@ -46,6 +50,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     }
   }
   async function openWorkout(workoutId){
+    cancelLayoutTransition();
     overviewScroll=scrollY;
     const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;
     await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
@@ -53,7 +58,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     editor=mountSessionEditor(root.querySelector('[data-editor]'),{workout,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
     },()=>{window.scrollTo(0,0);root.querySelector('[data-template-name]')?.focus({preventScroll:true});});
   }
-  function renderWorkouts(focusId,focusAction){
+  function renderWorkouts(focusId,focusAction,transitionCommit=false){
+    if(!transitionCommit)cancelLayoutTransition();
     tooltips?.hide();
     sortable?.destroy();sortable=null;
     const container=root.querySelector('[data-workouts]');container.replaceChildren();
@@ -160,6 +166,13 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     }
     emit();renderWorkouts();focusHandle(key);announceMove(key,groupKey);
   }
+  async function switchLayout(mode){
+    value.mode=mode;emit();cancelLayoutTransition();tooltips?.hide();sortable?.destroy();sortable=null;
+    const generation=layoutGeneration,container=root.querySelector('[data-workouts]');
+    container.inert=true;
+    try {await layoutTransition.swap(()=>renderWorkouts(undefined,undefined,true));}
+    finally {if(generation===layoutGeneration)container.inert=false;}
+  }
   function renderOverview(returnId){
     return changeView(buildOverview,()=>{
       if(returnId){window.scrollTo(0,overviewScroll);root.querySelector(`[data-edit="${returnId}"]`)?.focus({preventScroll:true});}
@@ -184,8 +197,9 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       </header><p class="error" role="alert" data-program-error></p>
       <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div class="sequence-toolbar"><button type="button" class="secondary-btn" data-add-rest>${actionIcon('plus')}Add rest day</button></div><p class="week-help" id="${weekHelpId}" data-week-help>Drag sessions between days. On a handle, use Up/Down to reorder and Alt+Up/Down to change day.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
+    layoutTransition=createViewTransition(root.querySelector('[data-workouts]'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
-    root.querySelectorAll('[name="program-layout"]').forEach(input=>{input.checked=input.value===value.mode;input.onchange=()=>{if(!input.checked)return;value.mode=input.value;emit();renderWorkouts();};});
+    root.querySelectorAll('[name="program-layout"]').forEach(input=>{input.checked=input.value===value.mode;input.onchange=run(()=>{if(input.checked)return switchLayout(input.value);});});
     const picker=root.querySelector('[data-template]');
     const addTemplate=root.querySelector('[data-add-template]');
     picker.onchange=()=>{addTemplate.disabled=!picker.value;};

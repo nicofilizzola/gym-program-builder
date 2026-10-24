@@ -106,6 +106,8 @@ The program layout selector reads **Week / Sequence**, in that order. New progra
 
 Session cards expose Edit, Duplicate and Remove as visible icon buttons with accessible names and the shared hover/focus tooltips. Edit uses a pencil. Icon targets are 32px only on compact fine-pointer desktop without a coarse pointer, otherwise 44px. Rest cards have only a handle and remove icon. No session-card move buttons or day select are shown. Week helper text explains dragging and handle shortcuts: Up/Down reorder within a day; Alt+Up/Down move through Monday–Sunday and Unscheduled, restoring handle focus and announcing the destination.
 
+Week/Sequence switches fade only the session area: 75ms out, then 100ms in, ease-out, using the existing view-transition helper. The selector and weekly panel stay usable and steady; a newer selection cancels the old fade. Initial rendering and regular edits do not trigger this transition. Reduced motion switches instantly. Pending fades are canceled on list edits, editor navigation, server-driven updates and teardown.
+
 ## Components
 
 ### Inputs

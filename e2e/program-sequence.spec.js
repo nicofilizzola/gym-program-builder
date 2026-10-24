@@ -93,3 +93,59 @@ test('import asks before replacing a rest-only program',async({page})=>{
  await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Cycle');
 });
 
+test('layout fades affect only sessions and reduced motion switches immediately',async({page})=>{
+ await mountProgram(page,{sequence:[{type:'workout',workoutId:'a'},{type:'rest',id:'r'},{type:'workout',workoutId:'b'}]});
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ await page.evaluate(()=>{
+  window.panelBefore=document.querySelector('[data-weekly-panel]').firstElementChild;
+  window.layoutAnimations=[];const animate=Element.prototype.animate;
+  Element.prototype.animate=function(...args){const animation=animate.apply(this,args);if(this.matches('[data-workouts]'))window.layoutAnimations.push(animation.effect.getTiming().duration);return animation;};
+ });
+ for(const name of ['Week','Sequence']){
+  await page.getByRole('radio',{name,exact:true}).check();
+  await expect(page.locator('[data-workouts]')).not.toHaveAttribute('inert','');
+  await expect(page.getByRole('radio',{name,exact:true})).toBeFocused();
+ }
+ expect(await page.evaluate(()=>window.layoutAnimations)).toEqual([75,100,75,100]);
+ expect(await page.evaluate(()=>document.querySelector('[data-weekly-panel]').firstElementChild===window.panelBefore)).toBe(true);
+ await expect(page.locator('[data-rest="r"]')).toHaveCount(1);
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.getByRole('radio',{name:'Week',exact:true}).check();
+ await expect(page.locator('.day-section')).toHaveCount(8);
+ expect(await page.evaluate(()=>window.layoutAnimations.length)).toBe(4);
+});
+
+test('rapid layout reversals and mutations cancel stale commits',async({page})=>{
+ await mountProgram(page);await page.emulateMedia({reducedMotion:'no-preference'});
+ await page.evaluate(()=>{
+  for(const mode of ['schedule','simple','schedule']){
+   const input=document.querySelector('[name="program-layout"][value="'+mode+'"]');input.checked=true;input.dispatchEvent(new Event('change'));
+  }
+ });
+ await expect(page.locator('.day-section')).toHaveCount(8);
+ await expect(page.locator('[data-workouts]')).not.toHaveAttribute('inert','');
+ await page.evaluate(()=>{
+  const input=document.querySelector('[name="program-layout"][value="simple"]');input.checked=true;input.dispatchEvent(new Event('change'));
+  document.querySelector('[data-add-rest]').click();
+ });
+ await expect(page.locator('[data-rest]')).toHaveCount(1);
+ await expect(page.locator('[data-workouts]')).not.toHaveAttribute('inert','');
+ await page.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))));
+ await expect(page.locator('.day-section')).toHaveCount(1);
+ await page.getByRole('radio',{name:'Week',exact:true}).check();
+ await page.getByRole('button',{name:'Edit Upper',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Back to program',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Back to program',exact:true}).click();
+ await expect(page.locator('.day-section')).toHaveCount(8);
+ await page.evaluate(()=>{
+  document.querySelector('[name="program-layout"][value="simple"]').click();
+  window.view.update({...window.fixtureProgram,mode:'schedule'});
+ });
+ await expect(page.locator('.day-section')).toHaveCount(8);
+ await expect(page.locator('[data-workouts]')).not.toHaveAttribute('inert','');
+ await page.evaluate(()=>{
+  document.querySelector('[name="program-layout"][value="simple"]').click();window.view.destroy();
+ });
+ await expect(page.locator('#fixture')).toBeEmpty();
+ await expect(page.locator('.sort-drag-copy,.sort-placeholder')).toHaveCount(0);
+});
