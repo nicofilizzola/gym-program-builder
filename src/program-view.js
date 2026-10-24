@@ -18,7 +18,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     const generation=++transitionGeneration;root.inert=true;
     return viewTransition.swap(commit,{focus:()=>{root.inert=false;focus?.();}}).finally(()=>{if(generation===transitionGeneration)root.inert=false;});
   }
-  let value=structuredClone(program),panel,editor,disposed=false,viewGeneration=0,highlightedMuscle=null,sortable;
+  let value=structuredClone(program),panel,editor,disposed=false,viewGeneration=0,selectedMuscle=null,sortable;
   function cleanup(){sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
@@ -26,10 +26,10 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     const workouts=new Map(value.workouts.map(workout=>[workout.id,workout]));
     root.querySelectorAll('.workout-item').forEach(card=>{
       const workout=workouts.get(card.dataset.workout);
-      const matches=highlightedMuscle!==null&&workout?.exercises.some(ex=>ex.primaryMuscles.includes(highlightedMuscle)||ex.secondaryMuscles.includes(highlightedMuscle));
+      const matches=selectedMuscle!==null&&workout?.exercises.some(ex=>ex.primaryMuscles.includes(selectedMuscle)||ex.secondaryMuscles.includes(selectedMuscle));
       card.classList.toggle('is-muscle-match',Boolean(matches));
       const marker=card.querySelector('[data-muscle-match]');
-      marker.classList.toggle('is-visible',Boolean(matches));marker.setAttribute('aria-hidden',String(!matches));if(matches)marker.textContent=`Trains ${highlightedMuscle}`;
+      marker.classList.toggle('is-visible',Boolean(matches));marker.setAttribute('aria-hidden',String(!matches));if(matches)marker.textContent=`Trains ${selectedMuscle}`;
     });
   }
   function showError(error){const el=root.querySelector('[data-program-error]');if(el)el.textContent=error.message||error;}
@@ -104,7 +104,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     });
   }
   function buildOverview(){
-    highlightedMuscle=null;
+    selectedMuscle=null;
     cleanup();root.innerHTML=`<section class="program-page"><p class="eyebrow">Weekly microcycle</p><h1>Program</h1>
       <label class="field">Program name<input type="text" data-program-name></label>
       <div class="program-toolbar">
@@ -132,7 +132,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     root.querySelector('[data-export]').onclick=run(async()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);await focusError();return;}onExport(value);});
     const file=root.querySelector('[data-file]');root.querySelector('[data-import]').onclick=()=>file.click();
     file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();await renderOverview();});
-    panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleFocusChange:muscle=>{highlightedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
+    panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleSelect:muscle=>{selectedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
   buildOverview();return {update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();root.replaceChildren();}};
 }

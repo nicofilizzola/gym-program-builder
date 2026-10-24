@@ -1,4 +1,28 @@
 import {test,expect} from '@playwright/test';
+
+test('muscle preview leaves exercise selection unchanged until activation',async({page})=>{
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  const {mountSessionEditor}=await import('/src/session-editor.js');
+  document.body.innerHTML='<div id="fixture"></div>';
+  mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Reference',goals:{},exercises:[
+   {name:'Bench',sets:3,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]},
+   {name:'Row',sets:3,repRange:{min:8,max:12},primaryMuscles:['Lats'],secondaryMuscles:[]}
+  ]}});
+ });
+ const chest=page.locator('.volume-row[data-muscle="Chest"]'),lats=page.locator('.volume-row[data-muscle="Lats"]');
+ await chest.hover();
+ await expect(page.locator('#readout')).toContainText('Chest 3 sets');
+ await expect(page.locator('.exercise[data-hit=""]')).toHaveCount(2);
+ await chest.click();
+ await expect(page.locator('.exercise').first()).toHaveAttribute('data-hit','primary');
+ await expect(page.locator('.exercise').last()).toHaveAttribute('data-hit','none');
+ await lats.hover();
+ await expect(page.locator('#readout')).toContainText('Lats 3 sets');
+ await expect(page.locator('.exercise').first()).toHaveAttribute('data-hit','primary');
+ await chest.click();
+ await expect(page.locator('.exercise[data-hit=""]')).toHaveCount(2);
+});
 test('mounted template retains live volume, focus, collapse and tooltip behavior',async({page})=>{
  await page.goto('/');
  await page.evaluate(async()=>{

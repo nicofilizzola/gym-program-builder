@@ -128,8 +128,14 @@ test('weekly map supports touch selection',async({browser})=>{
   await openProgram(page);await importProgram(page);
   await region(page,'Chest').locator('path').first().tap();
   await expect(row(page,'Chest')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
   await region(page,'Chest').locator('path').first().tap();
   await expect(row(page,'Chest')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
+  await row(page,'Lats').tap();
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Pull']);
+  await row(page,'Lats').tap();
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
   await context.close();
 });
 
@@ -137,24 +143,51 @@ test('muscle interaction highlights matching workouts without saving',async({pag
   await openProgram(page);await importProgram(page);
   const writes=[];
   page.on('request',request=>{if(request.url().includes('/api/')&&['PUT','POST'].includes(request.method()))writes.push(request.url());});
+  await row(page,'Chest').hover();
+  await expect(page.locator('#readout')).toContainText('Chest 7 sets');
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
+  await pointAt(page,'Chest');
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
   await region(page,'Chest').locator('path').first().click();
   await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
   await expect(page.locator('.workout-item.is-muscle-match [data-muscle-match]')).toHaveText(['Trains Chest','Trains Chest']);
   await expect(page.locator('.workout-item:visible')).toHaveCount(4);
   await expect(page.locator('#readout')).toContainText('2 workouts');
   await pointAt(page,'Lats');
-  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Pull']);
+  await expect(page.locator('#readout')).toContainText('Lats 3 sets');
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
+  await row(page,'Lats').hover();
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
   await page.mouse.move(0,0);
   await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
-  await region(page,'Chest').locator('path').first().click();await page.mouse.move(0,0);
+  await page.getByLabel('Program name',{exact:true}).focus();
+  await row(page,'Chest').focus();await page.keyboard.press('Tab');
+  await expect(row(page,'Lats')).toBeFocused();
+  await expect(page.locator('#readout')).toContainText('Lats 3 sets');
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Pull']);
+  await page.keyboard.press('Space');
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
+  await row(page,'Chest').click();await row(page,'Chest').click();
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
   expect(writes).toEqual([]);
+});
+
+test('mixed primary and secondary involvement produces one workout badge',async({page})=>{
+  await openProgram(page);
+  const program=programFixture();
+  program.workouts.push({name:'Mixed',day:null,goals:{},exercises:[exercise('Press',3,['Chest']),exercise('Assist',2,['Triceps'],['Chest'])]});
+  await importProgram(page,program);await row(page,'Chest').click();
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance','Mixed']);
+  await expect(page.locator('.workout-item.is-muscle-match [data-muscle-match]')).toHaveText(['Trains Chest','Trains Chest','Trains Chest']);
 });
 
 test('mouse deselection clears preview and workout highlights after leaving the panel',async({page})=>{
   await openProgram(page);await importProgram(page);
   await row(page,'Chest').click();await row(page,'Chest').click();
   await expect(row(page,'Chest')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
   await page.mouse.move(0,0);
   await expect(page.locator('#readout')).toHaveText('Tap a muscle to highlight its workouts.');
   await expect(page.locator('.region.is-focus')).toHaveCount(0);
