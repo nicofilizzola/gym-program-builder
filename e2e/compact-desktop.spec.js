@@ -83,6 +83,9 @@ test('desktop library rows are compact',async({page})=>{
 test('schedule uses responsive day columns',async({page})=>{
   for(const size of sizes) {
     await page.setViewportSize(size);await fixture(page,'program');
+    const panelBounds=await page.locator('.panel').boundingBox();
+    expect(panelBounds.x+panelBounds.width).toBe(size.width-24);
+    await expect(page.locator('.program-page > .program-grid')).toHaveCount(1);
     const sections=page.locator('.day-section');await expect(sections).toHaveCount(8);
     const boxes=await sections.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width};}));
     const columns=size.width>=1600?3:2;
@@ -91,6 +94,34 @@ test('schedule uses responsive day columns',async({page})=>{
     expect(boxes[7].width).toBeGreaterThan(boxes[0].width*1.9);
     await expect(sections.first().locator('.workout-item')).toHaveCount(2);await noOverflow(page);
   }
+});
+
+test('schedule grid preserves actions and cross-column drag order',async({page})=>{
+  await page.setViewportSize({width:1440,height:1200});await fixture(page,'program');
+  const first=page.locator('[data-workout="w0"]');
+  await expect(first.getByRole('button',{name:'Move up Upper A',exact:true})).toBeDisabled();
+  const duplicate=first.getByRole('button',{name:'Duplicate Upper A',exact:true});
+  await expect(duplicate.locator('svg')).toHaveCount(1);
+  await duplicate.click();await expect(page.locator('.workout-item')).toHaveCount(10);
+  await expect(page.getByRole('button',{name:'Edit Upper A',exact:true}).nth(1)).toBeFocused();
+  const source=await first.locator('.drag-handle').boundingBox();
+  await page.mouse.move(source.x+source.width/2,source.y+source.height/2);await page.mouse.down();
+  const target=await page.locator('[data-sort-group="1"]').boundingBox();
+  await page.mouse.move(target.x+60,target.y+30,{steps:8});await expect(page.locator('.sort-drag-copy')).toBeVisible();await page.mouse.up();
+  await expect(page.locator('[data-sort-group="1"] [data-workout="w0"]')).toHaveCount(1);
+  expect(await page.evaluate(()=>window.changes.at(-1).workouts.find(w=>w.id==='w0').day)).toBe(1);
+  const saved=await page.evaluate(()=>window.changes.at(-1).workouts);
+  await page.getByRole('radio',{name:'Sequence',exact:true}).check();
+  await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
+  expect(await page.evaluate(()=>window.changes.at(-1).workouts)).toEqual(saved);
+});
+
+test('wide day cards share a row for actions and day assignment',async({page})=>{
+  await page.setViewportSize(sizes[2]);await fixture(page,'program');
+  const card=page.locator('[data-workout="w0"]');
+  const actions=await card.locator('.item-actions').boundingBox(),day=await card.locator('.day-field').boundingBox();
+  expect(Math.abs(actions.y-day.y)).toBeLessThan(2);
+  expect(day.x).toBeGreaterThanOrEqual(actions.x+actions.width);
 });
 
 test('short and enlarged panels release sticky without shrinking the bodies',async({page})=>{
@@ -118,6 +149,15 @@ test('compact fields keep keyboard editing, collapse and error focus',async({pag
   await expect(first.locator('[data-collapse="body"]')).toHaveAttribute('inert','');
   await first.getByRole('button',{name:'Expand exercise',exact:true}).click();await name.fill('');
   await page.getByRole('button',{name:'Export',exact:true}).click();await expect(name).toBeFocused();
+});
+
+test('enlarged volume names and values remain inside their columns',async({page})=>{
+  await page.setViewportSize(sizes[0]);await fixture(page,'program');
+  await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+  for(const cell of await page.locator('.volume-row .name,.volume-row .value').all()) {
+    expect(await cell.evaluate(el=>el.scrollWidth),await cell.textContent()).toBeLessThanOrEqual(await cell.evaluate(el=>el.clientWidth));
+  }
+  await noOverflow(page);
 });
 
 test('desktop coarse pointers retain touch targets',async({browser})=>{

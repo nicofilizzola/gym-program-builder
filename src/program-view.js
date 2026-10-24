@@ -1,6 +1,6 @@
 import {createViewTransition} from './view-transition.js';
 import {mountSortable} from './sortable.js';
-import {actionIcon} from './action-controls.js';
+import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {copyWorkout,createTemplate,assignDay,moveWorkout,placeWorkout} from './program.js';
 import {computeProgramVolume,computeProgramVolumeSplit,contributingWorkouts} from './program-volume.js';
 import {mountVolumePanel} from './volume-panel.js';
@@ -19,8 +19,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     const generation=++transitionGeneration;root.inert=true;
     return viewTransition.swap(commit,{focus:()=>{root.inert=false;focus?.();}}).finally(()=>{if(generation===transitionGeneration)root.inert=false;});
   }
-  let value=structuredClone(program),panel,editor,disposed=false,viewGeneration=0,selectedMuscle=null,sortable;
-  function cleanup(){sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
+  let value=structuredClone(program),panel,editor,tooltips,disposed=false,viewGeneration=0,selectedMuscle=null,sortable;
+  function cleanup(){tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
   function updateWorkoutHighlights(){
@@ -45,17 +45,20 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   async function openWorkout(workoutId){
     overviewScroll=scrollY;
     const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;
-    await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button></header><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
+    await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
     root.querySelector('[data-back]').onclick=run(()=>renderOverview(workoutId));
     editor=mountSessionEditor(root.querySelector('[data-editor]'),{workout,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
     },()=>{window.scrollTo(0,0);root.querySelector('[data-template-name]')?.focus({preventScroll:true});});
   }
   function renderWorkouts(focusId,focusAction){
+    tooltips?.hide();
     sortable?.destroy();sortable=null;
     const container=root.querySelector('[data-workouts]');container.replaceChildren();
+    container.classList.toggle('schedule-grid',value.mode==='schedule');
     const groups=value.mode==='schedule'?[...DAYS.map((name,day)=>({name,day})),{name:'Unscheduled',day:null}]:[{name:'Session templates',day:undefined}];
     for(const group of groups){
       const section=document.createElement('section');section.className='day-section';
+      section.classList.toggle('day-section--unscheduled',group.day===null);
       const heading=document.createElement('h2');heading.textContent=group.name;section.append(heading);container.append(section);
       const groupList=document.createElement('div');groupList.className='workout-list';groupList.dataset.sortGroup=group.day===undefined?'sequence':group.day===null?'unscheduled':String(group.day);section.append(groupList);
       const workouts=value.workouts.filter(w=>group.day===undefined||w.day===group.day);
@@ -84,6 +87,12 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
           ['Remove',()=>{if(!confirm(`Remove ${name} from this program?`))return;value.workouts=value.workouts.filter(w=>w.id!==workout.id);emit();renderWorkouts();root.querySelector('[data-add-empty]').focus();},false]
         ]){
           const button=document.createElement('button');button.className='secondary-btn';button.type='button';button.textContent=label;button.setAttribute('aria-label',`${label} ${name}`);button.disabled=disabled;button.dataset.action=label;if(label==='Edit')button.dataset.edit=workout.id;button.onclick=callback;actions.append(button);
+          if(label!=='Edit'){
+            button.classList.add('workout-action');
+            if(label==='Remove')button.classList.add('action-button--delete');
+            const icon={'Move up':'move-up','Move down':'move-down',Duplicate:'duplicate',Remove:'delete'}[label];
+            button.innerHTML=actionIcon(icon);const text=document.createElement('span');text.className='workout-action-label';text.textContent=label;button.append(text);button.dataset.actionTooltip=label;
+          }
         }
         function move(step){const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts(workout.id,step<0?'Move up':'Move down');}
         if(value.mode==='schedule'){
@@ -126,8 +135,9 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
           <input type="file" accept=".json,application/json" hidden data-file>
         </div>
       </div>
-      <p class="error" role="alert" data-program-error></p>
+      </header><p class="error" role="alert" data-program-error></p>
       <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
+    tooltips=mountActionTooltips(root.querySelector('.program-page'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
     root.querySelectorAll('[name="program-layout"]').forEach(input=>{input.checked=input.value===value.mode;input.onchange=()=>{if(!input.checked)return;value.mode=input.value;emit();renderWorkouts();};});
     const picker=root.querySelector('[data-template]');
