@@ -22,7 +22,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       const matches=highlightedMuscle!==null&&workout?.exercises.some(ex=>ex.primaryMuscles.includes(highlightedMuscle)||ex.secondaryMuscles.includes(highlightedMuscle));
       card.classList.toggle('is-muscle-match',Boolean(matches));
       const marker=card.querySelector('[data-muscle-match]');
-      marker.hidden=!matches;marker.textContent=matches?`Trains ${highlightedMuscle}`:'';
+      marker.classList.toggle('is-visible',Boolean(matches));marker.setAttribute('aria-hidden',String(!matches));if(matches)marker.textContent=`Trains ${highlightedMuscle}`;
     });
   }
   function showError(error){const el=root.querySelector('[data-program-error]');if(el)el.textContent=error.message||error;}
@@ -55,8 +55,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         handle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';card.append(handle);
         handle.onkeydown=event=>{const step={ArrowUp:-1,ArrowDown:1}[event.key];if(!step)return;event.preventDefault();const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts();root.querySelector(`[data-workout="${workout.id}"] .drag-handle`)?.focus();};
         const title=document.createElement('h3');title.textContent=workout.name.trim()||'Untitled workout';card.append(title);
-        const marker=document.createElement('span');marker.dataset.muscleMatch='';marker.className='workout-muscle-match';marker.hidden=true;card.append(marker);
-        const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;card.append(count);
+        const marker=document.createElement('span');marker.dataset.muscleMatch='';marker.className='workout-muscle-match';marker.setAttribute('aria-hidden','true');
+        const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;const metadata=document.createElement('div');metadata.className='workout-metadata';metadata.append(count,marker);card.append(metadata);
         const actions=document.createElement('div');actions.className='item-actions';card.append(actions);
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [
@@ -104,10 +104,13 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         </div>
       </div>
       <p class="error" role="alert" data-program-error></p>
-      <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template>Add from template</button><button type="button" class="add-btn" data-add-empty>Add empty workout</button></div><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
+      <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
     root.querySelectorAll('[name="program-layout"]').forEach(input=>{input.checked=input.value===value.mode;input.onchange=()=>{if(!input.checked)return;value.mode=input.value;emit();renderWorkouts();};});
     const picker=root.querySelector('[data-template]');
+    const addTemplate=root.querySelector('[data-add-template]');
+    picker.onchange=()=>{addTemplate.disabled=!picker.value;};
+    if(!templates.length){picker.options[0].textContent='No templates yet';picker.disabled=true;}
     for(const template of templates){const option=document.createElement('option');option.value=template.id;option.textContent=template.name.trim()||'Untitled template';picker.append(option);}
     root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy=copyWorkout(template.document,id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');});
     root.querySelector('[data-add-empty]').onclick=()=>{const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');};

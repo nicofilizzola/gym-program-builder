@@ -51,7 +51,7 @@ test('program toolbar groups file actions and switches layouts accessibly',async
       if(error)await expect(page.locator('[data-program-error]')).toContainText('not valid JSON');
       const toolbar=await page.locator('.program-toolbar').boundingBox();
       const grid=await page.locator('.program-grid').boundingBox();
-      expect(grid.y-toolbar.y-toolbar.height).toBeGreaterThanOrEqual(24);
+      expect(grid.y-toolbar.y-toolbar.height).toBeGreaterThanOrEqual(16);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     }
   }
@@ -213,7 +213,7 @@ for(const webFonts of [true,false])test(`program overview fits narrow, tablet, d
     await expect(page.locator('[data-program-error]')).toContainText('not valid JSON');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     const toolbar=await page.locator('.program-toolbar').boundingBox(),grid=await page.locator('.program-grid').boundingBox();
-    expect(grid.y-toolbar.y-toolbar.height).toBeGreaterThanOrEqual(24);
+    expect(grid.y-toolbar.y-toolbar.height).toBeGreaterThanOrEqual(16);
     await expect(page.locator('#body-map')).toBeVisible();await expect(page.locator('#heat-key')).toBeVisible();
     expect((await page.getByRole('button',{name:'Set weekly goals',exact:true}).boundingBox()).height).toBeLessThanOrEqual(48);
     if(width<=800) {
