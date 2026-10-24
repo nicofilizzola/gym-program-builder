@@ -26,6 +26,7 @@ test('compact add alternatives wrap without overflow or small targets',async({pa
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   for(const button of [add,empty]){const box=await button.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);expect(box.width).toBeGreaterThanOrEqual(44);}
   if(width===1280){const a=await add.boundingBox(),b=await empty.boundingBox();expect(Math.abs(a.y-b.y)).toBeLessThan(1);}
+  if(width===1280||width===375)await page.screenshot({path:`.superpowers/sdd/2026-10-24-interaction-polish/program-${width}.png`,fullPage:true});
  }
  await page.evaluate(()=>document.documentElement.style.fontSize='200%');expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
  await empty.click();await expect(page.locator('.workout-item')).toHaveCount(3);
