@@ -51,6 +51,22 @@ export function validateDocument(kind,value,{draft=false}={}) {
         return {...workout(w,draft),id:w.id,day:w.day};
       } catch(error) {fail(`Workout ${i+1}: ${error.message}`);}
     });
-    return {document:{name:title,mode:value.mode,workouts,goals:goals(value.goals,LIMITS.weeklyGoal)}};
+    const document={name:title,mode:value.mode,workouts,goals:goals(value.goals,LIMITS.weeklyGoal)};
+    if(Object.hasOwn(value,'sequence')) {
+      if(!Array.isArray(value.sequence))fail('Invalid program sequence.');
+      const used=new Set(ids),references=[];
+      document.sequence=value.sequence.map(entry=>{
+        if(!object(entry))fail('Invalid sequence entry.');
+        if(entry.type==='workout') {
+          if(typeof entry.workoutId!=='string'||!ids.has(entry.workoutId))fail('Unknown sequence workout.');
+          references.push(entry.workoutId);
+          return {type:'workout',workoutId:entry.workoutId};
+        }
+        if(entry.type!=='rest'||typeof entry.id!=='string'||!entry.id||used.has(entry.id))fail('Missing or duplicate rest ID.');
+        used.add(entry.id);return {type:'rest',id:entry.id};
+      });
+      if(references.length!==workouts.length||references.some((ref,i)=>ref!==workouts[i].id))fail('Sequence must reference every workout once in order.');
+    }
+    return {document};
   } catch(error) {return {error:error.message};}
 }
