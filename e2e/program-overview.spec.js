@@ -128,3 +128,57 @@ test('weekly map supports touch selection',async({browser})=>{
   await expect(row(page,'Chest')).toHaveAttribute('aria-pressed','false');
   await context.close();
 });
+
+test('muscle interaction highlights matching workouts without saving',async({page})=>{
+  await openProgram(page);await importProgram(page);
+  const writes=[];
+  page.on('request',request=>{if(request.url().includes('/api/')&&['PUT','POST'].includes(request.method()))writes.push(request.url());});
+  await region(page,'Chest').locator('path').first().click();
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
+  await expect(page.locator('.workout-item.is-muscle-match [data-muscle-match]')).toHaveText(['Trains Chest','Trains Chest']);
+  await expect(page.locator('.workout-item:visible')).toHaveCount(4);
+  await expect(page.locator('#readout')).toContainText('2 workouts');
+  await pointAt(page,'Lats');
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Pull']);
+  await page.mouse.move(0,0);
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Assistance']);
+  await region(page,'Chest').locator('path').first().click();await page.mouse.move(0,0);
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+
+test('workout mutations retain highlights and replacements clear them',async({page})=>{
+  await openProgram(page);await importProgram(page);
+  await region(page,'Chest').locator('path').first().click();
+  await page.getByRole('button',{name:'Duplicate Press',exact:true}).click();
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(3);
+  await expect(page.locator('#readout')).toContainText('3 workouts');
+  await page.getByRole('button',{name:'Move down Press',exact:true}).first().click();
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(3);
+  await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
+  await page.getByLabel('Day for Assistance',{exact:true}).selectOption('2');
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(3);
+  await page.getByRole('radio',{name:'Sequence',exact:true}).check();
+  await expect(page.locator('.workout-item h3')).toHaveText(['Press','Press','Assistance','Pull','Empty']);
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Remove Press',exact:true}).first().click();
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(2);
+  // Draft name and primary choices may be empty; secondary membership still contributes.
+  await page.getByRole('button',{name:'Edit Assistance',exact:true}).click();
+  await page.getByLabel('Session template name',{exact:true}).fill('');
+  await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
+  await page.locator('.primary').getByRole('checkbox',{name:'Triceps',exact:true}).uncheck();
+  await page.getByRole('button',{name:'Back to program',exact:true}).click();
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
+  await expect(row(page,'Chest').locator('.value')).toHaveText('7');
+  await region(page,'Chest').locator('path').first().click();await page.mouse.move(0,0);
+  await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Untitled workout']);
+  page.once('dialog',dialog=>dialog.dismiss());
+  const replacement={...programFixture(),name:'Replacement',workouts:[]};
+  await page.locator('[data-file]').setInputFiles({name:'replacement.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:2,kind:'program',program:replacement}))});
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(2);
+  page.once('dialog',dialog=>dialog.accept());await importProgram(page,replacement);
+  await expect(page.locator('.workout-item')).toHaveCount(0);
+  await expect(page.locator('.region.is-selected')).toHaveCount(0);
+  await expect(page.locator('#readout')).toHaveText('Tap a muscle to highlight its workouts.');
+});

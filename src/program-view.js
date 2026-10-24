@@ -9,10 +9,20 @@ import {validateExercise} from './validate.js';
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
 export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport}={}) {
-  let value=structuredClone(program),panel,editor,disposed=false,viewGeneration=0;
+  let value=structuredClone(program),panel,editor,disposed=false,viewGeneration=0,highlightedMuscle=null;
   function cleanup(){viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
+  function updateWorkoutHighlights(){
+    const workouts=new Map(value.workouts.map(workout=>[workout.id,workout]));
+    root.querySelectorAll('.workout-item').forEach(card=>{
+      const workout=workouts.get(card.dataset.workout);
+      const matches=highlightedMuscle!==null&&workout?.exercises.some(ex=>ex.primaryMuscles.includes(highlightedMuscle)||ex.secondaryMuscles.includes(highlightedMuscle));
+      card.classList.toggle('is-muscle-match',Boolean(matches));
+      const marker=card.querySelector('[data-muscle-match]');
+      marker.hidden=!matches;marker.textContent=matches?`Trains ${highlightedMuscle}`:'';
+    });
+  }
   function showError(error){const el=root.querySelector('[data-program-error]');if(el)el.textContent=error.message||error;}
   function run(fn){return async()=>{try{await fn();}catch(error){if(!disposed)showError(error);}};}
   function focusError(){
@@ -38,6 +48,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       for(const workout of workouts){
         const card=document.createElement('article');card.className='workout-item';card.dataset.workout=workout.id;
         const title=document.createElement('h3');title.textContent=workout.name.trim()||'Untitled workout';card.append(title);
+        const marker=document.createElement('span');marker.dataset.muscleMatch='';marker.className='workout-muscle-match';marker.hidden=true;card.append(marker);
         const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;card.append(count);
         const actions=document.createElement('div');actions.className='item-actions';card.append(actions);
         const name=workout.name.trim()||'Untitled workout';
@@ -60,9 +71,11 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         section.append(card);
       }
     }
+    updateWorkoutHighlights();
     if(focusId){const controls=[...container.querySelectorAll(`[data-workout="${focusId}"] button`)];const target=controls.find(b=>b.dataset.action===focusAction&&!b.disabled)||controls.find(b=>!b.disabled);target?.focus();}
   }
   function renderOverview(){
+    highlightedMuscle=null;
     cleanup();root.innerHTML=`<section class="program-page"><p class="eyebrow">Weekly microcycle</p><h1>Program</h1>
       <label class="field">Program name<input type="text" data-program-name></label>
       <div class="program-toolbar">
@@ -87,7 +100,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     root.querySelector('[data-export]').onclick=()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);focusError();return;}onExport(value);};
     const file=root.querySelector('[data-file]');root.querySelector('[data-import]').onclick=()=>file.click();
     file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();renderOverview();});
-    panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();}});updateVolume();renderWorkouts();
+    panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleFocusChange:muscle=>{highlightedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
   renderOverview();return {update(next){value=structuredClone(next);renderOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;cleanup();root.replaceChildren();}};
 }
