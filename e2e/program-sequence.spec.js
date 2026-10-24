@@ -149,3 +149,22 @@ test('rapid layout reversals and mutations cancel stale commits',async({page})=>
  await expect(page.locator('#fixture')).toBeEmpty();
  await expect(page.locator('.sort-drag-copy,.sort-placeholder')).toHaveCount(0);
 });
+
+test('touch can drag a rest into the sequence with accessible target sizes',async({browser})=>{
+ const context=await browser.newContext({hasTouch:true,reducedMotion:'reduce'});
+ try {
+  const page=await context.newPage();
+  await mountProgram(page,{sequence:[{type:'workout',workoutId:'a'},{type:'workout',workoutId:'b'},{type:'rest',id:'r'}]});
+  for(const control of await page.locator('.sequence-rest-item button,.workout-action').all()){
+   const box=await control.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  const handle=await page.locator('[data-rest="r"] .drag-handle').boundingBox(),target=await page.locator('[data-workout="b"]').boundingBox();
+  const client=await context.newCDPSession(page);
+  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:handle.x+22,y:handle.y+22}]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:target.x+70,y:target.y+4}]});
+  await expect(page.locator('.sort-drag-copy')).toBeVisible();
+  await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  expect(await sequenceKeys(page)).toEqual(['a','r','b']);
+  await expect(page.locator('.sort-drag-copy,.sort-placeholder')).toHaveCount(0);
+ } finally {await context.close();}
+});

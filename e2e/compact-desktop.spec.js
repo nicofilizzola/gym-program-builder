@@ -104,7 +104,7 @@ test('schedule uses responsive day columns',async({page})=>{
 test('schedule grid preserves actions and cross-column drag order',async({page})=>{
   await page.setViewportSize({width:1440,height:1200});await fixture(page,'program');
   const first=page.locator('[data-workout="w0"]');
-  await expect(first.getByRole('button',{name:'Move up Upper A',exact:true})).toBeDisabled();
+  await expect(first.getByRole('button',{name:'Move up Upper A',exact:true})).toHaveCount(0);
   const duplicate=first.getByRole('button',{name:'Duplicate Upper A',exact:true});
   await expect(duplicate.locator('svg')).toHaveCount(1);
   await duplicate.click();await expect(page.locator('.workout-item')).toHaveCount(10);
@@ -117,16 +117,15 @@ test('schedule grid preserves actions and cross-column drag order',async({page})
   expect(await page.evaluate(()=>window.changes.at(-1).workouts.find(w=>w.id==='w0').day)).toBe(1);
   const saved=await page.evaluate(()=>window.changes.at(-1).workouts);
   await page.getByRole('radio',{name:'Sequence',exact:true}).check();
-  await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
+  await page.getByRole('radio',{name:'Week',exact:true}).check();
   expect(await page.evaluate(()=>window.changes.at(-1).workouts)).toEqual(saved);
 });
 
-test('wide day cards share a row for actions and day assignment',async({page})=>{
+test('wide day cards show three icon actions without a day selector',async({page})=>{
   await page.setViewportSize(sizes[2]);await fixture(page,'program');
   const card=page.locator('[data-workout="w0"]');
-  const actions=await card.locator('.item-actions').boundingBox(),day=await card.locator('.day-field').boundingBox();
-  expect(Math.abs(actions.y-day.y)).toBeLessThan(2);
-  expect(day.x).toBeGreaterThanOrEqual(actions.x+actions.width);
+  await expect(card.locator('.day-field')).toHaveCount(0);
+  await expect(card.locator('.item-actions button svg')).toHaveCount(3);
 });
 
 test('short and enlarged panels release sticky without shrinking the bodies',async({page})=>{
@@ -185,8 +184,7 @@ test('hybrid mouse and touchscreen desktops retain touch targets',async({browser
     await page.setViewportSize(sizes[2]);await fixture(page,'program');
     const card=page.locator('[data-workout="w0"]');
     for(const button of await card.locator('.item-actions button').all())expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
-    const actions=await card.locator('.item-actions').boundingBox(),day=await card.locator('.day-field').boundingBox();
-    expect(day.y).toBeGreaterThanOrEqual(actions.y+actions.height);await noOverflow(page);
+    await expect(card.locator('.day-field')).toHaveCount(0);await noOverflow(page);
   } finally {await hybrid.close();}
 });
 

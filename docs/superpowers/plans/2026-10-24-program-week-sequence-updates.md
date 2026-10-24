@@ -1,6 +1,6 @@
 # Program Week and Sequence Updates Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementation is a separate phase from this planning request.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Implementation is a separate phase from this planning request.
 
 **Goal:** Simplify program cards, make Week the default for new programs, animate layout switches, and support persistent rest days in Sequence.
 
@@ -73,12 +73,12 @@ Keyboard contract: Up/Down on a handle reorder within its current Week group or 
 
 **Interfaces:** Produces the four helpers plus reconciliation specified above. Existing moveWorkout/placeWorkout signatures remain stable; duplicateProgram remaps references and rests. createProgram changes only its mode default to schedule.
 
-- [ ] Write node:test cases with assertions for: new mode schedule; legacy getSequence yielding a,b; add rest producing a,b,r; move r before b producing a,r,b; moving b before a producing b,a,r and workout order b,a; all days unchanged; add/remove/duplicate reconciliation; rest-only and consecutive rests; rejection of invalid IDs/anchors; no input mutation or shared nested copies.
-- [ ] Pin reconciliation with a,r,b reordered in Week to b,a: result b,r,a. Removing b leaves a,r. Adding c to a,r,b yields a,r,b,c. Duplicate a yields a,r,a-copy,b under the fixed-slot policy. Verify duplicateProgram remaps every reference and rest ID, preserving days and deep independence.
-- [ ] Add a volume regression: adding/reordering/removing rests leaves every direct/indirect total and contributor count unchanged, including unscheduled workouts.
-- [ ] Run `node --test test/program.test.js test/program-sequence.test.js test/program-volume.test.js`; confirm new assertions fail before implementation.
-- [ ] Implement the module and integrate reconciliation into existing domain mutations. Keep workout payloads unchanged and avoid cyclic imports: the sequence module operates on plain program objects.
-- [ ] Run the same tests and confirm PASS. Commit as `feat: model sequence rest days and default new programs to week`.
+- [x] Write node:test cases with assertions for: new mode schedule; legacy getSequence yielding a,b; add rest producing a,b,r; move r before b producing a,r,b; moving b before a producing b,a,r and workout order b,a; all days unchanged; add/remove/duplicate reconciliation; rest-only and consecutive rests; rejection of invalid IDs/anchors; no input mutation or shared nested copies.
+- [x] Pin reconciliation with a,r,b reordered in Week to b,a: result b,r,a. Removing b leaves a,r. Adding c to a,r,b yields a,r,b,c. Duplicate a yields a,r,a-copy,b under the fixed-slot policy. Verify duplicateProgram remaps every reference and rest ID, preserving days and deep independence.
+- [x] Add a volume regression: adding/reordering/removing rests leaves every direct/indirect total and contributor count unchanged, including unscheduled workouts.
+- [x] Run `node --test test/program.test.js test/program-sequence.test.js test/program-volume.test.js`; confirm new assertions fail before implementation.
+- [x] Implement the module and integrate reconciliation into existing domain mutations. Keep workout payloads unchanged and avoid cyclic imports: the sequence module operates on plain program objects.
+- [x] Run the same tests and confirm PASS. Commit as `feat: model sequence rest days and default new programs to week`.
 
 ## Task 2: Validate, persist and round-trip rest days
 
@@ -86,12 +86,12 @@ Keyboard contract: Up/Down on a handle reorder within its current Week group or 
 
 **Interfaces:** validateDocument retains its `{document}` / `{error}` result and draft option, now preserving valid internal sequence data. serializeDocument/parseDocument retain version 2 and implement the portable mapping above. Repository/API continue using the shared validator and existing revision checks.
 
-- [ ] Add tests that legacy documents with simple and schedule modes validate without mode conversion, strict/draft documents retain rests, rest-only programs validate, and malformed sequence arrays/references/order fail atomically. Include duplicate rest IDs and collisions with workout IDs.
-- [ ] Add file tests for mixed/rest-only round trips, fresh IDs on repeated import, unchanged version-1 sessions/version-2 templates/legacy programs, 1 MiB limit, invalid indices and missing workout references. Assert portable sequence has indices and no internal IDs.
-- [ ] Add repository/API tests saving and reading mixed/rest-only drafts, unchanged revision conflict behavior, and rejected sequence writes leaving stored data/revision untouched.
-- [ ] Run `node --test test/document-validation.test.js test/document-file.test.js test/repository.test.js test/api.test.js`; confirm new cases fail.
-- [ ] Implement validation and conversion. Existing JSON document storage requires no table migration. Leave old records untouched on read; sequence can materialize on the first rest edit. Save-as-copy must use the updated duplication/remapping path.
-- [ ] Run the same tests and confirm PASS. Commit as `feat: persist and export program sequence rest days`.
+- [x] Add tests that legacy documents with simple and schedule modes validate without mode conversion, strict/draft documents retain rests, rest-only programs validate, and malformed sequence arrays/references/order fail atomically. Include duplicate rest IDs and collisions with workout IDs.
+- [x] Add file tests for mixed/rest-only round trips, fresh IDs on repeated import, unchanged version-1 sessions/version-2 templates/legacy programs, 1 MiB limit, invalid indices and missing workout references. Assert portable sequence has indices and no internal IDs.
+- [x] Add repository/API tests saving and reading mixed/rest-only drafts, unchanged revision conflict behavior, and rejected sequence writes leaving stored data/revision untouched.
+- [x] Run `node --test test/document-validation.test.js test/document-file.test.js test/repository.test.js test/api.test.js`; confirm new cases fail.
+- [x] Implement validation and conversion. Existing JSON document storage requires no table migration. Leave old records untouched on read; sequence can materialize on the first rest edit. Save-as-copy must use the updated duplication/remapping path.
+- [x] Run the same tests and confirm PASS. Commit as `feat: persist and export program sequence rest days`.
 
 ## Task 3: Simplify program controls and render accessible mixed sequences
 
@@ -99,14 +99,14 @@ Keyboard contract: Up/Down on a handle reorder within its current Week group or 
 
 **Interfaces:** Consumes sequence helpers from Task 1. Keep `.workout-item` and data-workout selectors for real sessions only; use `.sequence-rest-item` and data-rest for rests, and a shared data-sequence-key for sortable keys. Edit retains data-edit and accessible action name for return-focus behavior.
 
-- [ ] Add browser assertions for selector Week then Sequence; new program Week checked; existing saved Sequence retained; Sessions heading; no session Move up/Move down or Day select; Edit SVG with accessible name and hover/focus tooltip. Update existing tests that operate removed controls to use handles or pointer dragging.
-- [ ] Add tests for Add rest day shown only in Sequence, append/focus behavior, mouse/touch/keyboard moves around sessions, rest removal focus, consecutive/leading/trailing/rest-only states, Week hiding rests and round-trip restoration, unchanged volume/highlighting and template independence.
-- [ ] Add keyboard tests for Week Up/Down reordering and Alt+Up/Down across empty/nonempty days and Unscheduled. Assert focus retention, destination announcements, boundary no-ops and visible shortcut instructions.
-- [ ] Run `npx playwright test e2e/programs.spec.js e2e/drag-reorder.spec.js e2e/program-overview.spec.js e2e/program-sequence.spec.js`; confirm new behavior assertions fail.
-- [ ] Implement Week-first markup, scoped Sessions copy, pencil actionIcon, icon-only Edit matching Duplicate/Remove, removed controls, and mixed Sequence rendering. Reuse existing mountSortable with shared entry keys in Sequence; preserve existing Week groups and empty 44px drop targets. Rest cards use neutral surfaces, text and handle/remove controls, with no fake exercise metadata or muscle-match marker.
-- [ ] Route all session additions, copies and removals through reconciliation. Keep editor updates from deleting sequence data. Implement the keyboard contract and focus/live announcements; do not remove shared move icons still used by the session editor.
-- [ ] Add compact rest/action styling in style.css first and document exact UI/control behavior in the design-system README in the same change. Long names and enlarged text must wrap; hybrid devices keep touch sizes.
-- [ ] Run the targeted browser suite and `npm test`; confirm PASS. Commit as `feat: simplify program cards and add sequence rest controls`.
+- [x] Add browser assertions for selector Week then Sequence; new program Week checked; existing saved Sequence retained; Sessions heading; no session Move up/Move down or Day select; Edit SVG with accessible name and hover/focus tooltip. Update existing tests that operate removed controls to use handles or pointer dragging.
+- [x] Add tests for Add rest day shown only in Sequence, append/focus behavior, mouse/touch/keyboard moves around sessions, rest removal focus, consecutive/leading/trailing/rest-only states, Week hiding rests and round-trip restoration, unchanged volume/highlighting and template independence.
+- [x] Add keyboard tests for Week Up/Down reordering and Alt+Up/Down across empty/nonempty days and Unscheduled. Assert focus retention, destination announcements, boundary no-ops and visible shortcut instructions.
+- [x] Run `npx playwright test e2e/programs.spec.js e2e/drag-reorder.spec.js e2e/program-overview.spec.js e2e/program-sequence.spec.js`; confirm new behavior assertions fail.
+- [x] Implement Week-first markup, scoped Sessions copy, pencil actionIcon, icon-only Edit matching Duplicate/Remove, removed controls, and mixed Sequence rendering. Reuse existing mountSortable with shared entry keys in Sequence; preserve existing Week groups and empty 44px drop targets. Rest cards use neutral surfaces, text and handle/remove controls, with no fake exercise metadata or muscle-match marker.
+- [x] Route all session additions, copies and removals through reconciliation. Keep editor updates from deleting sequence data. Implement the keyboard contract and focus/live announcements; do not remove shared move icons still used by the session editor.
+- [x] Add compact rest/action styling in style.css first and document exact UI/control behavior in the design-system README in the same change. Long names and enlarged text must wrap; hybrid devices keep touch sizes.
+- [x] Run the targeted browser suite and `npm test`; confirm PASS. Commit as `feat: simplify program cards and add sequence rest controls`.
 
 ## Task 4: Animate layout switches with cancellation-safe lifecycle
 
@@ -114,11 +114,11 @@ Keyboard contract: Up/Down on a handle reorder within its current Week group or 
 
 **Interfaces:** A separate createViewTransition instance owns only data-workouts. Its lifecycle must not conflict with the existing overview/editor transition. Mode changes update the data and selected radio immediately; deferred commits read the newest value.
 
-- [ ] Add browser tests for both directions using a populated mixed program: session area opacity animation occurs; weekly panel is not animated/rebuilt; mode/day/order/rest data are preserved; radio retains focus. Reduced-motion mode has no layout-switch animation.
-- [ ] Add rapid Week→Sequence→Week, add/remove during transition, editor navigation, mounted update and destroy cases. Assert newest layout wins, no lost edits, no orphaned sorting artifacts, and no stuck opacity or inert state. Avoid timing-only sleeps: await animation lifecycle or final UI conditions.
-- [ ] Run `npx playwright test e2e/navigation-transitions.spec.js e2e/program-sequence.spec.js`; confirm new animation expectations fail.
-- [ ] Integrate dedicated cancellable swaps with the helper's 75/100 ms ease-out fade. Disable interaction only in the changing session area during the swap; keep selector usable for reversal. Cancel/reconcile a pending layout swap before immediate list rebuilds, editor navigation, update and destroy. Restore usable interaction in completion and cancellation paths. Initial render and ordinary edits must not trigger this layout fade.
-- [ ] Document timing and reduced-motion behavior. Run the targeted suite and confirm PASS. Commit as `feat: animate program week and sequence switches`.
+- [x] Add browser tests for both directions using a populated mixed program: session area opacity animation occurs; weekly panel is not animated/rebuilt; mode/day/order/rest data are preserved; radio retains focus. Reduced-motion mode has no layout-switch animation.
+- [x] Add rapid Week→Sequence→Week, add/remove during transition, editor navigation, mounted update and destroy cases. Assert newest layout wins, no lost edits, no orphaned sorting artifacts, and no stuck opacity or inert state. Avoid timing-only sleeps: await animation lifecycle or final UI conditions.
+- [x] Run `npx playwright test e2e/navigation-transitions.spec.js e2e/program-sequence.spec.js`; confirm new animation expectations fail.
+- [x] Integrate dedicated cancellable swaps with the helper's 75/100 ms ease-out fade. Disable interaction only in the changing session area during the swap; keep selector usable for reversal. Cancel/reconcile a pending layout swap before immediate list rebuilds, editor navigation, update and destroy. Restore usable interaction in completion and cancellation paths. Initial render and ordinary edits must not trigger this layout fade.
+- [x] Document timing and reduced-motion behavior. Run the targeted suite and confirm PASS. Commit as `feat: animate program week and sequence switches`.
 
 ## Task 5: Verify complete programs, recovery and responsive behavior
 
@@ -126,13 +126,17 @@ Keyboard contract: Up/Down on a handle reorder within its current Week group or 
 
 **Interfaces:** Exercises the final browser UI and existing persistence/recovery API; introduces no new product interface.
 
-- [ ] Add end-to-end mixed-sequence autosave/reload and export/import checks, including saved Sequence mode and preserved weekdays. Exercise save failure/Retry and revision conflict Save as copy with rests; assert all references resolve and no data is lost. Run relevant cases before fixing any discovered integration failures.
-- [ ] Inspect populated Week and Sequence at 1366×768, 1440×900 and 1920×1080, plus 390×844 mobile and 820×1180 tablet. Include multiple sessions per day, Unscheduled, rests and long names. Verify body prominence, no horizontal overflow, normal scrolling, tooltip positioning, actions and weekly panel fallback.
-- [ ] Check 200% text, keyboard-only interaction, reduced motion, coarse touch and hybrid input. Assert computed action targets are at least 44×44px on touch/hybrid and desktop figures at least 180px; confirm mobile weekly panel behavior and native sliders remain unchanged.
-- [ ] Run `npm run db:migrate` against the isolated local test/development database explicitly, then `npm test`, `npm run test:e2e`, and `npm run build`. Expected: all commands exit 0. Never target production or add a migration hook to build/request paths.
-- [ ] Inspect the diff and built assets for unintended library terminology changes, removed session-editor controls, secrets, new dependencies or transient persisted state. Record actual commands, browser checks and any remaining limitations; do not claim unrun checks.
-- [ ] Commit verification/test updates as `test: verify week and sequence rest-day workflows`. Implementation is reviewable when all checks pass; publishing remains a separate action.
+- [x] Add end-to-end mixed-sequence autosave/reload and export/import checks, including saved Sequence mode and preserved weekdays. Exercise save failure/Retry and revision conflict Save as copy with rests; assert all references resolve and no data is lost. Run relevant cases before fixing any discovered integration failures.
+- [x] Inspect populated Week and Sequence at 1366×768, 1440×900 and 1920×1080, plus 390×844 mobile and 820×1180 tablet. Include multiple sessions per day, Unscheduled, rests and long names. Verify body prominence, no horizontal overflow, normal scrolling, tooltip positioning, actions and weekly panel fallback.
+- [x] Check 200% text, keyboard-only interaction, reduced motion, coarse touch and hybrid input. Assert computed action targets are at least 44×44px on touch/hybrid and desktop figures at least 180px; confirm mobile weekly panel behavior and native sliders remain unchanged.
+- [x] Run `npm run db:migrate` against the isolated local test/development database explicitly, then `npm test`, `npm run test:e2e`, and `npm run build`. Expected: all commands exit 0. Never target production or add a migration hook to build/request paths.
+- [x] Inspect the diff and built assets for unintended library terminology changes, removed session-editor controls, secrets, new dependencies or transient persisted state. Record actual commands, browser checks and any remaining limitations; do not claim unrun checks.
+- [x] Commit verification/test updates as `test: verify week and sequence rest-day workflows`. Implementation is reviewable when all checks pass; publishing remains a separate action.
 
 ## Planning self-review
 
 All seven requested changes map to Tasks 1–4; Task 5 covers cross-feature persistence and responsive verification. Each review-focus risk has explicit owning tests. The additive sequence contract isolates rest data from workout volume and retains legacy modes. Week reordering and mixed-list synchronization have one deterministic policy. No schema migration, frontend dependency, production write or unrelated UI restyle is required.
+
+## Execution verification
+
+Completed 2026-10-25 on `feat/program-week-sequence`. All 108 unit tests and 91 browser tests pass; explicit isolated local migration and static build pass. See [verification record](../verification/2026-10-25-program-week-sequence.md) for viewport/input checks, compatibility and implementation decisions.
