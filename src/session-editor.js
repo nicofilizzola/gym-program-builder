@@ -1,3 +1,4 @@
+import { mountSortable } from './sortable.js';
 import { actionIcon } from './action-controls.js';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
 import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, heatLevel, visibleMuscles } from './volume.js';
@@ -43,7 +44,8 @@ let pendingReadout = null;
 let readoutTimer = null;
 
 /** View state for a pointer drag in progress: the pointer, the dragged card, and its index when the drag started. */
-let drag = null;
+let sortable;
+let moveMenu;
 
 /** View state: whether each exercise is collapsed, in session order. Never part of the session. */
 let collapsed = session.exercises.map(() => true);
@@ -258,7 +260,8 @@ function revealWhenOpen(part, field) {
 
 /** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag and drops a now-stale file message. */
 function renderExercises() {
-  drag = null;
+  sortable?.cancel();
+  moveMenu?.remove();
   fileMessage.textContent = '';
   list.replaceChildren(...session.exercises.map((ex, i) => {
     const card = document.createElement('li');
@@ -480,48 +483,29 @@ function raiseThumb(event) {
 list.addEventListener('pointerdown', raiseThumb);
 list.addEventListener('focusin', raiseThumb);
 
-list.addEventListener('pointerdown', (event) => {
-  const handle = event.target.closest('.drag-handle');
-  if (!handle || event.button !== 0 || drag) return;
-  event.preventDefault();
-  handle.setPointerCapture(event.pointerId);
-  drag = { pointerId: event.pointerId, card: handle.closest('.exercise'), from: indexOf(handle) };
-  drag.card.classList.add('is-dragging');
+sortable=mountSortable(list,{
+  itemSelector:'.exercise',handleSelector:'.drag-handle',getGroups:()=>[{element:list,key:'exercises'}],getKey:card=>card.dataset.index,
+  onCommit:({key,beforeKey})=>{
+    const from=Number(key),others=session.exercises.map((_,i)=>i).filter(i=>i!==from);
+    const to=beforeKey===null?others.length:others.indexOf(Number(beforeKey));
+    commitMove(from,to);
+  }
 });
-
-/**
- * While dragging, reorder DOM nodes only; state changes on drop. The dragged card itself
- * is never detached, because removing it from the document would release pointer capture.
- */
-list.addEventListener('pointermove', (event) => {
-  if (event.pointerId !== drag?.pointerId) return;
-  const others = [...list.children].filter((card) => card !== drag.card);
-  const target = others.filter((card) => {
-    const rect = card.getBoundingClientRect();
-    return rect.top + rect.height / 2 < event.clientY;
-  }).length;
-  if ([...list.children].indexOf(drag.card) === target) return;
-  others.slice(0, target).forEach((card) => list.insertBefore(card, drag.card));
-  others.slice(target).forEach((card) => list.append(card));
+list.addEventListener('click',event=>{
+ const handle=event.target.closest('.drag-handle');if(!handle)return;
+ const wasOpen=moveMenu?.previousElementSibling===handle;
+ moveMenu?.remove();moveMenu=null;if(wasOpen)return;
+ const from=indexOf(handle);
+ moveMenu=document.createElement('div');moveMenu.className='reorder-menu';moveMenu.setAttribute('aria-label','Move exercise');
+ for(const [label,step]of [['Move up',-1],['Move down',1]]){
+  const button=document.createElement('button');button.type='button';button.className='secondary-btn';button.textContent=label;
+  button.disabled=from+step<0||from+step>=session.exercises.length;
+  button.onclick=()=>{moveMenu.remove();moveMenu=null;commitMove(from,from+step);};moveMenu.append(button);
+ }
+ handle.after(moveMenu);moveMenu.querySelector('button:not(:disabled)')?.focus();
 });
-
-list.addEventListener('pointerup', (event) => {
-  if (event.pointerId !== drag?.pointerId) return;
-  const { card, from } = drag;
-  drag = null;
-  card.classList.remove('is-dragging');
-  commitMove(from, [...list.children].indexOf(card));
-});
-
-/** Abandon a drag: state was never changed, so rebuilding from it restores the order. */
-function cancelDrag(event) {
-  if (event.pointerId !== drag?.pointerId) return;
-  renderExercises();
-  refresh();
-}
-
-list.addEventListener('pointercancel', cancelDrag);
-list.addEventListener('lostpointercapture', cancelDrag);
+root.addEventListener('keydown',event=>{if(event.key==='Escape'&&moveMenu){const handle=moveMenu.previousElementSibling;moveMenu.remove();moveMenu=null;handle.focus();}});
+root.addEventListener('pointerdown',event=>{if(moveMenu&&!moveMenu.contains(event.target)&&!event.target.closest('.drag-handle')){moveMenu.remove();moveMenu=null;}});
 
 root.querySelector('#add-exercise').addEventListener('click', () => {
   session.exercises.push(createExercise());
@@ -698,7 +682,7 @@ renderExercises();
 refresh();
 
 return {setWorkout,focusFirstError,destroy(){
-  destroyed=true;
+  destroyed=true;sortable.destroy();moveMenu?.remove();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
 }};

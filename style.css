@@ -1403,3 +1403,16 @@ button:disabled {opacity:.5;cursor:default}
 .library h1 {overflow-wrap:anywhere}
 
 .library [data-empty]:empty {display:none}
+
+/* Shared drag previews keep the capture owner mounted while its placeholder moves. */
+.sort-source {position:absolute !important;visibility:hidden !important;pointer-events:none !important;height:0 !important;margin:0 !important;overflow:hidden !important}
+.sort-drag-copy {position:fixed !important;left:0;top:0;margin:0 !important;z-index:1000;pointer-events:none;list-style:none;box-shadow:0 14px 38px #0007;border-color:var(--accent);opacity:.96;will-change:transform}
+.sort-drag-copy.is-invalid-drop {opacity:.6}
+.sort-placeholder {box-sizing:border-box;border:1px dashed var(--accent);border-radius:var(--radius);background:var(--accent-soft);margin:12px 0;min-width:0;list-style:none}
+.is-sorting,.is-sorting * {cursor:grabbing !important;user-select:none !important}
+.card-head {position:relative}
+.reorder-menu {position:absolute;top:48px;left:0;display:flex;gap:8px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;z-index:5;box-shadow:0 8px 24px #0005}
+
+.workout-list {min-height:48px;display:flow-root}
+.workout-item {position:relative;padding-left:64px}
+.workout-item>.drag-handle {position:absolute;left:16px;top:12px;margin:0}
