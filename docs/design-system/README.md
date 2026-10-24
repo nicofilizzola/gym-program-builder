@@ -7,7 +7,7 @@ When you change a value, change it in `style.css` first and then update this fil
 ## Principles
 
 - **One accent.** Orange (`--accent`) marks actions and selected state. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`), reserved for the volume-list bars and the met checkmark, and the body map heat ramp (`--untrained`, `--heat-1` to `--heat-4`), reserved for the body map and its legend.
-- **Volume is the hero.** The body map and volume list must always be visible while editing (sticky sidebar on desktop, pinned bottom strip on mobile).
+- **Volume is the hero.** Keep the body map and volume list prominent while editing: a sticky desktop rail when it fits, normal document flow when it exceeds the viewport, and the existing mobile panel placement.
 - **Colour never stands alone.** Every body map colour is paired with the heat legend and the volume list's numbers (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with the `volume / goal` value, the met checkmark and the hidden status word, and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
 
@@ -65,7 +65,7 @@ Loaded from Google Fonts in `index.html`; falls back to `Arial Narrow` / `system
 | Element | Size |
 |---|---|
 | `h1` | 1.5rem on compact desktop; 2.5rem tablet / 2rem mobile |
-| Panel `h2` | 1.5rem (1.1rem on mobile) |
+| Panel `h2` | 1.25rem compact desktop; 1.5rem tablet / 1.1rem mobile |
 | Body / inputs | Compact fine-pointer desktop: 0.875rem, line-height 1.4; otherwise 16px / 1.5 |
 | Labels, chips, list rows | Compact desktop: 0.8125rem; otherwise 0.875rem |
 | Captions, tags | 0.75rem |
@@ -96,6 +96,8 @@ Numbers in the volume list use `font-variant-numeric: tabular-nums` so columns l
 | `--panel-width` | 460px; 520px at ?1600px |
 | `--figure-height` | 180px; 200px at ?1600px |
 
+Compact-target rules require a fine primary pointer and no available coarse pointer. Hybrid mouse/touchscreen laptops retain touch sizes using `any-pointer: coarse`. The desktop readout reserves `calc(2lh + 9px)`, including two line boxes plus its padding/border, so a two-line update never grows the panel.
+
 Compact library rows are normally 54px tall, with 8px between rows; long names and enlarged text grow naturally. Desktop exercise cards use 12px padding and 12px list gaps. Their main field row is name/sets/reps, and primary/secondary muscle fieldsets sit side by side when card content is at least 700px wide. Narrower cards put name above sets/reps and stack the fieldsets. All 12 muscle choices remain visible in both groups.
 
 Programs retain one ordered list in sequence mode. Schedule mode uses two day columns at 1100?1599px and three at ?1600px, in Monday?Sunday row-major order. Unscheduled spans the workout area below the week. Empty days retain 44px drop targets; workout cards grow naturally without internal scrollbars.
@@ -107,7 +109,7 @@ Programs retain one ordered list in sequence mode. Schedule mode uses two day co
 Numbers (sets, rep range, goals) are never typed: they use sliders (below). Text fields remain only for names.
 
 ### Sliders
-Native `<input type="range">` with no library, in a `.slider` wrapper (`src/app.js` builds them; limits come from `LIMITS` in `src/validate.js`).
+Native `<input type="range">` with no library, in a `.slider` wrapper (`src/session-editor.js` builds them; limits come from `LIMITS` in `src/validate.js`).
 
 - **Shape:** a 6px `--surface-2` track with a radius of 999px, like the volume bars, and an `--accent` fill from the start (or the min thumb) to the thumb. The visible knob is a 22px `--accent` circle with a 3px `--surface` ring, drawn as a radial gradient (`--knob`) inside a 44px-square thumb hit box. The wrapper is 44px tall, so a press anywhere within 22px of a knob's centre grabs it, two-thumb sliders included.
 - **Alignment:** the track and fill are inset by half a thumb, and `--from` / `--to` (0–1, set by `setFill`) place the fill. Its ends always sit under the thumb's centre.

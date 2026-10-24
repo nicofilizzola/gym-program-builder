@@ -174,6 +174,29 @@ test('desktop coarse pointers retain touch targets',async({browser})=>{
   await context.close();
 });
 
+test('hybrid mouse and touchscreen desktops retain touch targets',async({browser})=>{
+  const hybrid=await browser.browserType().launch({args:['--blink-settings=availablePointerTypes=6,primaryPointerType=4']});
+  try {
+    const page=await hybrid.newPage({viewport:sizes[0],reducedMotion:'reduce'});await fixture(page);
+    expect(await page.evaluate(()=>matchMedia('(pointer:fine)').matches&&matchMedia('(any-pointer:coarse)').matches)).toBe(true);
+    for(const selector of ['.exercise .toggle-btn','.exercise .chip span','#export-session','.volume-row']) {
+      const box=await page.locator(selector).first().boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.setViewportSize(sizes[2]);await fixture(page,'program');
+    const card=page.locator('[data-workout="w0"]');
+    for(const button of await card.locator('.item-actions button').all())expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    const actions=await card.locator('.item-actions').boundingBox(),day=await card.locator('.day-field').boundingBox();
+    expect(day.y).toBeGreaterThanOrEqual(actions.y+actions.height);await noOverflow(page);
+  } finally {await hybrid.close();}
+});
+
+test('desktop readout reserves two complete lines including its padding',async({page})=>{
+  await page.setViewportSize(sizes[0]);await fixture(page);
+  const readout=page.locator('.readout'),before=await readout.boundingBox();
+  await page.locator('#readout').evaluate(el=>{el.textContent='First line\nSecond line';el.style.whiteSpace='pre-line';});
+  expect((await readout.boundingBox()).height).toBe(before.height);
+});
+
 test('consolidated headers reflow recovery actions and long names',async({page})=>{
   await page.setViewportSize(sizes[0]);await fixture(page,'program');
   await page.getByLabel('Program name',{exact:true}).fill('Long program name '.repeat(20));

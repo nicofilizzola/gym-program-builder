@@ -1489,7 +1489,7 @@ button:disabled {opacity:.5;cursor:default}
 @media (min-width: 1600px) {
   :root {--panel-width:520px;--figure-height:200px}
 }
-@media (min-width: 1100px) and (pointer: fine) {
+@media (min-width: 1100px) and (pointer: fine) and (not (any-pointer: coarse)) {
   body {font-size:.875rem;line-height:1.4}
   .app-header nav a {min-height:var(--control-compact);padding:6px 12px}
   .app-header {padding-block:10px}
@@ -1508,7 +1508,7 @@ button:disabled {opacity:.5;cursor:default}
   .chips {gap:6px}
   .chips legend {margin-bottom:6px}
 }
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
   .chip span {min-height:var(--control-touch);min-width:var(--control-touch);justify-content:center}
 }
 /* Field grouping keeps the original stacked flow outside desktop. */
@@ -1549,7 +1549,7 @@ button:disabled {opacity:.5;cursor:default}
   .panel .heat-key li {white-space:nowrap}
   .panel .heat-key li::before {width:8px;height:8px}
   .panel .split-key {margin:0 0 4px;gap:10px;font-size:.75rem}
-  .panel .readout {grid-column:1/-1;grid-row:3;margin:0;padding-top:8px;border-top:1px solid var(--border);font-size:.8125rem;min-height:3.4em}
+  .panel .readout {grid-column:1/-1;grid-row:3;margin:0;padding-top:8px;border-top:1px solid var(--border);font-size:.8125rem;min-height:calc(2lh + 9px)}
   .panel .volume-row {grid-template-columns:4.5rem minmax(0,1fr) 4rem;gap:6px;min-height:32px;padding:4px;font-size:.8125rem}
   .panel .volume-list.has-goals .volume-row {grid-template-columns:4.5rem minmax(0,1fr) 4rem 1rem;gap:6px}
   .panel .volume-row .name {overflow-wrap:anywhere}
@@ -1564,7 +1564,7 @@ button:disabled {opacity:.5;cursor:default}
 @media (min-width:1600px) {
   .panel {grid-template-columns:200px minmax(0,1fr)}
 }
-@media (min-width:1100px) and (pointer:coarse) {
+@media (min-width:1100px) and (any-pointer:coarse) {
   .panel .volume-row {min-height:44px}
 }
 @media (min-width:1100px) {
@@ -1586,7 +1586,7 @@ button:disabled {opacity:.5;cursor:default}
   .workout-action-label {display:none}
   .workout-item .workout-action {display:inline-grid;place-items:center;width:44px;height:44px;min-width:44px;padding:0;flex:0 0 44px}
   @container day (min-width:27rem) {
-    @media (pointer:fine) {
+    @media (pointer:fine) and (not (any-pointer:coarse)) {
     .schedule-grid .workout-item {grid-template-columns:minmax(0,1fr) auto;column-gap:8px}
     .schedule-grid .workout-item h3,.schedule-grid .workout-metadata {grid-column:1/-1}
     .schedule-grid .workout-item .item-actions {grid-row:3;grid-column:1}
@@ -1598,6 +1598,6 @@ button:disabled {opacity:.5;cursor:default}
 @media (min-width:1600px) {
   .schedule-grid {grid-template-columns:repeat(3,minmax(0,1fr))}
 }
-@media (min-width:1100px) and (pointer:fine) {
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
   .workout-item .workout-action {width:32px;height:32px;min-width:32px;min-height:32px;flex-basis:32px}
 }
