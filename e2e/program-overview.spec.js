@@ -64,8 +64,11 @@ test('weekly body heat is independent from goals',async({page})=>{
   await expect(page.locator('.region[data-muscle="Side delts"]')).toHaveCount(2);
   await expect(region(page,'Chest')).toHaveAttribute('data-heat','2');
   await expect(page.locator('#heat-key li')).toHaveText(['0','0.5–6','6.5–12','12.5–18','18.5+']);
+  await region(page,'Chest').locator('path').first().click();
   await page.getByRole('button',{name:'Set weekly goals',exact:true}).click();
   await page.getByLabel('Chest weekly goal',{exact:true}).fill('30');
+  await expect(page.locator('#readout')).toContainText('Chest 7 / 30 sets');
+  await expect(page.locator('#readout')).not.toHaveClass(/is-fading/);
   await page.getByRole('button',{name:'Done',exact:true}).click();
   await expect(row(page,'Chest')).toHaveAttribute('data-status','under');
   await expect(region(page,'Chest')).toHaveAttribute('data-heat','2');
@@ -181,4 +184,42 @@ test('workout mutations retain highlights and replacements clear them',async({pa
   await expect(page.locator('.workout-item')).toHaveCount(0);
   await expect(page.locator('.region.is-selected')).toHaveCount(0);
   await expect(page.locator('#readout')).toHaveText('Tap a muscle to highlight its workouts.');
+});
+
+for(const webFonts of [true,false])test(`program overview fits narrow, tablet, desktop and landscape layouts (${webFonts?'web':'fallback'} fonts)`,async({page})=>{
+  if(!webFonts)await page.route('https://fonts.googleapis.com/**',route=>route.abort());
+  await openProgram(page);
+  await page.evaluate(()=>document.fonts.ready);
+  const program=programFixture();program.name='Long program name '.repeat(6);
+  program.workouts[0].name='LongWorkoutNameWithoutSpaces'.repeat(5);
+  program.goals={Chest:12,Lats:12,Triceps:12,'Front delts':10,'Side delts':10,'Rear delts':10,Abs:10,Quads:12,Hamstrings:12,Calves:12};
+  await importProgram(page,program);
+  // A saved library template can have a long name even when it is not selected.
+  await page.locator('[data-template]').evaluate(select=>select.add(new Option('Long template name '.repeat(12),'long-template')));
+  for(const [width,height] of [[375,900],[800,900],[1280,900],[667,375],[320,750]]) {
+    await page.setViewportSize({width,height});
+    await page.locator('[data-file]').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{')});
+    await expect(page.locator('[data-program-error]')).toContainText('not valid JSON');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    const toolbar=await page.locator('.program-toolbar').boundingBox(),grid=await page.locator('.program-grid').boundingBox();
+    expect(grid.y-toolbar.y-toolbar.height).toBeGreaterThanOrEqual(24);
+    await expect(page.locator('#body-map')).toBeVisible();await expect(page.locator('#heat-key')).toBeVisible();
+    expect((await page.getByRole('button',{name:'Set weekly goals',exact:true}).boundingBox()).height).toBeLessThanOrEqual(48);
+    if(width<=800) {
+      const panel=await page.locator('[data-weekly-panel]').boundingBox(),workouts=await page.locator('[data-workouts]').boundingBox();
+      expect(panel.y+panel.height).toBeLessThanOrEqual(workouts.y);
+    }
+    if(width===375||width===1280)await page.screenshot({path:`.superpowers/sdd/2026-10-24-program-overview/overview-${width}.png`,fullPage:true});
+  }
+  // Double-size text exercises readable wrapping without changing fixed pixel spacings.
+  await page.setViewportSize({width:375,height:900});
+  await page.evaluate(()=>{
+    const sizes=[...document.querySelectorAll('body *')].map(el=>[el,parseFloat(getComputedStyle(el).fontSize)]);
+    sizes.forEach(([el,size])=>{el.style.fontSize=`${size*2}px`;});
+  });
+  await page.evaluate(()=>document.fonts.ready);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await page.getByRole('radio',{name:'Sequence',exact:true}).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio',{name:'Monday–Sunday',exact:true}).locator('..')).toHaveCSS('outline-style','solid');
 });
