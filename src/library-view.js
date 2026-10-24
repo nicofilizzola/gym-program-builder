@@ -1,7 +1,7 @@
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 
 export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDuplicate,onDelete,onImport,onExport}) {
-  root.innerHTML='<section class="library"><p class="eyebrow">Gym Program Builder</p><h1></h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-new></button><button type="button" class="secondary-btn" data-import></button><input data-file type="file" accept=".json,application/json" hidden></div><div data-items></div><p data-empty class="empty"></p></section>';
+  root.innerHTML='<section class="library"><header class="library-heading"><h1></h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-new></button><button type="button" class="secondary-btn" data-import></button><input data-file type="file" accept=".json,application/json" hidden></div></header><div data-items></div><p data-empty class="empty"></p></section>';
   const plural=kind==='program'?'Programs':'Session templates';root.querySelector('h1').textContent=plural;
   const create=root.querySelector('[data-new]');create.innerHTML=actionIcon('plus');create.append(kind==='program'?'New program':'New session template');create.onclick=onCreate;
   const importButton=root.querySelector('[data-import]');importButton.innerHTML=actionIcon('import');importButton.append('Import');

@@ -45,7 +45,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   async function openWorkout(workoutId){
     overviewScroll=scrollY;
     const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;
-    await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
+    await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button></header><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
     root.querySelector('[data-back]').onclick=run(()=>renderOverview(workoutId));
     editor=mountSessionEditor(root.querySelector('[data-editor]'),{workout,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
     },()=>{window.scrollTo(0,0);root.querySelector('[data-template-name]')?.focus({preventScroll:true});});
@@ -113,7 +113,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   function buildOverview(){
     selectedMuscle=null;
-    cleanup();root.innerHTML=`<section class="program-page"><p class="eyebrow">Weekly microcycle</p><h1>Program</h1>
+    cleanup();root.innerHTML=`<section class="program-page"><header class="program-heading"><h1>Program</h1>
       <label class="field">Program name<input type="text" data-program-name></label>
       <div class="program-toolbar">
         <fieldset class="program-layout"><legend class="visually-hidden">Program layout</legend>

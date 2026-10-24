@@ -128,3 +128,22 @@ test('desktop coarse pointers retain touch targets',async({browser})=>{
   }
   await context.close();
 });
+
+test('consolidated headers reflow recovery actions and long names',async({page})=>{
+  await page.setViewportSize(sizes[0]);await fixture(page,'program');
+  await page.getByLabel('Program name',{exact:true}).fill('Long program name '.repeat(20));
+  await page.evaluate(()=>{
+    document.querySelector('[data-testid="save-status"]').textContent='Conflict';
+    for(const id of ['retry-save','reload-saved','copy-saved'])document.getElementById(id).hidden=false;
+    document.querySelector('[data-program-error]').textContent='This file is not valid JSON.';
+  });
+  for(const enlarged of [false,true]) {
+    if(enlarged)await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+    await noOverflow(page);
+    for(const id of ['retry-save','reload-saved','copy-saved']) {
+      const button=page.locator('#'+id);await expect(button).toBeVisible();
+      await button.focus();await expect(button).toBeFocused();
+      const box=await button.boundingBox();expect(box.x+box.width).toBeLessThanOrEqual(sizes[0].width);
+    }
+  }
+});

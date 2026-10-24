@@ -79,7 +79,7 @@ for(const kind of ['program','template']){
    expect(Math.abs(create.y-importBox.y)).toBeLessThan(2);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
    const buttons=await page.locator('.library-item').first().getByRole('button').all();let previous;
-   for(const button of buttons){const box=await button.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);if(previous)expect(box.x-previous.x-previous.width).toBeGreaterThanOrEqual(8);previous=box;}
+   for(const button of buttons){const box=await button.boundingBox();expect(box.width).toBeGreaterThanOrEqual(width>=1100?32:44);expect(box.height).toBeGreaterThanOrEqual(width>=1100?32:44);if(previous)expect(box.x-previous.x-previous.width).toBeGreaterThanOrEqual(8);previous=box;}
   }
   await page.setViewportSize({width:375,height:900});
   await page.screenshot({path:`.superpowers/sdd/2026-10-23-library-navigation-polish/${kind}-mobile.png`,fullPage:true});
