@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 
 const sizes=[{width:1366,height:768},{width:1440,height:900},{width:1920,height:1080}];
 async function fixture(page,kind='session') {
@@ -48,6 +48,11 @@ test('captures density measurements',async({page})=>{
   for(const size of sizes)for(const kind of ['session','program','library']) {
     await page.setViewportSize(size);await fixture(page,kind);
     await page.screenshot({path:`${dir}/${kind}-${size.width}.png`,fullPage:true});
+    if(size.width===1440) {
+      const css=await readFile('style.css','utf8');
+      const snapshot=(await page.content()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace('<link rel="stylesheet" href="style.css">',`<style>${css}</style>`);
+      await writeFile(`${dir}/${kind}.html`,snapshot);
+    }
     results.push({kind,...size,...await metrics(page)});
   }
   await writeFile(`${dir}/metrics.json`,JSON.stringify(results,null,2));

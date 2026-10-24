@@ -64,10 +64,10 @@ Loaded from Google Fonts in `index.html`; falls back to `Arial Narrow` / `system
 
 | Element | Size |
 |---|---|
-| `h1` | 2.5rem (2rem on mobile) |
+| `h1` | 1.5rem on compact desktop; 2.5rem tablet / 2rem mobile |
 | Panel `h2` | 1.5rem (1.1rem on mobile) |
-| Body / inputs | 16px, line-height 1.5 |
-| Labels, chips, list rows | 0.875rem |
+| Body / inputs | Compact fine-pointer desktop: 0.875rem, line-height 1.4; otherwise 16px / 1.5 |
+| Labels, chips, list rows | Compact desktop: 0.8125rem; otherwise 0.875rem |
 | Captions, tags | 0.75rem |
 
 Numbers in the volume list use `font-variant-numeric: tabular-nums` so columns line up. Volumes are shown as-is (e.g. `4.5`), never rounded.
@@ -80,13 +80,30 @@ Numbers in the volume list use `font-variant-numeric: tabular-nums` so columns l
 
 ## Layout
 
-- **Desktop (> 760px):** two-column grid, `minmax(0, 1fr) 340px`, max width 1120px, sticky panel at `top: 24px`.
+- **Desktop (?1100px):** fluid canvas, 24px side gutters, 16px main gap, `minmax(0, 1fr) 460px`; the panel becomes 520px at ?1600px. Header, editor and program edges align. One compact application header carries product identity, labeled navigation and save/recovery controls. Page headings are 24px and names/actions use wrapping rows.
+- **Tablet (761?1099px):** retain the previous 1120px cap and 340px session rail; program overview stacks at ?800px. Desktop density does not apply.
 - **Mobile (≤ 760px):** single column (`minmax(0, 1fr)`, which prevents the chip row from causing horizontal scroll); the panel is pinned to the bottom with 120px-tall figures and the muscle list turned into one horizontally scrolling row of chips.
+
+## Desktop density tokens
+
+| Token | Value |
+|---|---|
+| `--canvas-gutter` | 24px |
+| `--layout-gap` | 16px |
+| `--compact-gap` / `--field-gap` | 8px |
+| `--card-padding` | 12px |
+| `--control-compact` / `--control-touch` | 32px / 44px |
+| `--panel-width` | 460px; 520px at ?1600px |
+| `--figure-height` | 180px; 200px at ?1600px |
+
+Compact library rows are normally 54px tall, with 8px between rows; long names and enlarged text grow naturally. Desktop exercise cards use 12px padding and 12px list gaps. Their main field row is name/sets/reps, and primary/secondary muscle fieldsets sit side by side when card content is at least 700px wide. Narrower cards put name above sets/reps and stack the fieldsets. All 12 muscle choices remain visible in both groups.
+
+Programs retain one ordered list in sequence mode. Schedule mode uses two day columns at 1100?1599px and three at ?1600px, in Monday?Sunday row-major order. Unscheduled spans the workout area below the week. Empty days retain 44px drop targets; workout cards grow naturally without internal scrollbars.
 
 ## Components
 
 ### Inputs
-44px minimum height, `--surface-2` background, `--border` border. Focus: `--accent` border plus a 3px `--accent-soft` halo. Labels always visible above the field (never placeholder-only). Errors sit directly under the field they belong to.
+32px minimum height on fine-pointer desktop (?1100px), 44px elsewhere, `--surface-2` background, `--border` border. Focus: `--accent` border plus a 3px `--accent-soft` halo. Labels always visible above the field (never placeholder-only). Errors sit directly under the field they belong to.
 Numbers (sets, rep range, goals) are never typed: they use sliders (below). Text fields remain only for names.
 
 ### Sliders
@@ -128,8 +145,8 @@ Highlight states, set from the selected muscle via `data-hit`:
 | empty | Default | none |
 
 ### Buttons
-- **Primary ("Add exercise")**: full width, 52px tall, `--accent` fill, display font uppercase, plus icon.
-- **Secondary ("Set goals")**: 44px tall, transparent, `--border` outline that turns `--accent` on hover, display font uppercase.
+- **Primary ("Add exercise")**: full width, 32px minimum on fine-pointer desktop / 52px elsewhere, `--accent` fill, display font uppercase, plus icon.
+- **Secondary ("Set goals")**: 32px minimum on fine-pointer desktop / 44px elsewhere, transparent, `--border` outline that turns `--accent` on hover, display font uppercase.
 - **Icon buttons**: 44×44 transparent, always with an `aria-label`.
 - **Session toolbar** (`.toolbar`): one wrapping flex row above the exercise list. Import and Export (`.file-actions`) sit at the left, Expand all and Collapse all (`#list-actions`, hidden with no exercises) at the right (`margin-left: auto`). Each is a secondary button with an 18px inline SVG icon before its text (tray arrow in/out, chevron down/up). The file message sits below the row.
 - Icons are inline SVG strokes (2px, round caps) using `currentColor`.
@@ -185,6 +202,6 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 
 - Text contrast at least 4.5:1 on its background.
 - Visible focus ring (`2px --accent`, 2px offset) on every interactive element.
-- Touch targets at least 44px (chips are 36px tall with 8px spacing).
+- Coarse-pointer targets, including chips, are at least 44?44px. Fine-pointer desktop controls may be 32px; compact chips are 28px. Native slider hit boxes remain 44px on every device.
 - Icon-only buttons have `aria-label`; decorative SVGs are `aria-hidden`.
 - Heat is always backed by a number; highlights are backed by a text tag.

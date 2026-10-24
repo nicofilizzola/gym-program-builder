@@ -596,7 +596,7 @@ svg {
 .hint {
   margin-left: 6px;
   font-weight: 400;
-  color: #64748b;
+  color: var(--muted);
 }
 
 .chip {

@@ -1,6 +1,6 @@
 # Compact Desktop Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Use subagent-driven-development only if the user chooses that execution method.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Use subagent-driven-development only if the user chooses that execution method.
 
 **Goal:** Show more editable training information on laptops and monitors while retaining prominent, friendly body visualizations and existing mobile behavior.
 
@@ -52,11 +52,11 @@
 
 **Interfaces:** Consume `mountSessionEditor(root, options)` and `mountProgramView(root, options)` through browser module imports, following `e2e/layout-polish.spec.js`. Fixtures must use the existing document shapes and deterministic IDs. Produce reusable fixture helpers local to the new spec; do not export product APIs for tests.
 
-- [ ] Create session, library and schedule fixtures from the spec. Mount only one panel at a time to avoid duplicate IDs. For shell screenshots, use the real authenticated app and import documents through existing UI helpers, as in `e2e/program-overview.spec.js`.
-- [ ] Wait for `document.fonts.ready`, expand all six exercises explicitly, and capture baseline screenshots and geometry at the three desktop checkpoints. Record first-card top, complete expanded cards visible, panel bottom, figure heights and library row heights. Store artifacts under `.superpowers/compact-desktop/before/`; link paths in the report.
-- [ ] Add targeted acceptance cases named `desktop editor exposes compact expanded fields`, `desktop volume keeps both bodies prominent`, `desktop library rows are compact`, and `schedule uses responsive day columns`. Assert the spec's exact bounds: first card top ≤200; complete cards ≥2/2/3; both figure heights ≥180/180/200; 12-row panel bottom ≤viewport height; row height ≤64; grid columns 2/2/3; document scrollWidth ≤viewport width.
-- [ ] Run `npx playwright test e2e/compact-desktop.spec.js`. Confirm failures arise from the old geometry, not fixture setup. Record baseline evidence before changing CSS.
-- [ ] Commit fixtures, expectations and baseline report: `test: define compact desktop acceptance`.
+- [x] Create session, library and schedule fixtures from the spec. Mount only one panel at a time to avoid duplicate IDs. For shell screenshots, use the real authenticated app and import documents through existing UI helpers, as in `e2e/program-overview.spec.js`.
+- [x] Wait for `document.fonts.ready`, expand all six exercises explicitly, and capture baseline screenshots and geometry at the three desktop checkpoints. Record first-card top, complete expanded cards visible, panel bottom, figure heights and library row heights. Store artifacts under `.superpowers/compact-desktop/before/`; link paths in the report.
+- [x] Add targeted acceptance cases named `desktop editor exposes compact expanded fields`, `desktop volume keeps both bodies prominent`, `desktop library rows are compact`, and `schedule uses responsive day columns`. Assert the spec's exact bounds: first card top ≤200; complete cards ≥2/2/3; both figure heights ≥180/180/200; 12-row panel bottom ≤viewport height; row height ≤64; grid columns 2/2/3; document scrollWidth ≤viewport width.
+- [x] Run `npx playwright test e2e/compact-desktop.spec.js`. Confirm failures arise from the old geometry, not fixture setup. Record baseline evidence before changing CSS.
+- [x] Commit fixtures, expectations and baseline report: `test: define compact desktop acceptance`.
 
 ## Task 2: Ship density tokens, fluid shell and compact library/header layout
 
@@ -64,12 +64,12 @@
 
 **Interfaces:** Preserve shell IDs, `[data-nav]`, name-input data attributes, file/bulk-action IDs and all mount function signatures. New classes are styling hooks only. Product name moves into the authenticated shell; each screen still owns one h1.
 
-- [ ] Add regression cases for a long program/template name, Conflict with both recovery buttons, save Retry, and import error. Assert controls are enabled/reachable where appropriate, tab focus is visible, and the page does not overflow at 1366 px or at 200% root font size. Add coarse-pointer context coverage asserting icon buttons and chips remain ≥44×44.
-- [ ] Add density tokens and desktop media/container rules from the spec. Scope 14 px text and 32 px controls to desktop fine pointers; keep sliders at 44 px. Set aligned fluid shell/editor/program canvases and 460/520 px rail widths. Use the exact 1366 and 1920 grid arithmetic in a CSS comment.
-- [ ] Consolidate authenticated branding, title/name/file groups, library creation/import header and program header. Preserve Import/Export and bulk text labels/grouping. Remove empty container margins without hiding active errors. Keep recovery controls text-labeled and wrapping.
-- [ ] Use compact library rows with existing title anchors and visible icon actions. Do not truncate full accessible names or disable modified-click navigation.
-- [ ] Run `npx playwright test e2e/compact-desktop.spec.js e2e/library-navigation.spec.js e2e/libraries.spec.js e2e/recovery.spec.js`. At this stage, only acceptance cases owned by later tasks may remain failing; run the library/header cases separately to establish this task passes.
-- [ ] Commit: `feat: compact desktop shell and library layout`.
+- [x] Add regression cases for a long program/template name, Conflict with both recovery buttons, save Retry, and import error. Assert controls are enabled/reachable where appropriate, tab focus is visible, and the page does not overflow at 1366 px or at 200% root font size. Add coarse-pointer context coverage asserting icon buttons and chips remain ≥44×44.
+- [x] Add density tokens and desktop media/container rules from the spec. Scope 14 px text and 32 px controls to desktop fine pointers; keep sliders at 44 px. Set aligned fluid shell/editor/program canvases and 460/520 px rail widths. Use the exact 1366 and 1920 grid arithmetic in a CSS comment.
+- [x] Consolidate authenticated branding, title/name/file groups, library creation/import header and program header. Preserve Import/Export and bulk text labels/grouping. Remove empty container margins without hiding active errors. Keep recovery controls text-labeled and wrapping.
+- [x] Use compact library rows with existing title anchors and visible icon actions. Do not truncate full accessible names or disable modified-click navigation.
+- [x] Run `npx playwright test e2e/compact-desktop.spec.js e2e/library-navigation.spec.js e2e/libraries.spec.js e2e/recovery.spec.js`. At this stage, only acceptance cases owned by later tasks may remain failing; run the library/header cases separately to establish this task passes.
+- [x] Commit: `feat: compact desktop shell and library layout`.
 
 ## Task 3: Compact expanded exercise editing
 
@@ -77,12 +77,12 @@
 
 **Interfaces:** Keep `CARD_HTML` control data attributes, `.collapsible`, `[data-collapse]`, `.card-body`, error hooks and input event delegation stable. Introduce `.exercise-fields`, `.exercise-main-fields`, `.exercise-muscle-fields` grouping classes; keep each error with its field. Reuse `mountActionTooltips(root)` with cleanup on destroy if tooltip hooks are added.
 
-- [ ] Add assertions for name/sets/reps on one row at card width ≥700 px and name above sets/reps below 700 px. Assert both complete muscle sets are present in canonical order and adjacent fieldsets at ≥700 px.
-- [ ] Add compact-layout interaction coverage: edit a name without losing focus, move both rep thumbs with keyboard, select primary/secondary muscles, collapse then tab past hidden fields, refuse invalid export and focus its invalid field, reorder while preserving collapse state. Use existing behavioral tests where they already cover the exact condition.
-- [ ] Group the expanded body into the spec's field rows and side-by-side fieldsets. Add container queries with a 700 px card-content threshold. Remove old sibling margins that would conflict with the new grids. Keep the card control header and summaries readable; do not change collapse defaults to satisfy density tests.
-- [ ] Check the six-exercise fixture reaches ≥2 complete expanded cards at 1366×768 and 1440×900 and ≥3 at 1920×1080. Tighten redundant spacing first if it misses; keep font and target floors.
-- [ ] Run `npx playwright test e2e/session-editor.spec.js e2e/import-export.spec.js e2e/drag-reorder.spec.js` and the editor cases in the new compact spec. Confirm legacy 320 px/200% text coverage still passes.
-- [ ] Commit: `feat: arrange exercise fields for compact desktop editing`.
+- [x] Add assertions for name/sets/reps on one row at card width ≥700 px and name above sets/reps below 700 px. Assert both complete muscle sets are present in canonical order and adjacent fieldsets at ≥700 px.
+- [x] Add compact-layout interaction coverage: edit a name without losing focus, move both rep thumbs with keyboard, select primary/secondary muscles, collapse then tab past hidden fields, refuse invalid export and focus its invalid field, reorder while preserving collapse state. Use existing behavioral tests where they already cover the exact condition.
+- [x] Group the expanded body into the spec's field rows and side-by-side fieldsets. Add container queries with a 700 px card-content threshold. Remove old sibling margins that would conflict with the new grids. Keep the card control header and summaries readable; do not change collapse defaults to satisfy density tests.
+- [x] Check the six-exercise fixture reaches ≥2 complete expanded cards at 1366×768 and 1440×900 and ≥3 at 1920×1080. Tighten redundant spacing first if it misses; keep font and target floors.
+- [x] Run `npx playwright test e2e/session-editor.spec.js e2e/import-export.spec.js e2e/drag-reorder.spec.js` and the editor cases in the new compact spec. Confirm legacy 320 px/200% text coverage still passes.
+- [x] Commit: `feat: arrange exercise fields for compact desktop editing`.
 
 ## Task 4: Balance prominent bodies with dense volume rows
 
@@ -90,13 +90,13 @@
 
 **Interfaces:** Produce `mountPanelLayout(panel: HTMLElement): { destroy(): void }`. It observes panel size/viewport changes, toggles `.panel--flow` when natural height exceeds available viewport space, and removes listeners/observers on destroy. The desktop CSS uses `.panel--flow { position: static; }`; fallback does not affect mobile placement. Consume it once per panel from both controllers. Preserve volume-panel public signatures, row attributes, SVG region hooks, legends and readout IDs.
 
-- [ ] Add cases for both session and weekly panels with 12 visible rows, weekly goals of 30, zero rows, selected/hovered muscles and long readout text. Assert figure heights, no content overlap, all values readable, stable hover areas and readout space. At normal size, assert panel bounds fit the three checkpoints.
-- [ ] Add a 1366×500 case and a 200% text case where content cannot fit: assert `.panel--flow` applies and the final row/readout is reachable by document scrolling. Resize back and assert sticky returns. Navigate away and verify no stale observer updates or page errors.
-- [ ] Add structural wrappers for `.panel-visual` and `.panel-data`, with a full-width header and readout, to both panel markup sources. Keep mobile logical order/appearance and existing session/program placement through scoped CSS. Do not extract the duplicated panel controllers as part of this task.
-- [ ] Apply the 180/200 px body-column and figure-height values, 32 px numeric-row pitch, wrapping heat legend and aligned value/status columns. Inspect narrow Side delts regions at real scale; enlarge layout allocation if necessary rather than hiding body content.
-- [ ] Implement `mountPanelLayout` with `ResizeObserver` and viewport resize handling; derive available height from viewport height and sticky top offset, not current scroll position. Avoid observer feedback loops by measuring intrinsic panel height. Disconnect on view teardown.
-- [ ] Run `npx playwright test e2e/program-overview.spec.js e2e/session-editor.spec.js e2e/layout-polish.spec.js` plus compact panel cases. Verify goal updates, bars, tooltips, hover grace and selected highlighting without geometry shifts.
-- [ ] Commit: `feat: balance desktop body maps and volume data`.
+- [x] Add cases for both session and weekly panels with 12 visible rows, weekly goals of 30, zero rows, selected/hovered muscles and long readout text. Assert figure heights, no content overlap, all values readable, stable hover areas and readout space. At normal size, assert panel bounds fit the three checkpoints.
+- [x] Add a 1366×500 case and a 200% text case where content cannot fit: assert `.panel--flow` applies and the final row/readout is reachable by document scrolling. Resize back and assert sticky returns. Navigate away and verify no stale observer updates or page errors.
+- [x] Add structural wrappers for `.panel-visual` and `.panel-data`, with a full-width header and readout, to both panel markup sources. Keep mobile logical order/appearance and existing session/program placement through scoped CSS. Do not extract the duplicated panel controllers as part of this task.
+- [x] Apply the 180/200 px body-column and figure-height values, 32 px numeric-row pitch, wrapping heat legend and aligned value/status columns. Inspect narrow Side delts regions at real scale; enlarge layout allocation if necessary rather than hiding body content.
+- [x] Implement `mountPanelLayout` with `ResizeObserver` and viewport resize handling; derive available height from viewport height and sticky top offset, not current scroll position. Avoid observer feedback loops by measuring intrinsic panel height. Disconnect on view teardown.
+- [x] Run `npx playwright test e2e/program-overview.spec.js e2e/session-editor.spec.js e2e/layout-polish.spec.js` plus compact panel cases. Verify goal updates, bars, tooltips, hover grace and selected highlighting without geometry shifts.
+- [x] Commit: `feat: balance desktop body maps and volume data`.
 
 ## Task 5: Responsive weekly grid and compact workout actions
 
@@ -104,13 +104,13 @@
 
 **Interfaces:** Keep `mountProgramView` and `mountSortable` interfaces unchanged; preserve `[data-workouts]`, `[data-sort-group]`, `[data-workout]`, `[data-action]` values and current ARIA names. Add a schedule class to `[data-workouts]` and an Unscheduled class to its section. Extend `actionIcon(name)` with `move-up`, `move-down`, and `edit` SVG paths if needed. Consume `mountActionTooltips(root)` and destroy it with the view; hide pending tooltips before replacing rows.
 
-- [ ] Add cases asserting 2/2/3 day columns, Monday–Sunday row-major order, full-width Unscheduled, visible compact Rest day drop targets, two workouts in the same day, and long workout names without overflow. Sequence mode must remain one ordered list.
-- [ ] Verify drag from one grid column to another and into an empty day/Unscheduled. Assert saved day assignment and canonical order, then toggle sequence/schedule and assert no data changes beyond intended movement. Verify keyboard Move up/down, disabled boundaries and restored focus after duplicate/reorder.
-- [ ] Apply mode/grid hooks without changing grouping logic. Render compact workout rows with Edit text, visible secondary SVG buttons, existing confirmation prompts and labeled day assignment. Keep the stable highlight badge slot, allowing wrap without shifting controls when selection changes.
-- [ ] Preserve `data-action` values and accessible names while switching visible labels to icons. Reuse existing tooltip lifecycle and keep controls visible without hover. Preserve exercise/workout surface and selection consistency tests.
-- [ ] Update only superseded geometric expectations in existing tests (for example old toolbar gaps); retain checks against overlap, overflow and inaccessible actions. Record why each expectation changed.
-- [ ] Run `npx playwright test e2e/programs.spec.js e2e/program-overview.spec.js e2e/drag-reorder.spec.js e2e/layout-polish.spec.js` plus compact schedule cases.
-- [ ] Commit: `feat: compact program workouts and responsive weekly grid`.
+- [x] Add cases asserting 2/2/3 day columns, Monday–Sunday row-major order, full-width Unscheduled, visible compact Rest day drop targets, two workouts in the same day, and long workout names without overflow. Sequence mode must remain one ordered list.
+- [x] Verify drag from one grid column to another and into an empty day/Unscheduled. Assert saved day assignment and canonical order, then toggle sequence/schedule and assert no data changes beyond intended movement. Verify keyboard Move up/down, disabled boundaries and restored focus after duplicate/reorder.
+- [x] Apply mode/grid hooks without changing grouping logic. Render compact workout rows with Edit text, visible secondary SVG buttons, existing confirmation prompts and labeled day assignment. Keep the stable highlight badge slot, allowing wrap without shifting controls when selection changes.
+- [x] Preserve `data-action` values and accessible names while switching visible labels to icons. Reuse existing tooltip lifecycle and keep controls visible without hover. Preserve exercise/workout surface and selection consistency tests.
+- [x] Update only superseded geometric expectations in existing tests (for example old toolbar gaps); retain checks against overlap, overflow and inaccessible actions. Record why each expectation changed.
+- [x] Run `npx playwright test e2e/programs.spec.js e2e/program-overview.spec.js e2e/drag-reorder.spec.js e2e/layout-polish.spec.js` plus compact schedule cases.
+- [x] Commit: `feat: compact program workouts and responsive weekly grid`.
 
 ## Task 6: Visual review, documentation and release verification
 
@@ -118,13 +118,13 @@
 
 **Interfaces:** No new product APIs. Documentation must describe actual shipped values, the observer fallback and the exceptions to desktop density.
 
-- [ ] Capture AFTER screenshots using exactly the baseline fixtures at 1366×768, 1440×900 and 1920×1080. Put artifacts under `.superpowers/compact-desktop/after/`. Compare visible-card counts, first-content position, panel height and body heights; record actual measurements alongside baseline values.
-- [ ] Review full screens and panel crops visually. Confirm bodies remain a prominent friendly element, both figures are legible, action icons are understandable, and the page feels cleaner rather than crowded. Fix the three largest visual problems, recapture, and stop after acceptance is met.
-- [ ] Inspect 320/375/768/1024 px, desktop coarse-pointer input, 200% text, short viewports, reduced motion, empty libraries, errors/conflicts, long names and full goal sets. Verify mobile session pinned panel and program overview placement against baseline.
-- [ ] Update the existing design-system document in place: desktop breakpoints, tokens, fluid width, compact fields, touch exceptions, visible actions, schedule grid, body dimensions and sticky fallback. Retain mobile rules and separate session/weekly heat scales.
-- [ ] Run `npm test`, then `npm run test:e2e`, then `npm run build`. Require zero failures; inspect build output via existing build verification. No migration is needed for this CSS/markup change.
-- [ ] Review `git diff --check` and final diff for accidental storage/API changes, stale layout rules, duplicate IDs and undeleted tooltip/observer listeners. Finish the report with commands/results, screenshot links and any remaining limits.
-- [ ] Commit: `docs: document compact desktop design and verification`.
+- [x] Capture AFTER screenshots using exactly the baseline fixtures at 1366×768, 1440×900 and 1920×1080. Put artifacts under `.superpowers/compact-desktop/after/`. Compare visible-card counts, first-content position, panel height and body heights; record actual measurements alongside baseline values.
+- [x] Review full screens and panel crops visually. Confirm bodies remain a prominent friendly element, both figures are legible, action icons are understandable, and the page feels cleaner rather than crowded. Fix the three largest visual problems, recapture, and stop after acceptance is met.
+- [x] Inspect 320/375/768/1024 px, desktop coarse-pointer input, 200% text, short viewports, reduced motion, empty libraries, errors/conflicts, long names and full goal sets. Verify mobile session pinned panel and program overview placement against baseline.
+- [x] Update the existing design-system document in place: desktop breakpoints, tokens, fluid width, compact fields, touch exceptions, visible actions, schedule grid, body dimensions and sticky fallback. Retain mobile rules and separate session/weekly heat scales.
+- [x] Run `npm test`, then `npm run test:e2e`, then `npm run build`. Require zero failures; inspect build output via existing build verification. No migration is needed for this CSS/markup change.
+- [x] Review `git diff --check` and final diff for accidental storage/API changes, stale layout rules, duplicate IDs and undeleted tooltip/observer listeners. Finish the report with commands/results, screenshot links and any remaining limits.
+- [x] Commit: `docs: document compact desktop design and verification`.
 
 ## Shipping handoff
 
