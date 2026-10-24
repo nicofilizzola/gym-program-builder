@@ -10,6 +10,7 @@ test('muscle preview leaves exercise selection unchanged until activation',async
    {name:'Row',sets:3,repRange:{min:8,max:12},primaryMuscles:['Lats'],secondaryMuscles:[]}
   ]}});
  });
+ await page.evaluate(()=>document.fonts.ready);
  const chest=page.locator('.volume-row[data-muscle="Chest"]'),lats=page.locator('.volume-row[data-muscle="Lats"]');
  await chest.hover();
  await expect(page.locator('#readout')).toContainText('Chest 3 sets');
