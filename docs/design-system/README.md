@@ -102,6 +102,10 @@ Compact library rows are normally 54px tall, with 8px between rows; long names a
 
 Programs retain one ordered list in sequence mode. Schedule mode uses two day columns at 1100?1599px and three at ?1600px, in Monday?Sunday row-major order. Unscheduled spans the workout area below the week. Empty days retain 44px drop targets; workout cards grow naturally without internal scrollbars.
 
+The program layout selector reads **Week / Sequence**, in that order. New programs open in Week; saved programs keep their applied layout. Sequence is headed **Sessions**, with an **Add rest day** action that appends a draggable, removable neutral rest card. Rests use the existing surface/border/radius, 12px padding and gaps (8px padding/gaps on compact fine-pointer desktop); they wrap and grow. Rests remain saved while hidden in Week and never affect weekday assignments or weekly volume.
+
+Session cards expose Edit, Duplicate and Remove as visible icon buttons with accessible names and the shared hover/focus tooltips. Edit uses a pencil. Icon targets are 32px only on compact fine-pointer desktop without a coarse pointer, otherwise 44px. Rest cards have only a handle and remove icon. No session-card move buttons or day select are shown. Week helper text explains dragging and handle shortcuts: Up/Down reorder within a day; Alt+Up/Down move through Monday–Sunday and Unscheduled, restoring handle focus and announcing the destination.
+
 ## Components
 
 ### Inputs

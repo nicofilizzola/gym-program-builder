@@ -4,7 +4,8 @@ import {reconcileSequence} from './program-sequence.js';
 /** @typedef {{name:string, exercises:import('./volume.js').Exercise[], goals:Record<string,number>}} Workout */
 /** @typedef {Workout} SessionTemplate */
 /** @typedef {Workout & {id:string, day:number|null}} ProgramWorkout */
-/** @typedef {{name:string, mode:'simple'|'schedule', workouts:ProgramWorkout[], goals:Record<string,number>}} Program */
+/** @typedef {{type:'workout',workoutId:string}|{type:'rest',id:string}} SequenceEntry */
+/** @typedef {{name:string, mode:'simple'|'schedule', workouts:ProgramWorkout[], goals:Record<string,number>, sequence?:SequenceEntry[]}} Program */
 /** @typedef {{id:string,kind:'template'|'program',revision:number,createdAt:string,updatedAt:string,document:SessionTemplate|Program}} DocumentRecord */
 
 export const createTemplate = () => ({name:'Untitled template',exercises:[],goals:{}});

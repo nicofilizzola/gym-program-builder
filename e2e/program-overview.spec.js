@@ -31,8 +31,8 @@ test('program toolbar groups file actions and switches layouts accessibly',async
   await openProgram(page);
   const group=page.getByRole('group',{name:'Program layout'});
   const sequence=group.getByRole('radio',{name:'Sequence',exact:true});
-  const schedule=group.getByRole('radio',{name:'Monday–Sunday',exact:true});
-  await expect(sequence).toBeChecked();
+  const schedule=group.getByRole('radio',{name:'Week',exact:true});
+  await expect(schedule).toBeChecked();
   await schedule.check();
   await expect(page.locator('.day-section')).toHaveCount(8);
   await sequence.check();
@@ -200,13 +200,13 @@ test('workout mutations retain highlights and replacements clear them',async({pa
   await page.getByRole('button',{name:'Duplicate Press',exact:true}).click();
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(3);
   await expect(page.locator('#readout')).toContainText('3 workouts');
-  await page.getByRole('button',{name:'Move down Press',exact:true}).first().click();
+  await page.getByRole('button',{name:'Reorder Press',exact:true}).first().focus();await page.keyboard.press('ArrowDown');
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(3);
-  await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
-  await page.getByLabel('Day for Assistance',{exact:true}).selectOption('2');
+  await page.getByRole('radio',{name:'Week',exact:true}).check();
+  await page.getByRole('button',{name:'Reorder Assistance',exact:true}).focus();for(let i=0;i<5;i++)await page.keyboard.press('Alt+ArrowUp');
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(3);
   await page.getByRole('radio',{name:'Sequence',exact:true}).check();
-  await expect(page.locator('.workout-item h3')).toHaveText(['Press','Press','Assistance','Pull','Empty']);
+  await expect(page.locator('.workout-item h3')).toHaveText(['Press','Press','Pull','Empty','Assistance']);
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Remove Press',exact:true}).first().click();
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(2);
@@ -270,5 +270,5 @@ for(const webFonts of [true,false])test(`program overview fits narrow, tablet, d
   }
   await page.getByRole('radio',{name:'Sequence',exact:true}).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('radio',{name:'Monday–Sunday',exact:true}).locator('..')).toHaveCSS('outline-style','solid');
+  await expect(page.getByRole('radio',{name:'Week',exact:true}).locator('..')).toHaveCSS('outline-style','solid');
 });
