@@ -3,6 +3,7 @@ import {barScale,barSegments,goalStatus,visibleMuscles} from './volume.js';
 import {SESSION_MARKUP} from './session-markup.js';
 import {bodySvg} from './body.js';
 import {weeklyHeatLevel} from './program-volume.js';
+import {mountPanelLayout} from './panel-layout.js';
 
 /** Weekly overview: goal-status bars reuse the workout panel's markup and CSS. */
 export function mountVolumePanel(root,{scope='week',onGoalsChange=()=>{},onMuscleSelect=()=>{},onMuscleFocusChange=()=>{}}={}) {
@@ -91,5 +92,6 @@ export function mountVolumePanel(root,{scope='week',onGoalsChange=()=>{},onMuscl
     focused=muscleAt(e.target);update(data);
   });
   list.addEventListener('focusout',e=>{focused=muscleAt(e.relatedTarget);update(data);});
-  return {update,destroy(){disposed=true;clearTimeout(hoverTimer);clearTimeout(fadeTimer);dialog.close();root.replaceChildren();}};
+  const panelLayout=mountPanelLayout(panel);
+  return {update,destroy(){disposed=true;panelLayout.destroy();clearTimeout(hoverTimer);clearTimeout(fadeTimer);dialog.close();root.replaceChildren();}};
 }

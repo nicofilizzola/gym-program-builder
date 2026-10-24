@@ -42,21 +42,23 @@ export const SESSION_MARKUP = `
         <span class="unit">sets per muscle</span>
         <button id="open-goals" type="button" class="secondary-btn">Set goals</button>
       </div>
-      <div id="body-map" class="body-map"></div>
+      <div class="panel-visual"><div id="body-map" class="body-map"></div>
       <ul id="heat-key" class="heat-key" aria-hidden="true">
         <li data-heat="0">0</li>
         <li data-heat="1">1–3</li>
         <li data-heat="2">4–6</li>
         <li data-heat="3">7–9</li>
         <li data-heat="4">10+</li>
-      </ul>
+      </ul></div>
       <div class="readout"><p id="readout" aria-live="polite"></p></div>
+      <div class="panel-data">
       <ul id="split-key" class="split-key" aria-hidden="true">
         <li class="direct">Direct</li>
         <li class="indirect">Indirect</li>
       </ul>
       <ul id="volume" class="volume-list"></ul>
       <p id="volume-empty" class="volume-empty" hidden>No volume yet. Add an exercise or set a goal.</p>
+      </div>
     </aside>
   </main>
 

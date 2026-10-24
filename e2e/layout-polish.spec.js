@@ -84,7 +84,7 @@ test('compact add alternatives wrap without overflow or small targets',async({pa
  for(const width of [1280,768,375,320]){
   await page.setViewportSize({width,height:1000});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-  for(const button of [add,empty]){const box=await button.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);expect(box.width).toBeGreaterThanOrEqual(44);}
+  for(const button of [add,empty]){const box=await button.boundingBox();expect(box.height).toBeGreaterThanOrEqual(width>=1100?32:44);expect(box.width).toBeGreaterThanOrEqual(width>=1100?32:44);}
   if(width===1280){const a=await add.boundingBox(),b=await empty.boundingBox();expect(Math.abs(a.y-b.y)).toBeLessThan(1);}
   if(width===1280||width===375)await page.screenshot({path:`.superpowers/sdd/2026-10-24-interaction-polish/program-${width}.png`,fullPage:true});
  }

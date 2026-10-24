@@ -1532,3 +1532,38 @@ button:disabled {opacity:.5;cursor:default}
     .exercise-muscle-fields {grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}
   }
 }
+/* The bodies and numbers share a row; mobile keeps its existing visual order. */
+.panel-visual,.panel-data {display:contents}
+@media (min-width:1100px) {
+  .panel {container:volume-panel / inline-size;display:grid;grid-template-columns:180px minmax(0,1fr);gap:12px;top:16px;padding:12px}
+  .panel.panel--flow {position:static}
+  .panel-head {grid-column:1/-1;flex-wrap:wrap;gap:8px}
+  .panel h2 {font-size:1.25rem}
+  .panel .unit {font-size:.75rem}
+  .panel-visual {display:block;grid-column:1;grid-row:2;align-self:center;min-width:0}
+  .panel-data {display:block;grid-column:2;grid-row:2;min-width:0}
+  .panel .body-map {margin:0;gap:4px}
+  .panel .body-map svg {height:var(--figure-height);display:block}
+  .panel .body-map figcaption {font-size:.75rem;letter-spacing:.06em}
+  .panel .heat-key {flex-wrap:wrap;gap:4px 8px;margin-top:12px;font-size:.75rem}
+  .panel .heat-key li {white-space:nowrap}
+  .panel .heat-key li::before {width:8px;height:8px}
+  .panel .split-key {margin:0 0 4px;gap:10px;font-size:.75rem}
+  .panel .readout {grid-column:1/-1;grid-row:3;margin:0;padding-top:8px;border-top:1px solid var(--border);font-size:.8125rem;min-height:3.4em}
+  .panel .volume-row {grid-template-columns:4.5rem minmax(0,1fr) 4rem;gap:6px;min-height:32px;padding:4px;font-size:.8125rem}
+  .panel .volume-list.has-goals .volume-row {grid-template-columns:4.5rem minmax(0,1fr) 4rem 1rem;gap:6px}
+  .panel .volume-row .name {overflow-wrap:anywhere}
+  .panel .volume-row .value {font-size:1rem}
+  .panel .volume-empty {font-size:.8125rem}
+  @container volume-panel (max-width:24rem) {
+    .panel-visual {grid-column:1/-1;grid-row:2;justify-self:center;width:200px}
+    .panel-data {grid-column:1/-1;grid-row:3}
+    .panel .readout {grid-row:4}
+  }
+}
+@media (min-width:1600px) {
+  .panel {grid-template-columns:200px minmax(0,1fr)}
+}
+@media (min-width:1100px) and (pointer:coarse) {
+  .panel .volume-row {min-height:44px}
+}

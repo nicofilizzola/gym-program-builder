@@ -8,6 +8,7 @@ import { bodySvg } from './body.js';
 import { tooltipPosition } from './tooltip.js';
 import { parseDocument, serializeDocument, documentFileName } from './document-file.js';
 import { SESSION_MARKUP } from './session-markup.js';
+import { mountPanelLayout } from './panel-layout.js';
 
 
 export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport}={}) {
@@ -687,8 +688,9 @@ renderGoalFields();
 renderExercises();
 refresh();
 
+const panelLayout=mountPanelLayout(panel);
 return {setWorkout,focusFirstError,destroy(){
-  destroyed=true;sortable.destroy();moveMenu?.remove();
+  destroyed=true;panelLayout.destroy();sortable.destroy();moveMenu?.remove();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
 }};
