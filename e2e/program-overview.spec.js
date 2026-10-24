@@ -81,7 +81,8 @@ test('map and rows share muscle interaction and keyboard preview',async({page})=
   await expect(row(page,'Chest')).toHaveAttribute('aria-pressed','true');
   await row(page,'Chest').click();
   await expect(region(page,'Chest')).not.toHaveClass(/is-selected/);
-  await row(page,'Lats').focus();
+  await page.keyboard.press('Tab');
+  await expect(row(page,'Lats')).toBeFocused();
   await expect(page.locator('#readout')).toContainText('Lats 3 sets');
   await page.keyboard.press('Enter');
   await expect(row(page,'Lats')).toHaveAttribute('aria-pressed','true');
@@ -148,6 +149,16 @@ test('muscle interaction highlights matching workouts without saving',async({pag
   await region(page,'Chest').locator('path').first().click();await page.mouse.move(0,0);
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
   expect(writes).toEqual([]);
+});
+
+test('mouse deselection clears preview and workout highlights after leaving the panel',async({page})=>{
+  await openProgram(page);await importProgram(page);
+  await row(page,'Chest').click();await row(page,'Chest').click();
+  await expect(row(page,'Chest')).toHaveAttribute('aria-pressed','false');
+  await page.mouse.move(0,0);
+  await expect(page.locator('#readout')).toHaveText('Tap a muscle to highlight its workouts.');
+  await expect(page.locator('.region.is-focus')).toHaveCount(0);
+  await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
 });
 
 test('workout mutations retain highlights and replacements clear them',async({page})=>{
@@ -218,7 +229,12 @@ for(const webFonts of [true,false])test(`program overview fits narrow, tablet, d
     sizes.forEach(([el,size])=>{el.style.fontSize=`${size*2}px`;});
   });
   await page.evaluate(()=>document.fonts.ready);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  for(const width of [375,320]) {
+    await page.setViewportSize({width,height:900});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    expect((await page.locator('#volume-title').boundingBox()).width).toBeGreaterThanOrEqual(140);
+    expect((await page.locator('.panel-head').boundingBox()).height).toBeLessThan(300);
+  }
   await page.getByRole('radio',{name:'Sequence',exact:true}).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('radio',{name:'Monday–Sunday',exact:true}).locator('..')).toHaveCSS('outline-style','solid');

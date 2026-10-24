@@ -11,6 +11,9 @@ export function mountVolumePanel(root,{scope='week',onGoalsChange=()=>{},onMuscl
   const panel=root.querySelector('.panel'),dialog=root.querySelector('dialog'),readout=root.querySelector('#readout'),list=root.querySelector('#volume'),fields=root.querySelector('#goal-fields');
   root.querySelector('#volume-title').textContent=scope==='week'?'Weekly volume':'Volume';
   root.querySelector('.unit').textContent=scope==='week'?'sets per muscle per week':'sets per muscle';
+  const heading=document.createElement('div');heading.className='weekly-panel-heading';
+  panel.querySelector('.panel-head').prepend(heading);
+  heading.append(root.querySelector('#volume-title'),root.querySelector('.unit'));
   root.querySelector('#goals-title').textContent='Weekly volume goals';
   root.querySelector('#body-map').innerHTML=['front','back'].map(view=>`<figure>${bodySvg(view)}<figcaption>${view}</figcaption></figure>`).join('');
   root.querySelectorAll('#heat-key li').forEach((item,i)=>{item.textContent=['0','0.5–6','6.5–12','12.5–18','18.5+'][i];});
@@ -83,7 +86,7 @@ export function mountVolumePanel(root,{scope='week',onGoalsChange=()=>{},onMuscl
   panel.addEventListener('pointerout',e=>{if(e.pointerType==='mouse'&&!muscleAt(e.relatedTarget))setHover(null);});
   panel.addEventListener('pointerleave',()=>setHover(null));
   list.addEventListener('focusin',e=>{
-    if(!e.target.matches('.volume-row'))return;
+    if(!e.target.matches('.volume-row:focus-visible'))return;
     clearTimeout(hoverTimer);hoverTimer=null;hovered=null;
     focused=muscleAt(e.target);update(data);
   });
