@@ -1348,7 +1348,18 @@ button:disabled {opacity:.5;cursor:default}
 .workout-item h3 {font-size:1.25rem;margin:0;overflow-wrap:anywhere}
 .workout-item p {color:var(--muted);margin:6px 0 14px}
 .day-field {display:flex;align-items:center;gap:10px;margin-top:16px}
-.schedule-toggle {display:flex;align-items:center;gap:8px;min-height:44px}
+.program-toolbar {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px}
+.program-layout {display:flex;min-width:0;margin:0;padding:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.program-layout label {position:relative;display:flex;min-height:44px;align-items:center;border:1px solid transparent;border-radius:6px;color:var(--muted);cursor:pointer}
+.program-layout input {position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.program-layout span {padding:10px 14px;font-size:.875rem;font-weight:500}
+.program-layout label:hover {color:var(--text);background:var(--surface-2)}
+.program-layout label:has(input:checked) {color:var(--accent);background:var(--accent-soft);border-color:var(--accent)}
+.program-layout label:has(input:focus-visible) {outline:2px solid var(--accent);outline-offset:2px}
+.program-file-actions {display:flex;flex-wrap:wrap;gap:8px}
+.program-file-actions .secondary-btn {min-height:44px}
+.program-file-actions svg {width:20px;height:20px;flex-shrink:0}
+.program-page>[data-program-error]:not(:empty) {margin:-8px 0 24px}
 @media(max-width:800px){.program-grid{grid-template-columns:minmax(0,1fr)}.program-grid>[data-weekly-panel]{grid-row:1}.program-context{padding:16px 16px 0}}
 @media(max-width:600px){.app-header,.library,.program-page{padding:16px}.login-card{margin:10vh 16px}.library-item{padding:16px}.save-controls{font-size:.875rem}.weekly-goal{grid-template-columns:80px minmax(0,1fr) 50px}}
 

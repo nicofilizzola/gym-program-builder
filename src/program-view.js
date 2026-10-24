@@ -63,9 +63,23 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     if(focusId){const controls=[...container.querySelectorAll(`[data-workout="${focusId}"] button`)];const target=controls.find(b=>b.dataset.action===focusAction&&!b.disabled)||controls.find(b=>!b.disabled);target?.focus();}
   }
   function renderOverview(){
-    cleanup();root.innerHTML='<section class="program-page"><p class="eyebrow">Weekly microcycle</p><h1>Program</h1><label class="field">Program name<input type="text" data-program-name></label><div class="toolbar"><label class="schedule-toggle"><input type="checkbox" data-schedule> Monday–Sunday schedule</label><button type="button" class="secondary-btn" data-import>Import program</button><button type="button" class="secondary-btn" data-export>Export program</button><input type="file" accept=".json,application/json" hidden data-file></div><p class="error" role="alert" data-program-error></p><div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template>Add from template</button><button type="button" class="add-btn" data-add-empty>Add empty workout</button></div><div data-workouts></div></div><div data-weekly-panel></div></div></section>';
+    cleanup();root.innerHTML=`<section class="program-page"><p class="eyebrow">Weekly microcycle</p><h1>Program</h1>
+      <label class="field">Program name<input type="text" data-program-name></label>
+      <div class="program-toolbar">
+        <fieldset class="program-layout"><legend class="visually-hidden">Program layout</legend>
+          <label><input type="radio" name="program-layout" value="simple"><span>Sequence</span></label>
+          <label><input type="radio" name="program-layout" value="schedule"><span>Monday–Sunday</span></label>
+        </fieldset>
+        <div class="program-file-actions">
+          <button type="button" class="secondary-btn" data-import><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>Import program</button>
+          <button type="button" class="secondary-btn" data-export><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15V3M7 8l5-5 5 5M4 15v4h16v-4"/></svg>Export program</button>
+          <input type="file" accept=".json,application/json" hidden data-file>
+        </div>
+      </div>
+      <p class="error" role="alert" data-program-error></p>
+      <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template>Add from template</button><button type="button" class="add-btn" data-add-empty>Add empty workout</button></div><div data-workouts></div></div><div data-weekly-panel></div></div></section>`;
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
-    const mode=root.querySelector('[data-schedule]');mode.checked=value.mode==='schedule';mode.onchange=()=>{value.mode=mode.checked?'schedule':'simple';emit();renderWorkouts();};
+    root.querySelectorAll('[name="program-layout"]').forEach(input=>{input.checked=input.value===value.mode;input.onchange=()=>{if(!input.checked)return;value.mode=input.value;emit();renderWorkouts();};});
     const picker=root.querySelector('[data-template]');
     for(const template of templates){const option=document.createElement('option');option.value=template.id;option.textContent=template.name.trim()||'Untitled template';picker.append(option);}
     root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy=copyWorkout(template.document,id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');});

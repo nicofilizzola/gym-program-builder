@@ -11,9 +11,9 @@ test('program copies are independent and weekly goals and schedules survive mode
  await page.getByLabel('Session template name').fill('Independent upper');await page.getByRole('button',{name:'Expand exercise',exact:true}).click();await page.getByLabel('Sets',{exact:true}).fill('4');
  await page.getByRole('button',{name:'Back to program',exact:true}).click();
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('7');
- await page.getByLabel('Monday–Sunday schedule',{exact:true}).check();
+ await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
  await page.getByLabel('Day for Independent upper').selectOption('0');await page.getByLabel('Day for Source upper').selectOption('6');
- await page.getByLabel('Monday–Sunday schedule',{exact:true}).uncheck();await page.getByLabel('Monday–Sunday schedule',{exact:true}).check();
+ await page.getByRole('radio',{name:'Sequence',exact:true}).check();await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
  await expect(page.getByLabel('Day for Independent upper')).toHaveValue('0');await expect(page.getByLabel('Day for Source upper')).toHaveValue('6');
  await page.getByRole('button',{name:'Set weekly goals',exact:true}).click();await page.getByLabel('Chest weekly goal',{exact:true}).fill('30');await page.getByRole('button',{name:'Done',exact:true}).click();
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('7 / 30');await expect(page.getByTestId('save-status')).toHaveText('Saved');
