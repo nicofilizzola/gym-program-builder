@@ -16,6 +16,17 @@ These approved requirements supersede the original MVP restrictions below wherev
 - Verification: npm test, npm run test:e2e, npm run build. Run npm run db:migrate explicitly; never migrate production automatically during builds/requests.
 - Out of scope: multiple accounts, live collaboration, offline editing, calendar dates/history, workout logging, template-copy synchronization and whole-library backup UI.
 
+## Design system: compact desktop by default
+
+Before adding or changing UI, read and follow [the design system](docs/design-system/README.md). The approved [compact desktop design](docs/superpowers/specs/2026-10-24-compact-desktop-design.md) governs desktop layout and supersedes older spacing/layout guidance wherever they conflict. Preserve this direction for future features unless the user explicitly requests a change.
+
+- **Useful density.** Use available desktop width, compact headers and toolbars, aligned fields and visible actions. Avoid oversized headings, redundant labels/branding, excessive padding and unnecessary stacked sections. Reuse existing CSS tokens and component patterns instead of introducing a separate visual style.
+- **Visual and friendly.** Keep the dark palette, orange accent and Barlow typography. Both body figures must remain prominent, readable and interactive: use the existing 180–200px desktop figure heights, never shrink them below 180px or hide/crop them to gain space. Keep volume data and actions legible alongside them.
+- **Responsive structure.** Adapt from laptop to monitor; preserve ordered exercise editing, responsive weekly day grids and Unscheduled. Prefer normal document scrolling over clipped content or extra internal scroll areas. Oversized volume panels must remain fully reachable through their existing flow fallback.
+- **Accessible controls.** Compact 32px controls apply only on desktop with a fine primary pointer and no available coarse pointer. Touchscreens, including hybrid mouse/touch laptops, retain at least 44×44px targets. Native slider hit boxes remain 44px on every device. Preserve visible labels, focus, tooltips, keyboard behavior, stable readouts and reduced-motion support.
+- **Mobile preservation.** Desktop compaction must not shrink mobile/tablet touch targets or change the existing session and program panel behavior. Allow content to wrap and grow with long names, errors and enlarged text.
+- **Verify and document.** For UI changes, inspect populated screens at 1366×768, 1440×900 and 1920×1080, plus relevant mobile/tablet widths, 200% text and touch/hybrid input. Check overflow, density, body prominence and interaction regressions; do not rely on empty-state screenshots alone. Follow the project verification commands above. Change authoritative values in `style.css` first, then update `docs/design-system/README.md` in the same change.
+
 ## Purpose
 
 A simple interface for building gym session templates. While the user builds a session, they see the **training volume per muscle group** update in real time.
