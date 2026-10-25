@@ -1,4 +1,12 @@
 import { MUSCLE_GROUPS } from './muscles.js';
+import { DURATION_LIMITS } from './duration.js';
+
+export function timingError(value,key) {
+  const {min,max,step}=DURATION_LIMITS[key];
+  const label={restSeconds:'Rest per set',extraMinutes:'Extra time',bufferPercent:'Buffer'}[key];
+  return Number.isInteger(value)&&value>=min&&value<=max&&value%step===0?null:
+    label+' must be a whole number from '+min+' to '+max+' in steps of '+step+'.';
+}
 
 /** Allowed values for the number sliders; also enforced on import. */
 export const LIMITS = Object.freeze({
@@ -34,6 +42,10 @@ export function validateExercise(ex) {
 
   if (!isCount(ex.sets, LIMITS.sets)) {
     errors.sets = `Sets must be a whole number from ${LIMITS.sets.min} to ${LIMITS.sets.max}.`;
+  }
+  if(Object.hasOwn(ex,'restSeconds')) {
+    const error=timingError(ex.restSeconds,'restSeconds');
+    if(error) errors.restSeconds=error;
   }
 
   const { min, max } = ex.repRange;

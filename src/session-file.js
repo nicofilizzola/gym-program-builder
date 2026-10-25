@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { GOAL_RULE, validateExercise, validateGoal } from './validate.js';
+import { GOAL_RULE, validateExercise, validateGoal, timingError } from './validate.js';
 
 /** @typedef {import('./volume.js').Exercise} Exercise */
 /** @typedef {{ exercises: Exercise[], goals: Partial<Record<string, number>> }} Session */
@@ -9,10 +9,12 @@ const isStringList = (v) => Array.isArray(v) && v.every((item) => typeof item ==
 const inMuscleOrder = (muscles) => MUSCLE_GROUPS.filter((muscle) => muscles.includes(muscle));
 
 /** Copy only the known exercise keys, so nothing extra is written or kept. */
-function cleanExercise({ name, sets, repRange, primaryMuscles, secondaryMuscles }) {
+function cleanExercise(ex) {
+  const {name,sets,repRange,primaryMuscles,secondaryMuscles}=ex;
   return {
     name,
     sets,
+    ...(Object.hasOwn(ex,'restSeconds')?{restSeconds:ex.restSeconds}:{}),
     repRange: { min: repRange.min, max: repRange.max },
     primaryMuscles: inMuscleOrder(primaryMuscles),
     secondaryMuscles: inMuscleOrder(secondaryMuscles),
@@ -34,6 +36,7 @@ export function serializeSession(session) {
     version: 1,
     exercises: session.exercises.map(cleanExercise),
     goals: cleanGoals(session.goals),
+    ...cleanAllowances(session),
   }, null, 2);
 }
 
@@ -53,7 +56,11 @@ function exerciseError(ex) {
     if (twice !== undefined) return `"${twice}" is listed twice.`;
   }
   const errors = validateExercise(ex);
-  return errors.name ?? errors.sets ?? errors.repRange ?? errors.muscles ?? null;
+  return errors.name ?? errors.sets ?? errors.restSeconds ?? errors.repRange ?? errors.muscles ?? null;
+}
+
+function cleanAllowances(value) {
+  return Object.fromEntries(['extraMinutes','bufferPercent'].filter(key=>Object.hasOwn(value,key)).map(key=>[key,value[key]]));
 }
 
 /**
@@ -84,8 +91,11 @@ export function parseSession(text) {
       return { error: `Goal for ${muscle} ${GOAL_RULE}` };
     }
   }
+  for(const [key,value] of Object.entries(cleanAllowances(data))) {
+    const error=timingError(value,key);if(error)return {error};
+  }
 
-  return { session: { exercises: data.exercises.map(cleanExercise), goals: cleanGoals(data.goals) } };
+  return { session: { exercises: data.exercises.map(cleanExercise), goals: cleanGoals(data.goals),...cleanAllowances(data) } };
 }
 
 /**

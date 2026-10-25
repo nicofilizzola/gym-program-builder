@@ -14,7 +14,9 @@ export function parseDocument(text,{makeId=()=>crypto.randomUUID()}={}) {
   try {data=JSON.parse(text);} catch {return {error:'File is not valid JSON.'};}
   if(data?.version===1) {
     const result=parseSession(text);
-    return result.error?result:{kind:'template',document:{name:'Imported session template',...result.session}};
+    if(result.error)return result;
+    const validated=validateDocument('template',{name:'Imported session template',...result.session});
+    return validated.error?validated:{kind:'template',document:validated.document};
   }
   if(data?.version!==2) return {error:'Unsupported file version.'};
   if(!['template','program'].includes(data.kind)) return {error:'Unknown document kind.'};

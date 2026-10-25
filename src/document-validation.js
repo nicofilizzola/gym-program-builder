@@ -1,5 +1,6 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { LIMITS, validateExercise, validateGoalFor } from './validate.js';
+import { LIMITS, validateExercise, validateGoalFor, timingError } from './validate.js';
+import { normalizeWorkoutTiming } from './duration.js';
 
 const object = value => value !== null && typeof value==='object' && !Array.isArray(value);
 const fail = message => { throw new Error(message); };
@@ -18,7 +19,11 @@ function name(value,draft) {
 }
 function workout(value,draft) {
   if(!object(value)||!Array.isArray(value.exercises)) fail('Invalid session template format.');
+  value=normalizeWorkoutTiming(value);
   const title=name(value.name,draft);
+  for(const key of ['extraMinutes','bufferPercent']) {
+    const error=timingError(value[key],key);if(error)fail(error);
+  }
   const exercises=value.exercises.map((ex,i)=>{
     try {
       if(!object(ex)||typeof ex.name!=='string'||!object(ex.repRange)) fail('Invalid exercise format.');
@@ -31,10 +36,10 @@ function workout(value,draft) {
       const errors=validateExercise(ex);
       if(draft) {delete errors.name;if(ex.primaryMuscles.length===0) delete errors.muscles;}
       if(Object.keys(errors).length) fail(Object.values(errors)[0]);
-      return {name:ex.name,sets:ex.sets,repRange:{min:ex.repRange.min,max:ex.repRange.max},primaryMuscles:MUSCLE_GROUPS.filter(m=>ex.primaryMuscles.includes(m)),secondaryMuscles:MUSCLE_GROUPS.filter(m=>ex.secondaryMuscles.includes(m))};
+      return {name:ex.name,sets:ex.sets,restSeconds:ex.restSeconds,repRange:{min:ex.repRange.min,max:ex.repRange.max},primaryMuscles:MUSCLE_GROUPS.filter(m=>ex.primaryMuscles.includes(m)),secondaryMuscles:MUSCLE_GROUPS.filter(m=>ex.secondaryMuscles.includes(m))};
     } catch(error) {fail(`Exercise ${i+1}: ${error.message}`);}
   });
-  return {name:title,exercises,goals:goals(value.goals,LIMITS.goal)};
+  return {name:title,exercises,goals:goals(value.goals,LIMITS.goal),extraMinutes:value.extraMinutes,bufferPercent:value.bufferPercent};
 }
 export function validateDocument(kind,value,{draft=false}={}) {
   try {
