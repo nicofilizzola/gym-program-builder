@@ -1,34 +1,22 @@
 import {test,expect} from '@playwright/test';
 async function login(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();}
-test('catalog supports named families, same-mapping variants, edits and archive recovery',async({page})=>{
+
+async function createVariant(page,name,equipment='Barbell'){
+ await page.getByRole('button',{name:'New reference exercise',exact:true}).click();
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Reference exercise name',{exact:true}).fill(name+' reference');await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await page.locator('.reference-group').filter({has:page.getByText(name+' reference',{exact:true})}).getByRole('button',{name:'Add variant',exact:true}).click();
+ await dialog.getByLabel('Variant name',{exact:true}).fill(name);await dialog.getByLabel('Equipment',{exact:true}).selectOption(equipment);await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toHaveCount(0);
+}
+test('catalog supports references, same-mapping variants, edits and archive recovery',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Exercise catalog',exact:true})).toBeVisible();
- const name='Test press '+Date.now();
- await page.getByRole('button',{name:'New exercise',exact:true}).click();
- const dialog=page.getByRole('dialog');
- await dialog.getByLabel('Exercise name',{exact:true}).fill(name);
- await dialog.getByLabel('New family name',{exact:true}).fill('Test family '+name);
- await dialog.getByLabel('Equipment',{exact:true}).selectOption('Dumbbell');
- await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();
- await dialog.getByRole('button',{name:'Save exercise',exact:true}).click();
- await expect(dialog).toHaveCount(0);
- await page.getByLabel('Search catalog',{exact:true}).fill(name);
+ const name='Test press '+Date.now();await createVariant(page,name,'Dumbbell');const dialog=page.getByRole('dialog');await page.getByLabel('Search catalog',{exact:true}).fill(name);
  const row=page.locator('.catalog-row').filter({has:page.getByText(name,{exact:true})});
- await row.getByRole('button',{name:'Create variant',exact:true}).click();
- await dialog.getByLabel('Exercise name',{exact:true}).fill(name+' variant');
- await dialog.getByRole('button',{name:'Save variant',exact:true}).click();
- await expect(page.locator('.catalog-row')).toHaveCount(2);
- await row.getByRole('button',{name:'Edit exercise',exact:true}).click();
- await expect(dialog).toContainText('Changes apply to every workout using this exercise.');
- await dialog.getByLabel('Exercise name',{exact:true}).fill(name+' corrected');
- await dialog.getByRole('button',{name:'Save changes',exact:true}).click();
- const edited=page.locator('.catalog-row').filter({has:page.getByText(name+' corrected',{exact:true})});
- await edited.getByRole('button',{name:'Archive',exact:true}).click();
- await expect(page.locator('.catalog-row')).toHaveCount(1);
- await page.getByLabel('Show archived',{exact:true}).check();
- await edited.getByRole('button',{name:'Restore',exact:true}).click();
- await expect(edited).not.toContainText('Archived');
+ await row.getByRole('button',{name:'Variant actions for '+name,exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();await dialog.getByLabel('Variant name',{exact:true}).fill(name+' variant');await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(page.locator('.catalog-row:visible')).toHaveCount(2);
+ await row.getByRole('button',{name:'Variant actions for '+name,exact:true}).click();await page.getByRole('button',{name:'Edit variant',exact:true}).click();await expect(dialog).toContainText('Changes apply to every workout using this exercise.');await dialog.getByLabel('Variant name',{exact:true}).fill(name+' corrected');await dialog.getByRole('button',{name:'Save changes',exact:true}).click();
+ const edited=page.locator('.catalog-row').filter({has:page.getByText(name+' corrected',{exact:true})});await edited.getByRole('button',{name:'Variant actions for '+name+' corrected',exact:true}).click();await page.getByRole('button',{name:'Archive variant',exact:true}).click();await expect(page.locator('.catalog-row:visible')).toHaveCount(1);
+ await page.getByLabel('Show archived',{exact:true}).check();await edited.getByRole('button',{name:'Variant actions for '+name+' corrected',exact:true}).click();await page.getByRole('button',{name:'Restore variant',exact:true}).click();await expect(edited).not.toContainText('Archived');
 });
+
 test('a workout save acknowledgement preserves an open variant draft',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.fill('Barbell bench press');
@@ -37,9 +25,9 @@ test('a workout save acknowledgement preserves an open variant draft',async({pag
  await page.route('**/api/documents/'+id,async route=>{if(route.request().method()!=='PUT')return route.continue();const response=await route.fetch();committed=true;await new Promise(resolve=>{release=resolve;});await route.fulfill({response});});
  await page.getByLabel('Sets',{exact:true}).fill('5');await expect.poll(()=>committed).toBe(true);
  await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
- const dialog=page.getByRole('dialog');await dialog.getByLabel('Exercise name',{exact:true}).fill('Keep this draft');
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Variant name',{exact:true}).fill('Keep this draft');
  release();await expect(page.getByTestId('save-status')).toHaveText('Saved');
- await expect(dialog).toBeVisible();await expect(dialog.getByLabel('Exercise name',{exact:true})).toHaveValue('Keep this draft');
+ await expect(dialog).toBeVisible();await expect(dialog.getByLabel('Variant name',{exact:true})).toHaveValue('Keep this draft');
 });
 test('focus refresh never mistakes an unacknowledged own save for an external conflict',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
@@ -61,9 +49,7 @@ test('catalog mutations in the same tab revalidate a returning editor picker',as
  await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
  const workout='Cache workout '+Date.now(),name='Cache exercise '+Date.now();
  await page.getByLabel('Session template name').fill(workout);await page.getByRole('button',{name:'Add exercise',exact:true}).click();await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toBeVisible();await page.keyboard.press('Escape');
- await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByRole('button',{name:'New exercise',exact:true}).click();
- const dialog=page.getByRole('dialog');await dialog.getByLabel('Exercise name',{exact:true}).fill(name);await dialog.getByLabel('New family name',{exact:true}).fill(name);
- await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('button',{name:'Save exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await createVariant(page,name);
  await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:workout,exact:true}).click();await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
  await page.getByRole('combobox',{name:'Exercise',exact:true}).fill(name);await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toContainText(name);
 });
@@ -82,7 +68,7 @@ test('export refuses a catalog definition changed after the editor was opened',a
 test('failed usage preview blocks shared edits until the preview can be retried',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
  await page.route('**/api/catalog/*/impact',route=>route.fulfill({status:503,json:{error:{message:'Usage unavailable'}}}));
- await page.locator('.catalog-row').first().getByRole('button',{name:'Edit exercise',exact:true}).click();
+ await page.locator('.reference-toggle').first().click();await page.locator('.catalog-row:visible').first().getByRole('button',{name:/^Variant actions/}).click();await page.getByRole('button',{name:'Edit variant',exact:true}).click();
  const dialog=page.getByRole('dialog');await expect(dialog).toContainText('Usage unavailable');await expect(dialog.getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();
  await page.unroute('**/api/catalog/*/impact');await dialog.getByRole('button',{name:'Retry usage preview',exact:true}).click();
  await expect(dialog.getByRole('button',{name:'Save changes',exact:true})).toBeEnabled();
@@ -106,7 +92,7 @@ test('picker retry is idempotent after a committed variant response is lost',asy
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();
  const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.fill('Barbell bench press');await input.press('ArrowDown');await input.press('Enter');
  await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
- const name='Retry variant '+Date.now(),dialog=page.getByRole('dialog');await dialog.getByLabel('Exercise name',{exact:true}).fill(name);
+ const name='Retry variant '+Date.now(),dialog=page.getByRole('dialog');await dialog.getByLabel('Variant name',{exact:true}).fill(name);
  let lost=false;
  await page.route('**/api/catalog',async route=>{if(route.request().method()==='POST'&&!lost){lost=true;await route.fetch();await route.fulfill({status:503,json:{error:{message:'Response lost'}}});}else await route.continue();});
  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toContainText('Response lost');
@@ -155,7 +141,7 @@ test('in-card autocomplete explicitly selects definitions and creates an indepen
  await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
  await expect(page.locator('.linked-exercise-name')).toHaveText('Barbell bench press');
  await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
- const variant='My bench '+Date.now();await page.getByRole('dialog').getByLabel('Exercise name',{exact:true}).fill(variant);
+ const variant='My bench '+Date.now();await page.getByRole('dialog').getByLabel('Variant name',{exact:true}).fill(variant);
  await page.getByRole('dialog').getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Front delts',{exact:true}).check();
  await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).click();
  await expect(page.locator('.linked-exercise-name')).toHaveText(variant);await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('5');

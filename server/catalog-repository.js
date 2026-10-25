@@ -18,7 +18,7 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
  async function write(fn){const tx=await db.transaction('write');try{const v=await fn(tx);await tx.commit();return v;}finally{tx.close();}}
  async function unique(tx,familyId,name,except=''){
   const rows=await tx.execute({sql:'SELECT id,name FROM catalog_entries WHERE family_id=? AND id<>?',args:[familyId,except]});
-  if(rows.rows.some(e=>normalizeSearch(e.name)===normalizeSearch(name)))throw domainError('CONFLICT','An entry with this name already exists in this family, possibly archived.');
+  if(rows.rows.some(e=>normalizeSearch(e.name)===normalizeSearch(name)))throw domainError('CONFLICT','A variant with this name already exists in this reference exercise, possibly archived. Choose a distinct variant name.');
  }
  return {
   createReference:references.create,getReference:references.get,updateReference:references.update,archiveReference:references.archive,renameFamily:references.update,

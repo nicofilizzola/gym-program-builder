@@ -217,3 +217,10 @@ In-card autocomplete keeps the Exercise field and equipment filter in normal key
 Catalog forms use native modal dialogs, at most 680px wide, with 16px viewport clearance and reachable sticky actions. Primary and secondary muscle chips are side by side when room permits and stack on mobile. Linked session definitions are read-only; Create variant and catalog edits explicitly explain their scope. All touch/hybrid actions remain at least 44px; fine-pointer desktop may use existing 32px controls and 28px muscle chips.
 
 Catalog page titles use the compact 24px heading scale. Search inputs share text-input surfaces, focus rings and the same 32px fine-pointer desktop / 44px touch sizing. Suggestion popovers reserve visible application and program navigation space and anchor outside the complete picker controls, so they do not cover the equipment filter or navigation actions.
+
+### Reference exercise groups
+
+The catalog groups selectable variants beneath named reference exercises. Group headers use body typography, a native disclosure button with an 18px chevron, active/archive counts, Add variant and a separate reference actions control. Headers begin collapsed; search temporarily expands matching groups. Child rows use a 26px desktop indent, 12px inner padding and a subtle left rule; mobile uses 8px and 10px. Reference-name case is preserved. All stateful disclosure controls expose aria-expanded/aria-controls.
+
+Reference create/edit forms contain only a name. Variant forms identify their fixed reference when scoped. Move dialogs show source, destination and affected-workout counts. Reference and variant action menus use the existing top-layer popover style. Focus returns to logical controls after rerendering; archive origin is described as text, and touch/hybrid controls remain 44px.
+Grouped autocomplete uses labeled reference groups with nonselectable headings and indented option rows. Its eight-result cap counts variants only; keyboard order follows the rendered groups, and active selection is retained by stable variant ID during refresh. Equipment, New variant and Cancel selection remain outside the listbox in document focus order.
