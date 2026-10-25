@@ -23,6 +23,14 @@ export function createApi({repository,catalog,auth,origin,clientIp=()=> 'local'}
       }
       if(!await auth.session(request.headers.get('cookie')))throw domainError('UNAUTHORIZED','Sign in to continue.');
       if(path[0]==='catalog'&&catalog){
+        if(path[1]==='references'){
+          if(path.length===2&&method==='POST')return respond({reference:await catalog.createReference(await body(request))},201);
+          if(path.length===3&&method==='GET')return respond({reference:await catalog.getReference(path[2])});
+          if(path.length===3&&method==='PUT')return respond({reference:await catalog.updateReference({...await body(request),id:path[2]})});
+          if(path.length===4&&path[3]==='archive'&&method==='PUT')return respond({reference:await catalog.archiveReference({...await body(request),id:path[2]})});
+          throw domainError('METHOD','Method not allowed.');
+        }
+        if(path.length===3&&path[2]==='reference'&&method==='PUT')return respond({entry:await catalog.move({...await body(request),id:path[1]})});
         if(path.length===1&&method==='GET')return respond(await catalog.list());
         if(path.length===1&&method==='POST')return respond({entry:await catalog.create(await body(request))},201);
         if(path.length===3&&path[1]==='families'&&method==='PUT')return respond({family:await catalog.renameFamily({...await body(request),id:path[2]})});
