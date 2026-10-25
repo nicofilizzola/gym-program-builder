@@ -6,6 +6,7 @@ import {createTemplate,createProgram,duplicateProgram} from './program.js';
 import {parseRoute} from './router.js';
 import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
+import {mountCatalog} from './catalog-view.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -131,6 +132,7 @@ async function renderRoute(version=++routeVersion){
  }finally{idle(version);}
 }
 async function prepareRoute(route,version){
+ if(route.view==='catalog')return ()=>{mounted=mountCatalog(createViewHost(),{api});};
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.id)return prepareRecord(await api.get(route.id));
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);

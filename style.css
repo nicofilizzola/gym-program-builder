@@ -1,4 +1,5 @@
 :root {
+  --catalog-overlay-width: 520px;
   --bg: #0e131a;
   --surface: #171e28;
   --surface-2: #1f2834;
@@ -1601,3 +1602,38 @@ button:disabled {opacity:.5;cursor:default}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
   .workout-item .workout-action {width:32px;height:32px;min-width:32px;min-height:32px;flex-basis:32px}
 }
+
+/* Exercise catalog: compact definitions and explicit shared-edit forms. */
+.catalog-page {margin:0 auto;padding:20px 24px;max-width:1600px}
+.catalog-header,.catalog-toolbar,.catalog-row-actions,.catalog-form-actions,.catalog-recovery {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.catalog-header {justify-content:space-between;margin-bottom:16px}
+.catalog-header h1 {margin:0}
+.catalog-header>.add-btn {width:auto}
+.catalog-intro,.catalog-meta,.catalog-mapping {color:var(--muted);margin:4px 0 0}
+.catalog-toolbar {align-items:end;margin-bottom:12px}
+.catalog-toolbar>.field:first-child {flex:1;min-width:min(260px,100%)}
+.catalog-toolbar>.field {min-width:160px}
+.catalog-archived {display:flex;align-items:center;gap:8px;min-height:44px}
+.catalog-archived input {width:20px;height:20px;accent-color:var(--accent)}
+.catalog-list {border-top:1px solid var(--border)}
+.catalog-row {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);align-items:center}
+.catalog-definition {min-width:0;overflow-wrap:anywhere}
+.catalog-row h2 {font:600 1rem var(--font-body);margin:0}
+.catalog-meta,.catalog-mapping {font-size:.875rem}
+.catalog-row-actions {justify-content:end}
+.catalog-dialog {background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);width:min(680px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:20px;overflow-y:auto}
+.catalog-dialog::backdrop {background:rgba(0,0,0,.6)}
+.catalog-dialog h2 {margin:0;font-size:1.5rem}
+.catalog-dialog form {display:grid;gap:12px;min-width:0}
+.catalog-dialog form>p {margin:0}
+.catalog-muscles {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.catalog-muscles fieldset {min-width:0;border:0;margin:0;padding:0}
+.catalog-muscles legend {font-weight:600;margin-bottom:8px}
+.catalog-muscles .chips {display:flex;gap:6px;flex-wrap:wrap}
+.catalog-muscles .chip span {min-height:44px;display:inline-flex;align-items:center}
+.catalog-form-actions {position:sticky;bottom:-20px;background:var(--surface);padding:12px 0;margin-bottom:0;justify-content:end;border-top:1px solid var(--border)}
+.catalog-form-actions .add-btn {width:auto}
+.catalog-dialog select,.catalog-toolbar select {max-width:100%;min-height:44px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:inherit}
+@media (max-width:1000px) {.catalog-row {grid-template-columns:minmax(0,1fr)}.catalog-row-actions {justify-content:start}}
+@media (max-width:760px) {.catalog-page {padding:16px}.catalog-toolbar>.field {flex:1;min-width:100%}.catalog-muscles {grid-template-columns:minmax(0,1fr)}.catalog-dialog {padding:16px}.catalog-form-actions {bottom:-16px}.catalog-row-actions>button {flex:1}}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.catalog-dialog select,.catalog-toolbar select {min-height:32px}.catalog-muscles .chip span {min-height:28px}.catalog-meta,.catalog-mapping {font-size:.8125rem}.catalog-archived {min-height:32px}}

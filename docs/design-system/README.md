@@ -207,3 +207,9 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 - Coarse-pointer targets, including chips, are at least 44?44px. Fine-pointer desktop controls may be 32px; compact chips are 28px. Native slider hit boxes remain 44px on every device.
 - Icon-only buttons have `aria-label`; decorative SVGs are `aria-hidden`.
 - Heat is always backed by a number; highlights are backed by a text tag.
+
+### Exercise catalog
+
+Exercise catalog uses the existing dark surfaces, Barlow type, orange focus/action accent and compact controls. Definitions appear in ruled rows with name, family/equipment and primary/secondary mappings; actions wrap below on narrower screens. Search and equipment filters have visible labels. Archived entries can be shown and restored.
+
+Catalog forms use native modal dialogs, at most 680px wide, with 16px viewport clearance and reachable sticky actions. Primary and secondary muscle chips are side by side when room permits and stack on mobile. Linked session definitions are read-only; Create variant and catalog edits explicitly explain their scope. All touch/hybrid actions remain at least 44px; fine-pointer desktop may use existing 32px controls and 28px muscle chips.
