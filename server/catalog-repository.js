@@ -1,6 +1,8 @@
-import {validateCatalogEntry,snapshotExercise,normalizeSearch} from '../src/catalog.js';
+import {validateCatalogEntry,normalizeSearch} from '../src/catalog.js';
 import {domainError} from './repository.js';
 import {createReferenceRepository,readReference,referenceName} from './reference-repository.js';
+import {catalogImpact,propagateCatalogEntry} from './catalog-propagation.js';
+export {documentExercises} from './catalog-propagation.js';
 export const catalogRow=row=>({id:row.id,familyId:row.family_id,familyName:row.family_name,name:row.name,equipment:row.equipment,primaryMuscles:JSON.parse(row.primary_json),secondaryMuscles:JSON.parse(row.secondary_json),revision:Number(row.revision),archived:Boolean(row.archived||row.reference_archived),individuallyArchived:Boolean(row.archived),referenceArchived:Boolean(row.reference_archived),createdAt:row.created_at,updatedAt:row.updated_at});
 export const catalogSelect='SELECT e.*,f.name AS family_name,f.archived AS reference_archived FROM catalog_entries e JOIN catalog_families f ON f.id=e.family_id';
 export async function readCatalogEntry(tx,id) {
@@ -8,15 +10,12 @@ export async function readCatalogEntry(tx,id) {
  if(!r.rows.length)throw domainError('NOT_FOUND','Exercise not found.');
  return catalogRow(r.rows[0]);
 }
-export const documentExercises=document=>(document.workouts?document.workouts.flatMap(w=>w.exercises):document.exercises);
 export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}) {
  const validate=value=>{const r=validateCatalogEntry(value);if(r.error)throw domainError('INVALID',r.error);return r.entry;};
  const validId=id=>{if(typeof id!=='string'||!id||id.length>100)throw domainError('INVALID','Invalid catalog ID.');};
  const title=referenceName,references=createReferenceRepository(db);
  const checkRevision=(entry,revision)=>{if(!Number.isInteger(revision)||entry.revision!==revision)throw domainError('CONFLICT','This exercise changed. Reload the saved version or save your edits as a variant.');};
  async function write(fn){const tx=await db.transaction('write');try{const v=await fn(tx);await tx.commit();return v;}finally{tx.close();}}
- async function documents(tx){return (await tx.execute('SELECT id,revision,document_json FROM documents ORDER BY id')).rows.map(r=>({id:r.id,revision:Number(r.revision),document:JSON.parse(r.document_json)}));}
- async function usage(tx,id){return (await documents(tx)).map(r=>({id:r.id,revision:r.revision,count:documentExercises(r.document).filter(ex=>ex.catalogId===id).length})).filter(r=>r.count);}
  async function unique(tx,familyId,name,except=''){
   const rows=await tx.execute({sql:'SELECT id,name FROM catalog_entries WHERE family_id=? AND id<>?',args:[familyId,except]});
   if(rows.rows.some(e=>normalizeSearch(e.name)===normalizeSearch(name)))throw domainError('CONFLICT','An entry with this name already exists in this family, possibly archived.');
@@ -40,21 +39,35 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
     return readCatalogEntry(tx,id);
    });
   },
-  async impact(id){await readCatalogEntry(db,id);return usage(db,id);},
+  async impact(id){await readCatalogEntry(db,id);return catalogImpact(db,id);},
   async update({id,revision,entry,impact}) {
    const clean=validate(entry);
    return write(async tx=>{
     const old=await readCatalogEntry(tx,id);checkRevision(old,revision);
-    if(!Array.isArray(impact)||JSON.stringify(impact)!==JSON.stringify(await usage(tx,id)))throw domainError('CONFLICT','Affected workouts changed. Refresh the usage preview before saving.');
+    if(!Array.isArray(impact)||JSON.stringify(impact)!==JSON.stringify(await catalogImpact(tx,id)))throw domainError('CONFLICT','Affected workouts changed. Refresh the usage preview before saving.');
     await unique(tx,old.familyId,clean.name,id);const stamp=now();
     await tx.execute({sql:'UPDATE catalog_entries SET name=?,equipment=?,primary_json=?,secondary_json=?,revision=revision+1,updated_at=? WHERE id=?',args:[clean.name,clean.equipment,JSON.stringify(clean.primaryMuscles),JSON.stringify(clean.secondaryMuscles),stamp,id]});
     const next=await readCatalogEntry(tx,id);
-    for(const record of await documents(tx)){
-     let changed=false;
-     for(const ex of documentExercises(record.document))if(ex.catalogId===id){Object.assign(ex,snapshotExercise(ex,next));changed=true;}
-     if(changed)await tx.execute({sql:'UPDATE documents SET document_json=?,revision=revision+1,updated_at=? WHERE id=?',args:[JSON.stringify(record.document),stamp,record.id]});
-    }
+    await propagateCatalogEntry(tx,next,stamp);
     return next;
+   });
+  },
+  async move({id,revision,destinationReferenceId,sourceReferenceRevision,destinationReferenceRevision,impact}){
+   validId(destinationReferenceId);
+   return write(async tx=>{
+    const old=await readCatalogEntry(tx,id);
+    if(Number.isInteger(revision)&&old.revision===revision+1&&old.familyId===destinationReferenceId)return old;
+    checkRevision(old,revision);
+    if(old.familyId===destinationReferenceId)throw domainError('INVALID','Choose another reference exercise.');
+    const source=await readReference(tx,old.familyId),destination=await readReference(tx,destinationReferenceId);
+    if(destination.archived)throw domainError('INVALID','Choose an active destination reference exercise.');
+    if(source.revision!==sourceReferenceRevision||destination.revision!==destinationReferenceRevision)throw domainError('CONFLICT','A reference exercise changed. Reload the move preview.');
+    if(!Array.isArray(impact)||JSON.stringify(impact)!==JSON.stringify(await catalogImpact(tx,id)))throw domainError('CONFLICT','Affected workouts changed. Refresh the usage preview before moving.');
+    await unique(tx,destinationReferenceId,old.name);
+    const stamp=now();
+    await tx.execute({sql:'UPDATE catalog_entries SET family_id=?,archived=?,revision=revision+1,updated_at=? WHERE id=?',args:[destinationReferenceId,old.archived?1:0,stamp,id]});
+    for(const ref of [source,destination])await tx.execute({sql:'UPDATE catalog_families SET revision=revision+1 WHERE id=?',args:[ref.id]});
+    const next=await readCatalogEntry(tx,id);await propagateCatalogEntry(tx,next,stamp);return next;
    });
   },
   async archive({id,revision,archived}){

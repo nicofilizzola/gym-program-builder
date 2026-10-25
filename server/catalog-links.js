@@ -1,5 +1,6 @@
 import {snapshotExercise} from '../src/catalog.js';
-import {readCatalogEntry,documentExercises} from './catalog-repository.js';
+import {readCatalogEntry} from './catalog-repository.js';
+import {documentExercises} from './catalog-propagation.js';
 import {domainError} from './repository.js';
 export async function resolveCatalogLinks(tx,document,{previous}={}) {
  const allowed=new Map();
@@ -15,7 +16,6 @@ export async function resolveCatalogLinks(tx,document,{previous}={}) {
    if(!copied)throw domainError('INVALID','Copy source does not contain this catalog exercise.');
   }
   if(entry.archived){const remaining=allowed.get(entry.id)||0;if(!remaining&&!copied)throw domainError('INVALID','Archived exercises cannot be newly selected. Choose an active exercise or create a variant.');if(remaining)allowed.set(entry.id,remaining-1);}
-  if(ex.familyId!==entry.familyId)throw domainError('INVALID','Exercise family does not match its catalog entry.');
   Object.assign(ex,snapshotExercise(ex,entry));
   delete ex.catalogCopyOf;
  }
