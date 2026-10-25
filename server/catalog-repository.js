@@ -22,7 +22,15 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
  }
  return {
   createReference:references.create,getReference:references.get,updateReference:references.update,archiveReference:references.archive,renameFamily:references.update,
-  async list(){const [entries,families]=await Promise.all([db.execute(catalogSelect+' ORDER BY e.name,e.id'),db.execute('SELECT id,name,revision,archived FROM catalog_families ORDER BY name,id')]);return {entries:entries.rows.map(catalogRow),families:families.rows.map(f=>({...f,revision:Number(f.revision),archived:Boolean(f.archived)}))};},
+  async list(){
+   const tx=await db.transaction('read');
+   try{
+    const entries=await tx.execute(catalogSelect+' ORDER BY e.name,e.id');
+    const families=await tx.execute('SELECT id,name,revision,archived FROM catalog_families ORDER BY name,id');
+    await tx.commit();
+    return {entries:entries.rows.map(catalogRow),families:families.rows.map(f=>({...f,revision:Number(f.revision),archived:Boolean(f.archived)}))};
+   }finally{tx.close();}
+  },
   async create({id,familyId,familyName,entry,referenceRevision}) {
    validId(id);validId(familyId);const clean=validate(entry);
    return write(async tx=>{

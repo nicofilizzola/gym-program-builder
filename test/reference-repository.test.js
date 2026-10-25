@@ -68,3 +68,29 @@ test('child mutations invalidate reference previews and seed reruns retain refer
  await c.archiveReference({id:seeded.id,revision:seeded.revision,archived:true});await seedCatalog(db);
  assert.equal((await c.getReference(seeded.id)).archived,true);
 });
+test('archive previews never combine old children with a newer reference revision',async t=>{
+ const {db,c}=await setup(t);await c.create({id:'a',familyId:'r',familyName:'Press',entry:definition});
+ let applied=false,pending=false,signal;
+ const written=new Promise(resolve=>{signal=resolve;});
+ const add=async()=>{if(applied)return;await c.create({id:'b',familyId:'r',entry:{...definition,name:'Concurrent child'}});applied=true;signal();};
+ const sqlOf=value=>typeof value==='string'?value:value.sql;
+ const intercepted={
+  async execute(statement){
+   const sql=sqlOf(statement);
+   if(sql.startsWith('SELECT id,name,revision,archived FROM catalog_families'))await written;
+   const result=await db.execute(statement);
+   if(sql.startsWith('SELECT e.*,f.name'))await add();
+   return result;
+  },
+  async transaction(mode){
+   const tx=await db.transaction(mode);
+   return {execute:async statement=>{const result=await tx.execute(statement);if(sqlOf(statement).startsWith('SELECT e.*,f.name'))pending=true;return result;},commit:async()=>{await tx.commit();if(pending)await add();},close:()=>tx.close()};
+  }
+ };
+ const preview=await createCatalogRepository(intercepted).list();
+ if(!applied)await add();
+ const ref=preview.families.find(r=>r.id==='r'),count=preview.entries.filter(e=>e.familyId==='r').length;
+ assert.ok((count===1&&ref.revision===2)||(count===2&&ref.revision===3),'Preview children and parent revision must describe the same committed state.');
+ if(count===1)await assert.rejects(c.archiveReference({id:'r',revision:ref.revision,archived:true}),{code:'CONFLICT'});
+ else assert.equal((await c.archiveReference({id:'r',revision:ref.revision,archived:true})).archived,true);
+});

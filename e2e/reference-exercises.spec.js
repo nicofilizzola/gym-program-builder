@@ -25,6 +25,36 @@ test('reference CRUD creates empty groups and preserves separate child archives 
  await page.getByRole('dialog').getByLabel('Reference exercise name',{exact:true}).fill(name+' renamed');await page.getByRole('dialog').getByRole('button',{name:'Save reference exercise',exact:true}).click();
  await page.getByLabel('Search catalog',{exact:true}).fill(name+' renamed');await expect(group(page,name+' renamed')).toHaveCount(1);
 });
+for(const mode of ['add','clone']){
+ test('stale '+mode+' variant drafts refresh their reference without losing fields',async({page})=>{
+  await login(page);
+  const fixture=await page.evaluate(async()=>{
+   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),reference=await api.createReference({id:crypto.randomUUID(),name:'Refresh target '+crypto.randomUUID()});
+   const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:reference.id,entry:{name:'Original '+crypto.randomUUID(),equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
+   return {reference,entry};
+  });
+  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill(fixture.reference.name);
+  const ref=group(page,fixture.reference.name);
+  if(mode==='add')await ref.getByRole('button',{name:'Add variant',exact:true}).click();
+  else{await ref.getByRole('button',{name:'Variant actions for '+fixture.entry.name,exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();}
+  const name='Preserved '+mode+' '+Date.now(),dialog=page.getByRole('dialog');
+  await dialog.getByLabel('Variant name',{exact:true}).fill(name);await dialog.getByLabel('Equipment',{exact:true}).selectOption('Dumbbell');
+  await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('group',{name:'Secondary muscles',exact:true}).getByLabel('Triceps',{exact:true}).check();
+  await page.evaluate(async id=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().createCatalog({id:crypto.randomUUID(),familyId:id,entry:{name:'Another '+crypto.randomUUID(),equipment:'Cable',primaryMuscles:['Lats'],secondaryMuscles:[]}});},fixture.reference.id);
+  const createdIds=[];page.on('request',r=>{if(r.url().endsWith('/api/catalog')&&r.method()==='POST')createdIds.push(r.postDataJSON().id);});
+  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toContainText('changed');
+  await dialog.getByRole('button',{name:'Refresh reference exercise',exact:true}).click();
+  await expect(dialog.getByLabel('Variant name',{exact:true})).toHaveValue(name);await expect(dialog.getByLabel('Equipment',{exact:true})).toHaveValue('Dumbbell');await expect(dialog.getByRole('group',{name:'Secondary muscles',exact:true}).getByLabel('Triceps',{exact:true})).toBeChecked();
+  if(mode==='add'){
+   const changeArchive=async archived=>page.evaluate(async({id,archived})=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),r=await api.getReference(id);await api.archiveReference({id,revision:r.revision,archived});},{id:fixture.reference.id,archived});
+   await changeArchive(true);await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toContainText('Restore the reference exercise first.');
+   await dialog.getByRole('button',{name:'Refresh reference exercise',exact:true}).click();await expect(dialog.getByRole('button',{name:'Save variant',exact:true})).toBeDisabled();
+   await changeArchive(false);await dialog.getByRole('button',{name:'Refresh reference exercise',exact:true}).click();await expect(dialog.getByRole('button',{name:'Save variant',exact:true})).toBeEnabled();await expect(dialog.getByLabel('Variant name',{exact:true})).toHaveValue(name);
+  }
+  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toHaveCount(0);
+  expect(createdIds.length).toBe(mode==='add'?3:2);expect(new Set(createdIds).size).toBe(1);await expect(ref.getByText(name,{exact:true})).toBeVisible();
+ });
+}
 test('move collisions preserve the destination and lost move responses retry once',async({page})=>{
  await login(page);
  const fixture=await page.evaluate(async()=>{

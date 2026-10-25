@@ -9,7 +9,10 @@ export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=
  document.body.append(dialog);
  const referenceLabel=document.createElement('p');referenceLabel.className='catalog-meta';dialog.querySelector('[data-description]').after(referenceLabel);
  const form=dialog.querySelector('form'),fields=form.elements,error=dialog.querySelector('[data-error]'),save=form.querySelector('[type=submit]'),recovery=dialog.querySelector('.catalog-recovery');
- let current=entry,operation=mode,id=crypto.randomUUID(),newFamilyId=crypto.randomUUID(),impact=[],saving=false,closed=false,usageReady=false;
+ let current=entry,operation=mode,id=crypto.randomUUID(),newFamilyId=crypto.randomUUID(),impact=[],saving=false,closed=false,usageReady=false,refreshingReference=false;
+ const targetReferenceId=()=>referenceId||(operation==='variant'?current?.familyId:fields.family.value);
+ const referenceUnavailable=()=>operation!=='edit'&&Boolean(targetReferenceId())&&!families.some(r=>r.id===targetReferenceId()&&!r.archived);
+ const updateSave=()=>{save.disabled=saving||refreshingReference||(operation==='edit'?!usageReady:referenceUnavailable());};
  const close=()=>{if(closed)return;closed=true;dialog.close();dialog.remove();if(onClosed)onClosed();else if(invoker?.isConnected)invoker.focus({preventScroll:true});};
  dialog.querySelector('[data-cancel]').onclick=close;dialog.addEventListener('cancel',event=>{event.preventDefault();if(!saving)close();});
  dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)if(!saving)close();}});
@@ -17,7 +20,7 @@ export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=
  fields.family.add(new Option('New reference exercise',''));
  for(const family of families.filter(r=>!r.archived))fields.family.add(new Option(family.name,family.id));
  const familyVisibility=()=>{dialog.querySelector('[data-new-family]').hidden=operation!=='create'||Boolean(referenceId)||Boolean(fields.family.value);};
- fields.family.onchange=familyVisibility;
+ fields.family.onchange=()=>{familyVisibility();updateSave();};
  for(const role of ['primary','secondary'])for(const muscle of MUSCLE_GROUPS){
   const label=document.createElement('label');label.className='chip';const input=document.createElement('input');input.type='checkbox';input.value=muscle;input.dataset.role=role;
   const text=document.createElement('span');text.textContent=muscle;label.append(input,text);dialog.querySelector('[data-role="'+role+'"] .chips').append(label);
@@ -36,6 +39,24 @@ export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=
   save.textContent=operation==='edit'?'Save changes':'Save variant';familyVisibility();
   referenceLabel.hidden=operation==='create'&&!referenceId;
   referenceLabel.textContent='Reference exercise: '+(families.find(r=>r.id===(referenceId||current?.familyId))?.name||current?.familyName||'');
+  updateSave();
+ }
+ async function refreshCreationReference(){
+  if(refreshingReference)return;
+  refreshingReference=true;updateSave();
+  try{
+   const selected=targetReferenceId(),data=await api.catalog();if(closed)return;
+   families=data.families;
+   if(referenceId)referenceRevision=families.find(r=>r.id===referenceId)?.revision;
+   fields.family.replaceChildren(new Option('New reference exercise',''));
+   for(const r of families.filter(r=>!r.archived||r.id===selected)){
+    const option=new Option(r.name+(r.archived?' (Archived)':''),r.id);option.disabled=r.archived;fields.family.add(option);
+   }
+   if(selected&&!families.some(r=>r.id===selected)){const option=new Option('Unavailable reference exercise',selected);option.disabled=true;fields.family.add(option);}
+   fields.family.value=selected||'';presentation();
+   error.textContent=referenceUnavailable()?'Restore the reference exercise first.':'';
+  }catch(e){if(!closed)error.textContent=e.message;}
+  finally{refreshingReference=false;if(!closed){recovery.replaceChildren(button('Refresh reference exercise',refreshCreationReference));updateSave();}}
  }
  async function preview(){
   if(operation!=='edit')return;
@@ -45,7 +66,8 @@ export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=
   finally{if(!closed)save.disabled=!usageReady;}
  }
  async function submit(event){
-  event.preventDefault();if(saving)return;
+  event.preventDefault();if(saving||refreshingReference)return;
+  if(referenceUnavailable()){error.textContent='Restore the reference exercise first.';recovery.replaceChildren(button('Refresh reference exercise',refreshCreationReference));return;}
   if(operation==='edit'&&!usageReady){error.textContent='Load the usage preview before saving shared changes.';return;}
   const definition={name:fields.exerciseName.value,equipment:fields.equipment.value,primaryMuscles:[],secondaryMuscles:[]};
   for(const input of dialog.querySelectorAll('input[type=checkbox]:checked'))definition[input.dataset.role==='primary'?'primaryMuscles':'secondaryMuscles'].push(input.value);
@@ -61,8 +83,9 @@ export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=
     recovery.append(button('Reload saved version',async()=>{try{const data=await api.catalog();if(closed)return;families=data.families;current=data.entries.find(e=>e.id===current.id);if(!current)throw Error('Exercise not found.');populate();error.textContent='';recovery.replaceChildren();await preview();}catch(err){error.textContent=err.message;}}));
     recovery.append(button('Save as variant',()=>{operation='variant';id=crypto.randomUUID();presentation();dialog.querySelector('[data-impact]').textContent='';error.textContent='Give this variant a distinct name, then save.';recovery.replaceChildren();fields.exerciseName.focus();}));
     recovery.append(button('Refresh usage preview',()=>{recovery.replaceChildren();error.textContent='';preview();}));
-   }else recovery.append(button('Retry',()=>form.requestSubmit()));
-  }finally{saving=false;if(!closed){save.disabled=operation==='edit'&&!usageReady;dialog.querySelector('[data-cancel]').disabled=false;}}
+   }else if(operation!=='edit'&&targetReferenceId()&&(e.status===409||e.status===400))recovery.append(button('Refresh reference exercise',refreshCreationReference));
+   else recovery.append(button('Retry',()=>form.requestSubmit()));
+  }finally{saving=false;if(!closed){updateSave();dialog.querySelector('[data-cancel]').disabled=false;}}
  }
  form.onsubmit=submit;populate();dialog.showModal();fields.exerciseName.focus();preview();
  return {destroy:close};
