@@ -1,6 +1,10 @@
 import {tooltipPosition} from './tooltip.js';
 
 const paths={
+ edit:'<path d="m15 4 5 5M4 20l5-1L20 8a3.5 3.5 0 0 0-5-5L4 14v6Z"/>',
+ archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M10 12h4"/>',
+ restore:'<path d="M4 10a8 8 0 1 1 1 8M4 4v6h6M12 8v5l3 2"/>',
+ move:'<path d="M4 6h12m-4-4 4 4-4 4M20 18H8m4-4-4 4 4 4"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
  import:'<path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/>',
  export:'<path d="M12 15V3M8 7l4-4 4 4M4 15v5h16v-5"/>',

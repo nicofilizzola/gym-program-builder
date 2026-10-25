@@ -4,17 +4,17 @@ async function login(page){await page.goto('/');await page.getByLabel('Password'
 async function createVariant(page,name,equipment='Barbell'){
  await page.getByRole('button',{name:'New reference exercise',exact:true}).click();
  const dialog=page.getByRole('dialog');await dialog.getByLabel('Reference exercise name',{exact:true}).fill(name+' reference');await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
- await page.locator('.reference-group').filter({has:page.getByText(name+' reference',{exact:true})}).getByRole('button',{name:'Add variant',exact:true}).click();
+ await page.locator('.reference-group').filter({has:page.getByText(name+' reference',{exact:true})}).getByRole('button',{name:'Add variant to '+name+' reference',exact:true}).click();
  await dialog.getByLabel('Variant name',{exact:true}).fill(name);await dialog.getByLabel('Equipment',{exact:true}).selectOption(equipment);await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toHaveCount(0);
 }
 test('catalog supports references, same-mapping variants, edits and archive recovery',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
  const name='Test press '+Date.now();await createVariant(page,name,'Dumbbell');const dialog=page.getByRole('dialog');await page.getByLabel('Search catalog',{exact:true}).fill(name);
  const row=page.locator('.catalog-row').filter({has:page.getByText(name,{exact:true})});
- await row.getByRole('button',{name:'Variant actions for '+name,exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();await dialog.getByLabel('Variant name',{exact:true}).fill(name+' variant');await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(page.locator('.catalog-row:visible')).toHaveCount(2);
- await row.getByRole('button',{name:'Variant actions for '+name,exact:true}).click();await page.getByRole('button',{name:'Edit variant',exact:true}).click();await expect(dialog).toContainText('Changes apply to every workout using this exercise.');await dialog.getByLabel('Variant name',{exact:true}).fill(name+' corrected');await dialog.getByRole('button',{name:'Save changes',exact:true}).click();
- const edited=page.locator('.catalog-row').filter({has:page.getByText(name+' corrected',{exact:true})});await edited.getByRole('button',{name:'Variant actions for '+name+' corrected',exact:true}).click();await page.getByRole('button',{name:'Archive variant',exact:true}).click();await expect(page.locator('.catalog-row:visible')).toHaveCount(1);
- await page.getByLabel('Show archived',{exact:true}).check();await edited.getByRole('button',{name:'Variant actions for '+name+' corrected',exact:true}).click();await page.getByRole('button',{name:'Restore variant',exact:true}).click();await expect(edited).not.toContainText('Archived');
+ await row.getByRole('button',{name:'Create variant from '+name,exact:true}).click();await dialog.getByLabel('Variant name',{exact:true}).fill(name+' variant');await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(page.locator('.catalog-row:visible')).toHaveCount(2);
+ await row.getByRole('button',{name:'Edit variant '+name,exact:true}).click();await expect(dialog).toContainText('Changes apply to every workout using this exercise.');await dialog.getByLabel('Variant name',{exact:true}).fill(name+' corrected');await dialog.getByRole('button',{name:'Save changes',exact:true}).click();
+ const edited=page.locator('.catalog-row').filter({has:page.getByText(name+' corrected',{exact:true})});await edited.getByRole('button',{name:'Archive variant '+name+' corrected',exact:true}).click();await expect(page.locator('.catalog-row:visible')).toHaveCount(1);
+ await page.getByLabel('Show archived',{exact:true}).check();await edited.getByRole('button',{name:'Restore variant '+name+' corrected',exact:true}).click();await expect(edited).not.toContainText('Archived');
 });
 
 test('a workout save acknowledgement preserves an open variant draft',async({page})=>{
@@ -68,7 +68,7 @@ test('export refuses a catalog definition changed after the editor was opened',a
 test('failed usage preview blocks shared edits until the preview can be retried',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
  await page.route('**/api/catalog/*/impact',route=>route.fulfill({status:503,json:{error:{message:'Usage unavailable'}}}));
- await page.locator('.reference-toggle').first().click();await page.locator('.catalog-row:visible').first().getByRole('button',{name:/^Variant actions/}).click();await page.getByRole('button',{name:'Edit variant',exact:true}).click();
+ await page.locator('.reference-toggle').first().click();await page.locator('.catalog-row:visible').first().getByRole('button',{name:/^Edit variant /}).click();
  const dialog=page.getByRole('dialog');await expect(dialog).toContainText('Usage unavailable');await expect(dialog.getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();
  await page.unroute('**/api/catalog/*/impact');await dialog.getByRole('button',{name:'Retry usage preview',exact:true}).click();
  await expect(dialog.getByRole('button',{name:'Save changes',exact:true})).toBeEnabled();

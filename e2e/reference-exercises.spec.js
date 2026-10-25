@@ -1,6 +1,20 @@
 import {test,expect} from '@playwright/test';
 async function login(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();}
 const group=(page,name)=>page.locator('.reference-group').filter({has:page.getByText(name,{exact:true})});
+test('direct icon actions expose every catalog operation with accessible tooltips and exact cancel focus',async({page})=>{
+ await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Bench press');
+ const ref=group(page,'Bench press'),row=ref.locator('.catalog-row').filter({has:page.getByText('Barbell bench press',{exact:true})});
+ for(const [scope,keys]of [[ref.locator('.reference-header-actions'),['add','rename','archive']],[row.locator('.catalog-row-actions'),['edit','create','move','archive']]]){
+  await expect(scope.locator('button')).toHaveCount(keys.length);
+  expect(await scope.locator('button').evaluateAll(buttons=>buttons.map(b=>b.dataset.catalogAction))).toEqual(keys);
+  for(const b of await scope.locator('button').all()){await expect(b.locator('svg')).toHaveCount(1);expect(await b.innerText()).toBe('');expect(await b.getAttribute('aria-label')).toBeTruthy();}
+ }
+ await expect(page.getByRole('button',{name:/^(Reference|Variant) actions/})).toHaveCount(0);
+ const edit=row.getByRole('button',{name:'Edit variant Barbell bench press',exact:true});await edit.focus();await expect(page.getByRole('tooltip')).toHaveText('Edit variant');await page.keyboard.press('Escape');await expect(page.getByRole('tooltip')).toBeHidden();
+ for(const b of [edit,ref.getByRole('button',{name:'Rename reference exercise Bench press',exact:true}),ref.getByRole('button',{name:'Add variant to Bench press',exact:true}),row.getByRole('button',{name:'Create variant from Barbell bench press',exact:true}),row.getByRole('button',{name:'Move variant Barbell bench press to reference exercise',exact:true})]){
+  await b.click();await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByRole('tooltip')).toBeHidden();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();await expect(b).toBeFocused();
+ }
+});
 test('reference CRUD creates empty groups and preserves separate child archives on restore',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
  const name='Managed reference '+Date.now(),variant='Managed variant '+Date.now();
@@ -9,19 +23,19 @@ test('reference CRUD creates empty groups and preserves separate child archives 
  await page.getByRole('dialog').getByRole('button',{name:'Create reference exercise',exact:true}).click();
  const ref=group(page,name);await expect(ref.getByRole('button',{name:'Expand reference exercise '+name,exact:true})).toHaveAttribute('aria-expanded','false');
  await ref.getByRole('button',{name:'Expand reference exercise '+name,exact:true}).click();await expect(ref).toContainText('No variants yet.');
- await ref.getByRole('button',{name:'Add variant',exact:true}).click();
+ await ref.getByRole('button',{name:/^Add variant to /,exact:false}).click();
  const dialog=page.getByRole('dialog');await expect(dialog.getByText('Reference exercise: '+name,{exact:true})).toBeVisible();await expect(dialog.getByLabel('Equipment',{exact:true})).toBeVisible();
  await dialog.getByLabel('Variant name',{exact:true}).fill(variant);await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('button',{name:'Save variant',exact:true}).click();
  await expect(ref.locator('.catalog-row')).toHaveCount(1);
  await page.evaluate(async({name,variant})=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),data=await api.catalog(),r=data.families.find(r=>r.name===name);const e=await api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name:variant+' old',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});await api.archiveCatalog({id:e.id,revision:e.revision,archived:true});},{name,variant});
  await page.reload();await page.getByLabel('Search catalog',{exact:true}).fill(name);
- await ref.getByRole('button',{name:'Reference actions for '+name,exact:true}).click();await page.getByRole('button',{name:'Archive reference exercise',exact:true}).click();
+ await ref.getByRole('button',{name:'Archive reference exercise '+name,exact:true}).click();
  await page.getByRole('dialog').getByRole('button',{name:'Archive reference exercise',exact:true}).click();await expect(ref).toHaveCount(0);
- await page.getByLabel('Show archived',{exact:true}).check();await ref.getByRole('button',{name:'Reference actions for '+name,exact:true}).click();await page.getByRole('button',{name:'Restore reference exercise',exact:true}).click();
+ await page.getByLabel('Show archived',{exact:true}).check();await ref.getByRole('button',{name:'Restore reference exercise '+name,exact:true}).click();
  await page.getByRole('dialog').getByRole('button',{name:'Restore reference exercise',exact:true}).click();
  const states=await page.evaluate(async name=>{const {entries}=await (await fetch('/api/catalog')).json();return entries.filter(e=>e.name.startsWith(name)).map(e=>[e.name,e.archived]);},variant);
  expect(states).toEqual([[variant,false],[variant+' old',true]]);
- await ref.getByRole('button',{name:'Reference actions for '+name,exact:true}).click();await page.getByRole('button',{name:'Edit reference exercise',exact:true}).click();
+ await ref.getByRole('button',{name:'Rename reference exercise '+name,exact:true}).click();
  await page.getByRole('dialog').getByLabel('Reference exercise name',{exact:true}).fill(name+' renamed');await page.getByRole('dialog').getByRole('button',{name:'Save reference exercise',exact:true}).click();
  await page.getByLabel('Search catalog',{exact:true}).fill(name+' renamed');await expect(group(page,name+' renamed')).toHaveCount(1);
 });
@@ -35,8 +49,8 @@ for(const mode of ['add','clone']){
   });
   await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill(fixture.reference.name);
   const ref=group(page,fixture.reference.name);
-  if(mode==='add')await ref.getByRole('button',{name:'Add variant',exact:true}).click();
-  else{await ref.getByRole('button',{name:'Variant actions for '+fixture.entry.name,exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();}
+  if(mode==='add')await ref.getByRole('button',{name:/^Add variant to /,exact:false}).click();
+  else await ref.getByRole('button',{name:'Create variant from '+fixture.entry.name,exact:true}).click();
   const name='Preserved '+mode+' '+Date.now(),dialog=page.getByRole('dialog');
   await dialog.getByLabel('Variant name',{exact:true}).fill(name);await dialog.getByLabel('Equipment',{exact:true}).selectOption('Dumbbell');
   await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('group',{name:'Secondary muscles',exact:true}).getByLabel('Triceps',{exact:true}).check();
@@ -62,8 +76,8 @@ test('move collisions preserve the destination and lost move responses retry onc
   const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:source.id,entry:definition}),collision=await api.createCatalog({id:crypto.randomUUID(),familyId:target.id,entry:definition});return {source,target,entry,collision};
  });
  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill(fixture.entry.name);
- const source=group(page,fixture.source.name),invoker=source.getByRole('button',{name:'Variant actions for '+fixture.entry.name,exact:true});
- const open=async()=>{await invoker.click();await page.getByRole('button',{name:'Move to reference exercise',exact:true}).click();await page.getByRole('dialog').getByLabel('Destination reference exercise',{exact:true}).selectOption(fixture.target.id);};
+ const source=group(page,fixture.source.name),invoker=source.getByRole('button',{name:'Move variant '+fixture.entry.name+' to reference exercise',exact:true});
+ const open=async()=>{await invoker.click();await page.getByRole('dialog').getByLabel('Destination reference exercise',{exact:true}).selectOption(fixture.target.id);};
  await open();const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Move variant',exact:true}).click();await expect(dialog).toContainText('already exists');await expect(dialog.getByLabel('Destination reference exercise',{exact:true})).toHaveValue(fixture.target.id);
  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();await expect(invoker).toBeFocused();
  await page.evaluate(async entry=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient();await api.updateCatalog({id:entry.id,revision:1,entry:{...entry,name:entry.name+' other'},impact:await api.catalogImpact(entry.id)});},fixture.collision);
@@ -81,7 +95,14 @@ test('archived references disable new variants in the catalog and linked session
  });
  await page.goto('/#/templates/'+fixture.record.id);await page.getByRole('button',{name:'Expand exercise',exact:true}).click();await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await expect(page.getByRole('button',{name:'Create variant',exact:true})).toBeDisabled();await expect(page.getByText('Restore the reference exercise before creating a variant.',{exact:true})).toBeVisible();await page.keyboard.press('Escape');
  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Show archived',{exact:true}).check();await page.getByLabel('Search catalog',{exact:true}).fill(fixture.r.name);
- await expect(group(page,fixture.r.name).getByRole('button',{name:'Add variant',exact:true})).toBeDisabled();
+ await expect(group(page,fixture.r.name).getByRole('button',{name:/^Add variant to /,exact:false})).toBeDisabled();
+ let writes=0;page.on('request',r=>{if(r.url().includes('/api/catalog')&&r.method()!=='GET')writes++;});
+ const ref=group(page,fixture.r.name);
+ for(const button of [ref.locator('[data-catalog-action=add]'),ref.locator('[data-catalog-action=create]'),ref.locator('.catalog-row [data-catalog-action=archive]')]){
+  await expect(button).toHaveAttribute('aria-disabled','true');await button.focus();await expect(button).toBeFocused();await expect(page.getByRole('tooltip')).toContainText('Restore the reference exercise');
+  await button.evaluate(b=>b.click());await button.press('Enter');await button.press('Space');await expect(page.getByRole('dialog')).toHaveCount(0);
+ }
+ expect(writes).toBe(0);
 });
 test('grouped autocomplete skips reference headings and preserves or clears the active variant on refresh',async({page})=>{
  await login(page);
@@ -113,7 +134,7 @@ test('reference archive preview conflicts after a child is created and reloads i
  await login(page);
  const reference=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');return createApiClient().createReference({id:crypto.randomUUID(),name:'Concurrent reference '+Date.now()});});
  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
- const ref=group(page,reference.name);await ref.getByRole('button',{name:'Reference actions for '+reference.name,exact:true}).click();await page.getByRole('button',{name:'Archive reference exercise',exact:true}).click();
+ const ref=group(page,reference.name);await ref.getByRole('button',{name:'Archive reference exercise '+reference.name,exact:true}).click();
  const dialog=page.getByRole('dialog');
  await page.evaluate(async reference=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().createCatalog({id:crypto.randomUUID(),familyId:reference.id,entry:{name:'New concurrent variant',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});},reference);
  await dialog.getByRole('button',{name:'Archive reference exercise',exact:true}).click();await expect(dialog).toContainText('changed');
@@ -132,7 +153,7 @@ test('nested catalog searches expand matches and move retains variant identity',
  const source=group(page,fixture.source.name);await expect(source.getByRole('button',{name:'Expand reference exercise '+fixture.source.name,exact:true})).toHaveAttribute('aria-expanded','false');
  await page.getByLabel('Search catalog',{exact:true}).fill(fixture.source.name);await expect(source.locator('.catalog-row:visible')).toHaveCount(2);
  await page.getByLabel('Search catalog',{exact:true}).fill(fixture.entry.name);await expect(source.locator('.catalog-row:visible')).toHaveCount(1);
- await source.getByRole('button',{name:'Variant actions for '+fixture.entry.name,exact:true}).click();await page.getByRole('button',{name:'Move to reference exercise',exact:true}).click();
+ await source.getByRole('button',{name:'Move variant '+fixture.entry.name+' to reference exercise',exact:true}).click();
  const dialog=page.getByRole('dialog');await dialog.getByLabel('Destination reference exercise',{exact:true}).selectOption(fixture.target.id);await dialog.getByRole('button',{name:'Move variant',exact:true}).click();
  await expect(group(page,fixture.target.name).getByText(fixture.entry.name,{exact:true})).toBeVisible();
  const moved=await page.evaluate(async id=>(await (await fetch('/api/catalog')).json()).entries.find(e=>e.id===id),fixture.entry.id);

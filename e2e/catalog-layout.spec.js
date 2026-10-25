@@ -44,9 +44,9 @@ for(const size of [{width:1366,height:768},{width:1440,height:900},{width:1920,h
   await expect(page.locator('.catalog-row:visible').first()).toBeVisible();
   await page.screenshot({path:directory+'/catalog-expanded-'+size.width+'.png'});
   const reference=page.locator('.reference-group').filter({has:page.getByText('Bench press',{exact:true})});
-  await reference.getByRole('button',{name:'Reference actions for Bench press',exact:true}).click();await page.getByRole('button',{name:'Edit reference exercise',exact:true}).click();
+  await reference.getByRole('button',{name:'Rename reference exercise Bench press',exact:true}).click();
   await page.screenshot({path:directory+'/reference-form-'+size.width+'.png'});await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
-  await reference.locator('.catalog-row:visible').first().getByRole('button',{name:/^Variant actions/}).click();await page.getByRole('button',{name:'Move to reference exercise',exact:true}).click();
+  await reference.locator('.catalog-row:visible').first().getByRole('button',{name:/^Move variant /}).click();
   await page.getByRole('dialog').getByLabel('Destination reference exercise',{exact:true}).selectOption('seed-family-row');
   await page.getByRole('dialog').getByRole('button',{name:'Move variant',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:directory+'/move-form-'+size.width+'.png'});
   await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
@@ -67,7 +67,7 @@ test('hybrid input and enlarged text preserve catalog controls',async({browser})
   await page.evaluate(async name=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().createReference({id:crypto.randomUUID(),name});},referenceName);
   await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Long reference');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
-  const reference=page.locator('.reference-group').filter({has:page.getByText(referenceName.trim(),{exact:true})});const add=reference.getByRole('button',{name:'Add variant',exact:true});expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(44);await add.click();
+  const reference=page.locator('.reference-group').filter({has:page.getByText(referenceName.trim(),{exact:true})});const add=reference.getByRole('button',{name:'Add variant to '+referenceName.trim(),exact:true});expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(44);await add.click();
   for(const viewport of [{width:1366,height:768},{width:390,height:844}]){
    await page.setViewportSize(viewport);await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).scrollIntoViewIfNeeded();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
