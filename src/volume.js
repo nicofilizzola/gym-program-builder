@@ -2,7 +2,7 @@ import { MUSCLE_GROUPS } from './muscles.js';
 
 /**
  * @typedef {{ name: string, sets: number, repRange: { min: number, max: number },
- *             primaryMuscles: string[], secondaryMuscles: string[] }} Exercise
+ *             primaryMuscles: string[], secondaryMuscles: string[], restSeconds: number }} Exercise
  * @typedef {{ exercises: Exercise[] }} Session
  */
 

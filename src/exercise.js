@@ -1,10 +1,12 @@
 import { MUSCLE_GROUPS } from './muscles.js';
+import { defaultRestSeconds } from './duration.js';
 
 /** @returns {import('./volume.js').Exercise} a new exercise with default values */
 export function createExercise() {
   return {
     name: '',
     sets: 3,
+    restSeconds: defaultRestSeconds(),
     repRange: { min: 8, max: 12 },
     primaryMuscles: [],
     secondaryMuscles: [],

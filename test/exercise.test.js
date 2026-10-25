@@ -8,6 +8,7 @@ test('createExercise returns independent defaults', () => {
   assert.deepEqual(a, {
     name: '',
     sets: 3,
+    restSeconds: 120,
     repRange: { min: 8, max: 12 },
     primaryMuscles: [],
     secondaryMuscles: [],

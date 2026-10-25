@@ -1,16 +1,16 @@
 import { moveExercise } from './exercise.js';
+import { normalizeWorkoutTiming } from './duration.js';
 
-/** @typedef {{name:string, exercises:import('./volume.js').Exercise[], goals:Record<string,number>}} Workout */
+/** @typedef {{name:string, exercises:import('./volume.js').Exercise[], goals:Record<string,number>, extraMinutes:number, bufferPercent:number}} Workout */
 /** @typedef {Workout} SessionTemplate */
 /** @typedef {Workout & {id:string, day:number|null}} ProgramWorkout */
 /** @typedef {{name:string, mode:'simple'|'schedule', workouts:ProgramWorkout[], goals:Record<string,number>}} Program */
 /** @typedef {{id:string,kind:'template'|'program',revision:number,createdAt:string,updatedAt:string,document:SessionTemplate|Program}} DocumentRecord */
 
-export const createTemplate = () => ({name:'Untitled template',exercises:[],goals:{}});
+export const createTemplate = () => ({name:'Untitled template',exercises:[],goals:{},extraMinutes:5,bufferPercent:10});
 export const createProgram = () => ({name:'Untitled program',mode:'simple',workouts:[],goals:{}});
 export function copyWorkout(template,id) {
-  const {name,exercises,goals}=structuredClone(template);
-  return {name,exercises,goals,id,day:null};
+  return {...normalizeWorkoutTiming(structuredClone(template)),id,day:null};
 }
 export function duplicateProgram(program,makeId) {
   const copy=structuredClone(program);
