@@ -1,6 +1,41 @@
 import {test,expect} from '@playwright/test';
 async function login(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();}
 const group=(page,name)=>page.locator('.reference-group').filter({has:page.getByText(name,{exact:true})});
+test('manual reference disclosure animates in place and reverses without stale state',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
+ const ref=group(page,'Bench press');await expect(ref).toBeVisible();
+ const sample=await ref.evaluate(async section=>{
+  const toggle=section.querySelector('.reference-toggle'),body=section.querySelector('.reference-variants'),child=section.querySelector('.catalog-row'),next=section.nextElementSibling;
+  window.catalogMotionChild=child;const before=next.getBoundingClientRect().top;toggle.click();
+  await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+  const start=performance.now();let middle;
+  do{await new Promise(requestAnimationFrame);middle=next.getBoundingClientRect().top;}while(performance.now()-start<65);
+  return {same:section.isConnected&&window.catalogMotionChild===section.querySelector('.catalog-row'),before,middle,duration:getComputedStyle(body).transitionDuration,timing:getComputedStyle(body).transitionTimingFunction};
+ });
+ expect(sample.same).toBe(true);expect(sample.duration).toBe('0.2s, 0.2s');expect(sample.timing).toBe('ease-out, ease-out');
+ await expect.poll(()=>ref.locator('.reference-variants').evaluate(b=>b.getAnimations().length)).toBe(0);
+ const after=await ref.evaluate(s=>s.nextElementSibling.getBoundingClientRect().top);expect(sample.middle).toBeGreaterThan(sample.before);expect(sample.middle).toBeLessThan(after);
+ const edit=ref.locator('[data-catalog-action=edit]').first();await edit.focus();
+ await ref.evaluate(s=>s.querySelector('.reference-toggle').click());await expect(ref.locator('.reference-toggle')).toBeFocused();await expect(ref.locator('.reference-variants')).toHaveAttribute('inert','');await expect(ref.locator('.reference-variants')).toHaveAttribute('aria-hidden','true');
+ await ref.locator('.reference-toggle').press('Tab');expect(await edit.evaluate(b=>b===document.activeElement)).toBe(false);
+ await ref.evaluate(async s=>{const b=s.querySelector('.reference-toggle');b.click();await new Promise(requestAnimationFrame);b.click();await new Promise(requestAnimationFrame);b.click();});
+ await expect(ref.locator('.reference-toggle')).toHaveAttribute('aria-expanded','true');await expect(ref.locator('.reference-variants')).not.toHaveAttribute('inert','');
+ await expect.poll(()=>ref.locator('.reference-variants').evaluate(b=>b.getAnimations().length)).toBe(0);await expect(edit).toBeVisible();expect(await ref.locator('.catalog-row').first().evaluate(b=>b===window.catalogMotionChild)).toBe(true);
+});
+test('reference disclosure respects reduced motion and search expansion across reloads',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();const ref=group(page,'Bench press'),toggle=ref.locator('.reference-toggle');
+ await toggle.click();await expect(ref.locator('.reference-variants')).toHaveCSS('transition-duration','0s');await expect(toggle.locator('svg')).toHaveCSS('transition-duration','0s');
+ const search=page.getByLabel('Search catalog',{exact:true});await search.fill('Row');await search.clear();await expect(toggle).toHaveAttribute('aria-expanded','true');
+ await toggle.click();await search.fill('Bench press');await expect(toggle).toHaveAttribute('aria-expanded','true');await toggle.click();await search.clear();await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await page.getByRole('button',{name:'New reference exercise',exact:true}).click();const name='Empty motion '+Date.now();await page.getByLabel('Reference exercise name',{exact:true}).fill(name);await page.getByRole('dialog').getByRole('button',{name:'Create reference exercise',exact:true}).click();
+ const empty=group(page,name);await empty.locator('.reference-toggle').click();await expect(empty.getByText('No variants yet.',{exact:true})).toBeVisible();
+ await page.emulateMedia({reducedMotion:'no-preference'});await search.fill('Bench press');
+ let release;const gate=new Promise(resolve=>{release=resolve;});await page.route('**/api/catalog',async route=>{if(route.request().method()==='GET')await gate;await route.continue();});
+ const pending=page.waitForRequest(r=>r.url().endsWith('/api/catalog')&&r.method()==='GET');await ref.locator('.catalog-row [data-catalog-action=archive]').last().evaluate(b=>b.click());await pending;
+ await toggle.evaluate(b=>b.click());const loaded=page.waitForResponse(r=>r.url().endsWith('/api/catalog')&&r.request().method()==='GET');release();await loaded;
+ await expect(toggle).toHaveAttribute('aria-expanded','false');await expect.poll(()=>ref.locator('.reference-variants').evaluate(b=>b.getAnimations().length)).toBe(0);
+ await search.clear();await expect(toggle).toHaveAttribute('aria-expanded','false');
+});
 test('direct icon actions expose every catalog operation with accessible tooltips and exact cancel focus',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Bench press');
  const ref=group(page,'Bench press'),row=ref.locator('.catalog-row').filter({has:page.getByText('Barbell bench press',{exact:true})});

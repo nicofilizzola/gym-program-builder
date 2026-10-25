@@ -29,6 +29,13 @@ export function mountCatalog(root,{api}){
   if(disposed)return;const row=[...list.querySelectorAll('.catalog-row')].find(row=>row.dataset.variant===id&&!row.closest('[hidden],[inert]'));
   if(row)row.querySelector('[data-catalog-action="'+key+'"]').focus({preventScroll:true});else if(referenceId)focusReference(referenceId);else search.focus({preventScroll:true});
  }
+ function setReferenceExpanded(section,opened,{animate=false}={}){
+  const toggle=section.querySelector('.reference-toggle'),body=section.querySelector('.reference-variants');
+  tooltips.hide();if(!opened&&body.contains(document.activeElement))toggle.focus({preventScroll:true});
+  section.toggleAttribute('data-motion',animate);toggle.setAttribute('aria-expanded',String(opened));
+  toggle.setAttribute('aria-label',(opened?'Collapse':'Expand')+' reference exercise '+toggle.querySelector('.reference-name').textContent);
+  body.classList.toggle('is-open',opened);body.inert=!opened;body.setAttribute('aria-hidden',String(!opened));
+ }
  function expand(id){expanded.add(id);searchExpanded.add(id);}
  function referenceForm(reference){
   tooltips.hide();let savedId=reference?.id;
@@ -53,13 +60,14 @@ export function mountCatalog(root,{api}){
   const variantCount=flattenVariantOptions(groups).length;
   root.querySelector('[data-count]').textContent=groups.length+' reference exercise'+(groups.length===1?'':'s')+' \u00b7 '+variantCount+' variant'+(variantCount===1?'':'s');
   if(!groups.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='No matching reference exercises or variants.';list.append(empty);}
-  groups.forEach((group,index)=>{
+  groups.forEach(group=>{
    const ref=group.reference,opened=(filtering?searchExpanded:expanded).has(ref.id),section=document.createElement('section');section.className='reference-group';section.dataset.reference=ref.id;
    const header=document.createElement('div');header.className='reference-header';
-   const heading=document.createElement('h2');heading.id='reference-heading-'+index;
-   const toggle=action('',()=>{const state=filtering?searchExpanded:expanded;if(state.has(ref.id))state.delete(ref.id);else state.add(ref.id);render();focusReference(ref.id,'toggle');});toggle.className='reference-toggle';toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 7 7-7 7"/></svg><span class="reference-name"></span>';
+   const heading=document.createElement('h2');heading.id='reference-heading-'+encodeURIComponent(ref.id);
+   const toggle=action('',()=>{const state=filtering?searchExpanded:expanded;if(state.has(ref.id))state.delete(ref.id);else state.add(ref.id);setReferenceExpanded(section,state.has(ref.id),{animate:true});});toggle.className='reference-toggle';toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 7 7-7 7"/></svg><span class="reference-name"></span>';
    toggle.querySelector('span').textContent=ref.name;toggle.setAttribute('aria-expanded',String(opened));toggle.setAttribute('aria-label',(opened?'Collapse':'Expand')+' reference exercise '+ref.name);
-   const body=document.createElement('div');body.className='reference-variants';body.id='reference-variants-'+index;body.hidden=!opened;toggle.setAttribute('aria-controls',body.id);
+   const body=document.createElement('div');body.className='reference-variants';body.id='reference-variants-'+encodeURIComponent(ref.id);toggle.setAttribute('aria-controls',body.id);
+   const content=document.createElement('div');content.className='reference-variants-inner';body.append(content);
    heading.append(toggle);section.setAttribute('aria-labelledby',heading.id);
    const counts=document.createElement('span');counts.className='reference-count';counts.textContent=group.activeCount+' active variant'+(group.activeCount===1?'':'s')+(archived.checked?' \u00b7 '+group.archivedCount+' archived':'')+(ref.archived?' \u00b7 Archived':'');
    const controls=document.createElement('div');controls.className='reference-header-actions';
@@ -68,8 +76,8 @@ export function mountCatalog(root,{api}){
     iconAction({action:'rename',label:'Rename reference exercise '+ref.name,tooltip:'Rename reference exercise',icon:'edit',onActivate:()=>referenceForm(ref)}),
     iconAction({action:'archive',label:(ref.archived?'Restore':'Archive')+' reference exercise '+ref.name,tooltip:(ref.archived?'Restore':'Archive')+' reference exercise',icon:ref.archived?'restore':'archive',onActivate:()=>referenceArchive(ref)})
    );header.append(heading,counts,controls);section.append(header,body);list.append(section);
-   if(ref.archived){const hint=document.createElement('p');hint.className='catalog-meta reference-hint';hint.textContent='Restore this reference exercise to add or restore variants.';body.append(hint);}
-   if(!group.variants.length){const empty=document.createElement('p');empty.className='reference-empty';empty.textContent=group.childCount?'No active variants.':'No variants yet.';body.append(empty);}
+   if(ref.archived){const hint=document.createElement('p');hint.className='catalog-meta reference-hint';hint.textContent='Restore this reference exercise to add or restore variants.';content.append(hint);}
+   if(!group.variants.length){const empty=document.createElement('p');empty.className='reference-empty';empty.textContent=group.childCount?'No active variants.':'No variants yet.';content.append(empty);}
    for(const entry of group.variants){
     const row=document.createElement('article');row.className='catalog-row';row.dataset.variant=entry.id;
     const definition=document.createElement('div');definition.className='catalog-definition';const name=document.createElement('h3');name.textContent=entry.name;
@@ -82,8 +90,9 @@ export function mountCatalog(root,{api}){
      iconAction({action:'create',label:'Create variant from '+entry.name,tooltip:'Create variant',icon:'duplicate',onActivate:()=>variantForm(entry,'variant'),disabledReason:entry.referenceArchived?'Restore the reference exercise before creating a variant.':undefined}),
      iconAction({action:'move',label:'Move variant '+entry.name+' to reference exercise',tooltip:'Move to reference exercise',icon:'move',onActivate:()=>move(entry)}),
      iconAction({action:'archive',label:(entry.individuallyArchived?'Restore':'Archive')+' variant '+entry.name,tooltip:(entry.individuallyArchived?'Restore':'Archive')+' variant',icon:entry.individuallyArchived?'restore':'archive',onActivate:()=>archive(entry),disabledReason:entry.referenceArchived?'Restore the reference exercise before changing variant archive state.':undefined})
-    );row.append(definition,actions);body.append(row);
+    );row.append(definition,actions);content.append(row);
    }
+   setReferenceExpanded(section,opened);
   });
  }
  root.querySelector('[data-new]').onclick=()=>referenceForm();

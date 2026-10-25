@@ -1672,14 +1672,14 @@ button:disabled {opacity:.5;cursor:default}
 .reference-toggle[aria-expanded=true] svg {transform:rotate(90deg)}
 .reference-count {font-size:.8125rem;color:var(--muted);flex:0 1 auto}
 .reference-header-actions {display:flex;gap:8px;flex-wrap:nowrap;flex:none}
-.reference-variants {margin-left:26px;border-left:1px solid var(--border);padding-left:12px}
+.reference-variants-inner {margin-left:26px;border-left:1px solid var(--border);padding-left:12px}
 .reference-variants .catalog-row {grid-template-columns:minmax(0,1fr) auto;border-bottom:0;border-top:1px solid var(--border);padding:10px 0}
 .catalog-row h3 {margin:0;font:600 1rem var(--font-body);text-transform:none;letter-spacing:normal;overflow-wrap:anywhere}
 .reference-empty,.reference-hint {padding:8px 0 12px;color:var(--muted);margin:0}
 .catalog-dialog [data-content] {display:grid;gap:12px;min-width:0}
 .catalog-dialog [data-content] p {margin:0;overflow-wrap:anywhere}
 .catalog-dialog [data-content] select {width:100%}
-@media (max-width:760px) {.reference-header h2 {flex:1 1 140px}.reference-header-actions {width:auto}.reference-variants {margin-left:8px;padding-left:10px}.reference-count {flex-basis:100%;order:3}}
+@media (max-width:760px) {.reference-header h2 {flex:1 1 140px}.reference-header-actions {width:auto}.reference-variants-inner {margin-left:8px;padding-left:10px}.reference-count {flex-basis:100%;order:3}}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.reference-toggle {min-height:32px;font-size:.875rem}.reference-header {padding:6px 0}.reference-variants .catalog-row {padding:8px 0}}
 .reference-toggle {text-transform:none;letter-spacing:normal}
 .exercise-option-group+.exercise-option-group {border-top:1px solid var(--border);margin-top:6px;padding-top:6px}
@@ -1695,4 +1695,13 @@ button:disabled {opacity:.5;cursor:default}
 @media (max-width:620px) {.reference-variants .catalog-row {grid-template-columns:minmax(0,1fr);gap:8px}.catalog-row-actions {justify-content:start}}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
  .reference-header-actions .action-button,.catalog-row-actions .action-button {min-width:32px;min-height:32px}
+}
+
+.reference-variants {display:grid;grid-template-rows:0fr;opacity:0}
+.reference-variants.is-open {grid-template-rows:1fr;opacity:1}
+.reference-variants-inner {min-height:0;overflow:hidden;padding-right:4px;margin-right:-4px}
+.reference-group[data-motion] .reference-variants {transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
+.reference-group[data-motion] .reference-toggle svg {transition:transform 200ms ease-out}
+@media (prefers-reduced-motion:reduce) {
+ .reference-group[data-motion] .reference-variants,.reference-group[data-motion] .reference-toggle svg {transition:none}
 }
