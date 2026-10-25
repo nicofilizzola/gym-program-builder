@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
-const directory='.superpowers/sdd/2026-10-25-exercise-catalog/screens';
+const directory='.superpowers/sdd/2026-10-25-reference-exercises/screens';
 async function populated(page){
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();
  const id=await page.evaluate(async()=>{
@@ -32,13 +32,24 @@ for(const size of [{width:1366,height:768},{width:1440,height:900},{width:1920,h
   await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).scrollIntoViewIfNeeded();
   const colors=await page.getByRole('dialog').getByRole('group',{name:'Primary muscles',exact:true}).evaluate(group=>({selected:getComputedStyle(group.querySelector('input:checked+span')).backgroundColor,unselected:getComputedStyle(group.querySelector('input:not(:checked)+span')).backgroundColor}));
   expect(colors.selected).not.toBe(colors.unselected);
-  expect((await page.getByRole('dialog').getByLabel('Exercise name',{exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(size.width>=1100?32:44);
+  expect((await page.getByRole('dialog').getByLabel('Variant name',{exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(size.width>=1100?32:44);
   await page.screenshot({path:directory+'/form-'+size.width+'.png',fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
   await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
-  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await expect(page.locator('.catalog-row').first()).toBeVisible();
+  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await expect(page.locator('.reference-group').first()).toBeVisible();
+  await expect(page.locator('[data-count]')).toHaveText(/^\d+ reference exercises? \u00b7 \d+ variants?$/);
   expect((await page.getByLabel('Search catalog',{exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(size.width>=1100?32:44);
   await page.screenshot({path:directory+'/catalog-'+size.width+'.png'});
+  await page.getByLabel('Search catalog',{exact:true}).fill('Bench press');
+  await expect(page.locator('.catalog-row:visible').first()).toBeVisible();
+  await page.screenshot({path:directory+'/catalog-expanded-'+size.width+'.png'});
+  const reference=page.locator('.reference-group').filter({has:page.getByText('Bench press',{exact:true})});
+  await reference.getByRole('button',{name:'Reference actions for Bench press',exact:true}).click();await page.getByRole('button',{name:'Edit reference exercise',exact:true}).click();
+  await page.screenshot({path:directory+'/reference-form-'+size.width+'.png'});await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+  await reference.locator('.catalog-row:visible').first().getByRole('button',{name:/^Variant actions/}).click();await page.getByRole('button',{name:'Move to reference exercise',exact:true}).click();
+  await page.getByRole('dialog').getByLabel('Destination reference exercise',{exact:true}).selectOption('seed-family-row');
+  await page.getByRole('dialog').getByRole('button',{name:'Move variant',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:directory+'/move-form-'+size.width+'.png'});
+  await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
  });
 }
@@ -51,5 +62,17 @@ test('hybrid input and enlarged text preserve catalog controls',async({browser})
   await action.click();await page.getByRole('button',{name:'Create variant',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Save variant',exact:true}).scrollIntoViewIfNeeded();
   const button=await dialog.getByRole('button',{name:'Save variant',exact:true}).boundingBox();expect(button.height).toBeGreaterThanOrEqual(44);expect(button.y+button.height).toBeLessThanOrEqual(768);
   await page.screenshot({path:directory+'/hybrid-text-200.png',fullPage:true});
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+  const referenceName='Long reference '+Date.now()+' '+('Press '.repeat(20));
+  await page.evaluate(async name=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().createReference({id:crypto.randomUUID(),name});},referenceName);
+  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Long reference');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
+  const reference=page.locator('.reference-group').filter({has:page.getByText(referenceName.trim(),{exact:true})});const add=reference.getByRole('button',{name:'Add variant',exact:true});expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(44);await add.click();
+  for(const viewport of [{width:1366,height:768},{width:390,height:844}]){
+   await page.setViewportSize(viewport);await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).scrollIntoViewIfNeeded();
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+   const save=await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).boundingBox();expect(save.height).toBeGreaterThanOrEqual(44);expect(save.y+save.height).toBeLessThanOrEqual(viewport.height);
+   await page.screenshot({path:directory+'/reference-hybrid-text-200-'+viewport.width+'.png',fullPage:true});
+  }
  }finally{await context.close();}
 });

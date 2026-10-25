@@ -1,5 +1,16 @@
 # Gym Program Builder
 
+## Reference exercises and nested catalog (2026-10-25)
+
+Design: docs/superpowers/specs/2026-10-25-reference-exercises-design.md; plan: docs/superpowers/plans/2026-10-25-reference-exercises.md. These requirements supersede the previous catalog's flat display and no-move restriction.
+
+- A reference exercise is a named grouping, never a selectable workout exercise. Variants own equipment and muscle mappings. Reference CRUD includes independent empty-group creation, reading, rename, archive and restore.
+- Catalog groups start collapsed and search expands matches. Autocomplete shows labeled reference groups with selectable variants only; arrows follow rendered variant order and skip headings. Preserve active selection by variant ID on refresh.
+- Reference archive state is independent of individual variant archive state. Restoring a reference never restores individually archived variants. Archived references cannot receive new variants or move destinations; existing links and verified copies remain usable.
+- Moving a variant preserves identity, effective archive state, mappings and workout prescriptions, and transactionally updates reference IDs and revisions in linked snapshots. Guard source/destination/reference/impact revisions; never merge colliding variant names.
+- Keep legacy familyId/table/wire names as internal compatibility identifiers. All user-facing catalog copy uses reference exercise and variant. Preserve JSON versions 1/2 and stable IDs.
+- Migration 003 adds parent archive state. Run it explicitly per environment; builds/requests never migrate or seed. Preserve prior async-save, cache, focus, layout and accessibility regressions.
+
 ## Exercise catalog and autocomplete (2026-10-25)
 
 These approved catalog requirements supersede older exercise-library restrictions and copy-independence rules where explicitly stated. Design: docs/superpowers/specs/2026-10-25-exercise-catalog-design.md; plan: docs/superpowers/plans/2026-10-25-exercise-catalog.md.

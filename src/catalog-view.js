@@ -47,7 +47,8 @@ export function mountCatalog(root,{api}){
   const groups=groupCatalog(data,search.value,{equipment:equipment.value,showArchived:archived.checked});
   if(filtering&&filterKey!==nextKey)searchExpanded=new Set(groups.map(g=>g.reference.id));
   filterKey=filtering?nextKey:'';
-  root.querySelector('[data-count]').textContent=groups.length+' reference exercise(s) ? '+flattenVariantOptions(groups).length+' variant(s)';
+  const variantCount=flattenVariantOptions(groups).length;
+  root.querySelector('[data-count]').textContent=groups.length+' reference exercise'+(groups.length===1?'':'s')+' \u00b7 '+variantCount+' variant'+(variantCount===1?'':'s');
   if(!groups.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='No matching reference exercises or variants.';list.append(empty);}
   groups.forEach((group,index)=>{
    const ref=group.reference,opened=(filtering?searchExpanded:expanded).has(ref.id),section=document.createElement('section');section.className='reference-group';section.dataset.reference=ref.id;
@@ -57,7 +58,7 @@ export function mountCatalog(root,{api}){
    toggle.querySelector('span').textContent=ref.name;toggle.setAttribute('aria-expanded',String(opened));toggle.setAttribute('aria-label',(opened?'Collapse':'Expand')+' reference exercise '+ref.name);
    const body=document.createElement('div');body.className='reference-variants';body.id='reference-variants-'+index;body.hidden=!opened;toggle.setAttribute('aria-controls',body.id);
    heading.append(toggle);section.setAttribute('aria-labelledby',heading.id);
-   const counts=document.createElement('span');counts.className='reference-count';counts.textContent=group.activeCount+' active variant'+(group.activeCount===1?'':'s')+(archived.checked?' ? '+group.archivedCount+' archived':'')+(ref.archived?' ? Archived':'');
+   const counts=document.createElement('span');counts.className='reference-count';counts.textContent=group.activeCount+' active variant'+(group.activeCount===1?'':'s')+(archived.checked?' \u00b7 '+group.archivedCount+' archived':'')+(ref.archived?' \u00b7 Archived':'');
    const controls=document.createElement('div');controls.className='reference-header-actions';const add=action('Add variant',()=>variantForm(undefined,'create',ref));add.disabled=ref.archived;
    const actions=action('Reference actions',()=>openMenu(actions,[['Edit reference exercise',()=>referenceForm(ref)],[ref.archived?'Restore reference exercise':'Archive reference exercise',()=>referenceArchive(ref)]]));actions.classList.add('reference-actions');actions.setAttribute('aria-label','Reference actions for '+ref.name);actions.setAttribute('aria-expanded','false');
    controls.append(add,actions);header.append(heading,counts,controls);section.append(header,body);list.append(section);
@@ -67,13 +68,13 @@ export function mountCatalog(root,{api}){
     const row=document.createElement('article');row.className='catalog-row';row.dataset.variant=entry.id;
     const definition=document.createElement('div');definition.className='catalog-definition';const name=document.createElement('h3');name.textContent=entry.name;
     const meta=document.createElement('p');meta.className='catalog-meta';meta.textContent=entry.equipment;
-    const state=document.createElement('span');state.className='variant-status';state.textContent=entry.individuallyArchived?' ? Archived individually':entry.referenceArchived?' ? Archived with reference':'';
-    meta.append(state);const muscles=document.createElement('p');muscles.className='catalog-mapping';muscles.textContent='Primary: '+entry.primaryMuscles.join(', ')+' ? Secondary: '+(entry.secondaryMuscles.join(', ')||'None');definition.append(name,meta,muscles);
+    const state=document.createElement('span');state.className='variant-status';state.textContent=entry.individuallyArchived?' \u00b7 Archived individually':entry.referenceArchived?' \u00b7 Archived with reference':'';
+    meta.append(state);const muscles=document.createElement('p');muscles.className='catalog-mapping';muscles.textContent='Primary: '+entry.primaryMuscles.join(', ')+' \u00b7 Secondary: '+(entry.secondaryMuscles.join(', ')||'None');definition.append(name,meta,muscles);
     const actions=action('Variant actions',()=>openMenu(actions,[['Edit variant',()=>variantForm(entry,'edit')],['Create variant',()=>variantForm(entry,'variant'),entry.referenceArchived],['Move to reference exercise',()=>move(entry)],[entry.individuallyArchived?'Restore variant':'Archive variant',()=>archive(entry),entry.referenceArchived]]));actions.setAttribute('aria-label','Variant actions for '+entry.name);actions.setAttribute('aria-expanded','false');row.append(definition,actions);body.append(row);
    }
   });
  }
  root.querySelector('[data-new]').onclick=()=>referenceForm();
- search.oninput=equipment.onchange=archived.onchange=render;root.querySelector('[data-count]').textContent='Loading reference exercises?';load();
+ search.oninput=equipment.onchange=archived.onchange=render;root.querySelector('[data-count]').textContent='Loading reference exercises\u2026';load();
  return {destroy(){disposed=true;generation++;form?.destroy();closeMenu();menu.remove();document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',key);window.removeEventListener('resize',resize);root.replaceChildren();}};
 }

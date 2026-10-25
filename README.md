@@ -43,12 +43,16 @@ Wait for **Saved** before closing. Failed saves retain edits in the open tab and
 
 ## Exercise catalog
 
-The catalog starts with 64 common exercises, grouped into exercise families. Search inside an exercise card to select an entry with primary and secondary muscles already mapped. Sets and reps remain workout settings.
+The catalog starts with 64 common variants, grouped beneath named **reference exercises**. References organize variants; only variants can be selected for workouts. Browse collapsed groups or search by reference/variant name and filter equipment. Session autocomplete shows the same grouping and supports arrow-key navigation through variants.
 
-Linked names and muscle mappings are read-only in the session editor. Use **Create variant** to save a named alternative in the same family and use it in that workout. **Exercise catalog → Edit exercise** changes that exact entry everywhere it is used, including independent template/program copies; the form previews affected workout instances. Other variants do not inherit those changes. Archiving removes an entry from search without breaking existing workouts.
+Use **New reference exercise** to create an empty group, **Add variant** on its header to define an exercise, and **Reference actions** to rename or archive/restore the group. Variant actions support editing, copying, moving to another active reference and individual archive/restore. Moving preserves the variant ID, muscle mappings, workout sets/reps and links. A conflicting destination name is refused rather than merged.
 
-Existing and imported custom exercises stay independent until you explicitly link them. Exports contain complete exercise definitions without catalog IDs; importing never modifies the catalog. Window focus refreshes clean open documents; dirty documents retain edits and show a conflict when their saved revision changes. Save as copy retains workout settings and resolves current catalog definitions.
+Reference archiving hides its variants from new selections without breaking existing workouts. Restoring a reference brings back only variants that were not individually archived. Moving an effectively archived variant keeps it archived until explicitly restored.
 
-Run migration and seeding explicitly for each development/preview/production database. Seed reruns preserve personal edits and archived entries. Builds and normal requests never migrate or seed a database.
+Linked names and muscle mappings stay read-only in session cards. **Create variant** saves an alternative under the same active reference and uses it in that workout. **Edit variant** in the catalog changes that exact entry everywhere it is used; the usage preview identifies affected workout instances. Other variants remain independent.
+
+Existing/imported custom exercises stay unlinked until explicit confirmation. Exports contain complete definitions without catalog IDs; imports never modify the catalog. Focus refresh and Save as copy preserve the existing conflict/recovery behavior, and save acknowledgements preserve open variant drafts.
+
+Run **npm run db:migrate** before starting this release against an existing database: migration 003 adds reference archive state without replacing IDs or documents. Run **npm run db:seed** explicitly where needed; seed reruns retain edits and archives. Preview and production databases remain separate, and builds/requests never migrate or seed.
 
 For hosting, migrations, password rotation and backup/restore, see [the deployment runbook](docs/deployment.md).

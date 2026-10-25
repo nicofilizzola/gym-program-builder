@@ -62,3 +62,9 @@ Rollback to a prior compatible Vercel deployment without dropping tables or docu
 - [Trusted Vercel request headers](https://vercel.com/docs/headers/request-headers)
 - [Turso Vercel integration](https://vercel.com/marketplace/tursocloud)
 - [Turso CLI documentation](https://docs.turso.tech/cli/introduction)
+
+## Reference exercise update
+
+Apply migration 003 explicitly with `npm run db:migrate` before starting this version against an existing database. It adds the reference-level archive flag and preserves existing grouping/variant IDs, individual archives and saved document JSON. No seed version changes are required; `npm run db:seed` remains safe to rerun and never restores archived references or variants.
+
+Verify reference creation without a variant, nested catalog/picker search, parent archive/restore with a separately archived child, and a variant move used by multiple program workouts. A stale move/archive preview must conflict, and a lost-response retry must not duplicate entries or revision writes. Move failures must leave all linked workouts and volume intact. Version-1/version-2 portable files keep the same format and import without trusted catalog identity. The internal familyId field remains for compatibility; the UI calls its grouping a reference exercise.

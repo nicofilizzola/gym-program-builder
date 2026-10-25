@@ -210,9 +210,9 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 
 ### Exercise catalog
 
-Exercise catalog uses the existing dark surfaces, Barlow type, orange focus/action accent and compact controls. Definitions appear in ruled rows with name, family/equipment and primary/secondary mappings; actions wrap below on narrower screens. Search and equipment filters have visible labels. Archived entries can be shown and restored.
+Exercise catalog uses the existing dark surfaces, Barlow type, orange focus/action accent and compact controls. Reference disclosures contain indented variant rows with equipment and primary/secondary mappings; actions wrap below on narrower screens. Search and equipment filters have visible labels. Archived entries can be shown and restored.
 
-In-card autocomplete keeps the Exercise field and equipment filter in normal keyboard order. Suggestions and action menus use viewport-constrained top-layer popovers, independent of collapsing-card clipping and the mobile volume panel. Names, equipment, family and both muscle roles appear as text in each suggestion. Arrow keys choose the active suggestion, Enter selects it, Escape dismisses it and Tab retains ordinary document navigation. Result announcements settle for 150ms while typing.
+In-card autocomplete keeps the Exercise field and equipment filter in normal keyboard order. Suggestions and action menus use viewport-constrained top-layer popovers, independent of collapsing-card clipping and the mobile volume panel. Reference headings group variant names, equipment and both muscle roles in the suggestions. Arrow keys choose the active suggestion, Enter selects it, Escape dismisses it and Tab retains ordinary document navigation. Result announcements settle for 150ms while typing.
 
 Catalog forms use native modal dialogs, at most 680px wide, with 16px viewport clearance and reachable sticky actions. Primary and secondary muscle chips are side by side when room permits and stack on mobile. Linked session definitions are read-only; Create variant and catalog edits explicitly explain their scope. All touch/hybrid actions remain at least 44px; fine-pointer desktop may use existing 32px controls and 28px muscle chips.
 
