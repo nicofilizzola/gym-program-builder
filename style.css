@@ -1635,7 +1635,7 @@ button:disabled {opacity:.5;cursor:default}
 .catalog-form-actions .add-btn {width:auto}
 .catalog-dialog select,.catalog-toolbar select {max-width:100%;min-height:44px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:inherit}
 @media (max-width:1000px) {.catalog-row {grid-template-columns:minmax(0,1fr)}.catalog-row-actions {justify-content:start}}
-@media (max-width:760px) {.catalog-page {padding:16px}.catalog-toolbar>.field {flex:1;min-width:100%}.catalog-muscles {grid-template-columns:minmax(0,1fr)}.catalog-dialog {padding:16px}.catalog-form-actions {bottom:-16px}.catalog-row-actions>button {flex:1}}
+@media (max-width:760px) {.catalog-page {padding:16px}.catalog-toolbar>.field {flex:1;min-width:100%}.catalog-muscles {grid-template-columns:minmax(0,1fr)}.catalog-dialog {padding:16px}.catalog-form-actions {bottom:-16px}}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.catalog-dialog select,.catalog-toolbar select {min-height:32px}.catalog-muscles .chip span {min-height:28px}.catalog-meta,.catalog-mapping {font-size:.8125rem}.catalog-archived {min-height:32px}}
 
 /* Top-layer exercise suggestions stay clear of card clipping and the mobile rail. */
@@ -1692,7 +1692,12 @@ button:disabled {opacity:.5;cursor:default}
 .catalog-mapping {overflow-wrap:anywhere}
 .reference-header-actions .action-button,.catalog-row-actions .action-button {min-width:44px;min-height:44px}
 .catalog-page .action-button[aria-disabled=true] {opacity:.5;cursor:not-allowed}
-@media (max-width:620px) {.reference-variants .catalog-row {grid-template-columns:minmax(0,1fr);gap:8px}.catalog-row-actions {justify-content:start}}
+@media (max-width:620px) {
+ .reference-variants .catalog-row {grid-template-columns:minmax(0,1fr);gap:8px}
+ .catalog-row-actions {justify-content:start}
+ .reference-header h2 {flex-basis:100%}
+ .reference-count {flex:1 1 120px;order:0}
+}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
  .reference-header-actions .action-button,.catalog-row-actions .action-button {min-width:32px;min-height:32px}
 }

@@ -58,7 +58,12 @@ export function mountActionTooltips(root){
  tip.addEventListener('pointerenter',()=>clearTimeout(hideTimer),options);
  tip.addEventListener('pointerleave',depart,options);
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&trigger){hide();}},options);
- document.addEventListener('scroll',hide,{...options,capture:true});
+ document.addEventListener('scroll',()=>{
+  // Focus may scroll its control into view before the delayed tooltip opens.
+  // Its position is measured when shown; already visible tips still dismiss.
+  if(showTimer&&trigger===document.activeElement)return;
+  hide();
+ },{...options,capture:true});
  window.addEventListener('resize',hide,options);
  const controller={hide,destroy(){hide();destroyed=true;events.abort();tip.remove();}};
  return controller;
