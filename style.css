@@ -1519,7 +1519,7 @@ button:disabled {opacity:.5;cursor:default}
   .card-head {gap:8px}
   .card-body.exercise-fields {display:grid;gap:var(--field-gap)}
   .exercise-fields>*+*,.exercise-main-fields>*+*,.exercise-muscle-fields>* {margin-top:0}
-  .exercise-main-fields {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--field-gap);align-items:start}
+  .exercise-main-fields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--field-gap);align-items:start}
   .exercise-name-field {grid-column:1/-1;min-width:0}
   .exercise-muscle-fields {display:grid;gap:var(--field-gap);min-width:0}
   .exercise-fields .slider-field,.exercise-fields fieldset {min-width:0}
@@ -1527,7 +1527,7 @@ button:disabled {opacity:.5;cursor:default}
   .exercise-fields .hint {font-size:.75rem}
   .exercise-fields>.error {margin:0}
   @container (min-width:700px) {
-    .exercise-main-fields {grid-template-columns:minmax(0,2fr) minmax(140px,1fr) minmax(180px,1fr)}
+    .exercise-main-fields {grid-template-columns:minmax(0,1.5fr) minmax(100px,1fr) minmax(140px,1fr) minmax(140px,1fr)}
     .exercise-name-field {grid-column:auto}
     .exercise-muscle-fields {grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}
   }
@@ -1601,3 +1601,20 @@ button:disabled {opacity:.5;cursor:default}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
   .workout-item .workout-action {width:32px;height:32px;min-width:32px;min-height:32px;flex-basis:32px}
 }
+
+/* Duration shares the heading row; its details expand in normal document flow. */
+.duration-controls {display:contents}
+.duration-toggle {display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin-block:8px;max-width:100%}
+.duration-toggle strong {font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap}
+.duration-toggle svg {width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+.duration-toggle[aria-expanded="true"] svg {transform:rotate(180deg)}
+.duration-details {flex:1 1 100%;min-width:0;padding:12px;margin-bottom:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.duration-breakdown {display:flex;flex-wrap:wrap;gap:8px 24px;margin:0 0 12px}
+.duration-breakdown div {display:flex;gap:8px;align-items:baseline}
+.duration-breakdown dt,.duration-hint {color:var(--muted);font-size:.875rem}
+.duration-breakdown dd {margin:0;font-variant-numeric:tabular-nums}
+.duration-allowances {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.duration-hint {margin:8px 0 0}
+.duration-allowances .slider-head {flex-wrap:wrap;gap:4px 8px}
+@media (min-width:1100px) {.duration-toggle {margin-block:0}.duration-details {margin-bottom:0}}
+@media (max-width:760px) {.duration-allowances {grid-template-columns:minmax(0,1fr)}}

@@ -207,3 +207,11 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 - Coarse-pointer targets, including chips, are at least 44?44px. Fine-pointer desktop controls may be 32px; compact chips are 28px. Native slider hit boxes remain 44px on every device.
 - Icon-only buttons have `aria-label`; decorative SVGs are `aria-hidden`.
 - Heat is always backed by a number; highlights are backed by a text tag.
+
+### Workout duration
+
+A compact Estimated duration disclosure shares the editor heading with the template name. Its inline details show execution/rest/extra/buffer and two native allowance sliders; no additional volume-panel space is used. Totals read ~N min, rounded upward only after calculation. Empty workouts show ~0 min. Details wrap and remain in normal document flow; open state is transient.
+
+Rest per set uses the existing native slider appearance and 44px hit area: 0–300 seconds, step 15, with readable minutes/seconds. It appears alongside sets/reps on wide desktop cards and in the existing stacked flow on mobile. Desktop main fields use name/sets/reps/rest at card widths of at least 700px; narrower desktop cards put the name above three slider columns. Collapsed summaries append configured rest and wrap naturally.
+
+Extra time is 0–60 minutes by 1 (default 5); Buffer is 0–50% by 5 (default 10). Their controls use two columns with 16px gap, stacking on mobile. Breakdown values use tabular figures, muted labels, existing surface/border tokens, 12px padding and an 8px radius. Both figures retain their existing heights and all touch/hybrid controls retain their existing target sizes.

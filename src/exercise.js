@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { defaultRestSeconds } from './duration.js';
+import { defaultRestSeconds, formatDuration } from './duration.js';
 
 /** @returns {import('./volume.js').Exercise} a new exercise with default values */
 export function createExercise() {
@@ -86,5 +86,6 @@ export function exerciseSummary(ex) {
     `${countText(ex.sets)} × ${reps}`,
     ex.primaryMuscles.join(', '),
     ex.secondaryMuscles.length > 0 ? `secondary: ${ex.secondaryMuscles.join(', ')}` : '',
+    'rest '+formatDuration(Object.hasOwn(ex,'restSeconds')?ex.restSeconds:defaultRestSeconds()),
   ].filter(Boolean).join(' · ');
 }

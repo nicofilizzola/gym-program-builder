@@ -1,7 +1,7 @@
 export const SESSION_MARKUP = `
   <main class="layout">
     <section class="builder">
-      <header class="editor-heading"><h1>Session template</h1><label class="field template-name">Session template name <input type="text" data-template-name></label></header>
+      <header class="editor-heading"><h1>Session template</h1><label class="field template-name">Session template name <input type="text" data-template-name></label><div data-duration-controls></div></header>
       <div class="toolbar">
         <div class="file-actions">
           <button id="import-session" type="button" class="secondary-btn">

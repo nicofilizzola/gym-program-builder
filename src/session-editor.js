@@ -9,6 +9,8 @@ import { tooltipPosition } from './tooltip.js';
 import { parseDocument, serializeDocument, documentFileName } from './document-file.js';
 import { SESSION_MARKUP } from './session-markup.js';
 import { mountPanelLayout } from './panel-layout.js';
+import { DURATION_LIMITS, formatDuration, normalizeWorkoutTiming } from './duration.js';
+import { mountDurationControls } from './duration-controls.js';
 
 
 export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport}={}) {
@@ -19,11 +21,12 @@ let destroyed=false;
  * The only domain state. Volume, goal status and errors are derived from it in refresh().
  * `goals` has a key only for muscles with a valid goal.
  */
-let session = structuredClone(workout);
+let session = normalizeWorkoutTiming(structuredClone(workout));
 let lastDocument = JSON.stringify(session);
 const nameInput=root.querySelector("[data-template-name]");
 nameInput.value=session.name;
 nameInput.addEventListener("input",()=>{session.name=nameInput.value;refresh();});
+const durationControls=mountDurationControls(root.querySelector('[data-duration-controls]'),{workout:session,onChange:settings=>{Object.assign(session,settings);refresh();}});
 
 /** View state for the volume panel: the clicked muscle, and the one under the mouse. */
 let selectedMuscle = null;
@@ -117,6 +120,12 @@ const CARD_HTML = `
       <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="min" aria-label="Reps min">
       <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="max" aria-label="Reps max"></div>
     <p class="error" data-error="repRange"></p>
+  </div>
+  <div class="slider-field">
+    <div class="slider-head"><span>Rest per set</span><span class="slider-value" data-value="restSeconds" aria-hidden="true"></span></div>
+    <div class="slider"><span class="slider-fill"></span>
+      <input type="range" ${rangeAttrs(DURATION_LIMITS.restSeconds)} data-field="restSeconds" aria-label="Rest per set"></div>
+    <p class="error" data-error="restSeconds"></p>
   </div>
   </div>
   <div class="exercise-muscle-fields">
@@ -295,6 +304,7 @@ function hitFor(ex) {
 
 /** Update everything derived from state without recreating inputs. */
 function refresh() {
+  durationControls.update(session);
   const fingerprint=JSON.stringify(session);
   if(fingerprint!==lastDocument){lastDocument=fingerprint;onChange(structuredClone(session));}
   list.querySelectorAll('.exercise').forEach((card) => {
@@ -311,6 +321,11 @@ function refresh() {
     const { min, max } = ex.repRange;
     const setsInput = card.querySelector('[data-field="sets"]');
     setsInput.value = ex.sets;
+    const restInput=card.querySelector('[data-field="restSeconds"]');
+    restInput.value=ex.restSeconds;
+    restInput.setAttribute('aria-valuetext',formatDuration(ex.restSeconds));
+    card.querySelector('[data-value="restSeconds"]').textContent=formatDuration(ex.restSeconds);
+    setFill(restInput.parentElement,0,fraction(ex.restSeconds,DURATION_LIMITS.restSeconds));
     card.querySelector('[data-field="min"]').value = min;
     card.querySelector('[data-field="max"]').value = max;
     card.querySelector('[data-value="sets"]').textContent = String(ex.sets);
@@ -440,6 +455,7 @@ list.addEventListener('input', (event) => {
   const ex = session.exercises[indexOf(event.target)];
   if (field === 'name') ex.name = event.target.value;
   if (field === 'sets') ex.sets = event.target.valueAsNumber;
+  if (field === 'restSeconds') ex.restSeconds = event.target.valueAsNumber;
   if (field === 'min' || field === 'max') {
     ex.repRange = setRepBound(ex.repRange, field, event.target.valueAsNumber);
   }
@@ -536,6 +552,7 @@ root.querySelector('#collapse-all').addEventListener('click', () => {
 const ERROR_FIELDS = {
   name: '[data-field="name"]',
   sets: '[data-field="sets"]',
+  restSeconds: '[data-field="restSeconds"]',
   repRange: '[data-field="min"]',
   // When every muscle is secondary, all primary chips are disabled; fall back to the first secondary chip.
   muscles: 'input[data-role="primary"]:not(:disabled), input[data-role="secondary"]',
@@ -570,7 +587,7 @@ fileInput.addEventListener('change',async()=>{
   if((session.exercises.length||Object.keys(session.goals).length)&&!confirm('Replace this session template?'))return;
   setWorkout(result.document);onImport?.(result.document);
 });
-function setWorkout(value){session=structuredClone(value);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
+function setWorkout(value){session=normalizeWorkoutTiming(structuredClone(value));nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
 
 root.querySelector('#open-goals').addEventListener('click', () => {
   syncGoalFields();
@@ -690,7 +707,7 @@ refresh();
 
 const panelLayout=mountPanelLayout(panel);
 return {setWorkout,focusFirstError,destroy(){
-  destroyed=true;panelLayout.destroy();sortable.destroy();moveMenu?.remove();
+  destroyed=true;durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu?.remove();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
 }};

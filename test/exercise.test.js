@@ -17,6 +17,10 @@ test('createExercise returns independent defaults', () => {
   assert.notEqual(a.primaryMuscles, b.primaryMuscles);
 });
 
+test('collapsed summary includes independent rest with readable units',()=>{
+ assert.equal(exerciseSummary({...createExercise(),name:'Curl',primaryMuscles:['Biceps'],restSeconds:90}),'Curl · 3 × 8–12 · Biceps · rest 1 min 30 sec');
+});
+
 test('toggle adds then removes', () => {
   const added = toggleMuscle(createExercise(), 'primary', 'Chest');
   assert.deepEqual(added.primaryMuscles, ['Chest']);
@@ -79,23 +83,23 @@ const ex = (name, sets, min, max, primaryMuscles, secondaryMuscles) =>
 
 test('exerciseSummary worked example from spec', () => {
   assert.equal(exerciseSummary(ex('Bench press', 4, 6, 10, ['Chest'], ['Triceps', 'Front delts'])),
-    'Bench press · 4 × 6–10 · Chest · secondary: Triceps, Front delts');
+    'Bench press · 4 × 6–10 · Chest · secondary: Triceps, Front delts · rest 2 min');
   assert.equal(exerciseSummary(ex('Dips', 3, 8, 8, ['Chest', 'Triceps'], ['Front delts'])),
-    'Dips · 3 × 8 · Chest, Triceps · secondary: Front delts');
-  assert.equal(exerciseSummary(createExercise()), 'Untitled exercise · 3 × 8–12');
-  assert.equal(exerciseSummary(ex('  Row ', NaN, 8, 12, [], ['Biceps'])), 'Row · ? × 8–12 · secondary: Biceps');
+    'Dips · 3 × 8 · Chest, Triceps · secondary: Front delts · rest 2 min');
+  assert.equal(exerciseSummary(createExercise()), 'Untitled exercise · 3 × 8–12 · rest 2 min');
+  assert.equal(exerciseSummary(ex('  Row ', NaN, 8, 12, [], ['Biceps'])), 'Row · ? × 8–12 · secondary: Biceps · rest 2 min');
 });
 
 test('exerciseSummary shows ? for each invalid number', () => {
-  assert.equal(exerciseSummary(ex('Squat', 2.5, 0, NaN, ['Quads'], [])), 'Squat · ? × ?–? · Quads');
+  assert.equal(exerciseSummary(ex('Squat', 2.5, 0, NaN, ['Quads'], [])), 'Squat · ? × ?–? · Quads · rest 2 min');
 });
 
 test('exerciseSummary shows an inverted range as typed', () => {
-  assert.equal(exerciseSummary(ex('Squat', 3, 12, 8, ['Quads'], [])), 'Squat · 3 × 12–8 · Quads');
+  assert.equal(exerciseSummary(ex('Squat', 3, 12, 8, ['Quads'], [])), 'Squat · 3 × 12–8 · Quads · rest 2 min');
 });
 
 test('exerciseSummary treats a blank name as untitled', () => {
-  assert.equal(exerciseSummary(ex('   ', 3, 5, 5, ['Calves'], [])), 'Untitled exercise · 3 × 5 · Calves');
+  assert.equal(exerciseSummary(ex('   ', 3, 5, 5, ['Calves'], [])), 'Untitled exercise · 3 × 5 · Calves · rest 2 min');
 });
 
 test('moveExercise moves any array, such as collapsed flags', () => {
