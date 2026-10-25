@@ -1,0 +1,1 @@
+ALTER TABLE catalog_families ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;

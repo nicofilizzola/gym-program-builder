@@ -10,6 +10,7 @@ test('reference matching includes eligible children and variant filtering retain
  assert.deepEqual(flattenVariantOptions(groupCatalog({entries,families},'bench',{equipment:'Dumbbell'})).map(v=>v.id),['v2']);
  assert.deepEqual(groupCatalog({entries,families},'empty').map(g=>g.reference.id),['r3']);
  assert.equal(groupCatalog({entries,families},'empty',{equipment:'Dumbbell'}).length,0);
+ assert.equal(groupCatalog({entries:[variant('old','r1','Old','Barbell',true)],families},'').find(g=>g.reference.id==='r1').activeCount,0);
 });
 test('effective archives and duplicate reference names never produce selectable parents or merged IDs',()=>{
  const refs=[{...families[0],archived:true},{...families[1],name:'Bench press'},families[2]];

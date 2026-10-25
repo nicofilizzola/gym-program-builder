@@ -9,7 +9,7 @@ export function groupCatalog({entries,families},query='',{equipment='',showArchi
   const children=entries.filter(e=>e.familyId===reference.id).map(e=>({...e,familyName:reference.name,archived:Boolean(reference.archived||(e.individuallyArchived??e.archived))}));
   const variants=children.filter(e=>(!e.archived||(!picker&&showArchived))&&(!equipment||e.equipment===equipment)&&words.every(w=>normalizeSearch([e.name,reference.name,e.equipment].join(' ')).includes(w))).sort(picker?variantOrder:nameOrder);
   return {reference,variants,activeCount:children.filter(e=>!e.archived).length,archivedCount:children.filter(e=>e.archived).length,childCount:children.length};
- }).filter(g=>(!g.reference.archived||(!picker&&showArchived))&&(g.variants.length||(!picker&&!equipment&&!g.childCount&&words.every(w=>normalizeSearch(g.reference.name).includes(w)))));
+ }).filter(g=>(!g.reference.archived||(!picker&&showArchived))&&(g.variants.length||(!picker&&!equipment&&(!g.childCount||g.activeCount===0)&&words.every(w=>normalizeSearch(g.reference.name).includes(w)))));
  if(picker){
   const selected=new Set(groups.flatMap(g=>g.variants).sort(q?variantOrder:(a,b)=>nameOrder(families.find(r=>r.id===a.familyId),families.find(r=>r.id===b.familyId))||nameOrder(a,b)).slice(0,limit).map(e=>e.id));
   for(const g of groups)g.variants=g.variants.filter(e=>selected.has(e.id));

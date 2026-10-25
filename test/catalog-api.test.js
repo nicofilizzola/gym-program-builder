@@ -20,5 +20,6 @@ test('catalog API enforces authentication, origin, revisions and supports browse
  assert.equal(changed.revision,2);
  await assert.rejects(api.archiveCatalog({id:'bench',revision:1,archived:true}),{status:409});
  assert.equal((await api.archiveCatalog({id:'bench',revision:2,archived:true})).archived,true);
- assert.equal((await api.renameFamily({id:'press',revision:1,name:'Chest press'})).name,'Chest press');
+ assert.equal((await api.catalog()).families[0].revision,3);
+ assert.equal((await api.renameFamily({id:'press',revision:3,name:'Chest press'})).name,'Chest press');
 });
