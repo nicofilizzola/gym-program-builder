@@ -216,4 +216,4 @@ Rest per set uses the existing native slider appearance and 44px hit area: 0 to 
 
 Extra time is 0 to 60 minutes by 1 (default 5); Buffer is 0 to 50% by 5 (default 10). Their controls use two columns with 16px gap, stacking on mobile. Breakdown values use tabular figures, muted labels, existing surface/border tokens, 12px padding and an 8px radius. Both figures retain their existing heights and all touch/hybrid controls retain their existing target sizes.
 
-Program workout metadata includes a noninteractive Estimated duration ~N min label in sequence, scheduled days and Unscheduled. It wraps with the exercise count and muscle-match badge without adding a second panel or a weekly total.
+Exercise slider headings wrap label/value onto separate lines when text is enlarged; value readouts stay on one line. Program workout metadata includes a noninteractive Estimated duration ~N min label in sequence, scheduled days and Unscheduled. It can shrink and wrap with the exercise count and muscle-match badge without adding a second panel or a weekly total.

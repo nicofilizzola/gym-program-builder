@@ -1445,6 +1445,7 @@ button:disabled {opacity:.5;cursor:default}
 .workout-item {padding:16px 16px 16px 64px;margin:12px 0}
 .workout-metadata {display:flex;align-items:center;flex-wrap:wrap;gap:12px;min-width:0;margin:4px 0 12px}
 .workout-metadata p {flex:none;margin:0}
+.workout-metadata [data-workout-duration] {flex:0 1 auto;min-width:0}
 .workout-muscle-slot {display:grid;min-width:0;max-width:100%}
 .workout-badge-space,.workout-muscle-match {grid-area:1/1;min-width:0;overflow-wrap:anywhere}
 .workout-badge-space {display:grid;visibility:hidden;pointer-events:none}
@@ -1514,6 +1515,8 @@ button:disabled {opacity:.5;cursor:default}
 /* Field grouping keeps the original stacked flow outside desktop. */
 .exercise-main-fields,.exercise-muscle-fields {display:contents}
 .exercise-main-fields>*+*,.exercise-muscle-fields>* {margin-top:12px}
+.exercise-fields .slider-head {flex-wrap:wrap;gap:4px 8px}
+.exercise-fields .slider-value {white-space:nowrap}
 @media (min-width:1100px) {
   .exercise {container-type:inline-size;padding:var(--card-padding)}
   .card-head {gap:8px}

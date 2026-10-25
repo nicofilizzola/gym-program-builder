@@ -8,6 +8,8 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
   host.innerHTML='<button type="button" class="secondary-btn duration-toggle" aria-expanded="false" aria-label="Show duration details"><span>Estimated duration</span> <strong data-duration-total></strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="duration-details" hidden><dl class="duration-breakdown"></dl><div class="duration-allowances"></div><p class="duration-hint">1 min per set, plus rest after every set. Buffer applies to the full subtotal.</p></div>';
   const toggle=host.querySelector('button'),details=host.querySelector('.duration-details');
   details.id=panelId;toggle.setAttribute('aria-controls',panelId);
+  const total=host.querySelector('[data-duration-total]');
+  total.id=panelId+'-total';toggle.setAttribute('aria-describedby',total.id);
   const labels={executionSeconds:'Execution',restSeconds:'Rest',extraSeconds:'Extra time',bufferSeconds:'Buffer'};
   for(const [key,label] of Object.entries(labels)) {
     const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');

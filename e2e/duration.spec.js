@@ -24,6 +24,7 @@ test('duration details and sliders update live without replacing focused control
  await fixture(page);
  await expect(page.locator('[data-duration-total]')).toHaveText('~27 min');
  const toggle=page.locator('.duration-toggle');
+ await expect(toggle).toHaveAccessibleDescription('~27 min');
  await toggle.click();await expect(toggle).toHaveAttribute('aria-expanded','true');
  await expect(page.locator('[data-duration-part="executionSeconds"]')).toHaveText('6 min');
  await expect(page.locator('[data-duration-part="restSeconds"]')).toHaveText('13 min 30 sec');
@@ -77,11 +78,31 @@ test('populated duration controls reflow at desktop, tablet, mobile and enlarged
    expect(await slider.locator('..').locator('..').locator('.slider-head').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   }
   if(width>=1100)for(const body of await page.locator('#body-map svg').all())expect((await body.boundingBox()).height).toBeGreaterThanOrEqual(180);
+  await page.screenshot({path:'.superpowers/sdd/2026-10-25-workout-duration/session-'+width+'.png',fullPage:true});
  }
  await page.setViewportSize({width:1366,height:768});
  await page.evaluate(()=>document.documentElement.style.fontSize='200%');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
  await expect(page.getByRole('slider',{name:'Extra time',exact:true})).toBeVisible();
+ for(const readout of await page.locator('[data-value="restSeconds"]').all()) {
+  expect(await readout.evaluate(el=>el.getBoundingClientRect().height<=parseFloat(getComputedStyle(el).lineHeight)+1)).toBe(true);
+ }
+ await page.screenshot({path:'.superpowers/sdd/2026-10-25-workout-duration/session-200pct.png',fullPage:true});
+});
+
+test('duration controls retain touch targets on coarse and hybrid desktops',async({browser})=>{
+ for(const hybrid of [false,true]) {
+  const instance=hybrid?await browser.browserType().launch({args:['--blink-settings=availablePointerTypes=6,primaryPointerType=4']}):browser;
+  const context=await instance.newContext({hasTouch:!hybrid,viewport:{width:1366,height:768},reducedMotion:'reduce'});
+  try {
+   const page=await context.newPage();await fixture(page);
+   if(hybrid)expect(await page.evaluate(()=>matchMedia('(pointer:fine)').matches&&matchMedia('(any-pointer:coarse)').matches)).toBe(true);
+   const toggle=page.locator('.duration-toggle'),box=await toggle.boundingBox();
+   expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+   await toggle.click();await page.getByRole('button',{name:'Expand all',exact:true}).click();
+   for(const slider of await page.getByRole('slider').all())expect((await slider.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  } finally {await context.close();if(hybrid)await instance.close();}
+ }
 });
 
 test('program durations survive independent copies, editing, schedule moves and file round trips',async({page})=>{
@@ -129,6 +150,12 @@ test('program durations survive independent copies, editing, schedule moves and 
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.reload();
  await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
+ for(const [width,height] of [[1366,768],[1440,900],[1920,1080],[900,900],[390,844]]) {
+  await page.setViewportSize({width,height});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.screenshot({path:'.superpowers/sdd/2026-10-25-workout-duration/program-'+width+'.png',fullPage:true});
+ }
+ await page.setViewportSize({width:1366,height:768});
  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export program',exact:true}).click();
  let text='';for await(const chunk of await (await download).createReadStream())text+=chunk;
  const portable=JSON.parse(text),original=portable.program.workouts.find(w=>w.name==='Original timed workout');
