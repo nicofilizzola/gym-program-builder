@@ -54,7 +54,11 @@ export function mountActionTooltips(root){
  root.addEventListener('pointerout',event=>{const button=buttonAt(event.target);if(button&&!button.contains(event.relatedTarget)&&!tip.contains(event.relatedTarget))depart();},options);
  root.addEventListener('focusin',event=>{const button=buttonAt(event.target);if(button)schedule(button);},options);
  root.addEventListener('focusout',hide,options);
- root.addEventListener('click',hide,options);
+ root.addEventListener('click',event=>{
+  const button=buttonAt(event.target);
+  if(button?.getAttribute('aria-disabled')==='true')schedule(button);
+  else hide();
+ },options);
  tip.addEventListener('pointerenter',()=>clearTimeout(hideTimer),options);
  tip.addEventListener('pointerleave',depart,options);
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&trigger){hide();}},options);

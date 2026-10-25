@@ -1,6 +1,29 @@
 import {test,expect} from '@playwright/test';
 async function login(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();}
 const group=(page,name)=>page.locator('.reference-group').filter({has:page.getByText(name,{exact:true})});
+test('touch activation explains unavailable catalog actions without changing data',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true}),page=await context.newPage();
+ try{
+  await login(page);const ref=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),r=await api.createReference({id:crypto.randomUUID(),name:'Touch restriction '+crypto.randomUUID()});await api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name:'Restricted child',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});await api.archiveReference({id:r.id,revision:2,archived:true});return r;});
+  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Show archived',{exact:true}).check();await page.getByLabel('Search catalog',{exact:true}).fill(ref.name);const section=group(page,ref.name);
+  await section.locator('.reference-toggle').click();await expect(section.locator('.reference-toggle')).toHaveAttribute('aria-expanded','false');
+  let writes=0;page.on('request',r=>{if(r.url().includes('/api/catalog')&&r.method()!=='GET')writes++;});
+  const tap=async button=>{await button.scrollIntoViewIfNeeded();const r=await button.boundingBox();await page.touchscreen.tap(r.x+r.width/2,r.y+r.height/2);await expect(page.getByRole('tooltip')).toContainText('Restore the reference exercise');await expect(button).toHaveAttribute('aria-describedby',/^action-tooltip-/);await page.keyboard.press('Escape');await expect(page.getByRole('tooltip')).toBeHidden();};
+  await tap(section.locator('[data-catalog-action=add]'));await tap(section.locator('[data-catalog-action=add]'));
+  await section.locator('.reference-toggle').click();await tap(section.locator('[data-catalog-action=create]'));await tap(section.locator('.catalog-row [data-catalog-action=archive]'));expect(writes).toBe(0);await expect(page.getByRole('dialog')).toHaveCount(0);
+ }finally{await context.close();}
+});
+test('catalog mutation focus remains visible across moves reference reordering and search fallback',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await login(page);
+ const fixture=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix=crypto.randomUUID(),source=await api.createReference({id:crypto.randomUUID(),name:'A focus '+suffix}),target=await api.createReference({id:crypto.randomUUID(),name:'Z focus '+suffix});for(let i=0;i<24;i++)await api.createReference({id:crypto.randomUUID(),name:'Focus middle '+i+' '+suffix});const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:source.id,entry:{name:'Movable child '+suffix,equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});return {source,target,entry,suffix};});
+ await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();const source=group(page,fixture.source.name);await source.locator('.reference-toggle').click();await source.locator('[data-catalog-action=move]').click();await page.getByLabel('Destination reference exercise',{exact:true}).selectOption(fixture.target.id);await page.getByRole('dialog').getByRole('button',{name:'Move variant',exact:true}).click();
+ const targetById=page.locator('.reference-group').filter({has:page.getByRole('button',{name:'Move variant '+fixture.entry.name+' to reference exercise',exact:true})});await expect(targetById.locator('[data-catalog-action=move]')).toBeFocused();await expect(targetById.locator('[data-catalog-action=move]')).toBeInViewport({ratio:1});
+ const rename=async name=>{await targetById.locator('[data-catalog-action=rename]').click();await page.getByLabel('Reference exercise name',{exact:true}).fill(name);await page.getByRole('dialog').getByRole('button',{name:'Save reference exercise',exact:true}).click();};
+ await rename('A renamed focus '+fixture.suffix);await expect(targetById.locator('[data-catalog-action=rename]')).toBeFocused();await expect(targetById.locator('[data-catalog-action=rename]')).toBeInViewport({ratio:1});
+ await rename('Z renamed focus '+fixture.suffix);await expect(targetById.locator('[data-catalog-action=rename]')).toBeInViewport({ratio:1});
+ const search=page.getByLabel('Search catalog',{exact:true});await search.fill('focus');await rename('Hidden result '+fixture.suffix);await expect(search).toBeFocused();await expect(search).toBeInViewport({ratio:1});
+ const visible=page.locator('.reference-header [data-catalog-action=rename]').first();await visible.click();const before=await page.evaluate(()=>scrollY);await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();await expect(visible).toBeFocused();expect(await page.evaluate(()=>scrollY)).toBe(before);
+});
 test('manual reference disclosure animates in place and reverses without stale state',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
  const ref=group(page,'Bench press');await expect(ref).toBeVisible();

@@ -15,23 +15,28 @@ export function mountCatalog(root,{api}){
   const b=document.createElement('button');b.type='button';b.className='action-button';b.dataset.catalogAction=key;b.setAttribute('aria-label',label);b.innerHTML=actionIcon(icon);
   b.dataset.actionTooltip=disabledReason||tooltip;
   if(disabledReason)b.setAttribute('aria-disabled','true');
-  b.onclick=()=>{tooltips.hide();if(!disabledReason)onActivate();};return b;
+  b.onclick=()=>{if(disabledReason)return;tooltips.hide();onActivate();};return b;
  }
  function report(e,fn){if(disposed)return;error.textContent=e.message;retryAction=fn;retry.hidden=false;}
  retry.onclick=()=>{error.textContent='';retry.hidden=true;retryAction?.();};
  async function load(){const reading=++generation;invalidateCatalog(api);try{const next=await api.catalog();if(disposed||reading!==generation)return;data=next;error.textContent='';retry.hidden=true;render();}catch(e){report(e,load);}}
  function findReference(id){return [...list.querySelectorAll('.reference-group')].find(row=>row.dataset.reference===id);}
+ function focusVisible(button){
+  button.focus({preventScroll:true});
+  const r=button.getBoundingClientRect();
+  if(r.top<8||r.bottom>innerHeight-8||r.left<8||r.right>innerWidth-8)button.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+ }
  function focusReference(id,key='toggle'){
   if(disposed)return;const group=findReference(id),button=key==='toggle'?group?.querySelector('.reference-toggle'):group?.querySelector('[data-catalog-action="'+key+'"]');
-  (button||group?.querySelector('.reference-toggle')||search).focus({preventScroll:true});
+  focusVisible(button||group?.querySelector('.reference-toggle')||search);
  }
  function focusVariant(id,key='edit',referenceId){
   if(disposed)return;const row=[...list.querySelectorAll('.catalog-row')].find(row=>row.dataset.variant===id&&!row.closest('[hidden],[inert]'));
-  if(row)row.querySelector('[data-catalog-action="'+key+'"]').focus({preventScroll:true});else if(referenceId)focusReference(referenceId);else search.focus({preventScroll:true});
+  if(row)focusVisible(row.querySelector('[data-catalog-action="'+key+'"]'));else if(referenceId)focusReference(referenceId);else focusVisible(search);
  }
  function setReferenceExpanded(section,opened,{animate=false}={}){
   const toggle=section.querySelector('.reference-toggle'),body=section.querySelector('.reference-variants');
-  tooltips.hide();if(!opened&&body.contains(document.activeElement))toggle.focus({preventScroll:true});
+  tooltips.hide();if(!opened&&body.contains(document.activeElement))focusVisible(toggle);
   section.toggleAttribute('data-motion',animate);toggle.setAttribute('aria-expanded',String(opened));
   toggle.setAttribute('aria-label',(opened?'Collapse':'Expand')+' reference exercise '+toggle.querySelector('.reference-name').textContent);
   body.classList.toggle('is-open',opened);body.inert=!opened;body.setAttribute('aria-hidden',String(!opened));

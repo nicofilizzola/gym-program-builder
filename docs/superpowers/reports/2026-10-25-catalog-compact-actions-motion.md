@@ -26,4 +26,15 @@ Final pre-review checks: `npm test` 125/125 passed, `npm run test:e2e` 110/110 p
 - Pending keyboard-focus tooltips survive scrolling before opening; already visible tooltips still dismiss on scroll. This small shared-helper adjustment is necessary for icon-only controls reached outside the viewport. Cost if wrong: manual scrolling during the short pending interval can still open the focused tooltip.
 - The app-screen inspector reports zero failures and one hero-void warning for whitespace between definitions and right-aligned actions in a full-width filtered list. Preserve the approved row alignment and normal scrolling rather than fill that space with decoration. Its hidden-login-heading heuristic is exempted. Cost if wrong: large-screen density may need further visual tuning.
 
+## Independent review and fix pass
+
+One fresh independent review found no Critical findings and two Important accessibility issues. Both were reproduced by failing browser regressions, then fixed in one pass:
+
+1. Tapping an unavailable action now preserves/shows its restriction tooltip through the bubbling click handler, including a collapsed reference and repeated taps. Pointer/keyboard/touch mutation guards remain enforced.
+2. Restored focus scrolls an offscreen result into view, while already visible controls preserve scroll position. Coverage includes moving a variant across a 26-reference list, renaming a reference between the top and bottom, filtered Search fallback, and dialog cancellation without a scroll jump.
+
+Final post-review verification: `npm test` passed 125/125, `npm run test:e2e` passed 112/112, `npm run build` passed and `git diff --check` passed. The two targeted regressions pass. No second reviewer was dispatched; no behaviors were declined for judgment.
+
+Deferred minor: the far-right action's focus outline clips by one pixel because its 4px container clearance is smaller than the 5px outline extent. The focus indicator remains clearly visible. This is recorded for later polish, outside the Important/Critical fix pass.
+
 No data schema, API, catalog semantics or portable file changes. No dependencies, remote migration, merge, push or deployment.
