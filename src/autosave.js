@@ -18,6 +18,7 @@ export function createAutosave({record,save,createCopy,delay=400,onStatus=()=>{}
           const result=await save({id:current.id,revision:attempt.revision,document:attempt.document});
           if(disposed)return;
           current=structuredClone(result);saved=writing;attempt=null;
+          if(writing===generation)document=structuredClone(current.document);
           onRecord({...current,document:structuredClone(document)});
         }catch(error) {if(disposed)return;paused=error;onStatus(pausedStatus());if(error.status===409)onConflict(error);throw error;}
       }
@@ -28,6 +29,7 @@ export function createAutosave({record,save,createCopy,delay=400,onStatus=()=>{}
   return {
     change(value) {if(disposed)return;document=structuredClone(value);generation++;cancel();onStatus(paused?pausedStatus():'Saving…');if(!paused&&!copying)timer=timers.setTimeout(()=>{timer=null;drain().catch(()=>{});},delay);},
     flush:drain,
+    conflict(error) {if(disposed)return;cancel();paused=error;onStatus('Conflict');onConflict(error);},
     retry() {if(paused?.status===409) return Promise.reject(paused);paused=null;return drain();},
     reload(value) {if(inflight)throw Error('Wait for pending save.');cancel();current=structuredClone(value);document=structuredClone(value.document);generation=saved=0;paused=attempt=null;onRecord(current);onStatus('Saved');},
     async saveAsCopy() {

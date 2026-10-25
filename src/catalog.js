@@ -21,4 +21,4 @@ export function searchCatalog(entries,query='',{equipment='',limit=8}={}) {
 export function snapshotExercise(exercise,entry) {
   return {...exercise,name:entry.name,primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],catalogId:entry.id,catalogRevision:entry.revision,familyId:entry.familyId,equipment:entry.equipment};
 }
-export function unlinkExercise({catalogId,catalogRevision,familyId,equipment,...exercise}) {return exercise;}
+export function unlinkExercise({catalogId,catalogRevision,catalogCopyOf,familyId,equipment,...exercise}) {return exercise;}

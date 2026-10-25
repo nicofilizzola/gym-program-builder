@@ -9,9 +9,11 @@ import { tooltipPosition } from './tooltip.js';
 import { parseDocument, serializeDocument, documentFileName } from './document-file.js';
 import { SESSION_MARKUP } from './session-markup.js';
 import { mountPanelLayout } from './panel-layout.js';
+import {mountExercisePicker} from './exercise-picker.js';
+import {snapshotExercise} from './catalog.js';
 
 
-export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport}={}) {
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,api}={}) {
 root.innerHTML=SESSION_MARKUP;
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
 let destroyed=false;
@@ -21,6 +23,7 @@ let destroyed=false;
  */
 let session = structuredClone(workout);
 let lastDocument = JSON.stringify(session);
+const exerciseCards=new Map(),exercisePickers=new Map();
 const nameInput=root.querySelector("[data-template-name]");
 nameInput.value=session.name;
 nameInput.addEventListener("input",()=>{session.name=nameInput.value;refresh();});
@@ -270,15 +273,39 @@ function renderExercises() {
   sortable?.cancel();
   moveMenu?.remove();
   fileMessage.textContent = '';
+  for(const [ex,picker] of exercisePickers)if(!session.exercises.includes(ex)){picker.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);}
   list.replaceChildren(...session.exercises.map((ex, i) => {
-    const card = document.createElement('li');
+    let card=exerciseCards.get(ex);
+    if(!card){
+    card = document.createElement('li');
     card.className = 'exercise';
-    card.dataset.index = i;
     card.innerHTML = CARD_HTML;
+    exerciseCards.set(ex,card);
+    const legacy=!ex.catalogId&&Boolean(ex.name||ex.primaryMuscles.length||ex.secondaryMuscles.length);
+    if(api){
+      const host=document.createElement('div');host.className='exercise-picker';
+      const name=card.querySelector('[data-field="name"]');
+      if(legacy)name.closest('label').before(host);else name.closest('label').replaceWith(host);
+      if(ex.catalogId||!legacy){
+        const muscles=card.querySelector('.exercise-muscle-fields');muscles.replaceChildren();
+        if(ex.catalogId)for(const [label,values] of [['Primary muscles',ex.primaryMuscles],['Secondary muscles',ex.secondaryMuscles]]){
+          const p=document.createElement('p');p.className='linked-muscles';const title=document.createElement('strong');title.textContent=label+': ';p.append(title,values.join(', ')||'None');muscles.append(p);
+        }
+      }
+      const picker=mountExercisePicker(host,{api,exercise:ex,legacy,onView:()=>{location.hash='#/catalog';},onSelect:entry=>{
+        if(destroyed||!session.exercises.includes(ex))return;
+        Object.assign(ex,snapshotExercise(ex,entry));exercisePickers.get(ex)?.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);
+        renderExercises();refresh();
+        const updated=exerciseCards.get(ex);updated?.querySelector('[data-field="sets"]')?.focus({preventScroll:true});
+      }});
+      exercisePickers.set(ex,picker);
+    }
+    if(card.querySelector('[data-field="name"]'))card.querySelector('[data-field="name"]').value = ex.name;
+    }
+    card.dataset.index = i;
     card.querySelector('.card-index').textContent = `Exercise ${i + 1}`;
     card.querySelector('.card-body').id = `exercise-body-${i}`;
     card.querySelector('[data-action="toggle"]').setAttribute('aria-controls', `exercise-body-${i}`);
-    card.querySelector('[data-field="name"]').value = ex.name;
     return card;
   }));
   empty.hidden = session.exercises.length > 0;
@@ -302,6 +329,7 @@ function refresh() {
     const ex = session.exercises[i];
     const errors = validateExercise(ex);
     const isCollapsed = collapsed[i];
+    if(isCollapsed)exercisePickers.get(ex)?.close();
     setOpen(card.querySelector('[data-collapse="body"]'), !isCollapsed);
     setOpen(card.querySelector('[data-collapse="summary"]'), isCollapsed);
     card.querySelector('[data-summary]').textContent = exerciseSummary(ex);
@@ -451,7 +479,7 @@ list.addEventListener('change', (event) => {
   const { role, muscle } = event.target.dataset;
   if (!role) return;
   const i = indexOf(event.target);
-  session.exercises[i] = toggleMuscle(session.exercises[i], role, muscle);
+  Object.assign(session.exercises[i],toggleMuscle(session.exercises[i], role, muscle));
   fileMessage.textContent = '';
   refresh();
 });
@@ -519,7 +547,7 @@ root.querySelector('#add-exercise').addEventListener('click', () => {
   collapsed.push(false);
   renderExercises();
   refresh();
-  list.lastElementChild.querySelector('[data-field="name"]').focus();
+  list.lastElementChild.querySelector('[role="combobox"],[data-field="name"]').focus();
 });
 
 root.querySelector('#expand-all').addEventListener('click', () => {
@@ -548,7 +576,7 @@ function focusFirstError() {
   if(invalid<0)return false;
   collapsed[invalid]=false;refresh();
   fileMessage.textContent=`Fix exercise ${invalid+1} before exporting.`;
-  const field=list.children[invalid].querySelector(ERROR_FIELDS[Object.keys(validateExercise(session.exercises[invalid]))[0]]);
+  const field=list.children[invalid].querySelector('[role="combobox"]')||list.children[invalid].querySelector(ERROR_FIELDS[Object.keys(validateExercise(session.exercises[invalid]))[0]]);
   field.focus({preventScroll:true});revealWhenOpen(list.children[invalid].querySelector('[data-collapse="body"]'),field);
   return true;
 }
@@ -570,7 +598,19 @@ fileInput.addEventListener('change',async()=>{
   if((session.exercises.length||Object.keys(session.goals).length)&&!confirm('Replace this session template?'))return;
   setWorkout(result.document);onImport?.(result.document);
 });
-function setWorkout(value){session=structuredClone(value);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
+function setWorkout(value,{silent=false}={}){session=structuredClone(value);if(silent)lastDocument=JSON.stringify(session);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
+function syncSaved(value){
+ let changed=false;
+ session.exercises.forEach((ex,i)=>{
+  const saved=value.exercises[i];if(!ex.catalogId||saved?.catalogId!==ex.catalogId)return;
+  if(JSON.stringify(ex)!==JSON.stringify(saved)){
+   Object.assign(ex,structuredClone(saved));delete ex.catalogCopyOf;
+   exercisePickers.get(ex)?.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);changed=true;
+  }
+ });
+ lastDocument=JSON.stringify(session);
+ if(changed){renderExercises();refresh();}
+}
 
 root.querySelector('#open-goals').addEventListener('click', () => {
   syncGoalFields();
@@ -689,8 +729,9 @@ renderExercises();
 refresh();
 
 const panelLayout=mountPanelLayout(panel);
-return {setWorkout,focusFirstError,destroy(){
+return {setWorkout,syncSaved,focusFirstError,destroy(){
   destroyed=true;panelLayout.destroy();sortable.destroy();moveMenu?.remove();
+  exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
 }};

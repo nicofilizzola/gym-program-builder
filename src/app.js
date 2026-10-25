@@ -41,7 +41,7 @@ function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t sav
 function track(record){
  queue?.dispose();active=structuredClone(record);saveStatus('Saved');
  let copyRequest;
- const owned=createAutosave({record,save:args=>api.update(args),createCopy:document=>{copyRequest??={id:uid(),kind:record.kind,document:structuredClone(document)};return api.create(copyRequest);},onStatus:text=>{if(queue===owned)saveStatus(text);},onRecord:value=>{if(queue===owned)active=value;}});
+ const owned=createAutosave({record,save:args=>api.update(args),createCopy:document=>{copyRequest??={id:uid(),kind:record.kind,copyOf:record.id,document:structuredClone(document)};return api.create(copyRequest);},onStatus:text=>{if(queue===owned)saveStatus(text);},onRecord:value=>{if(queue===owned){const changed=JSON.stringify(active?.document)!==JSON.stringify(value.document);active=value;if(changed&&!owned.isDirty())mounted?.syncSaved?.(value.document);}}});
  queue=owned;
  return document=>{if(queue!==owned||active?.id!==record.id)return;active.document=document;owned.change(document);};
 }
@@ -89,6 +89,36 @@ retry.addEventListener('click',action(async()=>{await queue?.retry();}));
 reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!confirm('Discard local edits and reload the saved version?'))return;const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
 copySaved.addEventListener('click',action(()=>transition(async()=>{if(!queue)return;const record=await queue.saveAsCopy();queue=null;active=null;history.pushState(null,'',`#/${record.kind==='program'?'programs':'templates'}/${record.id}`);await renderRoute();})));
 function download(kind,document){const text=serializeDocument(kind,document),url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=documentElement('a');a.href=url;a.download=documentFileName(kind);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function externalConflict(owned){
+ const error=Object.assign(Error('The saved workout changed. Reload saved version, or Save as copy to keep your workout settings with current catalog definitions.'),{status:409,code:'CONFLICT'});
+ owned.conflict(error);message.textContent=error.message;return error;
+}
+async function exportActive(kind,workoutId){
+ const owned=queue,recordId=active?.id;if(!owned||!recordId)return;
+ await owned.flush();if(queue!==owned)return;
+ const revision=active.revision,remote=await api.get(recordId);
+ if(queue!==owned)return;
+ if(remote.revision!==revision||queue.isDirty())throw externalConflict(owned);
+ const document=workoutId?remote.document.workouts.find(w=>w.id===workoutId):remote.document;
+ if(!document)throw Error('Workout no longer exists.');
+ download(kind,document);
+}
+let refreshing=false;
+window.addEventListener('focus',()=>{refreshActive().catch(report);});
+async function refreshActive(){
+ if(refreshing||!authenticated||!active||transitioning)return;
+ const owned=queue,id=active.id,revision=active.revision,version=routeVersion;
+ refreshing=true;
+ try {
+  const remote=await api.get(id);
+  if(queue!==owned||routeVersion!==version||!active||active.revision!==revision)return;
+  if(remote.revision!==revision){
+   if(owned.isDirty()){externalConflict(owned);return;}
+   owned.reload(remote);
+   if(remote.kind==='template')mounted?.setWorkout?.(remote.document,{silent:true});else mounted?.update?.(remote.document);
+  }
+ }finally{refreshing=false;}
+}
 function documentElement(tag){return window.document.createElement(tag);}
 async function finishCreation(){
  const operation=creation,version=routeVersion;
@@ -100,7 +130,7 @@ async function finishCreation(){
   await renderRoute();
  }catch(error){retryCreation.hidden=false;throw error;}
 }
-async function create(kind,document,{open=true}={}){return transition(async()=>{creation??={request:{id:uid(),kind,document:structuredClone(document)},open};await finishCreation();});}
+async function create(kind,document,{open=true,copyOf}={}){return transition(async()=>{creation??={request:{id:uid(),kind,document:structuredClone(document),...(copyOf?{copyOf}:{})},open};await finishCreation();});}
 retryCreation.addEventListener('click',action(()=>transition(async()=>{if(creation)await finishCreation();})));
 async function importFile(kind,file,version){if(file.size>1048576)throw Error('File must be at most 1 MiB.');const text=await file.text();if(version!==mountedVersion)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!==kind)throw Error(`Import this file from ${parsed.kind==='program'?'Programs':'Session templates'}.`);await create(kind,parsed.document);}
 async function prepareRecord(record){
@@ -108,8 +138,8 @@ async function prepareRecord(record){
  if(record.kind==='program'){const [module,items]=await Promise.all([import('./program-view.js'),api.list('template')]);mountProgramView=module.mountProgramView;templates=items;}
  return ()=>{
   const onChange=track(record),host=createViewHost();
-  if(record.kind==='template')mounted=mountSessionEditor(host,{workout:active.document,onChange});
-  else mounted=mountProgramView(host,{program:active.document,templates,onLoadTemplate:id=>api.get(id),onChange,onExport:document=>download('program',document)});
+  if(record.kind==='template')mounted=mountSessionEditor(host,{api,workout:active.document,onChange,onExport:action(()=>exportActive('template'))});
+  else mounted=mountProgramView(host,{api,program:active.document,templates,onLoadTemplate:id=>api.get(id),onChange,onExport:action(()=>exportActive('program')),onExportWorkout:action((document,id)=>exportActive('template',id))});
  };
 }
 async function openRecord(record,version){
@@ -143,7 +173,7 @@ async function prepareRoute(route,version){
   onDuplicate:action(async record=>{
    const source=await api.get(record.id);
    if(version!==mountedVersion)return;
-   await create(kind,kind==='program'?duplicateProgram(source.document,uid):structuredClone(source.document),{open:false});
+   await create(kind,kind==='program'?duplicateProgram(source.document,uid):structuredClone(source.document),{open:false,copyOf:source.id});
   }),
   onDelete:action(record=>transition(async()=>{
    if(!confirm(`Delete ${record.name||'this item'}?`))return;

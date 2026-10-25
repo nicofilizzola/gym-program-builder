@@ -1637,3 +1637,23 @@ button:disabled {opacity:.5;cursor:default}
 @media (max-width:1000px) {.catalog-row {grid-template-columns:minmax(0,1fr)}.catalog-row-actions {justify-content:start}}
 @media (max-width:760px) {.catalog-page {padding:16px}.catalog-toolbar>.field {flex:1;min-width:100%}.catalog-muscles {grid-template-columns:minmax(0,1fr)}.catalog-dialog {padding:16px}.catalog-form-actions {bottom:-16px}.catalog-row-actions>button {flex:1}}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.catalog-dialog select,.catalog-toolbar select {min-height:32px}.catalog-muscles .chip span {min-height:28px}.catalog-meta,.catalog-mapping {font-size:.8125rem}.catalog-archived {min-height:32px}}
+
+/* Top-layer exercise suggestions stay clear of card clipping and the mobile rail. */
+.exercise-options {position:fixed;inset:auto;margin:0;padding:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.exercise-options>.field {margin-bottom:8px}
+.exercise-options select {min-height:44px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px;font:inherit}
+.exercise-option {display:flex;flex-direction:column;min-height:44px;gap:2px;padding:10px 8px;border-radius:6px;cursor:pointer;overflow-wrap:anywhere}
+.exercise-option:hover,.exercise-option[aria-selected=true] {background:var(--surface-2);outline:1px solid var(--accent);outline-offset:-1px}
+.exercise-option .catalog-meta,.exercise-option .catalog-mapping {margin:0;font-size:.8125rem}
+.exercise-options>[data-create] {width:100%;margin-top:8px}
+.exercise-menu {display:flex;flex-direction:column;gap:6px}
+.exercise-menu .secondary-btn {justify-content:start}
+.exercise-definition-head {display:flex;align-items:center;justify-content:space-between;gap:8px}
+.linked-exercise-name {font-weight:600;overflow-wrap:anywhere;min-width:0}
+.linked-muscles {margin:0;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
+.linked-muscles strong {font-weight:500;color:var(--text)}
+.exercise-picker [data-custom] {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.exercise-options select {min-height:32px}.exercise-option {padding:6px 8px}.linked-muscles {font-size:.8125rem}}
+.exercise-picker>label:has(select) {margin-top:8px}
+.exercise-picker select {min-height:44px;max-width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px;font:inherit}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.exercise-picker select {min-height:32px}}

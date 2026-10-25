@@ -8,8 +8,9 @@ import { moveExercise } from './exercise.js';
 
 export const createTemplate = () => ({name:'Untitled template',exercises:[],goals:{}});
 export const createProgram = () => ({name:'Untitled program',mode:'simple',workouts:[],goals:{}});
-export function copyWorkout(template,id) {
+export function copyWorkout(template,id,sourceId) {
   const {name,exercises,goals}=structuredClone(template);
+  if(sourceId)for(const ex of exercises)if(ex.catalogId)ex.catalogCopyOf=sourceId;
   return {name,exercises,goals,id,day:null};
 }
 export function duplicateProgram(program,makeId) {

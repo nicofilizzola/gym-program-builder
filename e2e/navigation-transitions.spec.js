@@ -44,7 +44,7 @@ test('embedded workout navigation animates, restores focus and focuses export er
  expect(await page.evaluate(()=>window.internalDurations)).toContain(100);
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();await page.getByRole('button',{name:'Back to program',exact:true}).click();
  await expect(page.getByRole('button',{name:'Edit Untitled workout',exact:true})).toBeFocused();
- await page.getByRole('button',{name:'Export program',exact:true}).click();await expect(page.getByLabel('Exercise name',{exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Export program',exact:true}).click();await expect(page.getByRole('combobox',{name:'Exercise',exact:true})).toBeFocused();
 });
 test('expired login during destination fetch retains recoverable source edits',async({page})=>{
  await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByLabel('Program name',{exact:true}).fill('Recovered week');await expect(page.getByTestId('save-status')).toHaveText('Saved');

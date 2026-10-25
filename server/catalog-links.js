@@ -8,9 +8,16 @@ export async function resolveCatalogLinks(tx,document,{previous}={}) {
  for(const ex of documentExercises(document))if(ex.catalogId){
   let entry=cache.get(ex.catalogId);
   if(!entry){try{entry=await readCatalogEntry(tx,ex.catalogId);}catch(error){if(error.code==='NOT_FOUND')throw domainError('INVALID','The selected catalog exercise no longer exists.');throw error;}cache.set(ex.catalogId,entry);}
-  if(entry.archived){const remaining=allowed.get(entry.id)||0;if(!remaining)throw domainError('INVALID','Archived exercises cannot be newly selected. Choose an active exercise or create a variant.');allowed.set(entry.id,remaining-1);}
+  let copied=false;
+  if(ex.catalogCopyOf&&!(allowed.get(entry.id)>0)){
+   const source=await tx.execute({sql:'SELECT document_json FROM documents WHERE id=?',args:[ex.catalogCopyOf]});
+   copied=Boolean(source.rows[0]&&documentExercises(JSON.parse(source.rows[0].document_json)).some(e=>e.catalogId===entry.id));
+   if(!copied)throw domainError('INVALID','Copy source does not contain this catalog exercise.');
+  }
+  if(entry.archived){const remaining=allowed.get(entry.id)||0;if(!remaining&&!copied)throw domainError('INVALID','Archived exercises cannot be newly selected. Choose an active exercise or create a variant.');if(remaining)allowed.set(entry.id,remaining-1);}
   if(ex.familyId!==entry.familyId)throw domainError('INVALID','Exercise family does not match its catalog entry.');
   Object.assign(ex,snapshotExercise(ex,entry));
+  delete ex.catalogCopyOf;
  }
  return document;
 }

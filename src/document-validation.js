@@ -36,6 +36,10 @@ function workout(value,draft) {
       if(Object.hasOwn(ex,'catalogId')) {
         if(typeof ex.catalogId!=='string'||!ex.catalogId||ex.catalogId.length>100||typeof ex.familyId!=='string'||!ex.familyId||ex.familyId.length>100||!Number.isInteger(ex.catalogRevision)||ex.catalogRevision<1||!EQUIPMENT.includes(ex.equipment))fail('Invalid exercise catalog link.');
         Object.assign(clean,{catalogId:ex.catalogId,familyId:ex.familyId,catalogRevision:ex.catalogRevision,equipment:ex.equipment});
+        if(Object.hasOwn(ex,'catalogCopyOf')){
+          if(typeof ex.catalogCopyOf!=='string'||!ex.catalogCopyOf||ex.catalogCopyOf.length>100)fail('Invalid catalog copy source.');
+          clean.catalogCopyOf=ex.catalogCopyOf;
+        }
       }
       return clean;
     } catch(error) {fail(`Exercise ${i+1}: ${error.message}`);}
