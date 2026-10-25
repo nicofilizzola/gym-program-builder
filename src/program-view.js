@@ -9,6 +9,7 @@ import {validateDocument} from './document-validation.js';
 import {parseDocument} from './document-file.js';
 import {validateExercise} from './validate.js';
 import {MUSCLE_GROUPS} from './muscles.js';
+import {durationLabel} from './duration.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
@@ -76,7 +77,9 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         const badgeSpace=document.createElement('span');badgeSpace.className='workout-badge-space hit-tag';badgeSpace.setAttribute('aria-hidden','true');
         for(const muscle of MUSCLE_GROUPS){const label=document.createElement('span');label.textContent=`Trains ${muscle}`;badgeSpace.append(label);}
         badgeSlot.append(badgeSpace,marker);
-        const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;const metadata=document.createElement('div');metadata.className='workout-metadata';metadata.append(count,badgeSlot);card.append(metadata);
+        const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;
+        const duration=document.createElement('p');duration.dataset.workoutDuration='';duration.textContent='Estimated duration '+durationLabel(workout);
+        const metadata=document.createElement('div');metadata.className='workout-metadata';metadata.append(count,duration,badgeSlot);card.append(metadata);
         const actions=document.createElement('div');actions.className='item-actions';card.append(actions);
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [

@@ -83,3 +83,61 @@ test('populated duration controls reflow at desktop, tablet, mobile and enlarged
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
  await expect(page.getByRole('slider',{name:'Extra time',exact:true})).toBeVisible();
 });
+
+test('program durations survive independent copies, editing, schedule moves and file round trips',async({page})=>{
+ test.setTimeout(90000);
+ await signIn(page);
+ const name='Timed source '+crypto.randomUUID();
+ const source={name,extraMinutes:5,bufferPercent:10,goals:{},exercises:[
+  {name:'Bench',sets:3,restSeconds:180,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]},
+  {name:'Curl',sets:3,restSeconds:90,repRange:{min:8,max:12},primaryMuscles:['Biceps'],secondaryMuscles:[]},
+ ]};
+ const created=await page.request.post('/api/documents',{headers:{origin:'http://127.0.0.1:3199'},data:{id:crypto.randomUUID(),kind:'template',document:source}});
+ expect(created.ok()).toBeTruthy();const sourceId=(await created.json()).record.id;
+ await page.getByRole('button',{name:'New program',exact:true}).click();
+ await page.getByLabel('Program name',{exact:true}).fill('Timed week');
+ await page.getByLabel('Session template to copy').selectOption({label:name});
+ await page.getByRole('button',{name:'Add template',exact:true}).click();
+ const card=title=>page.locator('.workout-item').filter({has:page.getByRole('heading',{name:title,exact:true,level:3})});
+ await expect(card(name).locator('[data-workout-duration]')).toHaveText('Estimated duration ~27 min');
+ await card(name).getByRole('button',{name:'Edit '+name,exact:true}).click();
+ await page.getByLabel('Session template name').fill('Original timed workout');
+ await page.getByRole('button',{name:'Expand all',exact:true}).click();
+ await page.getByRole('slider',{name:'Rest per set',exact:true}).first().fill('0');
+ await page.getByRole('button',{name:'Show duration details'}).click();
+ await page.getByRole('slider',{name:'Extra time',exact:true}).fill('0');
+ await page.getByRole('slider',{name:'Buffer',exact:true}).fill('0');
+ await page.getByRole('button',{name:'Back to program',exact:true}).click();
+ await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
+ await card('Original timed workout').getByRole('button',{name:'Duplicate Original timed workout',exact:true}).click();
+ await page.getByRole('button',{name:'Edit Original timed workout',exact:true}).last().click();
+ await page.getByLabel('Session template name').fill('Duplicate timed workout');
+ await page.getByRole('button',{name:'Expand all',exact:true}).click();
+ await page.getByRole('slider',{name:'Rest per set',exact:true}).first().fill('300');
+ await page.getByRole('button',{name:'Back to program',exact:true}).click();
+ await expect(card('Duplicate timed workout').locator('[data-workout-duration]')).toContainText('~26 min');
+ await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
+ await card('Duplicate timed workout').getByRole('button',{name:'Move up Duplicate timed workout',exact:true}).click();
+ await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
+ await page.getByLabel('Day for Original timed workout').selectOption('0');
+ await page.getByLabel('Day for Duplicate timed workout').selectOption('6');
+ await page.getByLabel('Day for Duplicate timed workout').selectOption('');
+ await page.getByRole('radio',{name:'Sequence',exact:true}).check();
+ await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
+ await expect(card('Duplicate timed workout').locator('[data-workout-duration]')).toContainText('~26 min');
+ await expect(page.getByLabel('Day for Original timed workout')).toHaveValue('0');
+ await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ await page.reload();
+ await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
+ const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export program',exact:true}).click();
+ let text='';for await(const chunk of await (await download).createReadStream())text+=chunk;
+ const portable=JSON.parse(text),original=portable.program.workouts.find(w=>w.name==='Original timed workout');
+ expect(original.extraMinutes).toBe(0);expect(original.bufferPercent).toBe(0);expect(original.exercises[0].restSeconds).toBe(0);
+ expect(portable.program.workouts.find(w=>w.name==='Duplicate timed workout').exercises[0].restSeconds).toBe(300);
+ page.once('dialog',d=>d.accept());
+ await page.locator('[data-file]').setInputFiles({name:'timed-week.json',mimeType:'application/json',buffer:Buffer.from(text)});
+ await expect(page.getByTestId('save-status')).toHaveText('Saved');await page.reload();
+ await expect(card('Duplicate timed workout').locator('[data-workout-duration]')).toContainText('~26 min');
+ const unchanged=(await (await page.request.get('/api/documents/'+sourceId)).json()).record.document;
+ expect(unchanged).toEqual(source);
+});
