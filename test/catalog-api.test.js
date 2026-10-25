@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createDb,migrate} from '../server/db.js';
+import {createRepository} from '../server/repository.js';
+import {createCatalogRepository} from '../server/catalog-repository.js';
+import {createApi} from '../server/api.js';
+import {createApiClient} from '../src/api-client.js';
+test('catalog API enforces authentication, origin, revisions and supports browser client integration',async t=>{
+ const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);
+ let signedIn=false;
+ const handler=createApi({repository:createRepository(db),catalog:createCatalogRepository(db),auth:{session:async()=>signedIn},origin:'http://localhost'});
+ const fetch=(url,options={})=>handler(new Request('http://localhost'+url,{...options,headers:{...options.headers,origin:'http://localhost'}}));
+ const api=createApiClient({fetch});
+ await assert.rejects(api.catalog(),{status:401});signedIn=true;
+ assert.equal((await handler(new Request('http://localhost/api/catalog',{method:'POST',headers:{origin:'http://evil'}}))).status,403);
+ await assert.rejects(api.createCatalog({}),{status:400});
+ const entry=await api.createCatalog({id:'bench',familyId:'press',familyName:'Press',entry:{name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
+ assert.equal(entry.name,'Bench');assert.equal((await api.catalog()).entries.length,1);
+ const changed=await api.updateCatalog({id:'bench',revision:1,entry:{...entry,name:'Corrected bench'},impact:await api.catalogImpact('bench')});
+ assert.equal(changed.revision,2);
+ await assert.rejects(api.archiveCatalog({id:'bench',revision:1,archived:true}),{status:409});
+ assert.equal((await api.archiveCatalog({id:'bench',revision:2,archived:true})).archived,true);
+ assert.equal((await api.renameFamily({id:'press',revision:1,name:'Chest press'})).name,'Chest press');
+});
