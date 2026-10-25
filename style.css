@@ -1657,3 +1657,5 @@ button:disabled {opacity:.5;cursor:default}
 .exercise-picker>label:has(select) {margin-top:8px}
 .exercise-picker select {min-height:44px;max-width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px;font:inherit}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.exercise-picker select {min-height:32px}}
+.exercise-options:not(:popover-open) {display:none}
+.picker-creation-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}

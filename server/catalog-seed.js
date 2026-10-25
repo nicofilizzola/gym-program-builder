@@ -23,7 +23,8 @@ const groups=[
  ['lateral','Lateral raise',[
   ['Dumbbell lateral raise','Dumbbell',['Side delts'],[]],['Cable lateral raise','Cable',['Side delts'],[]],['Machine lateral raise','Machine',['Side delts'],[]]]],
  ['rear','Rear delt fly',[
-  ['Dumbbell reverse fly','Dumbbell',['Rear delts'],['Upper back']],['Reverse pec deck','Machine',['Rear delts'],['Upper back']],['Cable face pull','Cable',['Rear delts','Upper back'],[]]]],
+  ['Dumbbell reverse fly','Dumbbell',['Rear delts'],['Upper back']],['Reverse pec deck','Machine',['Rear delts'],['Upper back']]]],
+ ['facepull','Face pull',[['Cable face pull','Cable',['Rear delts','Upper back'],[]]]],
  ['curl','Biceps curl',[
   ['Barbell curl','Barbell',['Biceps'],[]],['Dumbbell curl','Dumbbell',['Biceps'],[]],['Hammer curl','Dumbbell',['Biceps'],[]],['Cable curl','Cable',['Biceps'],[]],['Preacher curl machine','Machine',['Biceps'],[]]]],
  ['extension','Triceps extension',[
@@ -32,15 +33,17 @@ const groups=[
   ['Barbell back squat','Barbell',['Quads'],[]],['Barbell front squat','Barbell',['Quads'],['Abs']],['Goblet squat','Dumbbell',['Quads'],[]],['Hack squat','Machine',['Quads'],[]],['Bodyweight squat','Bodyweight',['Quads'],[]]]],
  ['lunge','Single-leg squat',[
   ['Dumbbell split squat','Dumbbell',['Quads'],[]],['Dumbbell walking lunge','Dumbbell',['Quads'],[]],['Bulgarian split squat','Dumbbell',['Quads'],[]]]],
- ['legpress','Leg press',[['Leg press','Machine',['Quads'],[]],['Leg extension','Machine',['Quads'],[]]]],
+ ['legpress','Leg press',[['Leg press','Machine',['Quads'],[]]]],
+ ['legextension','Leg extension',[['Leg extension','Machine',['Quads'],[]]]],
  ['hinge','Hip hinge',[
   ['Barbell Romanian deadlift','Barbell',['Hamstrings'],[]],['Dumbbell Romanian deadlift','Dumbbell',['Hamstrings'],[]],['Single-leg Romanian deadlift','Dumbbell',['Hamstrings'],[]]]],
  ['legcurl','Leg curl',[
   ['Seated leg curl','Machine',['Hamstrings'],[]],['Lying leg curl','Machine',['Hamstrings'],[]],['Nordic curl','Bodyweight',['Hamstrings'],[]]]],
  ['calf','Calf raise',[
   ['Standing calf raise','Machine',['Calves'],[]],['Seated calf raise','Machine',['Calves'],[]],['Dumbbell calf raise','Dumbbell',['Calves'],[]]]],
- ['abs','Abdominal exercise',[
-  ['Cable crunch','Cable',['Abs'],[]],['Hanging knee raise','Bodyweight',['Abs'],[]],['Reverse crunch','Bodyweight',['Abs'],[]],['Machine crunch','Machine',['Abs'],[]]]]
+ ['abs','Crunch',[
+  ['Cable crunch','Cable',['Abs'],[]],['Reverse crunch','Bodyweight',['Abs'],[]],['Machine crunch','Machine',['Abs'],[]]]],
+ ['legraise','Leg raise',[['Hanging knee raise','Bodyweight',['Abs'],[]]]]
 ];
 const slug=name=>name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
 export const STARTER_CATALOG=groups.flatMap(([id,familyName,items])=>items.map(([name,equipment,primaryMuscles,secondaryMuscles])=>({id:'seed-'+slug(name),familyId:'seed-family-'+id,familyName,...validateCatalogEntry({name,equipment,primaryMuscles,secondaryMuscles}).entry})));

@@ -29,6 +29,38 @@ test('catalog supports named families, same-mapping variants, edits and archive 
  await edited.getByRole('button',{name:'Restore',exact:true}).click();
  await expect(edited).not.toContainText('Archived');
 });
+test('export refuses a catalog definition changed after the editor was opened',async({page})=>{
+ await login(page);
+ const fixture=await page.evaluate(async()=>{
+  const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),familyId=crypto.randomUUID();
+  const entry=await api.createCatalog({id:crypto.randomUUID(),familyId,familyName:'Export family',entry:{name:'Export press',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
+  const record=await api.create({id:crypto.randomUUID(),kind:'template',document:{name:'Export workout',exercises:[{name:entry.name,sets:3,repRange:{min:8,max:12},primaryMuscles:entry.primaryMuscles,secondaryMuscles:[],catalogId:entry.id,catalogRevision:1,familyId,equipment:entry.equipment}],goals:{}}});return {entry,record};
+ });
+ await page.goto('/#/templates/'+fixture.record.id);await expect(page.getByLabel('Session template name')).toHaveValue('Export workout');
+ await page.evaluate(async entry=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient();await api.updateCatalog({id:entry.id,revision:1,entry:{...entry,name:'New export press'},impact:await api.catalogImpact(entry.id)});},fixture.entry);
+ let downloads=0;page.on('download',()=>downloads++);
+ await page.getByRole('button',{name:'Export',exact:true}).click();await expect(page.getByTestId('save-status')).toHaveText('Conflict');expect(downloads).toBe(0);
+});
+test('failed usage preview blocks shared edits until the preview can be retried',async({page})=>{
+ await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
+ await page.route('**/api/catalog/*/impact',route=>route.fulfill({status:503,json:{error:{message:'Usage unavailable'}}}));
+ await page.locator('.catalog-row').first().getByRole('button',{name:'Edit exercise',exact:true}).click();
+ const dialog=page.getByRole('dialog');await expect(dialog).toContainText('Usage unavailable');await expect(dialog.getByRole('button',{name:'Save changes',exact:true})).toBeDisabled();
+ await page.unroute('**/api/catalog/*/impact');await dialog.getByRole('button',{name:'Retry usage preview',exact:true}).click();
+ await expect(dialog.getByRole('button',{name:'Save changes',exact:true})).toBeEnabled();
+});
+test('legacy linking previews changes and does not silently alter custom exercises',async({page})=>{
+ await login(page);
+ const id=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');return (await createApiClient().create({id:crypto.randomUUID(),kind:'template',document:{name:'Legacy workout',exercises:[{name:'My press',sets:6,repRange:{min:5,max:7},primaryMuscles:['Triceps'],secondaryMuscles:[]}],goals:{}}})).id;});
+ await page.goto('/#/templates/'+id);await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
+ await expect(page.getByLabel('Exercise name',{exact:true})).toHaveValue('My press');
+ await page.getByRole('button',{name:'Link to catalog',exact:true}).click();
+ const search=page.getByRole('combobox',{name:'Exercise',exact:true});await search.fill('Barbell bench press');await search.press('ArrowDown');
+ page.once('dialog',dialog=>dialog.dismiss());await search.press('Enter');
+ await expect(page.getByLabel('Exercise name',{exact:true})).toHaveValue('My press');await expect(page.locator('.volume-row[data-muscle="Triceps"] .value')).toHaveText('6');
+ page.once('dialog',dialog=>dialog.accept());await search.press('Enter');
+ await expect(page.locator('.linked-exercise-name')).toHaveText('Barbell bench press');await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('6');await expect(page.getByLabel('Reps min',{exact:true})).toHaveValue('5');
+});
 test('picker retry is idempotent after a committed variant response is lost',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();

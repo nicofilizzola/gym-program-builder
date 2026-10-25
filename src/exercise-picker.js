@@ -23,12 +23,18 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  // Keep the filter in document order beside the combobox, even though suggestions use the top layer.
  const equipmentLabel=filter.closest('label');
  host.querySelector('[data-search]').after(equipmentLabel);
+ const pickerActions=document.createElement('div');pickerActions.className='picker-creation-actions';equipmentLabel.after(pickerActions);
+ const newExercise=popup.querySelector('[data-create]');pickerActions.append(newExercise);
+ const cancelSelection=document.createElement('button');cancelSelection.type='button';cancelSelection.className='secondary-btn';cancelSelection.textContent='Cancel selection';pickerActions.append(cancelSelection);
+ cancelSelection.onclick=()=>{hide();editing=false;display();(exercise.catalogId?actions:host.querySelector('[data-link]')).focus();};
  filter.onfocus=()=>{show();};
  input.setAttribute('aria-controls',id);
  function display(){
   host.querySelector('[data-definition]').hidden=!exercise.catalogId||editing;host.querySelector('[data-custom]').hidden=!legacy||editing;
   host.querySelector('[data-search]').hidden=!editing;
   equipmentLabel.hidden=!editing;
+  pickerActions.hidden=!editing;
+  cancelSelection.hidden=!editing||!(exercise.catalogId||legacy);
   host.querySelector('.linked-exercise-name').textContent=exercise.name;
   const current=store.value?.entries.find(e=>e.id===exercise.catalogId);
   host.querySelector('[data-meta]').textContent=[current?.familyName,exercise.equipment,current?.archived?'Archived':null].filter(Boolean).join(' · ');
@@ -37,7 +43,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   if(!el.matches(':popover-open'))return;
   const view=window.visualViewport,r=anchor.getBoundingClientRect(),top=view?.offsetTop||0,bottom=top+(view?.height||innerHeight),width=Math.min(520,innerWidth-16);
   el.style.width=width+'px';el.style.left=Math.max(8,Math.min(r.left,innerWidth-width-8))+'px';
-  const below=bottom-r.bottom-8,above=r.top-top-8,useBelow=below>=Math.min(360,above),space=useBelow?below:above;
+  const below=bottom-r.bottom-12,above=r.top-top-12,useBelow=below>=Math.min(360,above),space=useBelow?below:above;
   el.style.maxHeight=Math.max(80,space)+'px';el.style.top=(useBelow?r.bottom+4:Math.max(top+8,r.top-el.getBoundingClientRect().height-4))+'px';
  }
  function close(){
@@ -57,7 +63,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
    const meta=document.createElement('span');meta.className='catalog-meta';meta.textContent=entry.equipment+' · '+entry.familyName;
    const mapping=document.createElement('span');mapping.className='catalog-mapping';mapping.textContent='Primary: '+entry.primaryMuscles.join(', ')+' · Secondary: '+(entry.secondaryMuscles.join(', ')||'None');
    option.append(name,meta,mapping);option.onpointerdown=event=>event.preventDefault();option.onclick=()=>select(entry);list.append(option);
-  });announce();if(open)position(popup,input);
+  });announce();if(open)position(popup,host);
  }
  async function load(force=false){
   retry.hidden=true;error.textContent='';
@@ -87,7 +93,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   menu.showPopover();menuOpen=true;actions.setAttribute('aria-expanded','true');position(menu,actions);menu.querySelector('button').focus();
  };
  host.querySelector('[data-link]').onclick=()=>{editing=true;display();input.value=exercise.name;input.focus();show();};
- popup.querySelector('[data-create]').onclick=()=>create('create');
+ newExercise.onclick=()=>create('create');
  retry.onclick=()=>load(true);filter.onchange=render;
  input.onfocus=show;
  input.oninput=event=>{if(!event.isComposing)show();};
@@ -105,7 +111,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  };
  const outside=event=>{if(!host.contains(event.target)&&!popup.contains(event.target)&&!menu.contains(event.target))hide();};
  const key=event=>{if(event.key==='Escape'){if(menuOpen){closeMenu();actions.focus();}else close();}};
- const scrolling=event=>{if(!popup.contains(event.target)&&!menu.contains(event.target))hide();};
+ const scrolling=event=>{if(!popup.contains(event.target)&&!menu.contains(event.target)){if(open)position(popup,host);if(menuOpen)position(menu,actions);}};
  const focus=()=>load(true),resize=()=>hide();
  document.addEventListener('pointerdown',outside);document.addEventListener('focusin',outside);document.addEventListener('keydown',key);document.addEventListener('scroll',scrolling,true);window.addEventListener('resize',resize);window.addEventListener('focus',focus);
  display();load();
