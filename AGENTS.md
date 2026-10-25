@@ -1,5 +1,17 @@
 # Gym Program Builder
 
+## Exercise catalog and autocomplete (2026-10-25)
+
+These approved catalog requirements supersede older exercise-library restrictions and copy-independence rules where explicitly stated. Design: docs/superpowers/specs/2026-10-25-exercise-catalog-design.md; plan: docs/superpowers/plans/2026-10-25-exercise-catalog.md.
+
+- Own the catalog in the existing SQLite/Turso database, with a curated starter list, equipment, fixed primary/secondary muscles, and stable exercise/family IDs. No external API or family ancestry tree.
+- Session cards use explicit autocomplete selection. Linked exercise names and muscle mappings are read-only; sets/reps remain independent workout settings. Create variant saves a named catalog entry in the same family and switches only the invoking workout instance. Variants may share muscle mappings.
+- Catalog definition edits propagate transactionally to every exact-entry use in templates/programs, with impact previews and document revisions. Other variants are unaffected. Template/program copies share definitions intentionally, while their prescriptions, order, goals and selected entries remain independent.
+- Archive entries rather than deleting them. Preserve existing archived links and source-verified copies; exclude archived entries from new selections.
+- Keep existing/imported exercises unlinked until explicit confirmation. Version-2 exports remain self-contained and strip internal catalog metadata; versions 1 and 2 still import without trusting catalog IDs.
+- Revalidate the in-memory catalog on editor entry/focus and after mutations. Preserve dirty edits on external revision conflicts, coordinate refresh with in-flight save acknowledgements, and preserve open variant drafts when saves settle.
+- Run db:migrate and db:seed explicitly per environment; never migrate or seed production during builds or requests. Preserve the existing design system, accessibility, volume behavior and verification requirements below.
+
 ## Current release: programs and persistence (2026-10-23)
 
 These approved requirements supersede the original MVP restrictions below wherever they conflict. Full design: docs/superpowers/specs/2026-10-23-programs-persistence-design.md; implementation plan: docs/superpowers/plans/2026-10-23-programs-persistence.md.

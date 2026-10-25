@@ -134,7 +134,7 @@ h1 {
   color: var(--muted);
 }
 
-input[type="text"] {
+input[type="text"],input[type="search"] {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
@@ -1496,7 +1496,7 @@ button:disabled {opacity:.5;cursor:default}
   .app-header {padding-block:10px}
   .secondary-btn,.library-toolbar .secondary-btn,.program-file-actions .secondary-btn,
   .template-picker button,.add-btn,.library-toolbar .add-btn {min-height:var(--control-compact);padding:6px 12px;font-size:.875rem}
-  input[type="text"],select {min-height:var(--control-compact);padding:5px 10px;font-size:.875rem;line-height:1.4}
+  input[type="text"],input[type="search"],select {min-height:var(--control-compact);padding:5px 10px;font-size:.875rem;line-height:1.4}
   .field,.slider-head,.chips legend {font-size:.8125rem;gap:4px}
   .action-button,.icon-btn,.toggle-btn,.drag-handle {width:var(--control-compact);height:var(--control-compact);min-height:var(--control-compact);flex-basis:var(--control-compact)}
   .program-layout {padding:2px}
@@ -1659,3 +1659,5 @@ button:disabled {opacity:.5;cursor:default}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.exercise-picker select {min-height:32px}}
 .exercise-options:not(:popover-open) {display:none}
 .picker-creation-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.catalog-header h1 {font-size:1.5rem}
+.catalog-row h2 {text-transform:none;letter-spacing:normal}

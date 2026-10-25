@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 const directory='.superpowers/sdd/2026-10-25-exercise-catalog/screens';
 async function populated(page){
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();
@@ -17,6 +17,10 @@ for(const size of [{width:1366,height:768},{width:1440,height:900},{width:1920,h
   await expect(page.locator('.exercise-menu').first()).toBeHidden();
   if(size.width>=1100)for(const body of await page.locator('#body-map svg').all()){const box=await body.boundingBox();expect(box.height).toBeGreaterThanOrEqual(180);}
   await page.screenshot({path:directory+'/editor-'+size.width+'.png',fullPage:true});
+  if(size.width===1440){
+   const css=await readFile('style.css','utf8'),html=(await page.content()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace('<link rel="stylesheet" href="style.css">','<style>'+css+'</style>');
+   await writeFile(directory+'/editor.html',html);
+  }
   await page.getByRole('button',{name:'Exercise actions',exact:true}).first().click();await page.getByRole('button',{name:'Replace exercise',exact:true}).click();
   const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.fill('press');
   await expect(page.getByRole('listbox',{name:'Exercise suggestions'})).toBeVisible();
@@ -32,6 +36,10 @@ for(const size of [{width:1366,height:768},{width:1440,height:900},{width:1920,h
   await page.screenshot({path:directory+'/form-'+size.width+'.png',fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
   await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await expect(page.locator('.catalog-row').first()).toBeVisible();
+  expect((await page.getByLabel('Search catalog',{exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(size.width>=1100?32:44);
+  await page.screenshot({path:directory+'/catalog-'+size.width+'.png'});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
  });
 }
 test('hybrid input and enlarged text preserve catalog controls',async({browser})=>{

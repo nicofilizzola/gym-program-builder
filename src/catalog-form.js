@@ -1,5 +1,6 @@
 import {EQUIPMENT,validateCatalogEntry} from './catalog.js';
 import {MUSCLE_GROUPS} from './muscles.js';
+import {invalidateCatalog} from './catalog-store.js';
 const button=(text,fn)=>{const b=document.createElement('button');b.type='button';b.className='secondary-btn';b.textContent=text;b.onclick=fn;return b;};
 export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=>{},initialName=''}) {
  const invoker=document.activeElement,dialog=document.createElement('dialog');dialog.className='catalog-dialog';
@@ -50,7 +51,7 @@ export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=
   saving=true;save.disabled=true;error.textContent='';recovery.replaceChildren();dialog.querySelector('[data-cancel]').disabled=true;
   try{
    const saved=operation==='edit'?await api.updateCatalog({id:current.id,revision:current.revision,entry:validated.entry,impact}):await api.createCatalog({id,familyId:operation==='variant'?current.familyId:fields.family.value||newFamilyId,familyName:fields.familyName.value,entry:validated.entry});
-   if(closed)return;await onSaved(saved);close();
+   invalidateCatalog(api);if(closed)return;await onSaved(saved);close();
   }catch(e){
    if(closed)return;error.textContent=e.message;
    if(e.status===409&&operation==='edit'){

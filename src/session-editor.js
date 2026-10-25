@@ -11,12 +11,14 @@ import { SESSION_MARKUP } from './session-markup.js';
 import { mountPanelLayout } from './panel-layout.js';
 import {mountExercisePicker} from './exercise-picker.js';
 import {snapshotExercise} from './catalog.js';
+import {getCatalogStore} from './catalog-store.js';
 
 
 export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,api}={}) {
 root.innerHTML=SESSION_MARKUP;
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
 let destroyed=false;
+if(api)getCatalogStore(api).load(true).catch(()=>{});
 /**
  * The only domain state. Volume, goal status and errors are derived from it in refresh().
  * `goals` has a key only for muscles with a valid goal.
@@ -601,15 +603,23 @@ fileInput.addEventListener('change',async()=>{
 function setWorkout(value,{silent=false}={}){session=structuredClone(value);if(silent)lastDocument=JSON.stringify(session);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
 function syncSaved(value){
  let changed=false;
+ const definition=ex=>JSON.stringify([ex.name,ex.catalogId,ex.catalogRevision,ex.familyId,ex.equipment,ex.primaryMuscles,ex.secondaryMuscles]);
  session.exercises.forEach((ex,i)=>{
   const saved=value.exercises[i];if(!ex.catalogId||saved?.catalogId!==ex.catalogId)return;
-  if(JSON.stringify(ex)!==JSON.stringify(saved)){
-   Object.assign(ex,structuredClone(saved));delete ex.catalogCopyOf;
-   exercisePickers.get(ex)?.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);changed=true;
+  const before=definition(ex);Object.assign(ex,structuredClone(saved));delete ex.catalogCopyOf;
+  if(before!==definition(ex)){
+   exercisePickers.get(ex)?.update();
+   const muscles=exerciseCards.get(ex)?.querySelectorAll('.linked-muscles');
+   for(const [index,label,values] of [[0,'Primary muscles',ex.primaryMuscles],[1,'Secondary muscles',ex.secondaryMuscles]]){
+    if(!muscles?.[index])continue;
+    const title=document.createElement('strong');title.textContent=label+': ';
+    muscles[index].replaceChildren(title,values.join(', ')||'None');
+   }
+   changed=true;
   }
  });
  lastDocument=JSON.stringify(session);
- if(changed){renderExercises();refresh();}
+ if(changed)refresh();
 }
 
 root.querySelector('#open-goals').addEventListener('click', () => {

@@ -1,5 +1,6 @@
 import {EQUIPMENT,normalizeSearch} from './catalog.js';
 import {openCatalogForm} from './catalog-form.js';
+import {invalidateCatalog} from './catalog-store.js';
 export function mountCatalog(root,{api}){
  root.innerHTML='<section class="catalog-page"><header class="catalog-header"><div><h1>Exercise catalog</h1><p class="catalog-intro">Reusable exercises and muscle mappings for your workouts.</p></div><button class="add-btn" data-new>New exercise</button></header><div class="catalog-toolbar"><label class="field">Search catalog<input type="search" autocomplete="off" data-search></label><label class="field">Equipment<select data-equipment><option value="">All equipment</option></select></label><label class="catalog-archived"><input type="checkbox" data-archived>Show archived</label></div><p class="error" role="alert" data-error></p><button class="secondary-btn" data-retry hidden>Retry</button><p data-count role="status"></p><div class="catalog-list"></div></section>';
  let data={entries:[],families:[]},disposed=false,form,retryAction;
@@ -8,7 +9,7 @@ export function mountCatalog(root,{api}){
  for(const e of EQUIPMENT)equipment.add(new Option(e,e));
  function report(e,action){if(disposed)return;error.textContent=e.message;retryAction=action;retry.hidden=false;}
  retry.onclick=()=>{error.textContent='';retry.hidden=true;retryAction?.();};
- async function load(){try{const next=await api.catalog();if(disposed)return;data=next;render();}catch(e){report(e,load);}}
+ async function load(){invalidateCatalog(api);try{const next=await api.catalog();if(disposed)return;data=next;render();}catch(e){report(e,load);}}
  const action=(label,fn)=>{const button=document.createElement('button');button.type='button';button.className='secondary-btn';button.textContent=label;button.onclick=fn;return button;};
  function open(entry,mode){form?.destroy();form=openCatalogForm({api,entry,mode,families:data.families,onSaved:load});}
  async function archive(entry){

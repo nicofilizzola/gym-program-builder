@@ -111,7 +111,7 @@ async function refreshActive(){
  refreshing=true;
  try {
   const remote=await api.get(id);
-  if(queue!==owned||routeVersion!==version||!active||active.revision!==revision)return;
+  if(queue!==owned||routeVersion!==version||!active||active.revision!==revision||owned.isSaving())return;
   if(remote.revision!==revision){
    if(owned.isDirty()){externalConflict(owned);return;}
    owned.reload(remote);

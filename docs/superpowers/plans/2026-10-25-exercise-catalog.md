@@ -34,10 +34,10 @@
 
 **Interfaces:** validateCatalogEntry(value) returns {entry} or {error}; searchCatalog(entries,query,{equipment,limit=8}) returns entries; snapshotExercise(exercise,entry) returns resolved linked exercise; EQUIPMENT is the fixed equipment list. seedCatalog(db) is explicitly invoked and idempotent.
 
-- [ ] Write tests asserting invalid muscles/overlap/empty names are rejected, accent-insensitive all-word search ranks exact/prefix matches, archived entries are excluded, snapshots preserve 4 sets and 6–8 reps, and seed reruns preserve edits/archives.
-- [ ] Run node --test test/catalog.test.js; expect missing-feature failures.
-- [ ] Implement the interfaces and additive migration, plus a reviewed approximately 60-entry stable-ID fixture covering all 12 muscles and five core equipment categories. Add db:seed script; preserve prior migrations.
-- [ ] Run node --test test/catalog.test.js and npm test; expect zero failures. Commit feat: add catalog model and explicit seed lifecycle.
+- [x] Write tests asserting invalid muscles/overlap/empty names are rejected, accent-insensitive all-word search ranks exact/prefix matches, archived entries are excluded, snapshots preserve 4 sets and 6–8 reps, and seed reruns preserve edits/archives.
+- [x] Run node --test test/catalog.test.js; expect missing-feature failures.
+- [x] Implement the interfaces and additive migration, plus a reviewed approximately 60-entry stable-ID fixture covering all 12 muscles and five core equipment categories. Add db:seed script; preserve prior migrations.
+- [x] Run node --test test/catalog.test.js and npm test; expect zero failures. Commit feat: add catalog model and explicit seed lifecycle.
 
 ## Task 2: Transactional catalog repository
 
@@ -45,10 +45,10 @@
 
 **Interfaces:** createCatalogRepository(db) provides list(), create({id,familyId,familyName,entry}), impact(id), update({id,revision,entry,impact}), archive({id,revision,archived}), renameFamily({id,revision,name}). List returns {entries,families}; entry includes familyName. impact returns [{id,revision,count}] sorted by document ID.
 
-- [ ] Test idempotent create, duplicate names, family membership, archive/restore, stale revisions, atomic propagation into a template and two program occurrences, unchanged settings, one revision bump per document, refreshed impact conflicts, and failure rollback.
-- [ ] Run node --test test/catalog-repository.test.js; expect missing-feature failures.
-- [ ] Implement write transactions with validated payloads, revision checks and full-snapshot propagation. Same-ID create replay returns its original record only when its definition/family matches.
-- [ ] Run targeted tests and npm test; expect zero failures. Commit feat: propagate catalog edits transactionally.
+- [x] Test idempotent create, duplicate names, family membership, archive/restore, stale revisions, atomic propagation into a template and two program occurrences, unchanged settings, one revision bump per document, refreshed impact conflicts, and failure rollback.
+- [x] Run node --test test/catalog-repository.test.js; expect missing-feature failures.
+- [x] Implement write transactions with validated payloads, revision checks and full-snapshot propagation. Same-ID create replay returns its original record only when its definition/family matches.
+- [x] Run targeted tests and npm test; expect zero failures. Commit feat: propagate catalog edits transactionally.
 
 ## Task 3: Trusted document links and portable files
 
@@ -56,10 +56,10 @@
 
 **Interfaces:** resolveCatalogLinks(tx,document,{previous,copy=false}) validates IDs and replaces linked snapshots; validateDocument retains valid internal link metadata. Portable serialization/import explicitly strips link metadata. create accepts optional copyOf source document ID for authorized preservation of archived links.
 
-- [ ] Test linked metadata roundtrips internally, unknown IDs reject, server overwrites forged mappings, archived new links reject while existing/copy links survive, stale document writes conflict after propagation, stale Save as copy uses current definitions, and imported IDs are discarded.
-- [ ] Run the three targeted test files; expect assertion failures.
-- [ ] Implement resolution within document transactions, portable metadata stripping and explicit copy source verification. Preserve existing v1/v2 file shape and strict validation.
-- [ ] Run targeted tests and npm test; expect zero failures. Commit feat: validate linked exercises and preserve portable exports.
+- [x] Test linked metadata roundtrips internally, unknown IDs reject, server overwrites forged mappings, archived new links reject while existing/copy links survive, stale document writes conflict after propagation, stale Save as copy uses current definitions, and imported IDs are discarded.
+- [x] Run the three targeted test files; expect assertion failures.
+- [x] Implement resolution within document transactions, portable metadata stripping and explicit copy source verification. Preserve existing v1/v2 file shape and strict validation.
+- [x] Run targeted tests and npm test; expect zero failures. Commit feat: validate linked exercises and preserve portable exports.
 
 ## Task 4: Authenticated catalog API and client
 
@@ -67,10 +67,10 @@
 
 **Interfaces:** GET/POST /api/catalog; GET /api/catalog/:id/impact; PUT /api/catalog/:id; PUT /api/catalog/:id/archive; PUT /api/catalog/families/:id. Browser client exposes catalog(), createCatalog(value), catalogImpact(id), updateCatalog(value), archiveCatalog(value), renameFamily(value).
 
-- [ ] Test unauthenticated catalog requests fail, cross-origin writes fail, invalid bodies fail, conflicts return 409, and an authenticated create/edit/list updates linked documents through real repository integration.
-- [ ] Run targeted tests; expect new route failures.
-- [ ] Wire the catalog repository in dev and production through the existing single API handler; retain request size limits and safe errors. Seed only the ephemeral test server automatically.
-- [ ] Run targeted tests and npm test; expect zero failures. Commit feat: expose authenticated catalog endpoints.
+- [x] Test unauthenticated catalog requests fail, cross-origin writes fail, invalid bodies fail, conflicts return 409, and an authenticated create/edit/list updates linked documents through real repository integration.
+- [x] Run targeted tests; expect new route failures.
+- [x] Wire the catalog repository in dev and production through the existing single API handler; retain request size limits and safe errors. Seed only the ephemeral test server automatically.
+- [x] Run targeted tests and npm test; expect zero failures. Commit feat: expose authenticated catalog endpoints.
 
 ## Task 5: Catalog page and reusable entry forms
 
@@ -78,10 +78,10 @@
 
 **Interfaces:** mountCatalog(root,{api,onOpenDocument}) returns destroy(); openCatalogForm({api,entry,families,mode,onSaved}) returns a teardown handle and owns a native modal dialog. Mode create/variant/edit determines family and impact behavior.
 
-- [ ] Add browser tests for navigation, filter/search, create family, create same-mapping variant, edit with usage preview, rename family, archive/restore, cancellation, retry and conflict recovery retaining inputs.
-- [ ] Run npx playwright test e2e/catalog.spec.js; expect catalog navigation failure.
-- [ ] Build the compact list, visible labels, native dialog forms, family handling, prefilled variant controls, idempotent IDs, impact previews and error/recovery actions. Use existing tokens; document components.
-- [ ] Run new browser tests and npm test; expect zero failures. Commit feat: add exercise catalog management.
+- [x] Add browser tests for navigation, filter/search, create family, create same-mapping variant, edit with usage preview, rename family, archive/restore, cancellation, retry and conflict recovery retaining inputs.
+- [x] Run npx playwright test e2e/catalog.spec.js; expect catalog navigation failure.
+- [x] Build the compact list, visible labels, native dialog forms, family handling, prefilled variant controls, idempotent IDs, impact previews and error/recovery actions. Use existing tokens; document components.
+- [x] Run new browser tests and npm test; expect zero failures. Commit feat: add exercise catalog management.
 
 ## Task 6: In-card autocomplete and linking workflows
 
@@ -89,10 +89,10 @@
 
 **Interfaces:** mountExercisePicker(host,{api,exercise,onSelect,onCreate,onVariant,onView}) returns destroy()/refresh(). Editor receives api and exposes unchanged onChange workout contract. Resolve async completions by exercise object identity rather than array index; preserve identity on updates/reorders.
 
-- [ ] Test typing does not select, eight-result limit, keyboard/IME/escape/tab, equipment filter, catalog-load retry, selection and replacement preserve sets/reps, linked fields are read-only, legacy linking requires confirmation, and variant cancel/retry/reorder/removal do not change another card.
-- [ ] Run new browser cases; expect missing picker failures.
-- [ ] Implement top-layer viewport-safe picker overlays, in-memory load/revalidation and result announcements. Mark new cards as selection drafts through transient editor state while persisted empty drafts reopen with the picker. Keep imported/legacy complete unlinked exercises editable. Dismiss overlays on collapse/teardown. Preserve volume, sortable and validation focus behavior.
-- [ ] Run catalog and session-editor browser tests and npm test; expect zero failures. Commit feat: add linked exercise autocomplete and variants.
+- [x] Test typing does not select, eight-result limit, keyboard/IME/escape/tab, equipment filter, catalog-load retry, selection and replacement preserve sets/reps, linked fields are read-only, legacy linking requires confirmation, and variant cancel/retry/reorder/removal do not change another card.
+- [x] Run new browser cases; expect missing picker failures.
+- [x] Implement top-layer viewport-safe picker overlays, in-memory load/revalidation and result announcements. Mark new cards as selection drafts through transient editor state while persisted empty drafts reopen with the picker. Keep imported/legacy complete unlinked exercises editable. Dismiss overlays on collapse/teardown. Preserve volume, sortable and validation focus behavior.
+- [x] Run catalog and session-editor browser tests and npm test; expect zero failures. Commit feat: add linked exercise autocomplete and variants.
 
 ## Task 7: Refresh, conflict and export integration
 
@@ -100,18 +100,18 @@
 
 **Interfaces:** shared export callback flushes, fetches current saved revision and blocks conflicts; focus refresh checks active record revision and preserves dirty edits. Save as copy passes copyOf. Catalog-related conflict messages explain current definitions on copy.
 
-- [ ] Test clean-editor focus reload, dirty-editor revision conflict without lost sets, blocked stale export, copy using latest catalog mappings, and program nested editor parity.
-- [ ] Run targeted browser cases; expect stale refresh/export failures.
-- [ ] Wire refresh guards with route-generation protection, existing autosave recovery and export validation/focus. Prevent a refresh racing navigation or inflight saves from replacing unsaved state.
-- [ ] Run recovery/catalog/import-export browser tests and npm test; expect zero failures. Commit fix: protect catalog-linked edits across refresh and export.
+- [x] Test clean-editor focus reload, dirty-editor revision conflict without lost sets, blocked stale export, copy using latest catalog mappings, and program nested editor parity.
+- [x] Run targeted browser cases; expect stale refresh/export failures.
+- [x] Wire refresh guards with route-generation protection, existing autosave recovery and export validation/focus. Prevent a refresh racing navigation or inflight saves from replacing unsaved state.
+- [x] Run recovery/catalog/import-export browser tests and npm test; expect zero failures. Commit fix: protect catalog-linked edits across refresh and export.
 
 ## Task 8: Full verification, responsive inspection and final review
 
 **Files:** Extend e2e/compact-desktop.spec.js or e2e/catalog.spec.js with populated responsive cases; update design-system docs and operational README.
 
-- [ ] Add assertions for visible/reachable picker and dialog actions at 1366×768, 1440×900, 1920×1080, phone/tablet, hybrid touch and enlarged text. Run and address real layout failures.
-- [ ] Run npm run db:migrate and npm run db:seed explicitly with a development-only database URL. Expect success; rerun seed and verify edits are not reset.
-- [ ] Run npm test, npm run test:e2e, npm run build and git diff --check; require zero failures.
-- [ ] Capture and inspect populated screenshots; verify 180–200px desktop figures, overflow, focus, reduced motion and touch targets.
-- [ ] Obtain one fresh whole-branch reviewer using requesting-code-review; fix important findings with regression tests and rerun required suites. Record minor deferrals and rulings in the execution ledger.
-- [ ] Commit final verification/documentation changes; report branch, plan/spec links, evidence and any remaining limitations. Do not merge, push or publish without authorization.
+- [x] Add assertions for visible/reachable picker and dialog actions at 1366×768, 1440×900, 1920×1080, phone/tablet, hybrid touch and enlarged text. Run and address real layout failures.
+- [x] Run npm run db:migrate and npm run db:seed explicitly with a development-only database URL. Expect success; rerun seed and verify edits are not reset.
+- [x] Run npm test, npm run test:e2e, npm run build and git diff --check; require zero failures.
+- [x] Capture and inspect populated screenshots; verify 180–200px desktop figures, overflow, focus, reduced motion and touch targets.
+- [x] Obtain one fresh whole-branch reviewer using requesting-code-review; fix important findings with regression tests and rerun required suites. Record minor deferrals and rulings in the execution ledger.
+- [x] Commit final verification/documentation changes; report branch, plan/spec links, evidence and any remaining limitations. Do not merge, push or publish without authorization.

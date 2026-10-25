@@ -1,15 +1,8 @@
 import {EQUIPMENT,searchCatalog} from './catalog.js';
 import {openCatalogForm} from './catalog-form.js';
-const stores=new WeakMap();
-function catalogStore(api){
- if(!stores.has(api)){
-  let data=null,pending;
-  stores.set(api,{get value(){return data;},async load(force=false){if(pending)return pending;if(data&&!force)return data;pending=api.catalog().then(value=>(data=value)).finally(()=>{pending=null;});return pending;}});
- }
- return stores.get(api);
-}
+import {getCatalogStore} from './catalog-store.js';
 export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=false}){
- const store=catalogStore(api),id='exercise-options-'+crypto.randomUUID();
+ const store=getCatalogStore(api),id='exercise-options-'+crypto.randomUUID();
  let disposed=false,open=false,active=-1,matches=[],form,editing=!exercise.catalogId&&!legacy,menuOpen=false,announcementTimer;
  const popup=document.createElement('div');popup.className='exercise-options';popup.setAttribute('popover','manual');
  popup.innerHTML='<label class="field">Filter equipment<select aria-label="Filter equipment"><option value="">All equipment</option></select></label><p class="error" role="alert"></p><button type="button" class="secondary-btn" data-retry hidden>Retry catalog</button><div role="listbox" aria-label="Exercise suggestions"></div><button type="button" class="secondary-btn" data-create>New exercise</button>';
@@ -41,7 +34,9 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  }
  function position(el,anchor){
   if(!el.matches(':popover-open'))return;
-  const view=window.visualViewport,r=anchor.getBoundingClientRect(),top=view?.offsetTop||0,bottom=top+(view?.height||innerHeight),width=Math.min(520,innerWidth-16);
+  const view=window.visualViewport,r=anchor.getBoundingClientRect(),viewportTop=view?.offsetTop||0,bottom=viewportTop+(view?.height||innerHeight),width=Math.min(520,innerWidth-16);
+  const navigationBottom=Math.max(0,...[...document.querySelectorAll('.app-header,.program-context')].map(el=>el.getBoundingClientRect().bottom));
+  const top=Math.max(viewportTop,Math.min(navigationBottom,bottom-100));
   el.style.width=width+'px';el.style.left=Math.max(8,Math.min(r.left,innerWidth-width-8))+'px';
   const below=bottom-r.bottom-12,above=r.top-top-12,useBelow=below>=Math.min(360,above),space=useBelow?below:above;
   el.style.maxHeight=Math.max(80,space)+'px';el.style.top=(useBelow?r.bottom+4:Math.max(top+8,r.top-el.getBoundingClientRect().height-4))+'px';
@@ -100,7 +95,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  input.oncompositionend=show;
  input.onkeydown=event=>{
   if(event.isComposing)return;
-  if(event.key==='Escape'){event.preventDefault();if(open)close();else if(exercise.catalogId||legacy){editing=false;display();actions.focus();}}
+  if(event.key==='Escape'){event.preventDefault();if(open)close();else if(exercise.catalogId||legacy){editing=false;display();(exercise.catalogId?actions:host.querySelector('[data-link]')).focus();}}
   if(event.key==='ArrowDown'||event.key==='ArrowUp'){
    event.preventDefault();if(!open)show();if(!matches.length)return;
    active=(active+(event.key==='ArrowDown'?1:-1)+matches.length)%matches.length;
@@ -115,5 +110,5 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  const focus=()=>load(true),resize=()=>hide();
  document.addEventListener('pointerdown',outside);document.addEventListener('focusin',outside);document.addEventListener('keydown',key);document.addEventListener('scroll',scrolling,true);window.addEventListener('resize',resize);window.addEventListener('focus',focus);
  display();load();
- return {close:hide,refresh:()=>load(true),destroy(){disposed=true;hide();clearTimeout(announcementTimer);form?.destroy();popup.remove();menu.remove();document.removeEventListener('pointerdown',outside);document.removeEventListener('focusin',outside);document.removeEventListener('keydown',key);document.removeEventListener('scroll',scrolling,true);window.removeEventListener('resize',resize);window.removeEventListener('focus',focus);}};
+ return {close:hide,update:display,refresh:()=>load(true),destroy(){disposed=true;hide();clearTimeout(announcementTimer);form?.destroy();popup.remove();menu.remove();document.removeEventListener('pointerdown',outside);document.removeEventListener('focusin',outside);document.removeEventListener('keydown',key);document.removeEventListener('scroll',scrolling,true);window.removeEventListener('resize',resize);window.removeEventListener('focus',focus);}};
 }

@@ -48,6 +48,7 @@ export function createAutosave({record,save,createCopy,delay=400,onStatus=()=>{}
       } finally {copying=false;}
     },
     dispose() {disposed=true;cancel();},
-    isDirty:()=>saved<generation
+    isDirty:()=>saved<generation,
+    isSaving:()=>Boolean(inflight)
   };
 }

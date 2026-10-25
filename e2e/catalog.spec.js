@@ -29,6 +29,44 @@ test('catalog supports named families, same-mapping variants, edits and archive 
  await edited.getByRole('button',{name:'Restore',exact:true}).click();
  await expect(edited).not.toContainText('Archived');
 });
+test('a workout save acknowledgement preserves an open variant draft',async({page})=>{
+ await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
+ await page.getByRole('button',{name:'Add exercise',exact:true}).click();const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.fill('Barbell bench press');
+ await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toBeVisible();await input.press('ArrowDown');await input.press('Enter');await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ const id=(await page.url()).split('/').at(-1);let committed=false,release;
+ await page.route('**/api/documents/'+id,async route=>{if(route.request().method()!=='PUT')return route.continue();const response=await route.fetch();committed=true;await new Promise(resolve=>{release=resolve;});await route.fulfill({response});});
+ await page.getByLabel('Sets',{exact:true}).fill('5');await expect.poll(()=>committed).toBe(true);
+ await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Exercise name',{exact:true}).fill('Keep this draft');
+ release();await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ await expect(dialog).toBeVisible();await expect(dialog.getByLabel('Exercise name',{exact:true})).toHaveValue('Keep this draft');
+});
+test('focus refresh never mistakes an unacknowledged own save for an external conflict',async({page})=>{
+ await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
+ await expect(page.getByLabel('Session template name')).toBeVisible();
+ const id=(await page.url()).split('/').at(-1);let committed=false,release;
+ await page.route('**/api/documents/'+id,async route=>{
+  if(route.request().method()!=='PUT')return route.continue();
+  const response=await route.fetch();committed=true;await new Promise(resolve=>{release=resolve;});await route.fulfill({response});
+ });
+ await page.getByLabel('Session template name').fill('My acknowledged save');
+ await expect.poll(()=>committed).toBe(true);
+ const focusRead=page.waitForResponse(r=>r.url().endsWith('/api/documents/'+id)&&r.request().method()==='GET');
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await focusRead;
+ release();await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ await page.unroute('**/api/documents/'+id);await page.getByLabel('Session template name').fill('Next change still saves');
+ await expect(page.getByTestId('save-status')).toHaveText('Saved');
+});
+test('catalog mutations in the same tab revalidate a returning editor picker',async({page})=>{
+ await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
+ const workout='Cache workout '+Date.now(),name='Cache exercise '+Date.now();
+ await page.getByLabel('Session template name').fill(workout);await page.getByRole('button',{name:'Add exercise',exact:true}).click();await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toBeVisible();await page.keyboard.press('Escape');
+ await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByRole('button',{name:'New exercise',exact:true}).click();
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Exercise name',{exact:true}).fill(name);await dialog.getByLabel('New family name',{exact:true}).fill(name);
+ await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('button',{name:'Save exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:workout,exact:true}).click();await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
+ await page.getByRole('combobox',{name:'Exercise',exact:true}).fill(name);await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toContainText(name);
+});
 test('export refuses a catalog definition changed after the editor was opened',async({page})=>{
  await login(page);
  const fixture=await page.evaluate(async()=>{
@@ -55,7 +93,9 @@ test('legacy linking previews changes and does not silently alter custom exercis
  await page.goto('/#/templates/'+id);await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
  await expect(page.getByLabel('Exercise name',{exact:true})).toHaveValue('My press');
  await page.getByRole('button',{name:'Link to catalog',exact:true}).click();
- const search=page.getByRole('combobox',{name:'Exercise',exact:true});await search.fill('Barbell bench press');await search.press('ArrowDown');
+ const search=page.getByRole('combobox',{name:'Exercise',exact:true});
+ await search.press('Escape');await search.press('Escape');await expect(page.getByRole('button',{name:'Link to catalog',exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Link to catalog',exact:true}).click();await search.fill('Barbell bench press');await search.press('ArrowDown');
  page.once('dialog',dialog=>dialog.dismiss());await search.press('Enter');
  await expect(page.getByLabel('Exercise name',{exact:true})).toHaveValue('My press');await expect(page.locator('.volume-row[data-muscle="Triceps"] .value')).toHaveText('6');
  page.once('dialog',dialog=>dialog.accept());await search.press('Enter');
