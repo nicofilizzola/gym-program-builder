@@ -1,10 +1,18 @@
 import {parseSession} from './session-file.js';
 import {validateDocument} from './document-validation.js';
+import {unlinkExercise} from './catalog.js';
+function portableExercises(value) {
+  if(value&&typeof value==='object'){
+    if(Array.isArray(value.exercises))value.exercises=value.exercises.map(ex=>ex&&typeof ex==='object'?unlinkExercise(ex):ex);
+    if(Array.isArray(value.workouts))value.workouts.forEach(portableExercises);
+  }
+  return value;
+}
 export const MAX_DOCUMENT_BYTES=1048576;
 export function serializeDocument(kind,value) {
   const {document,error}=validateDocument(kind,value);
   if(error) throw new Error(error);
-  const portable=structuredClone(document);
+  const portable=portableExercises(structuredClone(document));
   if(kind==='program') portable.workouts=portable.workouts.map(({id,...w})=>w);
   return JSON.stringify({version:2,kind,[kind]:portable},null,2);
 }
@@ -20,7 +28,7 @@ export function parseDocument(text,{makeId=()=>crypto.randomUUID()}={}) {
   }
   if(data?.version!==2) return {error:'Unsupported file version.'};
   if(!['template','program'].includes(data.kind)) return {error:'Unknown document kind.'};
-  const value=structuredClone(data[data.kind]);
+  const value=portableExercises(structuredClone(data[data.kind]));
   if(data.kind==='program'&&Array.isArray(value?.workouts)) value.workouts=value.workouts.map(w=>w&&typeof w==='object'?{...w,id:makeId()}:w);
   const result=validateDocument(data.kind,value);
   return result.error?result:{kind:data.kind,document:result.document};

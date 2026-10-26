@@ -13,9 +13,9 @@ import {durationLabel} from './duration.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout}={}) {
   const viewTransition=createViewTransition(root);
-  let overviewScroll=0,transitionGeneration=0;
+  let overviewScroll=0,transitionGeneration=0,editingWorkoutId=null;
   function changeView(commit,focus){
     const generation=++transitionGeneration;root.inert=true;
     return viewTransition.swap(commit,{focus:()=>{root.inert=false;focus?.();}}).finally(()=>{if(generation===transitionGeneration)root.inert=false;});
@@ -45,10 +45,10 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   async function openWorkout(workoutId){
     overviewScroll=scrollY;
-    const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;
+    const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;editingWorkoutId=workoutId;
     await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
     root.querySelector('[data-back]').onclick=run(()=>renderOverview(workoutId));
-    editor=mountSessionEditor(root.querySelector('[data-editor]'),{workout,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
+    editor=mountSessionEditor(root.querySelector('[data-editor]'),{api,workout,onExport:onExportWorkout?document=>onExportWorkout(document,workoutId):undefined,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
     },()=>{window.scrollTo(0,0);root.querySelector('[data-template-name]')?.focus({preventScroll:true});});
   }
   function renderWorkouts(focusId,focusAction){
@@ -148,12 +148,12 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     picker.onchange=()=>{addTemplate.disabled=!picker.value;};
     if(!templates.length){picker.options[0].textContent='No templates yet';picker.disabled=true;}
     for(const template of templates){const option=document.createElement('option');option.value=template.id;option.textContent=template.name.trim()||'Untitled template';picker.append(option);}
-    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy=copyWorkout(template.document,id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');});
+    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy=copyWorkout(template.document,id(),template.id);value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');});
     root.querySelector('[data-add-empty]').onclick=()=>{const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);emit();renderWorkouts(copy.id,'Edit');};
     root.querySelector('[data-export]').onclick=run(async()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);await focusError();return;}onExport(value);});
     const file=root.querySelector('[data-file]');root.querySelector('[data-import]').onclick=()=>file.click();
     file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();await renderOverview();});
     panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleSelect:muscle=>{selectedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
-  buildOverview();return {update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();root.replaceChildren();}};
+  buildOverview();return {syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else {renderWorkouts();updateVolume();}},update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();root.replaceChildren();}};
 }

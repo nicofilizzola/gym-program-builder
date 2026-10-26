@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {parseDocument,serializeDocument,documentFileName} from '../src/document-file.js';
 
 test('portable timing survives round trip and malformed later exercises reject whole files',()=>{
- const ex={name:'Curl',sets:3,repRange:{min:8,max:12},primaryMuscles:['Biceps'],secondaryMuscles:[],restSeconds:45,catalogId:'untrusted'};
+ const ex={name:'Curl',sets:3,repRange:{min:8,max:12},primaryMuscles:['Biceps'],secondaryMuscles:[],restSeconds:45,catalogId:'untrusted',catalogRevision:1,familyId:'curl',equipment:'Machine'};
  const t={name:'Upper',exercises:[ex],goals:{},extraMinutes:12,bufferPercent:25};
  const text=serializeDocument('template',t),result=parseDocument(text);
  assert.equal(result.document.extraMinutes,12);assert.equal(result.document.bufferPercent,25);

@@ -26,7 +26,7 @@ This release has one personal password, no account registration or password-rese
 
 1. Install dependencies using Node 24: `npm ci`.
 2. Export the target environment's database variables into the process or a private `.env.local` and run `npm run db:migrate`. Migrations are explicit, transactional and safe to rerun. They are never run on user requests or automatically against production during builds.
-3. Run `npm test`, `npm run test:e2e`, `npm run build` and `git diff --check`.
+3. Run `npm run db:seed` explicitly against the same target database, then `npm test`, `npm run test:e2e`, `npm run build` and `git diff --check`. Seeding is idempotent and never overwrites catalog edits or restores archived entries. Preview and production must be migrated and seeded separately; no production database was changed by local verification.
 4. In Vercel, choose framework **Other**, Node **24.x**, build command `npm run build`, output directory `public`. Connect the intended Git repository and branch. Do not reuse a production DB token for preview.
 5. Deploy a preview only when authorized. Verify the API rewrite by opening `/api/auth/session`: unauthenticated response must be 401 JSON with `Cache-Control: no-store`, not HTML or a 404. `/server/auth.js`, `/.env.local` and `/local.db` must be unavailable. Do not use SPA catch-all rewrites that expose private files or swallow API errors.
 6. Sign in in two browsers. Create a template, add two copies to a program and edit one. Verify the source and other copy stay unchanged. Reopen on the second device and verify persisted names/goals/order/day assignments.
@@ -62,3 +62,9 @@ Rollback to a prior compatible Vercel deployment without dropping tables or docu
 - [Trusted Vercel request headers](https://vercel.com/docs/headers/request-headers)
 - [Turso Vercel integration](https://vercel.com/marketplace/tursocloud)
 - [Turso CLI documentation](https://docs.turso.tech/cli/introduction)
+
+## Reference exercise update
+
+Apply migration 003 explicitly with `npm run db:migrate` before starting this version against an existing database. It adds the reference-level archive flag and preserves existing grouping/variant IDs, individual archives and saved document JSON. No seed version changes are required; `npm run db:seed` remains safe to rerun and never restores archived references or variants.
+
+Verify reference creation without a variant, nested catalog/picker search, parent archive/restore with a separately archived child, and a variant move used by multiple program workouts. A stale move/archive preview must conflict, and a lost-response retry must not duplicate entries or revision writes. Move failures must leave all linked workouts and volume intact. Version-1/version-2 portable files keep the same format and import without trusted catalog identity. The internal familyId field remains for compatibility; the UI calls its grouping a reference exercise.

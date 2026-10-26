@@ -57,6 +57,8 @@ Every document create/update/copy resolves linked snapshots against the current 
 
 An open stale editor must receive a document revision conflict after propagation. Preserve unsaved edits and the existing Reload saved version / Save as copy recovery. Saving as copy retains workout settings but uses current catalog definitions; clearly explain this in catalog-related conflict recovery. Refresh saved documents on window focus when clean; when dirty, check revision without replacing local edits and surface a conflict. This is refresh-based consistency, not live collaboration or a push subscription.
 
+Refresh checks must defer to an in-flight save acknowledgement so a tab cannot mistake its own committed write for an external edit. Catalog loads revalidate on editor entry and invalidate after catalog mutations, including navigation within the same tab. Copying a saved template into a program may carry a transient per-exercise catalogCopyOf source document ID; verify that source contains the linked entry, then remove the hint before storing the snapshot. This preserves archived links during explicit copying without permitting arbitrary new archived selections.
+
 ## Import and export
 
 Continue version-2 template/program exports: strip catalog metadata and export fully resolved exercise names and muscle mappings using the existing portable exercise shape. Do not invent a file version solely for internal links. Flush/refresh before exporting so a stale definition is not silently exported; a conflict blocks export until resolved. Exporting does not detach the saved document.

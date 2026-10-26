@@ -1,5 +1,28 @@
 # Gym Program Builder
 
+## Reference exercises and nested catalog (2026-10-25)
+
+Design: docs/superpowers/specs/2026-10-25-reference-exercises-design.md; plan: docs/superpowers/plans/2026-10-25-reference-exercises.md. These requirements supersede the previous catalog's flat display and no-move restriction.
+
+- A reference exercise is a named grouping, never a selectable workout exercise. Variants own equipment and muscle mappings. Reference CRUD includes independent empty-group creation, reading, rename, archive and restore.
+- Catalog groups start collapsed and search expands matches. Autocomplete shows labeled reference groups with selectable variants only; arrows follow rendered variant order and skip headings. Preserve active selection by variant ID on refresh.
+- Reference archive state is independent of individual variant archive state. Restoring a reference never restores individually archived variants. Archived references cannot receive new variants or move destinations; existing links and verified copies remain usable.
+- Moving a variant preserves identity, effective archive state, mappings and workout prescriptions, and transactionally updates reference IDs and revisions in linked snapshots. Guard source/destination/reference/impact revisions; never merge colliding variant names.
+- Keep legacy familyId/table/wire names as internal compatibility identifiers. All user-facing catalog copy uses reference exercise and variant. Preserve JSON versions 1/2 and stable IDs.
+- Migration 003 adds parent archive state. Run it explicitly per environment; builds/requests never migrate or seed. Preserve prior async-save, cache, focus, layout and accessibility regressions.
+
+## Exercise catalog and autocomplete (2026-10-25)
+
+These approved catalog requirements supersede older exercise-library restrictions and copy-independence rules where explicitly stated. Design: docs/superpowers/specs/2026-10-25-exercise-catalog-design.md; plan: docs/superpowers/plans/2026-10-25-exercise-catalog.md.
+
+- Own the catalog in the existing SQLite/Turso database, with a curated starter list, equipment, fixed primary/secondary muscles, and stable exercise/family IDs. No external API or family ancestry tree.
+- Session cards use explicit autocomplete selection. Linked exercise names and muscle mappings are read-only; sets/reps remain independent workout settings. Create variant saves a named catalog entry in the same family and switches only the invoking workout instance. Variants may share muscle mappings.
+- Catalog definition edits propagate transactionally to every exact-entry use in templates/programs, with impact previews and document revisions. Other variants are unaffected. Template/program copies share definitions intentionally, while their prescriptions, order, goals and selected entries remain independent.
+- Archive entries rather than deleting them. Preserve existing archived links and source-verified copies; exclude archived entries from new selections.
+- Keep existing/imported exercises unlinked until explicit confirmation. Version-2 exports remain self-contained and strip internal catalog metadata; versions 1 and 2 still import without trusting catalog IDs.
+- Revalidate the in-memory catalog on editor entry/focus and after mutations. Preserve dirty edits on external revision conflicts, coordinate refresh with in-flight save acknowledgements, and preserve open variant drafts when saves settle.
+- Run db:migrate and db:seed explicitly per environment; never migrate or seed production during builds or requests. Preserve the existing design system, accessibility, volume behavior and verification requirements below.
+
 ## Current release: programs and persistence (2026-10-23)
 
 These approved requirements supersede the original MVP restrictions below wherever they conflict. Full design: docs/superpowers/specs/2026-10-23-programs-persistence-design.md; implementation plan: docs/superpowers/plans/2026-10-23-programs-persistence.md.

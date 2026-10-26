@@ -1,5 +1,6 @@
 import {validateDocument} from '../src/document-validation.js';
 import {normalizeWorkoutTiming} from '../src/duration.js';
+import {resolveCatalogLinks} from './catalog-links.js';
 export const domainError=(code,message)=>Object.assign(new Error(message),{code});
 const decode=row=>{
   const saved=JSON.parse(row.document_json);
@@ -16,10 +17,12 @@ export function createRepository(db,{now=()=>new Date().toISOString()}={}) {
   return {
     async list(kind) {if(!['template','program'].includes(kind)) throw domainError('INVALID','Unknown document kind.');const r=await db.execute({sql:'SELECT * FROM documents WHERE kind=? ORDER BY updated_at DESC,id',args:[kind]});return r.rows.map(row=>{const {document,...record}=decode(row);return {...record,name:document.name};});},
     async get(id) {const record=await read(db,id);if(!record) throw domainError('NOT_FOUND','Document not found.');return record;},
-    async create({id,kind,document}) {
+    async create({id,kind,document,copyOf}) {
       if(typeof id!=='string'||!id||id.length>100) throw domainError('INVALID','Invalid document ID.');
-      const cleaned=canonical(kind,document),json=JSON.stringify(cleaned);
       return transaction(async tx=>{
+        const source=copyOf?await read(tx,copyOf):null;
+        if(copyOf&&(!source||source.kind!==kind))throw domainError('INVALID','Copy source does not exist.');
+        const cleaned=await resolveCatalogLinks(tx,canonical(kind,document),{previous:source?.document}),json=JSON.stringify(cleaned);
         const old=await read(tx,id);
         if(old) {if(old.kind===kind&&JSON.stringify(canonical(old.kind,old.document))===json)return old;throw domainError('CONFLICT','This document ID already exists.');}
         const stamp=now();await tx.execute({sql:'INSERT INTO documents VALUES(?,?,1,?,?,?)',args:[id,kind,json,stamp,stamp]});return read(tx,id);
@@ -29,7 +32,7 @@ export function createRepository(db,{now=()=>new Date().toISOString()}={}) {
       if(!Number.isInteger(revision)||revision<1) throw domainError('INVALID','Invalid revision.');
       return transaction(async tx=>{
         const old=await read(tx,id);if(!old)throw domainError('NOT_FOUND','Document not found.');
-        const json=JSON.stringify(canonical(old.kind,document));
+        const json=JSON.stringify(await resolveCatalogLinks(tx,canonical(old.kind,document),{previous:old.document}));
         if(old.revision!==revision) {if(old.revision===revision+1&&JSON.stringify(canonical(old.kind,old.document))===json)return old;throw domainError('CONFLICT','A newer version was saved on another device.');}
         await tx.execute({sql:'UPDATE documents SET document_json=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?',args:[json,now(),id,revision]});return read(tx,id);
       });

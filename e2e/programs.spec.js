@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 test('program copies are independent and weekly goals and schedules survive mode changes',async({page})=>{
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
- await page.getByLabel('Session template name').fill('Source upper');await page.getByRole('button',{name:'Add exercise',exact:true}).click();await page.getByLabel('Exercise name',{exact:true}).fill('Press');await page.locator('.primary').getByRole('checkbox',{name:'Chest',exact:true}).check();
+ await page.getByLabel('Session template name').fill('Source upper');await page.getByRole('button',{name:'Add exercise',exact:true}).click();await page.getByRole('combobox',{name:'Exercise',exact:true}).fill('Barbell bench press');await page.getByRole('combobox',{name:'Exercise',exact:true}).press('ArrowDown');await page.getByRole('combobox',{name:'Exercise',exact:true}).press('Enter');
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.getByRole('link',{name:'Programs',exact:true}).click();await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByLabel('Program name',{exact:true}).fill('Week A');
  for(let i=0;i<2;i++){await page.getByLabel('Session template to copy').selectOption({label:'Source upper'});await page.getByRole('button',{name:'Add template',exact:true}).click();await expect(page.locator('.workout-item')).toHaveCount(i+1);}

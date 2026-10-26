@@ -2,6 +2,11 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createAutosave} from '../src/autosave.js';
 const base=()=>({id:'a',revision:1,kind:'template',document:{name:'Original',exercises:[],goals:{}}});
+test('server canonical definitions replace the acknowledged generation but never newer edits',async()=>{
+ let acknowledged;
+ const q=createAutosave({record:base(),delay:99999,save:async()=>({...base(),revision:2,document:{...base().document,name:'Server canonical'}}),onRecord:value=>{acknowledged=value;}});
+ q.change({...base().document,name:'Submitted'});await q.flush();assert.equal(acknowledged.document.name,'Server canonical');q.dispose();
+});
 test('autosave coalesces edits, serializes in-flight generations and only acknowledges newest',async()=>{
  let tick;const timers={setTimeout:fn=>{tick=fn;return 1;},clearTimeout:()=>{tick=null;}};
  const writes=[],resolvers=[],statuses=[];const q=createAutosave({record:base(),timers,onStatus:s=>statuses.push(s),save:args=>new Promise(resolve=>{writes.push(args);resolvers.push(resolve);})});

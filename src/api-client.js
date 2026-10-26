@@ -7,6 +7,17 @@ export function createApiClient({fetch:request=globalThis.fetch}={}) {
     return result;
   }
   return {
+    catalog:()=>call('catalog'),
+    createReference:async value=>(await call('catalog/references','POST',value)).reference,
+    getReference:async id=>(await call('catalog/references/'+encodeURIComponent(id))).reference,
+    updateReference:async({id,...value})=>(await call('catalog/references/'+encodeURIComponent(id),'PUT',value)).reference,
+    archiveReference:async({id,...value})=>(await call('catalog/references/'+encodeURIComponent(id)+'/archive','PUT',value)).reference,
+    moveCatalog:async({id,...value})=>(await call('catalog/'+encodeURIComponent(id)+'/reference','PUT',value)).entry,
+    createCatalog:async value=>(await call('catalog','POST',value)).entry,
+    catalogImpact:async id=>(await call('catalog/'+encodeURIComponent(id)+'/impact')).impact,
+    updateCatalog:async({id,...value})=>(await call('catalog/'+encodeURIComponent(id),'PUT',value)).entry,
+    archiveCatalog:async({id,...value})=>(await call('catalog/'+encodeURIComponent(id)+'/archive','PUT',value)).entry,
+    renameFamily:async({id,...value})=>(await call('catalog/families/'+encodeURIComponent(id),'PUT',value)).family,
     login:password=>call('auth/login','POST',{password}),passwordSession:()=>call('auth/session'),logout:()=>call('auth/logout','POST',{}),
     list:async kind=>(await call(`documents?kind=${encodeURIComponent(kind)}`)).records,
     get:async id=>(await call(`documents/${encodeURIComponent(id)}`)).record,

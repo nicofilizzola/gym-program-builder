@@ -6,13 +6,15 @@ import {createDb,migrate} from '../server/db.js';
 import {createAuth,hashPassword} from '../server/auth.js';
 import {createRepository} from '../server/repository.js';
 import {createApi} from '../server/api.js';
+import {createCatalogRepository} from '../server/catalog-repository.js';
+import {seedCatalog} from '../server/catalog-seed.js';
 const testing=process.argv.includes('--test'),port=testing?3199:Number(process.env.PORT||3000);
 const temp=testing?await mkdtemp(join(tmpdir(),'gym-browser-')):null;
 if(!testing&&!process.env.APP_PASSWORD_HASH)throw Error('Set APP_PASSWORD_HASH and AUTH_SECRET in .env.local first.');
 const db=createDb({url:testing?`file:${join(temp,'test.db')}`:process.env.TURSO_DATABASE_URL||'file:local.db',authToken:process.env.TURSO_AUTH_TOKEN});
-if(testing)await migrate(db);
+if(testing){await migrate(db);await seedCatalog(db);}
 const origin=testing?`http://127.0.0.1:${port}`:process.env.APP_ORIGIN||`http://localhost:${port}`;
-const api=createApi({repository:createRepository(db),auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
+const api=createApi({repository:createRepository(db),catalog:createCatalogRepository(db),auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
 const root=resolve('.'),mime={'.js':'text/javascript','.css':'text/css','.html':'text/html'};
 const server=createServer(async(req,res)=>{
  try {

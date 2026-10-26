@@ -9,8 +9,10 @@ import { normalizeWorkoutTiming } from './duration.js';
 
 export const createTemplate = () => ({name:'Untitled template',exercises:[],goals:{},extraMinutes:5,bufferPercent:10});
 export const createProgram = () => ({name:'Untitled program',mode:'simple',workouts:[],goals:{}});
-export function copyWorkout(template,id) {
-  return {...normalizeWorkoutTiming(structuredClone(template)),id,day:null};
+export function copyWorkout(template,id,sourceId) {
+  const copy=normalizeWorkoutTiming(structuredClone(template));
+  if(sourceId)for(const ex of copy.exercises)if(ex.catalogId)ex.catalogCopyOf=sourceId;
+  return {...copy,id,day:null};
 }
 export function duplicateProgram(program,makeId) {
   const copy=structuredClone(program);

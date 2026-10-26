@@ -9,6 +9,7 @@
     "vercel:dev": "npx vercel dev",
     "build": "node scripts/build-static.js",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.js",
+    "db:seed": "node --env-file-if-exists=.env.local scripts/seed-catalog.js",
     "password:hash": "node scripts/hash-password.js",
     "test:e2e": "playwright test"
   },
