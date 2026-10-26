@@ -1731,3 +1731,7 @@ button:disabled {opacity:.5;cursor:default}
 @media (prefers-reduced-motion:reduce) {
  .reference-group[data-motion] .reference-variants,.reference-group[data-motion] .reference-toggle svg {transition:none}
 }
+
+/* Touch holds keep native scrolling available until the sorter arms. */
+.exercise.is-hold-armed,.workout-item.is-hold-armed {border-color:var(--accent);user-select:none;-webkit-user-select:none}
+

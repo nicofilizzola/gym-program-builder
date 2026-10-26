@@ -107,7 +107,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         groupList.append(card);
       }
     }
-    sortable=mountSortable(container,{itemSelector:'.workout-item',handleSelector:'.drag-handle',getGroups:()=>[...container.querySelectorAll('[data-sort-group]')].map(element=>({element,key:element.dataset.sortGroup})),getKey:card=>card.dataset.workout,onCommit:({key,groupKey,beforeKey})=>{
+    sortable=mountSortable(container,{itemSelector:'.workout-item',reorderSelector:'.drag-handle',getGroups:()=>[...container.querySelectorAll('[data-sort-group]')].map(element=>({element,key:element.dataset.sortGroup})),getKey:card=>card.dataset.workout,onCommit:({key,groupKey,beforeKey})=>{
       const group=value.workouts.filter(w=>w.id!==key&&(groupKey==='sequence'||w.day===(groupKey==='unscheduled'?null:Number(groupKey))));
       const next=placeWorkout(value,key,{day:groupKey==='sequence'?undefined:groupKey==='unscheduled'?null:Number(groupKey),beforeId:beforeKey,afterId:beforeKey===null?group.at(-1)?.id??null:null});
       if(JSON.stringify(next)!==JSON.stringify(value)){value=next;emit();}

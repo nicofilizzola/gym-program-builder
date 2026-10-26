@@ -538,7 +538,7 @@ list.addEventListener('pointerdown', raiseThumb);
 list.addEventListener('focusin', raiseThumb);
 
 sortable=mountSortable(list,{
-  itemSelector:'.exercise',handleSelector:'.drag-handle',getGroups:()=>[{element:list,key:'exercises'}],getKey:card=>card.dataset.index,
+  itemSelector:'.exercise',reorderSelector:'.drag-handle',getGroups:()=>[{element:list,key:'exercises'}],getKey:card=>card.dataset.index,
   onCommit:({key,beforeKey})=>{
     const from=Number(key),others=session.exercises.map((_,i)=>i).filter(i=>i!==from);
     const to=beforeKey===null?others.length:others.indexOf(Number(beforeKey));

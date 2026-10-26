@@ -1,8 +1,14 @@
 /** Pointer-only previews; views own all data and commit exactly once on drop. */
-export function mountSortable(root,{itemSelector,handleSelector,getGroups,getKey,onCommit}) {
+export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKey,onCommit}) {
  const events=new AbortController(),options={signal:events.signal};
  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
- let drag=null,frame=0,suppressClick=false;
+ let drag=null,frame=0,suppressClick=false,clickTimer=0,holdTimer=0;
+ const controls='button,input,select,textarea,a,label,[contenteditable]:not([contenteditable="false"]),[role="button"],[role="slider"],[role="combobox"],[role="listbox"],[role="option"],[role="checkbox"],[role="radio"],[role="switch"],[tabindex]';
+ function eligible(target){
+  const item=target.closest(itemSelector),control=target.closest(controls);
+  return item&&root.contains(item)&&!(control&&item.contains(control))?item:null;
+ }
+ function clearClick(){clearTimeout(clickTimer);suppressClick=false;}
  const animations=new Map();
  const items=element=>[...element.querySelectorAll(itemSelector)].filter(el=>el!==drag?.item&&!el.classList.contains('sort-drag-copy'));
  function stopAnimations(){for(const a of animations.values())a.cancel();animations.clear();}
@@ -59,21 +65,54 @@ export function mountSortable(root,{itemSelector,handleSelector,getGroups,getKey
  function finish(commit=false){
   const d=drag;if(!d)return;
   const result=commit&&d.copy&&d.target?{key:getKey(d.item),groupKey:d.target.group.key,beforeKey:d.target.before?getKey(d.target.before):null}:null;
-  drag=null;cancelAnimationFrame(frame);stopAnimations();
-  d.copy?.remove();d.placeholder?.remove();d.item.classList.remove('sort-source');
+  drag=null;clearTimeout(holdTimer);cancelAnimationFrame(frame);stopAnimations();
+  d.copy?.remove();d.placeholder?.remove();d.item.classList.remove('sort-source','is-hold-armed');
   if(d.savedStyle!==undefined){if(d.savedStyle===null)d.item.removeAttribute('style');else d.item.setAttribute('style',d.savedStyle);}
   document.documentElement.classList.remove('is-sorting');
-  if(d.handle.hasPointerCapture(d.pointerId))d.handle.releasePointerCapture(d.pointerId);
-  if(d.copy){suppressClick=true;setTimeout(()=>{suppressClick=false;},0);}
-  d.handle.focus({preventScroll:true});
+  if(d.pointerId!==undefined&&d.item.hasPointerCapture(d.pointerId))d.item.releasePointerCapture(d.pointerId);
+  if(d.copy||d.armed){suppressClick=true;clickTimer=setTimeout(clearClick,d.touchId===undefined?0:700);}
+  if(d.copy)d.item.querySelector(reorderSelector)?.focus({preventScroll:true});
   if(result)onCommit(result);
  }
  root.addEventListener('pointerdown',event=>{
-  const handle=event.target.closest(handleSelector),item=handle?.closest(itemSelector);
-  if(!handle||!item||event.button!==0||drag)return;
-  event.preventDefault();handle.focus({preventScroll:true});handle.setPointerCapture(event.pointerId);
-  drag={handle,item,pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,x:event.clientX,y:event.clientY};
+  if(event.pointerType==='touch')return;
+  clearClick();const item=eligible(event.target);
+  if(!item||event.button!==0||drag)return;
+  event.preventDefault();item.setPointerCapture(event.pointerId);
+  drag={item,pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,x:event.clientX,y:event.clientY};
  },options);
+ window.addEventListener('touchstart',event=>{
+  clearClick();
+  if(event.touches.length!==1){finish();return;}
+  const item=eligible(event.target);if(!item||drag)return;
+  const touch=event.touches[0];
+  const candidate={item,touchId:touch.identifier,startX:touch.clientX,startY:touch.clientY,x:touch.clientX,y:touch.clientY,armed:false};
+  drag=candidate;
+  holdTimer=setTimeout(()=>{
+   if(drag!==candidate||!item.isConnected)return;
+   candidate.armed=true;item.classList.add('is-hold-armed');
+   window.getSelection()?.removeAllRanges();
+  },350);
+ },{...options,passive:true});
+ window.addEventListener('touchmove',event=>{
+  if(drag?.touchId===undefined)return;
+  const touch=[...event.touches].find(t=>t.identifier===drag.touchId);
+  if(!touch||event.touches.length!==1){finish();return;}
+  drag.x=touch.clientX;drag.y=touch.clientY;
+  const distance=Math.hypot(drag.x-drag.startX,drag.y-drag.startY);
+  if(!drag.armed){if(distance>8)finish();return;}
+  if(!event.cancelable){finish();return;}
+  event.preventDefault();
+  if(!drag.copy&&distance>=5)begin();else preview();
+ },{...options,passive:false});
+ window.addEventListener('touchend',event=>{
+  if(drag?.touchId===undefined||![...event.changedTouches].some(t=>t.identifier===drag.touchId))return;
+  if(drag.copy)preview();finish(true);
+ },options);
+ window.addEventListener('touchcancel',()=>{if(drag?.touchId!==undefined)finish();},options);
+ window.addEventListener('blur',()=>finish(),options);
+ root.addEventListener('contextmenu',event=>{if(drag?.touchId!==undefined&&drag.item.contains(event.target))event.preventDefault();},options);
+ root.addEventListener('selectstart',event=>{if(drag?.touchId!==undefined&&drag.item.contains(event.target))event.preventDefault();},options);
  window.addEventListener('pointermove',event=>{
   if(event.pointerId!==drag?.pointerId)return;
   drag.x=event.clientX;drag.y=event.clientY;
@@ -84,6 +123,6 @@ export function mountSortable(root,{itemSelector,handleSelector,getGroups,getKey
  for(const name of ['pointercancel','lostpointercapture'])window.addEventListener(name,event=>{if(event.pointerId===drag?.pointerId)finish();},options);
  window.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag){event.preventDefault();event.stopImmediatePropagation();finish();}}, {...options,capture:true});
  root.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopImmediatePropagation();}},{...options,capture:true});
- return {cancel:()=>finish(),destroy(){finish();events.abort();}};
+ return {cancel:()=>finish(),destroy(){finish();clearTimeout(holdTimer);clearClick();events.abort();}};
 }
 
