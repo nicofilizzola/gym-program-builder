@@ -61,3 +61,31 @@ test('reference form requires classification and exposes editable defaults',asyn
  await dialog.getByRole('button',{name:'Save reference exercise',exact:true}).click();
  await expect(group).toContainText('Isolation');
 });
+test('lost inline creation response cannot silently accept a changed reference type',async({page})=>{
+ test.setTimeout(60000);
+ await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();
+ await page.getByRole('button',{name:'New session template',exact:true}).click();
+ await page.getByRole('button',{name:'Add exercise',exact:true}).click();await page.getByRole('button',{name:'New variant',exact:true}).click();
+ const dialog=page.getByRole('dialog'),name='Lost timing creation '+crypto.randomUUID();
+ await dialog.getByLabel('Variant name',{exact:true}).fill(name);
+ await dialog.getByLabel('New reference exercise name',{exact:true}).fill(name+' reference');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');
+ await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();
+ let first=true,familyId;
+ await page.route('**/api/catalog',async route=>{
+  if(route.request().method()!=='POST')return route.continue();
+  familyId=route.request().postDataJSON().familyId;
+  if(first){first=false;await route.fetch();return route.fulfill({status:503,json:{error:{code:'UNAVAILABLE',message:'Lost creation response'}}});}
+  await route.continue();
+ });
+ await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toContainText('Lost creation response');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('isolation');
+ await dialog.getByRole('button',{name:'Save variant',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('different reference exercise');
+ const saved=(await (await page.request.get('/api/catalog/references/'+familyId)).json()).reference;
+ expect(saved.exerciseType).toBe('compound');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');
+ await dialog.getByRole('button',{name:'Save variant',exact:true}).click();
+ await expect(dialog).toHaveCount(0);await expect(page.locator('.linked-exercise-name')).toHaveText(name);
+ await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
+});

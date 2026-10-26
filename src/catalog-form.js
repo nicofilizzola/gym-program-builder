@@ -76,7 +76,7 @@ export function openCatalogForm({api,entry,families=[],mode='create',onSaved=()=
   if(operation==='create'&&!referenceId&&!fields.family.value&&!fields.referenceType.value){error.textContent='Choose Compound or Isolation.';fields.referenceType.focus();return;}
   saving=true;save.disabled=true;error.textContent='';recovery.replaceChildren();dialog.querySelector('[data-cancel]').disabled=true;
   try{
-   const saved=operation==='edit'?await api.updateCatalog({id:current.id,revision:current.revision,entry:validated.entry,impact}):await api.createCatalog({id,familyId:referenceId||(operation==='variant'?current.familyId:fields.family.value||newFamilyId),familyName:fields.familyName.value,referenceExerciseType:fields.referenceType.value,referenceRevision:referenceRevision??families.find(r=>r.id===(operation==='variant'?current.familyId:fields.family.value))?.revision,entry:validated.entry});
+   const saved=operation==='edit'?await api.updateCatalog({id:current.id,revision:current.revision,entry:validated.entry,impact}):await api.createCatalog({id,familyId:referenceId||(operation==='variant'?current.familyId:fields.family.value||newFamilyId),familyName:operation==='create'&&!referenceId&&!fields.family.value?fields.familyName.value:undefined,referenceExerciseType:operation==='create'&&!referenceId&&!fields.family.value?fields.referenceType.value:undefined,referenceRevision:referenceRevision??families.find(r=>r.id===(operation==='variant'?current.familyId:fields.family.value))?.revision,entry:validated.entry});
    invalidateCatalog(api);if(closed)return;await onSaved(saved);close();
   }catch(e){
    if(closed)return;error.textContent=e.message;

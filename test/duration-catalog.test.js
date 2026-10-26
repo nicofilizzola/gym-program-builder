@@ -25,6 +25,17 @@ test('reference type is required for creation, validated and revision protected'
  await assert.rejects(c.updateReference({id:'r',revision:1,name:'Reference',exerciseType:'compound'}),{code:'CONFLICT'});
  await assert.rejects(c.updateReference({id:'r',revision:2,name:'Reference',exerciseType:'other'}),{code:'INVALID'});
 });
+test('inline creation retry refuses changed reference intent after a lost acknowledgement',async t=>{
+ const {c}=await setup(t);
+ const request={id:'v',familyId:'r',familyName:'Press',referenceExerciseType:'compound',entry:definition};
+ await c.create(request);
+ await assert.rejects(c.create({...request,referenceExerciseType:'isolation'}),{code:'CONFLICT'});
+ await assert.rejects(c.create({...request,familyName:'Changed reference'}),{code:'CONFLICT'});
+ assert.equal((await c.getReference('r')).exerciseType,'compound');
+ assert.equal((await c.getReference('r')).name,'Press');
+ assert.equal((await c.create(request)).id,'v');
+ assert.equal((await c.list()).entries.length,1);
+});
 test('variants read their reference default while propagation and moves preserve saved rest',async t=>{
  const {c,r}=await setup(t);
  await c.createReference({id:'compound',name:'Press',exerciseType:'compound'});

@@ -35,7 +35,13 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
    validId(id);validId(familyId);const clean=validate(entry);
    return write(async tx=>{
     const found=await tx.execute({sql:catalogSelect+' WHERE e.id=?',args:[id]});
-    if(found.rows.length){const old=catalogRow(found.rows[0]);if(old.familyId===familyId&&JSON.stringify(validate(old))===JSON.stringify(clean))return old;throw domainError('CONFLICT','This entry ID already exists.');}
+    if(found.rows.length){
+      const old=catalogRow(found.rows[0]);
+      const referenceIntent=referenceExerciseType!==undefined&&referenceExerciseType!=='';
+      if(referenceIntent&&(old.exerciseType!==referenceType(referenceExerciseType)||old.familyName!==title(familyName)))throw domainError('CONFLICT','This variant was already created with a different reference exercise name or type. Refresh the reference exercise or restore the original values before retrying.');
+      if(old.familyId===familyId&&JSON.stringify(validate(old))===JSON.stringify(clean))return old;
+      throw domainError('CONFLICT','This entry ID already exists.');
+    }
     const family=await tx.execute({sql:'SELECT id FROM catalog_families WHERE id=?',args:[familyId]});
     if(!family.rows.length)await tx.execute({sql:'INSERT INTO catalog_families(id,name,exercise_type) VALUES(?,?,?)',args:[familyId,title(familyName),referenceType(referenceExerciseType)]});
     const reference=await readReference(tx,familyId);
