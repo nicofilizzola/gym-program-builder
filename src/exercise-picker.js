@@ -2,19 +2,26 @@ import {EQUIPMENT} from './catalog.js';
 import {groupCatalog,flattenVariantOptions} from './catalog-groups.js';
 import {openCatalogForm} from './catalog-form.js';
 import {getCatalogStore} from './catalog-store.js';
+import {actionIcon,mountActionTooltips} from './action-controls.js';
 export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=false}){
  const store=getCatalogStore(api),id='exercise-options-'+crypto.randomUUID();
- let disposed=false,open=false,active=-1,matches=[],form,editing=!exercise.catalogId&&!legacy,menuOpen=false,announcementTimer;
+ let disposed=false,open=false,active=-1,matches=[],form,editing=!exercise.catalogId&&!legacy,announcementTimer;
  let renderedQuery='';
  const popup=document.createElement('div');popup.className='exercise-options';popup.setAttribute('popover','manual');
  popup.innerHTML='<label class="field">Filter equipment<select aria-label="Filter equipment"><option value="">All equipment</option></select></label><p class="error" role="alert"></p><button type="button" class="secondary-btn" data-retry hidden>Retry catalog</button><div role="listbox" aria-label="Exercise suggestions"></div><button type="button" class="secondary-btn" data-create>New variant</button>';
  const list=popup.querySelector('[role=listbox]');list.id=id;
  const filter=popup.querySelector('select'),error=popup.querySelector('.error'),retry=popup.querySelector('[data-retry]');
  for(const value of EQUIPMENT)filter.add(new Option(value,value));
- const menu=document.createElement('div');menu.className='exercise-options exercise-menu';menu.setAttribute('popover','manual');
- document.body.append(popup,menu);
- host.innerHTML='<div data-definition><div class="exercise-definition-head"><strong class="linked-exercise-name"></strong><button type="button" class="secondary-btn" aria-label="Exercise actions" aria-expanded="false">Actions</button></div><p class="catalog-meta" data-meta></p></div><div data-custom><span class="catalog-meta">Custom exercise</span><button type="button" class="secondary-btn" data-link>Link to catalog</button></div><label class="field" data-search>Exercise<input type="text" role="combobox" aria-label="Exercise" aria-autocomplete="list" aria-expanded="false" autocomplete="off" placeholder="Search exercises"></label><p class="visually-hidden" role="status" data-announcement></p>';
- const input=host.querySelector('input'),actions=host.querySelector('[aria-label="Exercise actions"]');
+ document.body.append(popup);
+ host.innerHTML='<div data-definition><div class="exercise-definition-head"><strong class="linked-exercise-name"></strong><div class="exercise-definition-actions"></div></div><p class="catalog-meta" data-meta></p></div><div data-custom><span class="catalog-meta">Custom exercise</span><button type="button" class="secondary-btn" data-link>Link to catalog</button></div><label class="field" data-search>Exercise<input type="text" role="combobox" aria-label="Exercise" aria-autocomplete="list" aria-expanded="false" autocomplete="off" placeholder="Search exercises"></label><p class="visually-hidden" role="status" data-announcement></p>';
+ const input=host.querySelector('input'),strip=host.querySelector('.exercise-definition-actions');
+ const tooltips=mountActionTooltips(host);
+ function action(key,label,icon,activate){
+  const button=document.createElement('button');button.type='button';button.className='action-button';button.dataset.exerciseAction=key;button.setAttribute('aria-label',label);button.dataset.actionTooltip=label;button.innerHTML=actionIcon(icon);button.onclick=activate;strip.append(button);return button;
+ }
+ const actions=action('replace','Replace exercise','move',()=>{hide();editing=true;display();input.value='';input.focus();show();});
+ const clone=action('variant','Create variant','duplicate',()=>{if(store.value?.entries.find(e=>e.id===exercise.catalogId)?.referenceArchived)return;create('variant');});
+ action('catalog','View in catalog','catalog',()=>{hide();onView?.();});
  // Keep the filter in document order beside the combobox, even though suggestions use the top layer.
  const equipmentLabel=filter.closest('label');
  host.querySelector('[data-search]').after(equipmentLabel);
@@ -33,7 +40,10 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   host.querySelector('.linked-exercise-name').textContent=exercise.name;
   const current=store.value?.entries.find(e=>e.id===exercise.catalogId);
   host.querySelector('[data-meta]').textContent=[current?.familyName,exercise.equipment,current?.archived?'Archived':null].filter(Boolean).join(' · ');
-  const clone=menu.querySelector('[data-clone-variant]');if(clone)clone.disabled=Boolean(current?.referenceArchived);
+  const restricted=String(Boolean(current?.referenceArchived));
+  if(clone.getAttribute('aria-disabled')!==restricted)tooltips.hide();
+  clone.setAttribute('aria-disabled',restricted);
+  clone.dataset.actionTooltip=current?.referenceArchived?'Restore the reference exercise before creating a variant.':'Create variant';
  }
  function position(el,anchor){
   if(!el.matches(':popover-open'))return;
@@ -48,8 +58,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   open=false;active=-1;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');
   if(popup.matches(':popover-open'))popup.hidePopover();
  }
- function closeMenu(){menuOpen=false;actions.setAttribute('aria-expanded','false');if(menu.matches(':popover-open'))menu.hidePopover();}
- function hide(){close();closeMenu();}
+ function hide(){close();tooltips.hide();}
  function announce(){clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>{if(!disposed)host.querySelector('[data-announcement]').textContent=matches.length+' variants. Use arrow keys to choose a variant.';},150);}
  const optionId=entry=>id+'-variant-'+encodeURIComponent(entry.id);
  function updateActive(){
@@ -83,7 +92,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   catch(e){if(disposed)return;error.textContent=(store.value?'Using the last loaded catalog. ':'')+e.message;retry.hidden=false;render();}
  }
  function show(){
-  if(disposed||!editing)return;closeMenu();if(!open){popup.showPopover();open=true;input.setAttribute('aria-expanded','true');}render();load();
+  if(disposed||!editing)return;tooltips.hide();if(!open){popup.showPopover();open=true;input.setAttribute('aria-expanded','true');}render();load();
  }
  function select(entry,{created=false}={}){
   const replacing=Boolean(exercise.catalogId||legacy);
@@ -96,15 +105,6 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   if(mode==='variant'&&!current){error.textContent='Refresh the catalog before creating a variant.';editing=true;display();show();return;}
   form?.destroy();form=openCatalogForm({api,mode,entry:mode==='variant'?current:legacy?exercise:undefined,families:store.value?.families||[],initialName:input.value,onSaved:async entry=>{await load(true);if(!disposed)select(entry,{created:true});}});
  }
- function item(label,fn){const b=document.createElement('button');b.type='button';b.className='secondary-btn';b.textContent=label;b.onclick=fn;menu.append(b);return b;}
- actions.onclick=()=>{
-  if(menuOpen){closeMenu();return;}close();menu.replaceChildren();
-  item('Replace exercise',()=>{closeMenu();editing=true;display();input.value='';input.focus();show();});
-  const clone=item('Create variant',()=>create('variant'));clone.dataset.cloneVariant='';clone.disabled=Boolean(store.value?.entries.find(e=>e.id===exercise.catalogId)?.referenceArchived);
-  if(clone.disabled){const hint=document.createElement('p');hint.className='catalog-meta';hint.textContent='Restore the reference exercise before creating a variant.';menu.append(hint);}
-  item('View in catalog',()=>{hide();onView?.();});
-  menu.showPopover();menuOpen=true;actions.setAttribute('aria-expanded','true');position(menu,actions);menu.querySelector('button').focus();
- };
  host.querySelector('[data-link]').onclick=()=>{editing=true;display();input.value=exercise.name;input.focus();show();};
  newExercise.onclick=()=>create('create');
  retry.onclick=()=>load(true);filter.onchange=render;
@@ -122,11 +122,11 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   if(event.key==='Enter'&&open){event.preventDefault();if(active>=0)select(matches[active]);}
   if(event.key==='Tab')close();
  };
- const outside=event=>{if(!host.contains(event.target)&&!popup.contains(event.target)&&!menu.contains(event.target))hide();};
- const key=event=>{if(event.key==='Escape'){if(menuOpen){closeMenu();actions.focus();}else close();}};
- const scrolling=event=>{if(!popup.contains(event.target)&&!menu.contains(event.target)){if(open)position(popup,host);if(menuOpen)position(menu,actions);}};
+ const outside=event=>{if(!host.contains(event.target)&&!popup.contains(event.target))hide();};
+ const key=event=>{if(event.key==='Escape')close();};
+ const scrolling=event=>{if(!popup.contains(event.target)){if(open)position(popup,host);}};
  const focus=()=>load(true),resize=()=>hide();
  document.addEventListener('pointerdown',outside);document.addEventListener('focusin',outside);document.addEventListener('keydown',key);document.addEventListener('scroll',scrolling,true);window.addEventListener('resize',resize);window.addEventListener('focus',focus);
  display();load();
- return {close:hide,update:display,refresh:()=>load(true),destroy(){disposed=true;hide();clearTimeout(announcementTimer);form?.destroy();popup.remove();menu.remove();document.removeEventListener('pointerdown',outside);document.removeEventListener('focusin',outside);document.removeEventListener('keydown',key);document.removeEventListener('scroll',scrolling,true);window.removeEventListener('resize',resize);window.removeEventListener('focus',focus);}};
+ return {close:hide,update:display,refresh:()=>load(true),destroy(){disposed=true;hide();clearTimeout(announcementTimer);form?.destroy();popup.remove();tooltips.destroy();document.removeEventListener('pointerdown',outside);document.removeEventListener('focusin',outside);document.removeEventListener('keydown',key);document.removeEventListener('scroll',scrolling,true);window.removeEventListener('resize',resize);window.removeEventListener('focus',focus);}};
 }

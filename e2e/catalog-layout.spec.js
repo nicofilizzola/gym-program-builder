@@ -21,21 +21,21 @@ for(const size of [{width:1366,height:768},{width:1440,height:900},{width:1920,h
  test('populated catalog picker and form fit '+size.width,async({page})=>{
   await page.setViewportSize(size);await mkdir(directory,{recursive:true});await populated(page);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
-  await expect(page.locator('.exercise-menu').first()).toBeHidden();
+  await expect(page.locator('.exercise-definition-actions')).toHaveCount(4);
   if(size.width>=1100)for(const body of await page.locator('#body-map svg').all()){const box=await body.boundingBox();expect(box.height).toBeGreaterThanOrEqual(180);}
   await page.screenshot({path:directory+'/editor-'+size.width+'.png',fullPage:true});
   if(size.width===1440){
    const css=await readFile('style.css','utf8'),html=(await page.content()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace('<link rel="stylesheet" href="style.css">','<style>'+css+'</style>');
    await writeFile(directory+'/editor.html',html);
   }
-  await page.getByRole('button',{name:'Exercise actions',exact:true}).first().click();await page.getByRole('button',{name:'Replace exercise',exact:true}).click();
+  await page.getByRole('button',{name:'Replace exercise',exact:true}).first().click();
   const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.fill('press');
   await expect(page.getByRole('listbox',{name:'Exercise suggestions'})).toBeVisible();
   const popup=page.locator('.exercise-options:popover-open');const box=await popup.boundingBox();expect(box.x).toBeGreaterThanOrEqual(8);expect(box.x+box.width).toBeLessThanOrEqual(size.width-7);expect(box.y).toBeGreaterThanOrEqual(0);expect(box.y+box.height).toBeLessThanOrEqual(size.height);
   const controls=await page.locator('.exercise-picker').first().boundingBox();expect(box.y>=controls.y+controls.height||box.y+box.height<=controls.y).toBe(true);
   await page.screenshot({path:directory+'/picker-'+size.width+'.png'});
   await page.keyboard.press('Escape');await page.keyboard.press('Escape');
-  await page.getByRole('button',{name:'Exercise actions',exact:true}).first().click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
+  await page.getByRole('button',{name:'Create variant',exact:true}).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).scrollIntoViewIfNeeded();
   const colors=await page.getByRole('dialog').getByRole('group',{name:'Primary muscles',exact:true}).evaluate(group=>({selected:getComputedStyle(group.querySelector('input:checked+span')).backgroundColor,unselected:getComputedStyle(group.querySelector('input:not(:checked)+span')).backgroundColor}));
   expect(colors.selected).not.toBe(colors.unselected);
@@ -70,8 +70,8 @@ test('hybrid input and enlarged text preserve catalog controls',async({browser})
  try{
   await populated(page);await page.addStyleTag({content:'html {font-size:200%}'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
-  const action=page.getByRole('button',{name:'Exercise actions',exact:true}).first();expect((await action.boundingBox()).height).toBeGreaterThanOrEqual(44);
-  await action.click();await page.getByRole('button',{name:'Create variant',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Save variant',exact:true}).scrollIntoViewIfNeeded();
+  const action=page.getByRole('button',{name:'Create variant',exact:true}).first();expect((await action.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await action.click();const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Save variant',exact:true}).scrollIntoViewIfNeeded();
   const button=await dialog.getByRole('button',{name:'Save variant',exact:true}).boundingBox();expect(button.height).toBeGreaterThanOrEqual(44);expect(button.y+button.height).toBeLessThanOrEqual(768);
   await page.screenshot({path:directory+'/hybrid-text-200.png',fullPage:true});
   await dialog.getByRole('button',{name:'Cancel',exact:true}).click();

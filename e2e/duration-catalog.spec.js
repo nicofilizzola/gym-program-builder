@@ -20,7 +20,7 @@ test('reference defaults initialize once and replacement, linking and later edit
  const updated=await page.request.put('/api/catalog/references/'+current.id,{headers,data:{revision:current.revision,name:current.name,exerciseType:'isolation'}});expect(updated.ok()).toBeTruthy();
  await page.reload();await page.getByRole('button',{name:'Expand all',exact:true}).click();
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('45');
- await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Replace exercise',exact:true}).click();
+ await page.getByRole('button',{name:'Replace exercise',exact:true}).click();
  page.once('dialog',d=>d.accept());await select(page,refs[1].entry.name);
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('45');
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();await select(page,refs[1].entry.name);
@@ -34,7 +34,7 @@ test('reference defaults initialize once and replacement, linking and later edit
  await page.getByRole('button',{name:'Link to catalog',exact:true}).click();
  page.once('dialog',d=>d.accept());await select(page,refs[1].entry.name);
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('45');
- await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
+ await page.getByRole('button',{name:'Create variant',exact:true}).click();
  await page.getByRole('dialog').getByLabel('Variant name',{exact:true}).fill('Custom timing variant '+suffix);
  await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).click();
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('45');

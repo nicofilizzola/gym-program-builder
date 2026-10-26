@@ -24,7 +24,7 @@ test('a workout save acknowledgement preserves an open variant draft',async({pag
  const id=(await page.url()).split('/').at(-1);let committed=false,release;
  await page.route('**/api/documents/'+id,async route=>{if(route.request().method()!=='PUT')return route.continue();const response=await route.fetch();committed=true;await new Promise(resolve=>{release=resolve;});await route.fulfill({response});});
  await page.getByLabel('Sets',{exact:true}).fill('5');await expect.poll(()=>committed).toBe(true);
- await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
+ await page.getByRole('button',{name:'Create variant',exact:true}).click();
  const dialog=page.getByRole('dialog');await dialog.getByLabel('Variant name',{exact:true}).fill('Keep this draft');
  release();await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await expect(dialog).toBeVisible();await expect(dialog.getByLabel('Variant name',{exact:true})).toHaveValue('Keep this draft');
@@ -91,7 +91,7 @@ test('picker retry is idempotent after a committed variant response is lost',asy
  await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();
  const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.fill('Barbell bench press');await input.press('ArrowDown');await input.press('Enter');
- await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
+ await page.getByRole('button',{name:'Create variant',exact:true}).click();
  const name='Retry variant '+Date.now(),dialog=page.getByRole('dialog');await dialog.getByLabel('Variant name',{exact:true}).fill(name);
  let lost=false;
  await page.route('**/api/catalog',async route=>{if(route.request().method()==='POST'&&!lost){lost=true;await route.fetch();await route.fulfill({status:503,json:{error:{message:'Response lost'}}});}else await route.continue();});
@@ -135,12 +135,12 @@ test('in-card autocomplete explicitly selects definitions and creates an indepen
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('3');
  await expect(page.locator('.exercise .primary input')).toHaveCount(0);
  await page.getByLabel('Sets',{exact:true}).fill('5');
- await page.getByRole('button',{name:'Exercise actions',exact:true}).click();
+
  await page.getByRole('button',{name:'Create variant',exact:true}).click();
  await expect(page.getByRole('dialog')).toContainText('Other workouts are unchanged.');
  await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
  await expect(page.locator('.linked-exercise-name')).toHaveText('Barbell bench press');
- await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await page.getByRole('button',{name:'Create variant',exact:true}).click();
+ await page.getByRole('button',{name:'Create variant',exact:true}).click();
  const variant='My bench '+Date.now();await page.getByRole('dialog').getByLabel('Variant name',{exact:true}).fill(variant);
  await page.getByRole('dialog').getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Front delts',{exact:true}).check();
  await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).click();

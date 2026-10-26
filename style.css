@@ -1666,9 +1666,10 @@ button:disabled {opacity:.5;cursor:default}
 .exercise-option:hover,.exercise-option[aria-selected=true] {background:var(--surface-2);outline:1px solid var(--accent);outline-offset:-1px}
 .exercise-option .catalog-meta,.exercise-option .catalog-mapping {margin:0;font-size:.8125rem}
 .exercise-options>[data-create] {width:100%;margin-top:8px}
-.exercise-menu {display:flex;flex-direction:column;gap:6px}
-.exercise-menu .secondary-btn {justify-content:start}
-.exercise-definition-head {display:flex;align-items:center;justify-content:space-between;gap:8px}
+.exercise-definition-head {display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.exercise-definition-head .linked-exercise-name {flex:1 1 auto;max-width:100%}
+.exercise-definition-actions {display:flex;flex:none;flex-wrap:nowrap;gap:8px}
+.exercise-definition-actions .action-button[aria-disabled=true] {opacity:.5;cursor:not-allowed}
 .linked-exercise-name {font-weight:600;overflow-wrap:anywhere;min-width:0}
 .linked-muscles {margin:0;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
 .linked-muscles strong {font-weight:500;color:var(--text)}

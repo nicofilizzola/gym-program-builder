@@ -144,14 +144,14 @@ test('move collisions preserve the destination and lost move responses retry onc
  const state=await page.evaluate(async id=>{const data=await (await fetch('/api/catalog')).json();return {entry:data.entries.find(e=>e.id===id),count:data.entries.length,refs:data.families};},fixture.entry.id);
  expect(state.entry.familyId).toBe(fixture.target.id);expect(state.entry.revision).toBe(2);expect(state.refs.find(r=>r.id===fixture.source.id).revision).toBe(3);expect(state.refs.find(r=>r.id===fixture.target.id).revision).toBe(3);
 });
-test('archived references disable new variants in the catalog and linked session menu',async({page})=>{
+test('archived references disable new variants in the catalog and linked session actions',async({page})=>{
  await login(page);
  const fixture=await page.evaluate(async()=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),r=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Archived reference '+crypto.randomUUID()}),e=await api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name:'Archived source '+crypto.randomUUID(),equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
   const record=await api.create({id:crypto.randomUUID(),kind:'template',document:{name:'Archived workout',goals:{},exercises:[{name:e.name,equipment:e.equipment,catalogId:e.id,familyId:r.id,catalogRevision:e.revision,primaryMuscles:e.primaryMuscles,secondaryMuscles:[],sets:3,repRange:{min:8,max:12}}]}});
   await api.archiveReference({id:r.id,revision:2,archived:true});return {r,e,record};
  });
- await page.goto('/#/templates/'+fixture.record.id);await page.getByRole('button',{name:'Expand exercise',exact:true}).click();await page.getByRole('button',{name:'Exercise actions',exact:true}).click();await expect(page.getByRole('button',{name:'Create variant',exact:true})).toBeDisabled();await expect(page.getByText('Restore the reference exercise before creating a variant.',{exact:true})).toBeVisible();await page.keyboard.press('Escape');
+ await page.goto('/#/templates/'+fixture.record.id);await page.getByRole('button',{name:'Expand exercise',exact:true}).click();await expect(page.getByRole('button',{name:'Create variant',exact:true})).toHaveAttribute('aria-disabled','true');await page.getByRole('button',{name:'Create variant',exact:true}).click({force:true});await expect(page.getByText('Restore the reference exercise before creating a variant.',{exact:true})).toBeVisible();await page.keyboard.press('Escape');
  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Show archived',{exact:true}).check();await page.getByLabel('Search catalog',{exact:true}).fill(fixture.r.name);
  await expect(group(page,fixture.r.name).getByRole('button',{name:/^Add variant to /,exact:false})).toBeDisabled();
  let writes=0;page.on('request',r=>{if(r.url().includes('/api/catalog')&&r.method()!=='GET')writes++;});
