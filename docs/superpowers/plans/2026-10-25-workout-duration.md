@@ -36,6 +36,10 @@
 4. Large names, 200% text and hybrid input must keep controls, figures and duration details reachable (Tasks 3 and 6).
 5. Copies, version-1 imports and program editor round trips must retain all timing settings without sharing mutable state (Tasks 2 and 4).
 
+## Execution status
+
+Tasks 1-4 are implemented and verified. Task 5 remains pending because the catalog prerequisite is absent; automatic reference defaults are not yet available. Task 6 verifies the preparatory implementation, with full-release signoff pending Task 5. See `docs/superpowers/reports/2026-10-25-workout-duration.md`.
+
 ## File map and dependency checkpoint
 
 - Create `src/duration.js`: limits/defaults, input normalization, pure totals and time formatting.
@@ -63,11 +67,11 @@ Tasks 1–4 can be developed using legacy/custom exercises before the catalog la
 - Export `durationLabel(workout) -> string`: `~${displayMinutes} min`.
 - `createExercise()` supplies restSeconds 120. `createTemplate()` supplies allowances 5/10. `copyWorkout(template,id)` preserves allowances, rest and all catalog metadata while replacing workout ID/day as before.
 
-- [ ] **Step 1: Write failing calculation and copy tests.** Assert 3×180s rest plus 3×90s rest yields execution=360, rest=810, extra=300, buffer=147, total=1617, displayMinutes=27. Assert 3 sets with rest=120 and zero allowances yields 540 seconds; zero rest gives 180. Assert empty workout gives zero even with defaults; unnamed valid-set exercises count; invalid sets `0`, `11`, `1.5`, `NaN` count zero. Assert 1 set/rest=0/extra=0/buffer=5 gives 63 seconds and `~2 min`. Maximum one exercise gives 3,600 execution/rest base seconds + 3,600 extra seconds, then 50% = 10,800 seconds / 180 minutes. Assert no mutation, name/reps/muscle/order independence, and exact defaultRestSeconds mappings. Assert copied timing can change without changing source.
-- [ ] **Step 2:** Run `node --test test/duration.test.js test/exercise.test.js test/program.test.js`; confirm failures identify missing timing behavior.
-- [ ] **Step 3:** Implement the exported interfaces and constructor/copy changes. Update Exercise/Workout typedefs; do not introduce an alternate volume calculation.
-- [ ] **Step 4:** Run the same command; expect all tests pass. Update old constructor expectations with explicit timing fields.
-- [ ] **Step 5:** Commit as `feat: add workout duration calculation and defaults`.
+- [x] **Step 1: Write failing calculation and copy tests.** Assert 3×180s rest plus 3×90s rest yields execution=360, rest=810, extra=300, buffer=147, total=1617, displayMinutes=27. Assert 3 sets with rest=120 and zero allowances yields 540 seconds; zero rest gives 180. Assert empty workout gives zero even with defaults; unnamed valid-set exercises count; invalid sets `0`, `11`, `1.5`, `NaN` count zero. Assert 1 set/rest=0/extra=0/buffer=5 gives 63 seconds and `~2 min`. Maximum one exercise gives 3,600 execution/rest base seconds + 3,600 extra seconds, then 50% = 10,800 seconds / 180 minutes. Assert no mutation, name/reps/muscle/order independence, and exact defaultRestSeconds mappings. Assert copied timing can change without changing source.
+- [x] **Step 2:** Run `node --test test/duration.test.js test/exercise.test.js test/program.test.js`; confirm failures identify missing timing behavior.
+- [x] **Step 3:** Implement the exported interfaces and constructor/copy changes. Update Exercise/Workout typedefs; do not introduce an alternate volume calculation.
+- [x] **Step 4:** Run the same command; expect all tests pass. Update old constructor expectations with explicit timing fields.
+- [x] **Step 5:** Commit as `feat: add workout duration calculation and defaults`.
 
 ### Task 2: Validation, compatibility and durable timing
 
@@ -75,12 +79,12 @@ Tasks 1–4 can be developed using legacy/custom exercises before the catalog la
 
 **Interfaces:** Consume Task 1 normalization/limits. Preserve `validateDocument(kind,value,{draft}) -> {document}|{error}`, `parseDocument`, `serializeDocument` and repository signatures. Successful canonical documents always include all timing inputs; v1's legacy parser can retain its old public session shape, but `parseDocument` must upgrade its output to a complete normalized workout. `validateExercise` checks explicit rest against limits while allowing legacy absence for callers; document canonicalization supplies defaults.
 
-- [ ] **Step 1: Write failing compatibility tests.** In both template and nested program workouts, absent fields become 120/5/10; null, strings, negatives, infinity, rest 301/14, extra 61/0.5 and buffer 51/7 fail strict and draft validation. Explicit zeros survive. Exercise errors identify exercise number. Export and reimport nondefault timing exactly; v1 and old v2 receive defaults; malformed later exercises reject the entire import. Catalog metadata remains stripped under the catalog contract while timing stays portable.
-- [ ] **Step 2: Write failing repository tests.** Insert legacy raw document JSON using the test DB helper; get returns normalized values without changing stored JSON/revision/timestamps. Replay an ambiguous create/update with normalized equivalent defaults and assert idempotent success, including a saved legacy payload. Two stale devices editing rest/allowances still conflict; accepted revision increments once and retains inputs. Confirm invalid timing cannot reach storage.
-- [ ] **Step 3:** Run `node --test test/validate.test.js test/document-validation.test.js test/document-file.test.js test/session-file.test.js test/repository.test.js`; confirm expected failures.
-- [ ] **Step 4:** Extend canonical field construction (currently it explicitly lists exercise/workout fields), legacy import upgrade and portable serialization. Normalize both operands in idempotency comparisons and read results without database writes. Keep stored revision checks and error recovery intact. Do not normalize invalid explicit fields into valid defaults.
-- [ ] **Step 5:** Run the same tests and `npm test`; expect all pass, adjusting exact object/JSON expectations where defaults are now canonical.
-- [ ] **Step 6:** Commit as `feat: persist and export workout timing with legacy defaults`.
+- [x] **Step 1: Write failing compatibility tests.** In both template and nested program workouts, absent fields become 120/5/10; null, strings, negatives, infinity, rest 301/14, extra 61/0.5 and buffer 51/7 fail strict and draft validation. Explicit zeros survive. Exercise errors identify exercise number. Export and reimport nondefault timing exactly; v1 and old v2 receive defaults; malformed later exercises reject the entire import. Catalog metadata remains stripped under the catalog contract while timing stays portable.
+- [x] **Step 2: Write failing repository tests.** Insert legacy raw document JSON using the test DB helper; get returns normalized values without changing stored JSON/revision/timestamps. Replay an ambiguous create/update with normalized equivalent defaults and assert idempotent success, including a saved legacy payload. Two stale devices editing rest/allowances still conflict; accepted revision increments once and retains inputs. Confirm invalid timing cannot reach storage.
+- [x] **Step 3:** Run `node --test test/validate.test.js test/document-validation.test.js test/document-file.test.js test/session-file.test.js test/repository.test.js`; confirm expected failures.
+- [x] **Step 4:** Extend canonical field construction (currently it explicitly lists exercise/workout fields), legacy import upgrade and portable serialization. Normalize both operands in idempotency comparisons and read results without database writes. Keep stored revision checks and error recovery intact. Do not normalize invalid explicit fields into valid defaults.
+- [x] **Step 5:** Run the same tests and `npm test`; expect all pass, adjusting exact object/JSON expectations where defaults are now canonical.
+- [x] **Step 6:** Commit as `feat: persist and export workout timing with legacy defaults`.
 
 ### Task 3: Session duration controls and exercise rest
 
@@ -88,12 +92,12 @@ Tasks 1–4 can be developed using legacy/custom exercises before the catalog la
 
 **Interfaces:** `mountDurationControls(host,{workout,onChange}) -> {update(workout),destroy()}`; onChange emits `{extraMinutes,bufferPercent}` only. Its nodes are built once; update must not replace focused sliders or reset disclosure. Summary copy: `Estimated duration` plus Task 1 label; disclosure labels `Show duration details` / `Hide duration details`, breakdown labels Execution, Rest, Extra time, Buffer. Editor retains its existing API and onChange emits full workout including timing. Rest slider uses `data-field="restSeconds"`, accessible name `Rest per set`, and formatted aria-valuetext. Summary appends `rest ${formatDuration(restSeconds)}`.
 
-- [ ] **Step 1: Write failing browser tests.** Mount a populated template through existing authenticated fixtures: assert the 27-minute example; sets, rest and allowance input events update the total immediately without rerendering focused controls. Assert rest slider bounds/step 0/300/15, extra 0/60/1 and buffer 0/50/5; zero clears allowances. Verify keyboard arrows/Home/End, disclosure aria-expanded/focus, collapsed summary rest, empty `~0 min`, and an unfinished exercise contributing time. Test detail display preserves precision via seconds without rounding calculation components.
-- [ ] **Step 2:** Add summary unit expectations and run `node --test test/exercise.test.js` and `npx playwright test e2e/duration.spec.js`; confirm failures are feature assertions.
-- [ ] **Step 3:** Build compact summary/disclosure near heading, native allowance sliders and rest slider following existing fill/value/focus conventions. Wire refresh to timing without losing name, goals or metadata. Normalize incoming workout at mount/update boundaries. Destroy listeners/controls during editor teardown. Keep disclosure outside collapsing exercise cards; no additional live announcements.
-- [ ] **Step 4:** Apply CSS first, then document placement, responsive wrapping, slider values and 44px input rules in the design system. Match existing palette/Barlow tokens and preserve figure sizing and mobile panel flow. Add mobile/200% text/hybrid assertions to the duration browser test using existing layout-test helpers.
-- [ ] **Step 5:** Run unit summary tests and the duration browser test; expect pass. Check existing session editor and compact layout tests for regression.
-- [ ] **Step 6:** Commit as `feat: add live session duration and rest controls`.
+- [x] **Step 1: Write failing browser tests.** Mount a populated template through existing authenticated fixtures: assert the 27-minute example; sets, rest and allowance input events update the total immediately without rerendering focused controls. Assert rest slider bounds/step 0/300/15, extra 0/60/1 and buffer 0/50/5; zero clears allowances. Verify keyboard arrows/Home/End, disclosure aria-expanded/focus, collapsed summary rest, empty `~0 min`, and an unfinished exercise contributing time. Test detail display preserves precision via seconds without rounding calculation components.
+- [x] **Step 2:** Add summary unit expectations and run `node --test test/exercise.test.js` and `npx playwright test e2e/duration.spec.js`; confirm failures are feature assertions.
+- [x] **Step 3:** Build compact summary/disclosure near heading, native allowance sliders and rest slider following existing fill/value/focus conventions. Wire refresh to timing without losing name, goals or metadata. Normalize incoming workout at mount/update boundaries. Destroy listeners/controls during editor teardown. Keep disclosure outside collapsing exercise cards; no additional live announcements.
+- [x] **Step 4:** Apply CSS first, then document placement, responsive wrapping, slider values and 44px input rules in the design system. Match existing palette/Barlow tokens and preserve figure sizing and mobile panel flow. Add mobile/200% text/hybrid assertions to the duration browser test using existing layout-test helpers.
+- [x] **Step 5:** Run unit summary tests and the duration browser test; expect pass. Check existing session editor and compact layout tests for regression.
+- [x] **Step 6:** Commit as `feat: add live session duration and rest controls`.
 
 ### Task 4: Program labels and complete editing journeys
 
@@ -101,12 +105,12 @@ Tasks 1–4 can be developed using legacy/custom exercises before the catalog la
 
 **Interfaces:** Program cards consume `durationLabel(workout)` and show a noninteractive text element with accessible contextual text `Estimated duration ~N min`. Existing editor callbacks retain workout ID/day and all timing inputs; no program-level allowance or weekly total is added.
 
-- [ ] **Step 1: Write failing journey tests.** A copied template shows `~27 min` on its program card. Edit its rest/allowances, return, and assert updated label; source template is unchanged. Duplicate workout, edit duplicate timing and assert original unchanged. Switch sequence/schedule, assign day, move to Unscheduled and reorder; each workout keeps its estimate and settings. Round-trip a full program JSON with nondefault timing, then reload from server and assert exact inputs.
-- [ ] **Step 2:** Add a recovery test editing rest and allowances before a failed save: retry retains edits; stale revision conflict and Save as copy retain timing while Reload saved version adopts saved values.
-- [ ] **Step 3:** Run `npx playwright test e2e/duration.spec.js e2e/recovery.spec.js`; confirm failures.
-- [ ] **Step 4:** Render label in `.workout-metadata`; ensure no extraction path drops allowances. Extend metadata wrapping CSS/documentation if needed without disrupting muscle-match badge space, actions or day selector. Reuse existing save/recovery APIs rather than adding timing-specific transport.
-- [ ] **Step 5:** Run the same browser tests plus `node --test test/program.test.js`; expect pass.
-- [ ] **Step 6:** Commit as `feat: show duration estimates throughout programs`.
+- [x] **Step 1: Write failing journey tests.** A copied template shows `~27 min` on its program card. Edit its rest/allowances, return, and assert updated label; source template is unchanged. Duplicate workout, edit duplicate timing and assert original unchanged. Switch sequence/schedule, assign day, move to Unscheduled and reorder; each workout keeps its estimate and settings. Round-trip a full program JSON with nondefault timing, then reload from server and assert exact inputs.
+- [x] **Step 2:** Add a recovery test editing rest and allowances before a failed save: retry retains edits; stale revision conflict and Save as copy retain timing while Reload saved version adopts saved values.
+- [x] **Step 3:** Run `npx playwright test e2e/duration.spec.js e2e/recovery.spec.js`; confirm failures.
+- [x] **Step 4:** Render label in `.workout-metadata`; ensure no extraction path drops allowances. Extend metadata wrapping CSS/documentation if needed without disrupting muscle-match badge space, actions or day selector. Reuse existing save/recovery APIs rather than adding timing-specific transport.
+- [x] **Step 5:** Run the same browser tests plus `node --test test/program.test.js`; expect pass.
+- [x] **Step 6:** Commit as `feat: show duration estimates throughout programs`.
 
 ### Task 5: Catalog classification and initial-rest integration
 
