@@ -1,6 +1,6 @@
 # Workout Duration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Subagent-driven execution is an alternative only if the user selects it.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Subagent-driven execution is an alternative only if the user selects it.
 
 **Goal:** Show live workout duration estimates with independently editable exercise rest, session allowances, catalog-derived initial defaults and program card labels.
 
@@ -38,7 +38,7 @@
 
 ## Execution status
 
-Tasks 1-4 are implemented and verified. On resumption the committed catalog/reference branch became available and was integrated at 2d7509a. Task 5 now uses the actual reference-group model, matching the user's explicit requested scope; the amended approved design is authoritative. Task 6 repeats verification across the combined feature. See `docs/superpowers/reports/2026-10-25-workout-duration.md`.
+All six tasks are implemented and verified on `feat/workout-duration`. The committed catalog/reference prerequisite through964f00b was integrated at2d7509a. Final verification:140 unit tests,121 browser tests, explicit local migration/seed replay and production build all pass. One independent review's Important creation-retry finding was reproduced and fixed; its minor malformed-import message issue is documented as deferred. No merge into main or deployment has been performed. See `docs/superpowers/reports/2026-10-25-workout-duration.md`.
 
 ## File map and dependency checkpoint
 
@@ -123,8 +123,8 @@ Tasks 1–4 can be developed using legacy/custom exercises before the catalog la
 - [x] **Step 1:** Write and watch failing tests for required classes, revision/retry conflicts, shared variant defaults, classification edits that leave saved documents unchanged, propagation/move/copy rest preservation, and reviewed seed defaults/idempotency. Tests live in `test/duration-catalog.test.js`.
 - [x] **Step 2:** Write browser tests in `e2e/duration-catalog.spec.js` for initial 180/90-second values, override retention on replacement/reload/type edit, and required reference-form classification. Watch the initial-default assertion fail at actual120/expected180 before changing the editor.
 - [x] **Step 3:** Implement migration 004's nullable exercise_type column, read/write validation, reference/inline creation controls, catalog labels and first-selection-only defaults. Explicit seed version2 classifies only missing types on unchanged active known seed references; preserve renamed/archived references and existing chosen classes. Update existing test fixtures to explicitly supply required classes.
-- [ ] **Step 4:** Run `npm.cmd run db:migrate` and `npm.cmd run db:seed` explicitly against disposable development SQLite; repeat to verify idempotency. Run `npm.cmd test`, combined catalog/duration/reference browser checks, then the full browser suite and build in Task6.
-- [ ] **Step 5:** Commit as `feat: initialize workout rest from reference exercise type`.
+- [x] **Step 4:** Run `npm.cmd run db:migrate` and `npm.cmd run db:seed` explicitly against disposable development SQLite; repeat to verify idempotency. Run `npm.cmd test`, combined catalog/duration/reference browser checks, then the full browser suite and build in Task6.
+- [x] **Step 5:** Commit as `feat: initialize workout rest from reference exercise type`.
 
 ### Task 6: Release verification and documentation
 
@@ -132,8 +132,8 @@ Tasks 1–4 can be developed using legacy/custom exercises before the catalog la
 
 **Interfaces:** All previous public APIs remain stable. Production migrations/seeds are an explicit operator step, separate from publishing static files/build execution.
 
-- [ ] **Step 1:** Inspect populated template editors and program overviews at 1366×768, 1440×900 and 1920×1080; tablet 900px and mobile 390px/760px; include many exercises/muscles, long names, expanded details and errors. Inspect 200% text and hybrid/coarse input. Save review screenshots as local verification artifacts, not production assets.
-- [ ] **Step 2:** Assert no horizontal document overflow, duration/controls remain reachable, native slider hit areas stay 44px, hybrid targets stay at least 44×44px, and desktop figures remain at least 180px. Verify reduced motion, focus after disclosure/collapse/navigation, rest edits while collapsed summary refreshes, stable readout and tooltip overlays. Add targeted regression assertions only where the inspection reveals risk or a defect.
-- [ ] **Step 3:** Run `npm test`, `npm run test:e2e`, `npm run build` after the explicit development migration/seed. Expect all commands exit 0. Fix failures and rerun affected checks; rerun full required checks after final code changes. Confirm build output allowlist still excludes server code, fixtures and secrets.
-- [ ] **Step 4:** Review implementation against the spec, especially the catalog prerequisite, backward compatibility and reference-default independence. Record exact checks/results, screenshots, known limits and explicit environment migration/seed instructions in the report. Do not claim production migration/deployment unless separately performed.
-- [ ] **Step 5:** Commit as `docs: verify workout duration release` and present the resulting branch/changes for the user's chosen integration workflow.
+- [x] **Step 1:** Inspect populated template editors and program overviews at 1366×768, 1440×900 and 1920×1080; tablet 900px and mobile 390px/760px; include many exercises/muscles, long names, expanded details and errors. Inspect 200% text and hybrid/coarse input. Save review screenshots as local verification artifacts, not production assets.
+- [x] **Step 2:** Assert no horizontal document overflow, duration/controls remain reachable, native slider hit areas stay 44px, hybrid targets stay at least 44×44px, and desktop figures remain at least 180px. Verify reduced motion, focus after disclosure/collapse/navigation, rest edits while collapsed summary refreshes, stable readout and tooltip overlays. Add targeted regression assertions only where the inspection reveals risk or a defect.
+- [x] **Step 3:** Run `npm test`, `npm run test:e2e`, `npm run build` after the explicit development migration/seed. Expect all commands exit 0. Fix failures and rerun affected checks; rerun full required checks after final code changes. Confirm build output allowlist still excludes server code, fixtures and secrets.
+- [x] **Step 4:** Review implementation against the spec, especially the catalog prerequisite, backward compatibility and reference-default independence. Record exact checks/results, screenshots, known limits and explicit environment migration/seed instructions in the report. Do not claim production migration/deployment unless separately performed.
+- [x] **Step 5:** Commit as `docs: verify workout duration release` and present the resulting branch/changes for the user's chosen integration workflow.
