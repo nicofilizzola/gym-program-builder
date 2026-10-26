@@ -6,7 +6,7 @@ import {createRepository} from '../server/repository.js';
 const entry={name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:['Triceps']};
 async function setup(t){const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);return {db,c:createCatalogRepository(db),r:createRepository(db)};}
 test('catalog creation is idempotent and archive does not destroy family identity',async t=>{
- const {c}=await setup(t);const args={id:'bench',familyId:'press',familyName:'Bench press',entry};
+ const {c}=await setup(t);const args={id:'bench',familyId:'press',referenceExerciseType:'compound',familyName:'Bench press',entry};
  const e=await c.create(args);assert.equal(e.revision,1);assert.equal((await c.create(args)).id,'bench');
  await assert.rejects(c.create({...args,id:'duplicate',entry:{...entry,name:'bENCH'}}),{code:'CONFLICT'});
  await c.create({...args,id:'incline',entry:{...entry,name:'Incline bench'}});
@@ -16,7 +16,7 @@ test('catalog creation is idempotent and archive does not destroy family identit
  assert.equal((await c.list()).entries.length,2);
 });
 test('a failed propagation transaction rolls back both definitions and document revisions',async t=>{
- const {c,r,db}=await setup(t);await c.create({id:'bench',familyId:'press',familyName:'Press',entry});
+ const {c,r,db}=await setup(t);await c.create({id:'bench',familyId:'press',referenceExerciseType:'compound',familyName:'Press',entry});
  const linked={...entry,sets:3,repRange:{min:8,max:12},catalogId:'bench',catalogRevision:1,familyId:'press'};
  await r.create({id:'t',kind:'template',document:{name:'Upper',exercises:[linked],goals:{}}});
  await db.execute("CREATE TRIGGER reject_propagation BEFORE UPDATE ON documents BEGIN SELECT RAISE(ABORT,'test write failure'); END");
@@ -24,7 +24,7 @@ test('a failed propagation transaction rolls back both definitions and document 
  const catalog=await c.list();assert.equal(catalog.entries[0].name,'Bench');assert.equal(catalog.entries[0].revision,1);assert.equal((await r.get('t')).revision,1);
 });
 test('catalog edits atomically update each linked document once and protect impact previews',async t=>{
- const {c,r,db}=await setup(t);await c.create({id:'bench',familyId:'press',familyName:'Bench press',entry});
+ const {c,r,db}=await setup(t);await c.create({id:'bench',familyId:'press',referenceExerciseType:'compound',familyName:'Bench press',entry});
  const ex={...entry,sets:4,repRange:{min:6,max:8},catalogId:'bench',catalogRevision:1,familyId:'press'};
  const template={name:'Upper',exercises:[ex],goals:{Chest:8}};
  await r.create({id:'t',kind:'template',document:template});

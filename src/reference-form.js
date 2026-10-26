@@ -20,11 +20,12 @@ function modal(title,{onClosed}){
 }
 export function openReferenceForm({api,reference,onSaved=()=>{},onClosed}){
  const ui=modal(reference?'Edit reference exercise':'New reference exercise',{onClosed});let current=reference;const id=reference?.id||crypto.randomUUID();
- ui.content.innerHTML='<label class="field">Reference exercise name<input type="text" maxlength="200" required autocomplete="off"></label>';
- const input=ui.content.querySelector('input');input.value=current?.name||'';ui.save.textContent=current?'Save reference exercise':'Create reference exercise';
- const reload=async()=>{const value=await api.getReference(id);if(ui.closed)return;current=value;input.value=value.name;ui.save.textContent='Save reference exercise';ui.error.textContent='';ui.recovery.replaceChildren();};
+ ui.content.innerHTML='<label class="field">Reference exercise name<input type="text" maxlength="200" required autocomplete="off"></label><label class="field">Exercise type<select aria-label="Exercise type" required><option value="">Choose type</option><option value="compound">Compound · 3 min rest</option><option value="isolation">Isolation · 1 min 30 sec rest</option></select></label><p class="catalog-meta">Supplies initial rest for new selections. Existing workout rest stays unchanged.</p>';
+ const input=ui.content.querySelector('input'),type=ui.content.querySelector('select');input.value=current?.name||'';type.value=current?.exerciseType||'';ui.save.textContent=current?'Save reference exercise':'Create reference exercise';
+ const reload=async()=>{const value=await api.getReference(id);if(ui.closed)return;current=value;input.value=value.name;type.value=value.exerciseType||'';ui.save.textContent='Save reference exercise';ui.error.textContent='';ui.recovery.replaceChildren();};
  const submit=()=>{const name=input.value.trim();if(!name||name.length>200){ui.error.textContent='Enter a reference exercise name (up to 200 characters).';input.focus();return;}
-  ui.perform(async()=>{const saved=current?await api.updateReference({id,revision:current.revision,name}):await api.createReference({id,name});invalidateCatalog(api);if(!ui.closed)await onSaved(saved);},e=>{if(e.status===409)ui.action('Reload saved version',reload);else ui.action('Retry',submit);});
+  if(!type.value){ui.error.textContent='Choose Compound or Isolation.';type.focus();return;}
+  ui.perform(async()=>{const saved=current?await api.updateReference({id,revision:current.revision,name,exerciseType:type.value}):await api.createReference({id,name,exerciseType:type.value});invalidateCatalog(api);if(!ui.closed)await onSaved(saved);},e=>{if(e.status===409)ui.action('Reload saved version',reload);else ui.action('Retry',submit);});
  };
  ui.form.onsubmit=e=>{e.preventDefault();submit();};ui.show();return {destroy:ui.close};
 }

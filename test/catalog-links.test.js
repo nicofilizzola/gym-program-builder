@@ -9,7 +9,7 @@ const ex={...entry,sets:4,repRange:{min:6,max:8},catalogId:'bench',familyId:'pre
 const doc={name:'Upper',exercises:[ex],goals:{}};
 test('document links are resolved by the server and reject unknown and new archived links',async t=>{
  const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);const r=createRepository(db),c=createCatalogRepository(db);
- await c.create({id:'bench',familyId:'press',familyName:'Press',entry});
+ await c.create({id:'bench',familyId:'press',referenceExerciseType:'compound',familyName:'Press',entry});
  const created=await r.create({id:'t',kind:'template',document:{...doc,exercises:[{...ex,name:'Forged',primaryMuscles:['Abs']}]}});
  assert.equal(created.document.exercises[0].name,'Bench');assert.deepEqual(created.document.exercises[0].primaryMuscles,['Chest']);
  await assert.rejects(r.create({id:'unknown',kind:'template',document:{...doc,exercises:[{...ex,catalogId:'unknown'}]}}),{code:'INVALID'});
@@ -25,7 +25,7 @@ test('document links are resolved by the server and reject unknown and new archi
 });
 test('propagation conflicts stale edits and save as copy resolves latest mappings',async t=>{
  const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);const r=createRepository(db),c=createCatalogRepository(db);
- await c.create({id:'bench',familyId:'press',familyName:'Press',entry});await r.create({id:'t',kind:'template',document:doc});
+ await c.create({id:'bench',familyId:'press',referenceExerciseType:'compound',familyName:'Press',entry});await r.create({id:'t',kind:'template',document:doc});
  await c.update({id:'bench',revision:1,entry:{...entry,primaryMuscles:['Front delts']},impact:await c.impact('bench')});
  await assert.rejects(r.update({id:'t',revision:1,document:{...doc,name:'My unsaved edit'}}),{code:'CONFLICT'});
  const copied=await r.create({id:'copy',kind:'template',copyOf:'t',document:{...doc,exercises:[{...ex,sets:7}]}});

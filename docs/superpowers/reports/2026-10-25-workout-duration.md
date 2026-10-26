@@ -2,15 +2,15 @@
 
 ## Scope delivered
 
-Implemented plan Tasks 1–4 on `feat/workout-duration`: live duration estimates, independently saved rest per exercise, extra minutes and percentage buffer, inline accessible editor details, collapsed rest summaries, program workout labels, legacy defaults and portable JSON timing. Execution is fixed at one minute per set and rest counts after every set. Defaults for currently supported custom/legacy exercises are two minutes rest, five extra minutes and ten percent buffer.
+Implemented plan Tasks 1-5 on `feat/workout-duration`: live estimates, independently saved exercise rest, extra minutes and percentage buffer, accessible editor details, collapsed rest summaries, program labels, legacy defaults and portable JSON timing. Execution is one minute per set and rest counts after every set. Reference groups supply 180-second compound / 90-second isolation defaults on initial selection only; custom/unclassified exercises use120 seconds. Default session allowances are five minutes and ten percent.
 
-Task 5 is pending its explicit prerequisite. The approved exercise catalog exists only as a design document at this baseline; there is no catalog schema, picker, seed command or propagation implementation to extend. The pure reference-default function supports compound 180 seconds and isolation 90 seconds, but automatic classification/default selection is not exposed or claimed. The approved plan forbids implementing the entire catalog within this feature. This branch is preparatory work, not completion of the full approved release.
+The catalog prerequisite was initially unavailable on main. On resumption its committed implementation was found on `feat/exercise-catalog` through964f00b and integrated into this feature branch at2d7509a. It includes the newer reference-group/variant model, so classification belongs to references exactly as the user requested. The source branch, original checkout and its separate local preview were not changed. Migration004 and explicit seed version2 implement reference classification; no new catalog subsystem was invented.
 
 ## Verification
 
 - Explicit `npm.cmd run db:migrate` succeeded against a disposable local SQLite file at `.superpowers/sdd/2026-10-25-workout-duration/migration.db`. No production database or secrets were used.
-- `npm.cmd test`: 112 passed, zero failures after the final source changes.
-- Affected duration/program overview browser checks: 17 passed after layout fixes.
+- `npm.cmd test`: 139 passed, zero failures after the final source changes.
+- Combined catalog/reference/duration/recovery checks: 32 passed; the final dedicated reference-default/linking/variant checks passed2/2.
 - Full browser suite: final run and independent review recorded below after completion.
 - `npm.cmd run build` succeeded; the build still copies only index.html, style.css and browser src assets. Unit build tests verify the allowlist.
 - `git diff --check` passed.
@@ -29,7 +29,7 @@ The first full browser run found enlarged-text overflow in program metadata: its
 
 - Use native Windows npm.cmd/npx.cmd because PowerShell script policy blocks npm.ps1; no runtime behavior changes.
 - Use a managed isolated worktree and retain the approved compact design. The original checkout and unrelated untracked plan were left untouched.
-- Preserve the catalog prerequisite instead of creating an unplanned catalog subsystem. Cost: automatic compound/isolation defaults and full-release signoff remain pending.
-- Before completing Task 5, implement the approved catalog, record its concrete file paths and explicit seed command in the plan, then add required classification, reviewed fixtures, initial selection defaults and propagation-preservation coverage.
-- Timing inputs live in existing document JSON; there are no new relational timing columns. Run environment migrations/seeds explicitly as required by the eventual catalog implementation. Never run them in builds or requests.
+- Integrated the committed prerequisite into the duration feature branch only. Cost: a larger combined diff and verification surface; the prerequisite branch and preview stay untouched.
+- Classification belongs to reference groups; variants share the group initial default. Cost: a mixed reference group shares a default, adjustable per workout. Existing custom references with no classification retain the two-minute fallback until explicitly edited.
+- Workout timing inputs stay in existing document JSON. Migration004 adds nullable exercise_type to catalog_families. Run db:migrate and db:seed explicitly per environment; the local migration and seed were each repeated successfully. Never run them in builds or requests.
 - Nothing was merged, pushed, published or migrated in production.

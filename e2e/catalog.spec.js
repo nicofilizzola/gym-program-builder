@@ -3,7 +3,7 @@ async function login(page){await page.goto('/');await page.getByLabel('Password'
 
 async function createVariant(page,name,equipment='Barbell'){
  await page.getByRole('button',{name:'New reference exercise',exact:true}).click();
- const dialog=page.getByRole('dialog');await dialog.getByLabel('Reference exercise name',{exact:true}).fill(name+' reference');await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Reference exercise name',{exact:true}).fill(name+' reference');await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
  await page.locator('.reference-group').filter({has:page.getByText(name+' reference',{exact:true})}).getByRole('button',{name:'Add variant to '+name+' reference',exact:true}).click();
  await dialog.getByLabel('Variant name',{exact:true}).fill(name);await dialog.getByLabel('Equipment',{exact:true}).selectOption(equipment);await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toHaveCount(0);
 }
@@ -57,7 +57,7 @@ test('export refuses a catalog definition changed after the editor was opened',a
  await login(page);
  const fixture=await page.evaluate(async()=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),familyId=crypto.randomUUID();
-  const entry=await api.createCatalog({id:crypto.randomUUID(),familyId,familyName:'Export family',entry:{name:'Export press',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
+  const entry=await api.createCatalog({id:crypto.randomUUID(),familyId,referenceExerciseType:'compound',familyName:'Export family',entry:{name:'Export press',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
   const record=await api.create({id:crypto.randomUUID(),kind:'template',document:{name:'Export workout',exercises:[{name:entry.name,sets:3,repRange:{min:8,max:12},primaryMuscles:entry.primaryMuscles,secondaryMuscles:[],catalogId:entry.id,catalogRevision:1,familyId,equipment:entry.equipment}],goals:{}}});return {entry,record};
  });
  await page.goto('/#/templates/'+fixture.record.id);await expect(page.getByLabel('Session template name')).toHaveValue('Export workout');
@@ -104,7 +104,7 @@ test('catalog edits refresh clean editors and dirty editors retain sets through 
  await login(page);
  const fixture=await page.evaluate(async()=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),id=crypto.randomUUID(),familyId=crypto.randomUUID();
-  const entry=await api.createCatalog({id,familyId,familyName:'Refresh family',entry:{name:'Refresh press',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
+  const entry=await api.createCatalog({id,familyId,referenceExerciseType:'compound',familyName:'Refresh family',entry:{name:'Refresh press',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
   const record=await api.create({id:crypto.randomUUID(),kind:'template',document:{name:'Refresh workout',exercises:[{name:entry.name,sets:3,repRange:{min:8,max:12},primaryMuscles:entry.primaryMuscles,secondaryMuscles:[],catalogId:id,catalogRevision:1,familyId,equipment:'Barbell'}],goals:{}}});
   return {entry,record};
  });

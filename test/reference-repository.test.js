@@ -26,8 +26,8 @@ test('upgrading the previous schema preserves original IDs, archive flags and do
 });
 test('reference CRUD supports empty groups and idempotent create, rename and archive replay',async t=>{
  const {c}=await setup(t);
- assert.equal((await c.createReference({id:'r',name:'  Press  '})).name,'Press');assert.equal((await c.createReference({id:'r',name:'Press'})).revision,1);
- for(const name of ['', 'a'.repeat(201)])await assert.rejects(c.createReference({id:'bad',name}),{code:'INVALID'});
+ assert.equal((await c.createReference({exerciseType:'compound',id:'r',name:'  Press  '})).name,'Press');assert.equal((await c.createReference({exerciseType:'compound',id:'r',name:'Press'})).revision,1);
+ for(const name of ['', 'a'.repeat(201)])await assert.rejects(c.createReference({exerciseType:'compound',id:'bad',name}),{code:'INVALID'});
  assert.equal((await c.updateReference({id:'r',revision:1,name:'Bench press'})).revision,2);
  assert.equal((await c.updateReference({id:'r',revision:1,name:'Bench press'})).revision,2);
  assert.equal((await c.archiveReference({id:'r',revision:2,archived:true})).archived,true);
@@ -37,7 +37,7 @@ test('reference CRUD supports empty groups and idempotent create, rename and arc
  await assert.rejects(c.getReference('unknown'),{code:'NOT_FOUND'});
 });
 test('parent archives preserve individual flags, document revisions, existing links and verified copies',async t=>{
- const {c,r,db}=await setup(t);await c.createReference({id:'r',name:'Press'});
+ const {c,r,db}=await setup(t);await c.createReference({exerciseType:'compound',id:'r',name:'Press'});
  const a=await c.create({id:'a',familyId:'r',entry:definition,referenceRevision:1});
  const b=await c.create({id:'b',familyId:'r',entry:{...definition,name:'Incline'}});
  await c.archive({id:'b',revision:b.revision,archived:true});
@@ -57,7 +57,7 @@ test('parent archives preserve individual flags, document revisions, existing li
  }
 });
 test('child mutations invalidate reference previews and seed reruns retain reference archives',async t=>{
- const {c,db}=await setup(t);await c.createReference({id:'r',name:'Press'});
+ const {c,db}=await setup(t);await c.createReference({exerciseType:'compound',id:'r',name:'Press'});
  await c.create({id:'a',familyId:'r',entry:definition});
  await assert.rejects(c.archiveReference({id:'r',revision:1,archived:true}),{code:'CONFLICT'});
  await assert.rejects(c.create({id:'b',familyId:'r',referenceRevision:1,entry:{...definition,name:'Other'}}),{code:'CONFLICT'});
@@ -69,7 +69,7 @@ test('child mutations invalidate reference previews and seed reruns retain refer
  assert.equal((await c.getReference(seeded.id)).archived,true);
 });
 test('archive previews never combine old children with a newer reference revision',async t=>{
- const {db,c}=await setup(t);await c.create({id:'a',familyId:'r',familyName:'Press',entry:definition});
+ const {db,c}=await setup(t);await c.create({id:'a',familyId:'r',referenceExerciseType:'compound',familyName:'Press',entry:definition});
  let applied=false,pending=false,signal;
  const written=new Promise(resolve=>{signal=resolve;});
  const add=async()=>{if(applied)return;await c.create({id:'b',familyId:'r',entry:{...definition,name:'Concurrent child'}});applied=true;signal();};

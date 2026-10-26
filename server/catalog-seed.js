@@ -46,17 +46,30 @@ const groups=[
  ['legraise','Leg raise',[['Hanging knee raise','Bodyweight',['Abs'],[]]]]
 ];
 const slug=name=>name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+// Reviewed reference defaults, not inferred from names or muscle mappings.
+export const STARTER_REFERENCE_TYPES=Object.freeze({
+ bench:'compound',fly:'isolation',pushup:'compound',dip:'compound',pullup:'compound',row:'compound',
+ overhead:'compound',lateral:'isolation',rear:'isolation',facepull:'compound',curl:'isolation',extension:'isolation',
+ squat:'compound',lunge:'compound',legpress:'compound',legextension:'isolation',hinge:'compound',legcurl:'isolation',
+ calf:'isolation',abs:'isolation',legraise:'isolation',
+});
 export const STARTER_CATALOG=groups.flatMap(([id,familyName,items])=>items.map(([name,equipment,primaryMuscles,secondaryMuscles])=>({id:'seed-'+slug(name),familyId:'seed-family-'+id,familyName,...validateCatalogEntry({name,equipment,primaryMuscles,secondaryMuscles}).entry})));
 export async function seedCatalog(db) {
   const tx=await db.transaction('write');
   try {
     if(!(await tx.execute('SELECT version FROM catalog_seed_versions WHERE version=1')).rows.length) {
       for(const e of STARTER_CATALOG) {
-        await tx.execute({sql:'INSERT OR IGNORE INTO catalog_families(id,name) VALUES(?,?)',args:[e.familyId,e.familyName]});
+        await tx.execute({sql:'INSERT OR IGNORE INTO catalog_families(id,name,exercise_type) VALUES(?,?,?)',args:[e.familyId,e.familyName,STARTER_REFERENCE_TYPES[e.familyId.slice('seed-family-'.length)]]});
         const stamp=new Date().toISOString();
         await tx.execute({sql:'INSERT OR IGNORE INTO catalog_entries(id,family_id,name,equipment,primary_json,secondary_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',args:[e.id,e.familyId,e.name,e.equipment,JSON.stringify(e.primaryMuscles),JSON.stringify(e.secondaryMuscles),stamp,stamp]});
       }
       await tx.execute('INSERT INTO catalog_seed_versions VALUES(1)');
+    }
+    if(!(await tx.execute('SELECT version FROM catalog_seed_versions WHERE version=2')).rows.length) {
+      for(const [id,name] of groups) {
+        await tx.execute({sql:'UPDATE catalog_families SET exercise_type=?,revision=revision+1 WHERE id=? AND name=? AND archived=0 AND exercise_type IS NULL',args:[STARTER_REFERENCE_TYPES[id],'seed-family-'+id,name]});
+      }
+      await tx.execute('INSERT INTO catalog_seed_versions VALUES(2)');
     }
     await tx.commit();
   }finally{tx.close();}

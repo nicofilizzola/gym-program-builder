@@ -1,5 +1,15 @@
 # Gym Program Builder
 
+## Workout duration (2026-10-26)
+
+Design: docs/superpowers/specs/2026-10-25-workout-duration-design.md; plan: docs/superpowers/plans/2026-10-25-workout-duration.md.
+
+- Estimate execution as 60 seconds per set and rest after every set, including the last. Buffer applies to execution, rest and fixed extra time; round only the final displayed total upward to minutes. Empty workouts show ~0 min.
+- Reference exercises own Compound/Isolation classification, supplying initial rest of 180/90 seconds for all variants. Legacy unclassified/custom exercises use 120 seconds. Existing workout rest never changes on reference edits, replacement, linking, moving, propagation or copying.
+- Each workout exercise saves independent restSeconds, 0-300 by 15. Each template/program workout saves extraMinutes, 0-60 by 1 (default5), and bufferPercent, 0-50 by 5 (default10). Derived totals and disclosure state are never persisted.
+- Show live duration in the shared editor and program workout metadata. Version-2 exports retain timing; missing legacy timing gets defaults, explicit invalid timing rejects the whole file. Preserve revisions and recovery.
+- Run migration004 and seed version2 explicitly per environment. Type seeding must not overwrite chosen types, renamed references or archives.
+
 ## Reference exercises and nested catalog (2026-10-25)
 
 Design: docs/superpowers/specs/2026-10-25-reference-exercises-design.md; plan: docs/superpowers/plans/2026-10-25-reference-exercises.md. These requirements supersede the previous catalog's flat display and no-move restriction.

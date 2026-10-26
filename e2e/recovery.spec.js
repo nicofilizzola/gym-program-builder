@@ -4,8 +4,9 @@ async function start(page){await page.goto('/');await page.getByLabel('Password'
 test('timing survives failed saves and copies while reload adopts saved timing',async({page})=>{
  test.setTimeout(60000);await start(page);
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();
- await page.getByLabel('Exercise name',{exact:true}).fill('Curl');
- await page.locator('.primary').getByRole('checkbox',{name:'Biceps',exact:true}).check();
+ const choice=page.getByRole('combobox',{name:'Exercise',exact:true});
+ await choice.fill('Barbell curl');await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toBeVisible();
+ await choice.press('ArrowDown');await choice.press('Enter');
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.route('**/api/documents/*',route=>route.request().method()==='PUT'?route.fulfill({status:503,contentType:'application/json',body:'{"error":{"code":"UNAVAILABLE","message":"Retry"}}'}):route.continue());
  await page.getByRole('slider',{name:'Rest per set',exact:true}).fill('45');

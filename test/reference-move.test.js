@@ -8,7 +8,7 @@ import {computeProgramVolume} from '../src/program-volume.js';
 const definition={name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:['Triceps']};
 async function fixture(t){
  const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);const c=createCatalogRepository(db),r=createRepository(db);
- const entry=await c.create({id:'v',familyId:'r1',familyName:'Press',entry:definition});await c.createReference({id:'r2',name:'Destination'});
+ const entry=await c.create({id:'v',familyId:'r1',referenceExerciseType:'compound',familyName:'Press',entry:definition});await c.createReference({exerciseType:'compound',id:'r2',name:'Destination'});
  const workout={name:'Upper',goals:{Chest:6},exercises:[snapshotExercise({sets:4,repRange:{min:6,max:8}},entry)]};
  await r.create({id:'t',kind:'template',document:workout});await r.create({id:'p',kind:'program',document:{name:'Week',mode:'schedule',goals:{Chest:12},workouts:[{...workout,id:'w1',day:0},{...workout,id:'w2',day:null}]}});
  const request=async()=>({id:'v',revision:(await c.list()).entries.find(e=>e.id==='v').revision,destinationReferenceId:'r2',sourceReferenceRevision:(await c.getReference('r1')).revision,destinationReferenceRevision:(await c.getReference('r2')).revision,impact:await c.impact('v')});

@@ -4,7 +4,7 @@
 
 **Goal:** Show live workout duration estimates with independently editable exercise rest, session allowances, catalog-derived initial defaults and program card labels.
 
-**Architecture:** A pure duration module owns limits, normalization and calculation; document validation and repository reads preserve/default inputs, while views derive totals. Catalog classification only initializes rest on first selection; saved workout rest is independent of subsequent reference changes. Catalog implementation is an explicit prerequisite for the final integration task and release.
+**Architecture:** A pure duration module owns limits, normalization and calculation; document validation and repository reads preserve/default inputs, while views derive totals. Catalog classification only initializes rest on first selection; saved workout rest is independent of subsequent reference changes. The committed catalog/reference prerequisite at 964f00b is integrated into this feature branch; reference groups own classification, and variants expose their group default for initial selection.
 
 **Tech Stack:** Plain JavaScript ES modules, native range inputs, Node.js 24, SQLite/libSQL, node:test and Playwright.
 
@@ -16,7 +16,7 @@
 - Execution time is fixed at 60 seconds per set.
 - Count rest after every set, including the last set of each exercise.
 - Exercise rest: integer 0–300 seconds inclusive, multiple of 15; fallback 120 seconds.
-- Catalog defaults: compound 180 seconds; isolation 90 seconds.
+- Reference-group defaults: compound 180 seconds; isolation 90 seconds; variants share the group default.
 - Extra time: integer 0–60 minutes inclusive, default 5.
 - Buffer: integer 0–50 percent inclusive, multiple of 5, default 10.
 - Buffer applies to execution, rest and fixed extra time together; round only the final displayed total upward to whole minutes.
@@ -38,7 +38,7 @@
 
 ## Execution status
 
-Tasks 1-4 are implemented and verified. Task 5 remains pending because the catalog prerequisite is absent; automatic reference defaults are not yet available. Task 6 verifies the preparatory implementation, with full-release signoff pending Task 5. See `docs/superpowers/reports/2026-10-25-workout-duration.md`.
+Tasks 1-4 are implemented and verified. On resumption the committed catalog/reference branch became available and was integrated at 2d7509a. Task 5 now uses the actual reference-group model, matching the user's explicit requested scope; the amended approved design is authoritative. Task 6 repeats verification across the combined feature. See `docs/superpowers/reports/2026-10-25-workout-duration.md`.
 
 ## File map and dependency checkpoint
 
@@ -50,7 +50,7 @@ Tasks 1-4 are implemented and verified. Task 5 remains pending because the catal
 - Modify `src/session-markup.js`, `src/session-editor.js`, `src/program-view.js`: summary, rest sliders, live refresh and card labels.
 - Modify `style.css`, `docs/design-system/README.md`: responsive layout and documented component rules.
 - Add `test/duration.test.js`, `e2e/duration.spec.js`; extend existing domain, repository, file and recovery tests.
-- Catalog implementation files do not exist at this baseline. Task 5 names a required integration contract, not fictional file paths. After the catalog lands, record its actual schema, seed, validation, picker, variant and propagation paths in Task 5 before editing them. This checkpoint is required; do not ship guessed catalog integration or implement the entire catalog under this plan.
+- Task 5 lists the concrete catalog/reference integration files and the explicit seed command after the committed prerequisite became available.
 
 Tasks 1–4 can be developed using legacy/custom exercises before the catalog lands. Task 5 and release verification require the approved catalog feature, including its migration/seed command and propagation tests. Do not claim full feature completion from Tasks 1–4 alone.
 
@@ -112,21 +112,19 @@ Tasks 1–4 can be developed using legacy/custom exercises before the catalog la
 - [x] **Step 5:** Run the same browser tests plus `node --test test/program.test.js`; expect pass.
 - [x] **Step 6:** Commit as `feat: show duration estimates throughout programs`.
 
-### Task 5: Catalog classification and initial-rest integration
+### Task 5: Reference classification and initial-rest integration
 
-**Files:** Modify actual catalog schema/migration, fixture/seed, validation/repository, form, picker and propagation files delivered by the approved catalog work. Extend their actual tests plus `test/duration.test.js` and `e2e/duration.spec.js`. Modify `src/duration.js` only if the agreed interface needs wiring, not new policy.
+**Files:** Create `migrations/004-workout-timing.sql`, `test/duration-catalog.test.js`, `e2e/duration-catalog.spec.js`. Modify `server/db.js`, `server/reference-repository.js`, `server/catalog-repository.js`, `server/catalog-seed.js`, `src/reference-form.js`, `src/catalog-form.js`, `src/catalog-view.js`, `src/session-editor.js`; extend existing catalog/reference unit and browser fixtures, `e2e/recovery.spec.js`, `AGENTS.md`, `docs/deployment.md`, `docs/design-system/README.md`.
 
-**Prerequisite checkpoint:**
-- [ ] Confirm the exercise catalog feature is implemented and passes its own acceptance suite. Read its actual implementation/plan. Record the exact source/test paths and explicit seed command in this task before execution; do not continue this task if the prerequisite is absent. Tasks 1–4 are preparatory work, not the complete approved release.
-- [ ] Choose the additive classification migration against that concrete schema: classify known seed IDs using a reviewed fixture; existing user-created entries require explicit classification before they can supply a new reference default. Preserve their existing uses/rest; do not guess a class or silently discard entries. If the concrete catalog has a different existing-data lifecycle, resolve it in a spec amendment before writing migration code.
+**Prerequisite:** Integrated catalog/reference implementation through 964f00b into this feature branch at 2d7509a. Its existing 136 combined unit tests passed before classification work. Do not modify the prerequisite branch or its separate preview database.
 
-**Interfaces:** Reference entry property `exerciseType: 'compound'|'isolation'`; variant creation copies it and permits independent editing. Initial selection calls `defaultRestSeconds(entry.exerciseType)` once for that new exercise identity. Replacement/linking, server snapshot resolution and propagation preserve saved rest. Classification snapshot is reference metadata, never portable timing ownership. Initial selection and async completion use the catalog's stable card identity, not an array index.
+**Interfaces:** `reference.exerciseType` is compound/isolation; legacy references may retain null and use the 120-second fallback until classified. `referenceType(value)` in `server/reference-repository.js` validates new classes. New reference creation and new-reference-plus-variant creation require explicit type; name-only legacy updates preserve the stored type. Catalog reads expose each variant's current reference type, without persisting it in workout snapshots. First selection calls `defaultRestSeconds(entry.exerciseType ?? undefined)` only on a new unlinked, nonlegacy card. Existing prescriptions are preserved by replace/link/move/propagation/copy. Reference type changes increment only the reference revision, not document revisions.
 
-- [ ] **Step 1: Write failing catalog tests.** Reject missing/unknown classification on new/edited complete entries; seed fixture classifications cover every seed entry, and idempotent seeding never overwrites user edits. Variant starts with copied class but changing it leaves source untouched. Initial bench selection uses 180 seconds and curl uses 90; manual override remains after refresh, replacement, linking, propagation, save-as-copy and server reload. An imported 45-second rest remains 45 after linking. Selecting a new reference must not reset rest on an already selected card. Async reorder/remove must not apply default rest to a different card.
-- [ ] **Step 2:** Run those concrete catalog tests and `npx playwright test e2e/duration.spec.js`; confirm expected failures before integration.
-- [ ] **Step 3:** Add classification schema/fixture/forms and server validation with explicit migrations/seeds only. Expand catalog impact preview and snapshots consistently where classification propagates. Wire first-selection default while preserving all workout-owned fields in propagation; retain archive rules/revision conflicts and variant retry semantics. Implement the checkpoint's explicit classification flow for preexisting unclassified entries if needed.
-- [ ] **Step 4:** Run `npm run db:migrate` against development, the recorded explicit catalog seed command, then catalog unit/integration/browser tests and duration tests. Expect reviewed classifications, idempotent seed rerun and independent rest preservation.
-- [ ] **Step 5:** Commit as `feat: initialize workout rest from catalog exercise type`.
+- [x] **Step 1:** Write and watch failing tests for required classes, revision/retry conflicts, shared variant defaults, classification edits that leave saved documents unchanged, propagation/move/copy rest preservation, and reviewed seed defaults/idempotency. Tests live in `test/duration-catalog.test.js`.
+- [x] **Step 2:** Write browser tests in `e2e/duration-catalog.spec.js` for initial 180/90-second values, override retention on replacement/reload/type edit, and required reference-form classification. Watch the initial-default assertion fail at actual120/expected180 before changing the editor.
+- [x] **Step 3:** Implement migration 004's nullable exercise_type column, read/write validation, reference/inline creation controls, catalog labels and first-selection-only defaults. Explicit seed version2 classifies only missing types on unchanged active known seed references; preserve renamed/archived references and existing chosen classes. Update existing test fixtures to explicitly supply required classes.
+- [ ] **Step 4:** Run `npm.cmd run db:migrate` and `npm.cmd run db:seed` explicitly against disposable development SQLite; repeat to verify idempotency. Run `npm.cmd test`, combined catalog/duration/reference browser checks, then the full browser suite and build in Task6.
+- [ ] **Step 5:** Commit as `feat: initialize workout rest from reference exercise type`.
 
 ### Task 6: Release verification and documentation
 

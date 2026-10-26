@@ -56,7 +56,7 @@ for(const size of [{width:1366,height:768},{width:1440,height:900},{width:1920,h
   await page.screenshot({path:directory+'/catalog-expanded-'+size.width+'.png'});
   if(size.width===1440){const css=await readFile('style.css','utf8'),html=(await page.content()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'').replace('<link rel="stylesheet" href="style.css">','<style>'+css+'</style>');await writeFile(directory+'/catalog.html',html);}
   const reference=page.locator('.reference-group').filter({has:page.getByText('Bench press',{exact:true})});
-  await reference.getByRole('button',{name:'Rename reference exercise Bench press',exact:true}).click();
+  await reference.getByRole('button',{name:'Edit reference exercise Bench press',exact:true}).click();
   await page.screenshot({path:directory+'/reference-form-'+size.width+'.png'});await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
   await reference.locator('.catalog-row:visible').first().getByRole('button',{name:/^Move variant /}).click();
   await page.getByRole('dialog').getByLabel('Destination reference exercise',{exact:true}).selectOption('seed-family-row');
@@ -76,7 +76,7 @@ test('hybrid input and enlarged text preserve catalog controls',async({browser})
   await page.screenshot({path:directory+'/hybrid-text-200.png',fullPage:true});
   await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
   const referenceName='Long reference '+Date.now()+' '+('Press '.repeat(20));
-  await page.evaluate(async name=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().createReference({id:crypto.randomUUID(),name});},referenceName);
+  await page.evaluate(async name=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().createReference({exerciseType:'compound',id:crypto.randomUUID(),name});},referenceName);
   await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Long reference');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
   const reference=page.locator('.reference-group').filter({has:page.getByText(referenceName.trim(),{exact:true})});const add=reference.getByRole('button',{name:'Add variant to '+referenceName.trim(),exact:true});expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(44);await add.click();
@@ -94,7 +94,7 @@ for(const config of [{width:1366,touch:false},{width:1366,touch:true},{width:390
  try{
   await populated(page);await mkdir(directory,{recursive:true});
   const names=await page.evaluate(async()=>{
-   const {createApiClient}=await import('/src/api-client.js'),{MUSCLE_GROUPS}=await import('/src/muscles.js');const api=createApiClient(),name=('Compact '+crypto.randomUUID()+' Press '.repeat(40)).slice(0,200),variant=('Variant '+crypto.randomUUID()+' Wide '.repeat(40)).slice(0,200),ref=await api.createReference({id:crypto.randomUUID(),name});
+   const {createApiClient}=await import('/src/api-client.js'),{MUSCLE_GROUPS}=await import('/src/muscles.js');const api=createApiClient(),name=('Compact '+crypto.randomUUID()+' Press '.repeat(40)).slice(0,200),variant=('Variant '+crypto.randomUUID()+' Wide '.repeat(40)).slice(0,200),ref=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name});
    await api.createCatalog({id:crypto.randomUUID(),familyId:ref.id,entry:{name:variant,equipment:'Barbell',primaryMuscles:MUSCLE_GROUPS.slice(0,6),secondaryMuscles:MUSCLE_GROUPS.slice(6)}});await api.archiveReference({id:ref.id,revision:2,archived:true});return {name,variant};
   });
   await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Show archived',{exact:true}).check();await page.getByLabel('Search catalog',{exact:true}).fill(names.name.slice(0,40));await page.addStyleTag({content:'html {font-size:200%}'});

@@ -9,7 +9,7 @@ import { tooltipPosition } from './tooltip.js';
 import { parseDocument, serializeDocument, documentFileName } from './document-file.js';
 import { SESSION_MARKUP } from './session-markup.js';
 import { mountPanelLayout } from './panel-layout.js';
-import { DURATION_LIMITS, formatDuration, normalizeWorkoutTiming } from './duration.js';
+import { DURATION_LIMITS, defaultRestSeconds, formatDuration, normalizeWorkoutTiming } from './duration.js';
 import { mountDurationControls } from './duration-controls.js';
 import {mountExercisePicker} from './exercise-picker.js';
 import {snapshotExercise} from './catalog.js';
@@ -305,6 +305,7 @@ function renderExercises() {
       }
       const picker=mountExercisePicker(host,{api,exercise:ex,legacy,onView:()=>{location.hash='#/catalog';},onSelect:entry=>{
         if(destroyed||!session.exercises.includes(ex))return;
+        if(!ex.catalogId&&!legacy)ex.restSeconds=defaultRestSeconds(entry.exerciseType??undefined);
         Object.assign(ex,snapshotExercise(ex,entry));exercisePickers.get(ex)?.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);
         renderExercises();refresh();
         const updated=exerciseCards.get(ex);updated?.querySelector('[data-field="sets"]')?.focus({preventScroll:true});

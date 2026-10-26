@@ -4,7 +4,7 @@ const group=(page,name)=>page.locator('.reference-group').filter({has:page.getBy
 test('touch activation explains unavailable catalog actions without changing data',async({browser})=>{
  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true}),page=await context.newPage();
  try{
-  await login(page);const ref=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),r=await api.createReference({id:crypto.randomUUID(),name:'Touch restriction '+crypto.randomUUID()});await api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name:'Restricted child',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});await api.archiveReference({id:r.id,revision:2,archived:true});return r;});
+  await login(page);const ref=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),r=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Touch restriction '+crypto.randomUUID()});await api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name:'Restricted child',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});await api.archiveReference({id:r.id,revision:2,archived:true});return r;});
   await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Show archived',{exact:true}).check();await page.getByLabel('Search catalog',{exact:true}).fill(ref.name);const section=group(page,ref.name);
   await section.locator('.reference-toggle').click();await expect(section.locator('.reference-toggle')).toHaveAttribute('aria-expanded','false');
   let writes=0;page.on('request',r=>{if(r.url().includes('/api/catalog')&&r.method()!=='GET')writes++;});
@@ -15,7 +15,7 @@ test('touch activation explains unavailable catalog actions without changing dat
 });
 test('catalog mutation focus remains visible across moves reference reordering and search fallback',async({page})=>{
  await page.setViewportSize({width:1366,height:768});await login(page);
- const fixture=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix=crypto.randomUUID(),source=await api.createReference({id:crypto.randomUUID(),name:'A focus '+suffix}),target=await api.createReference({id:crypto.randomUUID(),name:'Z focus '+suffix});for(let i=0;i<24;i++)await api.createReference({id:crypto.randomUUID(),name:'Focus middle '+i+' '+suffix});const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:source.id,entry:{name:'Movable child '+suffix,equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});return {source,target,entry,suffix};});
+ const fixture=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix=crypto.randomUUID(),source=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'A focus '+suffix}),target=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Z focus '+suffix});for(let i=0;i<24;i++)await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Focus middle '+i+' '+suffix});const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:source.id,entry:{name:'Movable child '+suffix,equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});return {source,target,entry,suffix};});
  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();const source=group(page,fixture.source.name);await source.locator('.reference-toggle').click();await source.locator('[data-catalog-action=move]').click();await page.getByLabel('Destination reference exercise',{exact:true}).selectOption(fixture.target.id);await page.getByRole('dialog').getByRole('button',{name:'Move variant',exact:true}).click();
  const targetById=page.locator('.reference-group').filter({has:page.getByRole('button',{name:'Move variant '+fixture.entry.name+' to reference exercise',exact:true})});await expect(targetById.locator('[data-catalog-action=move]')).toBeFocused();await expect(targetById.locator('[data-catalog-action=move]')).toBeInViewport({ratio:1});
  const rename=async name=>{await targetById.locator('[data-catalog-action=rename]').click();await page.getByLabel('Reference exercise name',{exact:true}).fill(name);await page.getByRole('dialog').getByRole('button',{name:'Save reference exercise',exact:true}).click();};
@@ -50,7 +50,7 @@ test('reference disclosure respects reduced motion and search expansion across r
  await toggle.click();await expect(ref.locator('.reference-variants')).toHaveCSS('transition-duration','0s');await expect(toggle.locator('svg')).toHaveCSS('transition-duration','0s');
  const search=page.getByLabel('Search catalog',{exact:true});await search.fill('Row');await search.clear();await expect(toggle).toHaveAttribute('aria-expanded','true');
  await toggle.click();await search.fill('Bench press');await expect(toggle).toHaveAttribute('aria-expanded','true');await toggle.click();await search.clear();await expect(toggle).toHaveAttribute('aria-expanded','false');
- await page.getByRole('button',{name:'New reference exercise',exact:true}).click();const name='Empty motion '+Date.now();await page.getByLabel('Reference exercise name',{exact:true}).fill(name);await page.getByRole('dialog').getByRole('button',{name:'Create reference exercise',exact:true}).click();
+ await page.getByRole('button',{name:'New reference exercise',exact:true}).click();const name='Empty motion '+Date.now();await page.getByLabel('Reference exercise name',{exact:true}).fill(name);await page.getByRole('dialog').getByLabel('Exercise type',{exact:true}).selectOption('compound');await page.getByRole('dialog').getByRole('button',{name:'Create reference exercise',exact:true}).click();
  const empty=group(page,name);await empty.locator('.reference-toggle').click();await expect(empty.getByText('No variants yet.',{exact:true})).toBeVisible();
  await page.emulateMedia({reducedMotion:'no-preference'});await search.fill('Bench press');
  let release;const gate=new Promise(resolve=>{release=resolve;});await page.route('**/api/catalog',async route=>{if(route.request().method()==='GET')await gate;await route.continue();});
@@ -69,7 +69,7 @@ test('direct icon actions expose every catalog operation with accessible tooltip
  }
  await expect(page.getByRole('button',{name:/^(Reference|Variant) actions/})).toHaveCount(0);
  const edit=row.getByRole('button',{name:'Edit variant Barbell bench press',exact:true});await edit.focus();await expect(page.getByRole('tooltip')).toHaveText('Edit variant');await page.keyboard.press('Escape');await expect(page.getByRole('tooltip')).toBeHidden();
- for(const b of [edit,ref.getByRole('button',{name:'Rename reference exercise Bench press',exact:true}),ref.getByRole('button',{name:'Add variant to Bench press',exact:true}),row.getByRole('button',{name:'Create variant from Barbell bench press',exact:true}),row.getByRole('button',{name:'Move variant Barbell bench press to reference exercise',exact:true})]){
+ for(const b of [edit,ref.getByRole('button',{name:'Edit reference exercise Bench press',exact:true}),ref.getByRole('button',{name:'Add variant to Bench press',exact:true}),row.getByRole('button',{name:'Create variant from Barbell bench press',exact:true}),row.getByRole('button',{name:'Move variant Barbell bench press to reference exercise',exact:true})]){
   await b.click();await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByRole('tooltip')).toBeHidden();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();await expect(b).toBeFocused();
  }
 });
@@ -78,7 +78,7 @@ test('reference CRUD creates empty groups and preserves separate child archives 
  const name='Managed reference '+Date.now(),variant='Managed variant '+Date.now();
  await page.getByRole('button',{name:'New reference exercise',exact:true}).click();
  await page.getByRole('dialog').getByLabel('Reference exercise name',{exact:true}).fill(name);
- await page.getByRole('dialog').getByRole('button',{name:'Create reference exercise',exact:true}).click();
+ await page.getByRole('dialog').getByLabel('Exercise type',{exact:true}).selectOption('compound');await page.getByRole('dialog').getByRole('button',{name:'Create reference exercise',exact:true}).click();
  const ref=group(page,name);await expect(ref.getByRole('button',{name:'Expand reference exercise '+name,exact:true})).toHaveAttribute('aria-expanded','false');
  await ref.getByRole('button',{name:'Expand reference exercise '+name,exact:true}).click();await expect(ref).toContainText('No variants yet.');
  await ref.getByRole('button',{name:/^Add variant to /,exact:false}).click();
@@ -93,7 +93,7 @@ test('reference CRUD creates empty groups and preserves separate child archives 
  await page.getByRole('dialog').getByRole('button',{name:'Restore reference exercise',exact:true}).click();
  const states=await page.evaluate(async name=>{const {entries}=await (await fetch('/api/catalog')).json();return entries.filter(e=>e.name.startsWith(name)).map(e=>[e.name,e.archived]);},variant);
  expect(states).toEqual([[variant,false],[variant+' old',true]]);
- await ref.getByRole('button',{name:'Rename reference exercise '+name,exact:true}).click();
+ await ref.getByRole('button',{name:'Edit reference exercise '+name,exact:true}).click();
  await page.getByRole('dialog').getByLabel('Reference exercise name',{exact:true}).fill(name+' renamed');await page.getByRole('dialog').getByRole('button',{name:'Save reference exercise',exact:true}).click();
  await page.getByLabel('Search catalog',{exact:true}).fill(name+' renamed');await expect(group(page,name+' renamed')).toHaveCount(1);
 });
@@ -101,7 +101,7 @@ for(const mode of ['add','clone']){
  test('stale '+mode+' variant drafts refresh their reference without losing fields',async({page})=>{
   await login(page);
   const fixture=await page.evaluate(async()=>{
-   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),reference=await api.createReference({id:crypto.randomUUID(),name:'Refresh target '+crypto.randomUUID()});
+   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),reference=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Refresh target '+crypto.randomUUID()});
    const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:reference.id,entry:{name:'Original '+crypto.randomUUID(),equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
    return {reference,entry};
   });
@@ -130,7 +130,7 @@ for(const mode of ['add','clone']){
 test('move collisions preserve the destination and lost move responses retry once',async({page})=>{
  await login(page);
  const fixture=await page.evaluate(async()=>{
-  const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix=crypto.randomUUID(),source=await api.createReference({id:crypto.randomUUID(),name:'Move source '+suffix}),target=await api.createReference({id:crypto.randomUUID(),name:'Move target '+suffix}),definition={name:'Movable '+suffix,equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]};
+  const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix=crypto.randomUUID(),source=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Move source '+suffix}),target=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Move target '+suffix}),definition={name:'Movable '+suffix,equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]};
   const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:source.id,entry:definition}),collision=await api.createCatalog({id:crypto.randomUUID(),familyId:target.id,entry:definition});return {source,target,entry,collision};
  });
  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill(fixture.entry.name);
@@ -147,7 +147,7 @@ test('move collisions preserve the destination and lost move responses retry onc
 test('archived references disable new variants in the catalog and linked session menu',async({page})=>{
  await login(page);
  const fixture=await page.evaluate(async()=>{
-  const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),r=await api.createReference({id:crypto.randomUUID(),name:'Archived reference '+crypto.randomUUID()}),e=await api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name:'Archived source '+crypto.randomUUID(),equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
+  const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),r=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Archived reference '+crypto.randomUUID()}),e=await api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name:'Archived source '+crypto.randomUUID(),equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
   const record=await api.create({id:crypto.randomUUID(),kind:'template',document:{name:'Archived workout',goals:{},exercises:[{name:e.name,equipment:e.equipment,catalogId:e.id,familyId:r.id,catalogRevision:e.revision,primaryMuscles:e.primaryMuscles,secondaryMuscles:[],sets:3,repRange:{min:8,max:12}}]}});
   await api.archiveReference({id:r.id,revision:2,archived:true});return {r,e,record};
  });
@@ -166,7 +166,7 @@ test('grouped autocomplete skips reference headings and preserves or clears the 
  await login(page);
  const fixture=await page.evaluate(async()=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix='grouped'+crypto.randomUUID();
-  const a=await api.createReference({id:crypto.randomUUID(),name:'A reference '+suffix}),b=await api.createReference({id:crypto.randomUUID(),name:'B reference '+suffix});
+  const a=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'A reference '+suffix}),b=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'B reference '+suffix});
   const make=(r,name)=>api.createCatalog({id:crypto.randomUUID(),familyId:r.id,entry:{name,equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
   const first=await make(a,'Flat '+suffix),second=await make(a,'Incline '+suffix),third=await make(b,'Row '+suffix);return {a,b,first,second,third,suffix};
  });
@@ -184,13 +184,13 @@ test('reference create retries a lost response without duplicating the reference
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByRole('button',{name:'New reference exercise',exact:true}).click();
  const name='Retry reference '+Date.now(),dialog=page.getByRole('dialog');await dialog.getByLabel('Reference exercise name',{exact:true}).fill(name);let lost=false;
  await page.route('**/api/catalog/references',async route=>{if(route.request().method()==='POST'&&!lost){lost=true;await route.fetch();await route.fulfill({status:503,json:{error:{message:'Reference response lost'}}});}else await route.continue();});
- await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toContainText('Reference response lost');await expect(dialog.getByLabel('Reference exercise name',{exact:true})).toHaveValue(name);
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toContainText('Reference response lost');await expect(dialog.getByLabel('Reference exercise name',{exact:true})).toHaveValue(name);
  await dialog.getByRole('button',{name:'Retry',exact:true}).click();await expect(group(page,name)).toHaveCount(1);
  const matches=await page.evaluate(async name=>(await (await fetch('/api/catalog')).json()).families.filter(r=>r.name===name).length,name);expect(matches).toBe(1);
 });
 test('reference archive preview conflicts after a child is created and reloads its new count',async({page})=>{
  await login(page);
- const reference=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');return createApiClient().createReference({id:crypto.randomUUID(),name:'Concurrent reference '+Date.now()});});
+ const reference=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js');return createApiClient().createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Concurrent reference '+Date.now()});});
  await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
  const ref=group(page,reference.name);await ref.getByRole('button',{name:'Archive reference exercise '+reference.name,exact:true}).click();
  const dialog=page.getByRole('dialog');
@@ -202,7 +202,7 @@ test('reference archive preview conflicts after a child is created and reloads i
 test('nested catalog searches expand matches and move retains variant identity',async({page})=>{
  await login(page);
  const fixture=await page.evaluate(async()=>{
-  const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix=crypto.randomUUID(),source=await api.createReference({id:crypto.randomUUID(),name:'Source '+suffix}),target=await api.createReference({id:crypto.randomUUID(),name:'Target '+suffix});
+  const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),suffix=crypto.randomUUID(),source=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Source '+suffix}),target=await api.createReference({exerciseType:'compound',id:crypto.randomUUID(),name:'Target '+suffix});
   const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:source.id,entry:{name:'Flat '+suffix,equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
   await api.createCatalog({id:crypto.randomUUID(),familyId:source.id,entry:{name:'Incline '+suffix,equipment:'Dumbbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
   return {source,target,entry};

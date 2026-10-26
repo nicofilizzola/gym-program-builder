@@ -11,9 +11,9 @@ test('reference HTTP/client lifecycle enforces access and revisions and moves th
  const api=createApiClient({fetch:(url,options={})=>handler(new Request('http://localhost'+url,{...options,headers:{...options.headers,origin:'http://localhost'}}))});
  await assert.rejects(api.getReference('a'),{status:401});signedIn=true;
  assert.equal((await handler(new Request('http://localhost/api/catalog/references',{method:'POST',headers:{origin:'http://evil'}}))).status,403);
- await assert.rejects(api.createReference({id:'bad',name:''}),{status:400});
- const a=await api.createReference({id:'a',name:'Press'});assert.equal(a.revision,1);
- await api.createReference({id:'b',name:'Destination'});assert.equal((await api.getReference('a')).name,'Press');
+ await assert.rejects(api.createReference({exerciseType:'compound',id:'bad',name:''}),{status:400});
+ const a=await api.createReference({exerciseType:'compound',id:'a',name:'Press'});assert.equal(a.revision,1);
+ await api.createReference({exerciseType:'compound',id:'b',name:'Destination'});assert.equal((await api.getReference('a')).name,'Press');
  const entry=await api.createCatalog({id:'v',familyId:'a',referenceRevision:1,entry:{name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
  await assert.rejects(api.archiveReference({id:'a',revision:1,archived:true}),{status:409});
  await api.archiveReference({id:'a',revision:2,archived:true});assert.equal((await api.catalog()).entries[0].archived,true);

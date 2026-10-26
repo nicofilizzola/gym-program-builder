@@ -74,11 +74,11 @@ export function mountCatalog(root,{api}){
    const body=document.createElement('div');body.className='reference-variants';body.id='reference-variants-'+encodeURIComponent(ref.id);toggle.setAttribute('aria-controls',body.id);
    const content=document.createElement('div');content.className='reference-variants-inner';body.append(content);
    heading.append(toggle);section.setAttribute('aria-labelledby',heading.id);
-   const counts=document.createElement('span');counts.className='reference-count';counts.textContent=group.activeCount+' active variant'+(group.activeCount===1?'':'s')+(archived.checked?' \u00b7 '+group.archivedCount+' archived':'')+(ref.archived?' \u00b7 Archived':'');
+   const counts=document.createElement('span');counts.className='reference-count';counts.textContent=group.activeCount+' active variant'+(group.activeCount===1?'':'s')+' · '+(ref.exerciseType==='compound'?'Compound':ref.exerciseType==='isolation'?'Isolation':'Type not set')+(archived.checked?' \u00b7 '+group.archivedCount+' archived':'')+(ref.archived?' \u00b7 Archived':'');
    const controls=document.createElement('div');controls.className='reference-header-actions';
    controls.append(
     iconAction({action:'add',label:'Add variant to '+ref.name,tooltip:'Add variant',icon:'plus',onActivate:()=>variantForm(undefined,'create',ref),disabledReason:ref.archived?'Restore the reference exercise before adding a variant.':undefined}),
-    iconAction({action:'rename',label:'Rename reference exercise '+ref.name,tooltip:'Rename reference exercise',icon:'edit',onActivate:()=>referenceForm(ref)}),
+    iconAction({action:'rename',label:'Edit reference exercise '+ref.name,tooltip:'Edit reference exercise',icon:'edit',onActivate:()=>referenceForm(ref)}),
     iconAction({action:'archive',label:(ref.archived?'Restore':'Archive')+' reference exercise '+ref.name,tooltip:(ref.archived?'Restore':'Archive')+' reference exercise',icon:ref.archived?'restore':'archive',onActivate:()=>referenceArchive(ref)})
    );header.append(heading,counts,controls);section.append(header,body);list.append(section);
    if(ref.archived){const hint=document.createElement('p');hint.className='catalog-meta reference-hint';hint.textContent='Restore this reference exercise to add or restore variants.';content.append(hint);}

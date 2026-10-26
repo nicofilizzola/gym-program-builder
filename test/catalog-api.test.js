@@ -14,7 +14,7 @@ test('catalog API enforces authentication, origin, revisions and supports browse
  await assert.rejects(api.catalog(),{status:401});signedIn=true;
  assert.equal((await handler(new Request('http://localhost/api/catalog',{method:'POST',headers:{origin:'http://evil'}}))).status,403);
  await assert.rejects(api.createCatalog({}),{status:400});
- const entry=await api.createCatalog({id:'bench',familyId:'press',familyName:'Press',entry:{name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
+ const entry=await api.createCatalog({id:'bench',familyId:'press',referenceExerciseType:'compound',familyName:'Press',entry:{name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]}});
  assert.equal(entry.name,'Bench');assert.equal((await api.catalog()).entries.length,1);
  const changed=await api.updateCatalog({id:'bench',revision:1,entry:{...entry,name:'Corrected bench'},impact:await api.catalogImpact('bench')});
  assert.equal(changed.revision,2);
