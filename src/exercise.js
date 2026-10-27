@@ -74,7 +74,7 @@ export function moveExercise(exercises, from, to) {
 const countText = (n) => (Number.isInteger(n) && n >= 1 ? String(n) : '?');
 
 /**
- * One-line summary for a collapsed card, e.g. `Bench press · 4 × 6–10 · Chest · secondary: Triceps, Front delts`.
+ * Prescription for a collapsed card, e.g. `4 × 6–10 · Rest 3 min`.
  * @param {import('./volume.js').Exercise} ex
  * @returns {string}
  */
@@ -82,10 +82,7 @@ export function exerciseSummary(ex) {
   const { min, max } = ex.repRange;
   const reps = min === max ? countText(min) : `${countText(min)}–${countText(max)}`;
   return [
-    ex.name.trim() || 'Untitled exercise',
     `${countText(ex.sets)} × ${reps}`,
-    ex.primaryMuscles.join(', '),
-    ex.secondaryMuscles.length > 0 ? `secondary: ${ex.secondaryMuscles.join(', ')}` : '',
-    'rest '+formatDuration(Object.hasOwn(ex,'restSeconds')?ex.restSeconds:defaultRestSeconds()),
+    'Rest '+formatDuration(Object.hasOwn(ex,'restSeconds')?ex.restSeconds:defaultRestSeconds()),
   ].filter(Boolean).join(' · ');
 }
