@@ -94,6 +94,12 @@ test('duration updates preserve motion and teardown removes tooltips',async({pag
  await page.locator('.duration-toggle').evaluate(b=>b.click());await page.evaluate(()=>window.durationView.destroy());
  await expect(page.locator('.duration-toggle')).toHaveCount(0);
  expect(await page.evaluate(()=>[...document.querySelectorAll('.action-tooltip')].map(t=>t.id))).toEqual(await page.evaluate(()=>window.otherTooltipIds));
+ await page.evaluate(async()=>{
+  const {mountDurationControls}=await import('/src/duration-controls.js');
+  const view=mountDurationControls(window.durationHost,{workout:window.durationWorkout});
+  window.durationHost.querySelector('button').click();view.destroy();
+ });
+ expect(await page.evaluate(()=>[...document.querySelectorAll('.action-tooltip')].map(t=>t.id))).toEqual(await page.evaluate(()=>window.otherTooltipIds));
  expect(errors).toEqual([]);
 });
 
@@ -223,6 +229,16 @@ test('program durations survive independent copies, editing, schedule moves and 
  const card=title=>page.locator('.workout-item').filter({has:page.getByRole('heading',{name:title,exact:true,level:3})});
  await expect(card(name).locator('[data-workout-duration]')).toHaveText('Estimated duration ~27 min');
  await card(name).getByRole('button',{name:'Edit '+name,exact:true}).click();
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ const durationToggle=page.locator('.duration-toggle');
+ await expect(durationToggle.locator('.duration-clock')).toBeVisible();
+ await durationToggle.press('Enter');
+ await expect(page.locator('.duration-details')).toHaveCSS('transition-duration','0.2s, 0.2s');
+ await durationToggle.evaluate(async b=>{b.click();await new Promise(requestAnimationFrame);b.click();});
+ await page.getByRole('slider',{name:'Extra time',exact:true}).focus();
+ await durationToggle.evaluate(b=>b.click());await expect(durationToggle).toBeFocused();
+ await expect(page.locator('.duration-details')).toHaveAttribute('inert','');
+ await page.emulateMedia({reducedMotion:'reduce'});
  await page.getByLabel('Session template name').fill('Original timed workout');
  await page.getByRole('button',{name:'Expand all',exact:true}).click();
  await page.getByRole('slider',{name:'Rest per set',exact:true}).first().fill('0');
