@@ -86,6 +86,6 @@ test('lost inline creation response cannot silently accept a changed reference t
  expect(saved.exerciseType).toBe('compound');
  await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');
  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();
- await expect(dialog).toHaveCount(0);await expect(page.locator('.linked-exercise-name')).toHaveText(name);
+ await expect(dialog).toHaveCount(0);await expect(page.locator('.card-name')).toHaveText(name);
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
 });

@@ -94,16 +94,18 @@ function setFill(slider, from, to) {
 
 const CARD_HTML = `
   <div class="card-head">
-    <button type="button" class="secondary-btn reorder-action" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">Reorder</button>
-    <span class="card-index"></span>
+    <h2 class="card-identity"><span class="card-index" aria-hidden="true"></span><span class="visually-hidden" data-position></span><span class="card-name"></span></h2>
     <span class="hit-tag" data-hit-tag></span>
     <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
+    <div class="card-controls">
+    <button type="button" class="secondary-btn reorder-action" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">Reorder</button>
     <button type="button" class="toggle-btn" data-action="toggle" aria-expanded="true" aria-label="Collapse exercise">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <button type="button" class="icon-btn" data-action="remove" aria-label="Remove exercise">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
     </button>
+    </div>
   </div>
   <div class="collapsible" data-collapse="summary"><p class="card-summary" data-summary></p></div>
   <div class="collapsible" data-collapse="body"><div class="card-body exercise-fields">
@@ -290,6 +292,9 @@ function renderExercises() {
     card = document.createElement('li');
     card.className = 'exercise';
     card.innerHTML = CARD_HTML;
+    const headingId='exercise-heading-'+crypto.randomUUID();
+    card.querySelector('.card-identity').id=headingId;
+    card.setAttribute('aria-labelledby',headingId);
     exerciseCards.set(ex,card);
     const legacy=!ex.catalogId&&Boolean(ex.name||ex.primaryMuscles.length||ex.secondaryMuscles.length);
     if(api){
@@ -302,7 +307,7 @@ function renderExercises() {
           const p=document.createElement('p');p.className='linked-muscles';const title=document.createElement('strong');title.textContent=label+': ';p.append(title,values.join(', ')||'None');muscles.append(p);
         }
       }
-      const picker=mountExercisePicker(host,{api,exercise:ex,legacy,onView:()=>{location.hash='#/catalog';},onSelect:entry=>{
+      const picker=mountExercisePicker(host,{api,exercise:ex,legacy,showLinkedName:false,onView:()=>{location.hash='#/catalog';},onSelect:entry=>{
         if(destroyed||!session.exercises.includes(ex))return;
         if(!ex.catalogId&&!legacy)ex.restSeconds=defaultRestSeconds(entry.exerciseType??undefined);
         Object.assign(ex,snapshotExercise(ex,entry));exercisePickers.get(ex)?.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);
@@ -314,7 +319,8 @@ function renderExercises() {
     if(card.querySelector('[data-field="name"]'))card.querySelector('[data-field="name"]').value = ex.name;
     }
     card.dataset.index = i;
-    card.querySelector('.card-index').textContent = `Exercise ${i + 1}`;
+    card.querySelector('.card-index').textContent = String(i + 1).padStart(2,'0');
+    card.querySelector('[data-position]').textContent = `Exercise ${i + 1}: `;
     card.querySelector('.card-body').id = `exercise-body-${i}`;
     card.querySelector('[data-action="toggle"]').setAttribute('aria-controls', `exercise-body-${i}`);
     return card;
@@ -339,6 +345,7 @@ function refresh() {
   list.querySelectorAll('.exercise').forEach((card) => {
     const i = Number(card.dataset.index);
     const ex = session.exercises[i];
+    card.querySelector('.card-name').textContent=ex.name.trim()||'Untitled exercise';
     const errors = validateExercise(ex);
     const isCollapsed = collapsed[i];
     if(isCollapsed)exercisePickers.get(ex)?.close();

@@ -19,16 +19,22 @@ async function setup(page,kind='template'){
 }
 
 for(const kind of ['template','program'])test(kind+' exposes direct actions and restores replacement and variant cancellation focus',async({page})=>{
- await setup(page,kind);
+ const fixture=await setup(page,kind);
+ await expect(page.locator('.exercise').getByRole('heading')).toHaveAccessibleName('Exercise 1: '+fixture.entry.name);
+ await expect(page.locator('.linked-exercise-name')).toBeHidden();
+ await expect(page.getByText(fixture.entry.name,{exact:true}).filter({visible:true})).toHaveCount(1);
  const replace=page.getByRole('button',{name:'Replace exercise',exact:true}),variant=page.getByRole('button',{name:'Create variant',exact:true});
  await expect(replace).toBeVisible();await expect(variant).toBeVisible();await expect(page.getByRole('button',{name:'View in catalog',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Exercise actions',exact:true})).toHaveCount(0);
  await replace.click();await expect(page.getByRole('combobox',{name:'Exercise',exact:true})).toBeFocused();
+ await page.getByRole('combobox',{name:'Exercise',exact:true}).fill('Temporary query');
+ await expect(page.locator('.card-name')).toHaveText(fixture.entry.name);
  await page.getByRole('button',{name:'Cancel selection',exact:true}).click();await expect(replace).toBeFocused();
+ await expect(page.locator('.card-name')).toHaveText(fixture.entry.name);
  await replace.click();const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.press('Escape');await input.press('Escape');await expect(replace).toBeFocused();
  await replace.click();await input.fill('Dumbbell lateral raise');await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toBeVisible();
  page.once('dialog',dialog=>dialog.dismiss());await input.press('ArrowDown');await input.press('Enter');await expect(input).toBeVisible();
- page.once('dialog',dialog=>dialog.accept());await input.press('Enter');await expect(page.locator('.linked-exercise-name')).toHaveText('Dumbbell lateral raise');
+ page.once('dialog',dialog=>dialog.accept());await input.press('Enter');await expect(page.locator('.card-name')).toHaveText('Dumbbell lateral raise');
  await variant.click();await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();await expect(variant).toBeFocused();
  await expect(page.getByRole('slider',{name:'Sets',exact:true})).toHaveValue('4');await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('45');
  await page.getByRole('button',{name:'View in catalog',exact:true}).click();await expect(page.getByRole('heading',{name:'Exercise catalog',exact:true})).toBeVisible();

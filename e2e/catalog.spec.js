@@ -85,7 +85,7 @@ test('legacy linking previews changes and does not silently alter custom exercis
  page.once('dialog',dialog=>dialog.dismiss());await search.press('Enter');
  await expect(page.getByLabel('Exercise name',{exact:true})).toHaveValue('My press');await expect(page.locator('.volume-row[data-muscle="Triceps"] .value')).toHaveText('6');
  page.once('dialog',dialog=>dialog.accept());await search.press('Enter');
- await expect(page.locator('.linked-exercise-name')).toHaveText('Barbell bench press');await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('6');await expect(page.getByLabel('Reps min',{exact:true})).toHaveValue('5');
+ await expect(page.locator('.card-name')).toHaveText('Barbell bench press');await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('6');await expect(page.getByLabel('Reps min',{exact:true})).toHaveValue('5');
 });
 test('picker retry is idempotent after a committed variant response is lost',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
@@ -97,7 +97,7 @@ test('picker retry is idempotent after a committed variant response is lost',asy
  await page.route('**/api/catalog',async route=>{if(route.request().method()==='POST'&&!lost){lost=true;await route.fetch();await route.fulfill({status:503,json:{error:{message:'Response lost'}}});}else await route.continue();});
  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toContainText('Response lost');
  await dialog.getByRole('button',{name:'Retry',exact:true}).click();
- await expect(page.locator('.linked-exercise-name')).toHaveText(name);
+ await expect(page.locator('.card-name')).toHaveText(name);
  const count=await page.evaluate(async name=>{const r=await fetch('/api/catalog');return (await r.json()).entries.filter(e=>e.name===name).length;},name);expect(count).toBe(1);
 });
 test('catalog edits refresh clean editors and dirty editors retain sets through conflict copy',async({page})=>{
@@ -111,7 +111,7 @@ test('catalog edits refresh clean editors and dirty editors retain sets through 
  await page.goto('/#/templates/'+fixture.record.id);
  const change=async name=>page.evaluate(async({entry,name})=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),fresh=(await api.catalog()).entries.find(e=>e.id===entry.id);await api.updateCatalog({id:entry.id,revision:fresh.revision,entry:{...fresh,name,primaryMuscles:['Front delts']},impact:await api.catalogImpact(entry.id)});},{entry:fixture.entry,name});
  await change('Updated refresh press');await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
- await expect(page.locator('[data-summary]').first()).toContainText('Updated refresh press');
+ await expect(page.locator('.card-name').first()).toContainText('Updated refresh press');
  await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
  await page.route('**/api/documents/'+fixture.record.id,route=>route.request().method()==='PUT'?route.fulfill({status:503,json:{error:{message:'Try later'}}}):route.continue());
  await page.getByLabel('Sets',{exact:true}).fill('7');await expect(page.getByTestId('save-status')).toHaveText('Couldn’t save');
@@ -119,7 +119,7 @@ test('catalog edits refresh clean editors and dirty editors retain sets through 
  await expect(page.getByTestId('save-status')).toHaveText('Conflict');await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('7');
  await page.unroute('**/api/documents/'+fixture.record.id);
  await page.getByRole('button',{name:'Save as copy',exact:true}).click();
- await expect(page.locator('[data-summary]').first()).toContainText('Newest refresh press');
+ await expect(page.locator('.card-name').first()).toContainText('Newest refresh press');
  await page.getByRole('button',{name:'Expand exercise',exact:true}).click();await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('7');
 });
 test('in-card autocomplete explicitly selects definitions and creates an independent variant',async({page})=>{
@@ -131,7 +131,7 @@ test('in-card autocomplete explicitly selects definitions and creates an indepen
  expect(await page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').count()).toBeLessThanOrEqual(8);
  await expect(page.locator('.volume-row:visible')).toHaveCount(0);
  await search.press('ArrowDown');await search.press('Enter');
- await expect(page.locator('.linked-exercise-name')).toHaveText('Barbell bench press');
+ await expect(page.locator('.card-name')).toHaveText('Barbell bench press');
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('3');
  await expect(page.locator('.exercise .primary input')).toHaveCount(0);
  await page.getByLabel('Sets',{exact:true}).fill('5');
@@ -139,12 +139,12 @@ test('in-card autocomplete explicitly selects definitions and creates an indepen
  await page.getByRole('button',{name:'Create variant',exact:true}).click();
  await expect(page.getByRole('dialog')).toContainText('Other workouts are unchanged.');
  await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
- await expect(page.locator('.linked-exercise-name')).toHaveText('Barbell bench press');
+ await expect(page.locator('.card-name')).toHaveText('Barbell bench press');
  await page.getByRole('button',{name:'Create variant',exact:true}).click();
  const variant='My bench '+Date.now();await page.getByRole('dialog').getByLabel('Variant name',{exact:true}).fill(variant);
  await page.getByRole('dialog').getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Front delts',{exact:true}).check();
  await page.getByRole('dialog').getByRole('button',{name:'Save variant',exact:true}).click();
- await expect(page.locator('.linked-exercise-name')).toHaveText(variant);await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('5');
+ await expect(page.locator('.card-name')).toHaveText(variant);await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('5');
  await expect(page.getByTestId('save-status')).toHaveText('Saved');await page.reload();await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
- await expect(page.locator('.linked-exercise-name')).toHaveText(variant);
+ await expect(page.locator('.card-name')).toHaveText(variant);
 });

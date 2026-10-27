@@ -3,7 +3,7 @@ import {groupCatalog,flattenVariantOptions} from './catalog-groups.js';
 import {openCatalogForm} from './catalog-form.js';
 import {getCatalogStore} from './catalog-store.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
-export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=false}){
+export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=false,showLinkedName=true}){
  const store=getCatalogStore(api),id='exercise-options-'+crypto.randomUUID();
  let disposed=false,open=false,active=-1,matches=[],form,editing=!exercise.catalogId&&!legacy,announcementTimer;
  let renderedQuery='';
@@ -38,6 +38,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   pickerActions.hidden=!editing;
   cancelSelection.hidden=!editing||!(exercise.catalogId||legacy);
   host.querySelector('.linked-exercise-name').textContent=exercise.name;
+  host.querySelector('.linked-exercise-name').hidden=!showLinkedName;
   const current=store.value?.entries.find(e=>e.id===exercise.catalogId);
   host.querySelector('[data-meta]').textContent=[current?.familyName,exercise.equipment,current?.archived?'Archived':null].filter(Boolean).join(' · ');
   const restricted=String(Boolean(current?.referenceArchived));

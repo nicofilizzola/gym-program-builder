@@ -178,7 +178,7 @@ test('grouped autocomplete skips reference headings and preserves or clears the 
  await refresh();await expect(input).toHaveAttribute('aria-activedescendant',active);
  await page.evaluate(async id=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().archiveCatalog({id,revision:1,archived:true});},fixture.second.id);
  await refresh();await expect(list.getByRole('option')).toHaveCount(2);await expect(input).not.toHaveAttribute('aria-activedescendant');
- await input.press('ArrowUp');await input.press('Enter');await expect(page.locator('.linked-exercise-name')).toHaveText(fixture.third.name);
+ await input.press('ArrowUp');await input.press('Enter');await expect(page.locator('.card-name')).toHaveText(fixture.third.name);
 });
 test('reference create retries a lost response without duplicating the reference',async({page})=>{
  await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByRole('button',{name:'New reference exercise',exact:true}).click();

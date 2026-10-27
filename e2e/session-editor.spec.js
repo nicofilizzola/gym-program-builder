@@ -1,5 +1,39 @@
 import {test,expect} from '@playwright/test';
 
+test('card headings identify exercises while collapsed summaries show only prescriptions',async({page})=>{
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  const {mountSessionEditor}=await import('/src/session-editor.js');
+  document.body.innerHTML='<div id="fixture"></div>';
+  window.headingChanges=[];
+  window.editor=mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Upper',goals:{},exercises:['Bench < & press','Bench < & press','   '].map(name=>({name,sets:3,repRange:{min:8,max:12},restSeconds:180,primaryMuscles:['Chest'],secondaryMuscles:['Triceps']}))},onChange:value=>window.headingChanges.push(value)});
+ });
+ const cards=page.locator('.exercise');
+ await expect(cards.first().getByRole('heading',{name:'Exercise 1: Bench < & press',exact:true})).toBeVisible();
+ await expect(cards.nth(1).getByRole('heading',{name:'Exercise 2: Bench < & press',exact:true})).toBeVisible();
+ await expect(cards.last().getByRole('heading',{name:'Exercise 3: Untitled exercise',exact:true})).toBeVisible();
+ await expect(cards.locator('.card-index')).toHaveText(['01','02','03']);
+ await expect(cards.locator('.card-summary')).toHaveText(Array(3).fill('3 × 8–12 · Rest 3 min'));
+ await expect(cards.first().getByRole('button',{name:'Expand exercise',exact:true})).toBeVisible();
+ await cards.first().getByRole('button',{name:'Expand exercise',exact:true}).click();
+ expect(await page.evaluate(()=>window.headingChanges.length)).toBe(0);
+ const input=cards.first().getByLabel('Exercise name',{exact:true});
+ await input.fill('Edited bench');
+ await expect(input).toBeFocused();
+ await expect(cards.first().getByRole('heading')).toHaveAccessibleName('Exercise 1: Edited bench');
+ await cards.nth(1).getByRole('button',{name:'Reorder exercise',exact:true}).focus();await page.keyboard.press('ArrowUp');
+ await expect(cards.first().getByRole('heading')).toHaveAccessibleName('Exercise 1: Bench < & press');
+ await expect(cards.first().getByRole('button',{name:'Reorder exercise',exact:true})).toBeFocused();
+ await expect(cards.first().getByRole('button',{name:'Expand exercise',exact:true})).toBeVisible();
+ await expect(cards.nth(1).getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Add exercise',exact:true}).click();
+ await expect(cards.last().getByRole('heading')).toHaveAccessibleName('Exercise 4: Untitled exercise');
+ await expect(cards.last().getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();
+ await page.evaluate(()=>window.editor.setWorkout({name:'Reloaded',goals:{},exercises:[{name:'Reloaded row',sets:2,repRange:{min:10,max:10},primaryMuscles:['Lats'],secondaryMuscles:[]}]}));
+ await expect(cards.first().getByRole('heading')).toHaveAccessibleName('Exercise 1: Reloaded row');
+ await expect(cards.first().getByRole('button',{name:'Expand exercise',exact:true})).toBeVisible();
+});
+
 test('muscle preview leaves exercise selection unchanged until activation',async({page})=>{
  await page.goto('/');
  await page.evaluate(async()=>{

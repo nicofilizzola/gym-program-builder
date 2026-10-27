@@ -41,7 +41,7 @@ for(const cancel of ['Escape','pointercancel','lostpointercapture','outside','de
  else await page.locator('.exercise').first().dispatchEvent(cancel,{pointerId:1});
  await page.mouse.up();await expect(page.locator('.sort-drag-copy')).toHaveCount(0);await expect(page.locator('.sort-placeholder')).toHaveCount(0);
  expect(await page.evaluate(()=>window.changes.length)).toBe(0);
- if(cancel!=='destroy'){await expect(page.locator('.exercise .card-summary')).toContainText(['Bench','Row','Curl']);await expect(page.locator('.exercise').nth(1).getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();}
+ if(cancel!=='destroy'){await expect(page.locator('.exercise .card-name')).toHaveText(['Bench','Row','Curl']);await expect(page.locator('.exercise').nth(1).getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();}
 });
 test('exercise reorder supports keyboard and click alternatives',async({page})=>{
  await exerciseFixture(page);const handles=page.getByRole('button',{name:'Reorder exercise',exact:true});
@@ -126,7 +126,7 @@ test('program drag order and day assignments persist after reload',async({page})
  await expect(page.locator('.workout-item h3')).toHaveText(['Second','First','Third']);
 });
 
-for(const surface of ['.card-index','.card-summary','padding'])test(`exercise drag starts from ${surface}`,async({page})=>{
+for(const surface of ['.card-index','.card-name','.card-summary','padding'])test(`exercise drag starts from ${surface}`,async({page})=>{
  await exerciseFixture(page);
  if(surface!=='.card-summary')await page.getByRole('button',{name:'Expand exercise',exact:true}).first().click();
  const card=page.locator('.exercise').first(),el=surface==='padding'?card:card.locator(surface),box=await el.boundingBox();
@@ -240,11 +240,11 @@ test('program workout exercise whole-card reorder preserves prescriptions after 
  await page.locator('[data-file]').setInputFiles({name:'week.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:2,kind:'program',program:{name:'Whole-card persistence',mode:'schedule',goals:{},workouts:[workout]}}))});
  await page.getByRole('button',{name:'Edit Upper persisted',exact:true}).click();await expect(page.locator('.exercise')).toHaveCount(3);await expect(page.locator('[data-template-name]')).toBeFocused();
  await startExerciseDrag(page);await expect(page.locator('.sort-drag-copy')).toBeVisible();const target=await page.locator('#exercises > .exercise:not(.sort-source)').last().boundingBox();await page.mouse.move(target.x+80,target.y+target.height-3);await expect(page.locator('.sort-placeholder')).toBeVisible();await page.mouse.up();
- await expect(page.locator('.card-summary')).toContainText(['Row','Curl','Bench']);
+ await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.getByRole('button',{name:'Expand exercise',exact:true}).last().click();await expect(page.locator('.exercise').last().getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
  await page.getByRole('button',{name:'Back to program',exact:true}).click();await page.reload();await page.getByRole('button',{name:'Edit Upper persisted',exact:true}).click();
- await expect(page.locator('.card-summary')).toContainText(['Row','Curl','Bench']);
+ await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  for(const [i,rest,sets]of [[0,'135','3'],[1,'90','4'],[2,'180','2']]){
   await page.locator('.exercise').nth(i).getByRole('button',{name:'Expand exercise',exact:true}).click();
   await expect(page.locator('.exercise').nth(i).getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue(rest);

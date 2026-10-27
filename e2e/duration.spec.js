@@ -47,7 +47,7 @@ test('duration details and sliders update live without replacing focused control
  await page.keyboard.press('End');await expect(rest).toHaveValue('300');
  await expect(page.locator('[data-duration-total]')).toHaveText('~32 min');
  await page.getByRole('button',{name:'Collapse all',exact:true}).click();
- await expect(page.locator('[data-summary]').first()).toContainText('rest 5 min');
+ await expect(page.locator('[data-summary]').first()).toContainText('Rest 5 min');
  await page.getByRole('button',{name:'Hide duration details',exact:true}).click();
  await expect(page.getByRole('button',{name:'Show duration details',exact:true})).toBeFocused();
  expect(await page.evaluate(()=>window.timingChanged.exercises[0].restSeconds)).toBe(300);

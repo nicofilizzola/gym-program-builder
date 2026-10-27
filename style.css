@@ -230,12 +230,32 @@ input:focus-visible {
   row-gap: 4px;
 }
 
+.card-identity {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1 1 160px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.card-name {min-width:0;overflow-wrap:anywhere}
+.card-controls {display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
+.card-controls .toggle-btn {margin-left:0}
+
 .card-index {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+  min-width: 2ch;
   color: var(--muted);
 }
 
@@ -348,9 +368,10 @@ svg {
   margin-bottom: -4px;
 }
 
-/* The summary keeps the 1em space below it that it had as a plain paragraph. */
+/* Prescription stays close to the identity instead of adding another text row's gap. */
 .collapsible > .card-summary {
-  padding-bottom: 1em;
+  padding-top: 4px;
+  padding-bottom: 0;
 }
 
 .collapsible.is-closed > * {
