@@ -1,6 +1,6 @@
 # Compact Duration Disclosure Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The user requested design and planning only; implementation is a separate next step.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking. Implemented with the native approach on 2026-10-28.
 
 **Goal:** Replace the editor's Estimated duration text with a clock while retaining the live estimate and chevron, and smoothly expand and collapse its details.
 
@@ -51,7 +51,7 @@
 
 **Interfaces:** Consume the existing `mountActionTooltips(root)` controller from `src/action-controls.js` and its existing data-action-tooltip convention. Preserve `mountDurationControls(host, {workout, onChange}) -> {update(next), destroy()}` and the existing duration total/part/allowance data attributes. No consumer changes are required in `src/session-editor.js`.
 
-- [ ] **Step 1: Add focused failing browser tests in `e2e/duration.spec.js`.**
+- [x] **Step 1: Add focused failing browser tests in `e2e/duration.spec.js`.**
 
   Extend the existing fixture tests with these named cases and assertions:
 
@@ -61,11 +61,11 @@
   - `duration updates preserve disclosure motion and teardown is safe`: update the mounted view during opening and while a slider is focused; assert original nodes, open state and focus survive and total reflects new values immediately. Destroy during opening/closing and verify no tooltip remains and no page errors occur.
   - `duration disclosure respects reduced motion changes`: opening and closing under reduce have zero-duration transitions and correct accessibility state; changing no-preference to reduce during closing leaves a fully collapsed inert region. Reopening remains usable.
 
-- [ ] **Step 2: Run the focused tests and confirm the expected failures.**
+- [x] **Step 2: Run the focused tests and confirm the expected failures.**
 
   Run `npx playwright test e2e/duration.spec.js`. New tests should fail because the current trigger has no clock and `hidden` causes immediate changes. Distinguish setup failures from behavioral failures before proceeding.
 
-- [ ] **Step 3: Implement the control and CSS together.**
+- [x] **Step 3: Implement the control and CSS together.**
 
   In `src/duration-controls.js`, replace the label with the clock, class the chevron explicitly, and introduce persistent outer grid and inner clipping/content wrappers. Keep `.duration-details` as the region addressed by aria-controls. Maintain one transient `opened` boolean and a local `setExpanded(opened)` operation; use the approved focus and accessibility order. Gate transitions to user toggles so initial rendering stays instant. Remove the click handler's immediate hidden toggling. Keep `update(next)` independent of disclosure state.
 
@@ -73,15 +73,15 @@
 
   In `style.css`, replace the broad expanded-button SVG rotation selector with a chevron-only selector. Implement the persistent grid/opacity pattern, ensuring all panel decoration and vertical spacing collapse with the content. Preserve the existing allowance columns and mobile stacking. Add a reduced-motion rule after these new transition declarations so stylesheet order cannot override it. Preserve the current button's pointer-aware minimum sizes; do not make this variable-width control a square icon button.
 
-- [ ] **Step 4: Run the focused browser tests to green.**
+- [x] **Step 4: Run the focused browser tests to green.**
 
   Run `npx playwright test e2e/duration.spec.js e2e/recovery.spec.js`. Expect all cases to pass, including existing live-value, focus, copy and file round-trip coverage. Existing exact accessible-name selectors should continue to work.
 
-- [ ] **Step 5: Update the design system.**
+- [x] **Step 5: Update the design system.**
 
   In `docs/design-system/README.md` under Workout duration, replace the text-label description with clock + live estimate + chevron and document 200ms ease-out grid/opacity motion, chevron-only rotation, immediate closed accessibility state, persistent nodes, reversal and reduced motion.
 
-- [ ] **Step 6: Commit the implementation and its regression coverage.**
+- [x] **Step 6: Commit the implementation and its regression coverage.**
 
   Stage only `src/duration-controls.js`, `style.css`, `e2e/duration.spec.js` and `docs/design-system/README.md`; commit as `fix: compact and animate duration disclosure`.
 
@@ -89,22 +89,30 @@
 
 **Interfaces:** Exercise Task 1 through the existing session template and program workout editors; no new production interfaces.
 
-- [ ] **Step 1: Extend the existing populated layout checks where necessary.**
+- [x] **Step 1: Extend the existing populated layout checks where necessary.**
 
   In `e2e/duration.spec.js`, assert trigger estimate visibility, no page overflow and fully reachable expanded controls at 1366×768, 1440×900, 1920×1080, 900×900, 760×900 and 390×844. Exercise 200% text with the existing long template name, both open and closed. Extend the existing coarse/hybrid test to check the new trigger's clock and estimate remain visible and its targets remain at least 44×44px; sliders remain at least 44px high. Desktop body figures remain at least 180px high. Use `.superpowers/sdd/2026-10-27-duration-disclosure/` for new screenshots.
 
-- [ ] **Step 2: Inspect real browser behavior with populated data.**
+- [x] **Step 2: Inspect real browser behavior with populated data.**
 
   In both session templates and program workout editors, open/close, rapidly reverse, operate with keyboard, edit sliders during an open disclosure and test touch activation and reduced motion. Inspect smooth downstream movement, no closed panel spacing, visible focus rings, tooltip dismissal, 200% text and all required viewports. Confirm program overview cards still show their existing Estimated duration metadata. Screenshots support layout review; inspect motion through interaction. Record actual checks and any gaps.
 
-- [ ] **Step 3: Run the required release checks.**
+- [x] **Step 3: Run the required release checks.**
 
   Run `npm test`, `npm run test:e2e` and `npm run build` sequentially. Expect zero failures and a successful static build. If a check fails, diagnose whether it is caused by the change and resolve it before claiming completion. Do not migrate or seed a database for this UI-only change.
 
-- [ ] **Step 4: Commit verification additions and report readiness.**
+- [x] **Step 4: Commit verification additions and report readiness.**
 
   Commit any additional layout assertions as `test: verify compact duration disclosure layouts`. Report changed behavior, completed automated checks, browser inspection results and any verification gaps. Do not deploy or merge as part of this plan unless separately authorized.
 
 ## Plan self-review
 
 The single control task covers compact presentation, both transition directions, rapid reversal, focus, accessible state, immediate data updates, tooltip lifecycle and reduced motion. The verification task covers shared-editor consistency, populated responsive layouts, touch/hybrid targets, body prominence and all required release commands. All five Review Focus conditions have explicit assertions or browser checks above. No duration-domain, persistence or unrelated layout changes are planned.
+
+## Shipping verification (2026-10-28)
+
+- `npm test`: 148 passed; `npm run test:e2e`: 176 passed; `npm run build`: successful. Windows invoked the equivalent npm.cmd/npx.cmd shims because npm.ps1 is blocked.
+- Inspected populated screenshots at 1366�768, 1440�900, 1920�1080, tablet/mobile widths and 200% text. Playwright exercised both motion directions, reversal, focus/Tab, reduced-motion preference changes, live updates, teardown and the shared program editor. Coarse/hybrid input is browser-emulated; no physical-device verification.
+- Fresh final reviewer approved with no blocking production findings. Deferred minor: strengthen the update-during-motion test to explicitly prove an active, uninterrupted animation timeline and assert settled original-slider usability after reversal.
+- Execution decisions: fast-forwarded the managed worktree from its stale ancestor to source main before implementation; scoped tooltip teardown assertions to the owned tooltip; animated the heading row gap to remove closed-state spacing (wrapped desktop heading rows are also compact when closed); grouped responsive assertions with the control commit. No calculation, persistence, database or program-card metadata changes.
+- Work is committed on `fix/duration-disclosure`; integration is pending. Screenshots are temporary execution artifacts.
