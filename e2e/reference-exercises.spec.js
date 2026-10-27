@@ -60,7 +60,7 @@ test('reference disclosure respects reduced motion and search expansion across r
  await search.clear();await expect(toggle).toHaveAttribute('aria-expanded','false');
 });
 test('direct icon actions expose every catalog operation with accessible tooltips and exact cancel focus',async({page})=>{
- await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Bench press');
+ await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();await expect(page.locator('[data-count]')).not.toContainText('Loading');await page.getByLabel('Search catalog',{exact:true}).fill('Bench press');
  const ref=group(page,'Bench press'),row=ref.locator('.catalog-row').filter({has:page.getByText('Barbell bench press',{exact:true})});
  for(const [scope,keys]of [[ref.locator('.reference-header-actions'),['add','rename','archive']],[row.locator('.catalog-row-actions'),['edit','create','move','archive']]]){
   await expect(scope.locator('button')).toHaveCount(keys.length);

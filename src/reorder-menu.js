@@ -9,7 +9,7 @@ export function mountReorderMenu(){
  popup.setAttribute('popover','manual');popup.setAttribute('role','group');popup.setAttribute('aria-label','Reorder options');
  document.body.append(popup);
  const events=new AbortController(),options={signal:events.signal};
- let trigger=null;
+ let trigger=null,anchorRect=null;
  function close(restoreFocus=false){
   const previous=trigger;trigger=null;
   previous?.setAttribute('aria-expanded','false');
@@ -24,7 +24,8 @@ export function mountReorderMenu(){
    option.onclick=()=>{close(true);run();};return option;
   }));
   popup.showPopover();
-  const position=tooltipPosition(button.getBoundingClientRect(),popup.getBoundingClientRect(),{width:innerWidth,height:innerHeight});
+  anchorRect=button.getBoundingClientRect();
+  const position=tooltipPosition(anchorRect,popup.getBoundingClientRect(),{width:innerWidth,height:innerHeight});
   popup.style.left=`${position.left}px`;popup.style.top=`${position.top}px`;
   popup.querySelector('button:not(:disabled)')?.focus({preventScroll:true});
  }
@@ -33,7 +34,13 @@ export function mountReorderMenu(){
  document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&trigger){event.preventDefault();event.stopImmediatePropagation();close(true);}
  },{...options,capture:true});
- document.addEventListener('scroll',event=>{if(trigger&&!popup.contains(event.target))close(true);},{...options,capture:true});
+ document.addEventListener('scroll',event=>{
+  if(!trigger||popup.contains(event.target))return;
+  // Click/focus auto-scrolling may deliver its queued event after we positioned
+  // the popup. Dismiss only when scrolling actually moves its anchor.
+  const rect=trigger.getBoundingClientRect();
+  if(Math.abs(rect.top-anchorRect.top)>.5||Math.abs(rect.left-anchorRect.left)>.5)close(true);
+ },{...options,capture:true});
  window.addEventListener('resize',()=>close(true),options);
  return {toggle,close,destroy(){close();events.abort();popup.remove();}};
 }

@@ -204,7 +204,7 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 
 - Text contrast at least 4.5:1 on its background.
 - Visible focus ring (`2px --accent`, 2px offset) on every interactive element.
-- Coarse-pointer targets, including chips, are at least 44?44px. Fine-pointer desktop controls may be 32px; compact chips are 28px. Native slider hit boxes remain 44px on every device.
+- Coarse-pointer targets, including chips, are at least 44 by 44px. Fine-pointer desktop controls may be 32px; compact chips are 28px. Native slider hit boxes remain 44px on every device.
 - Icon-only buttons have `aria-label`; decorative SVGs are `aria-hidden`.
 - Heat is always backed by a number; highlights are backed by a text tag.
 
@@ -252,8 +252,8 @@ An archived reference leaves Create variant focusable with aria-disabled and gua
 
 Exercise cards (expanded or collapsed) and program workout cards support dragging from backgrounds, headings, summaries and metadata. Buttons, inputs, sliders, selects, links, labels, editable content and custom interactive widgets retain their ordinary behavior. Eligible desktop content uses a grab cursor; interactive controls keep their normal cursors. There is no dotted drag handle or reserved drag gutter.
 
-A visible Reorder text action uses the existing secondary-button appearance and sizes: 32px minimum height only at the established desktop fine-pointer breakpoint with no coarse pointer; otherwise at least 44?44px. Up/Down while focused moves within the current list/group. Activating it opens a viewport-constrained top-layer group of native movement buttons. Program Week options include every weekday and Unscheduled, including empty groups. Escape closes options and restores focus. Successful movement restores focus to Reorder and announces the position or destination. Options close on outside interaction, view rebuild, scroll, resize and teardown.
+A visible Reorder text action uses the existing secondary-button appearance and sizes: 32px minimum height only at the established desktop fine-pointer breakpoint with no coarse pointer; otherwise at least 44 by 44px. Up/Down while focused moves within the current list/group. Activating it opens a viewport-constrained top-layer group of native movement buttons. Program Week options include every weekday and Unscheduled, including empty groups. Escape closes options and restores focus. Movement through Reorder options restores focus to Reorder and announces the position or destination. Existing Move up/Move down actions retain focus on the invoking action when still enabled. Options close on outside interaction, view rebuild, scrolling that moves their anchor, resize and teardown. Queued scroll notifications from opening the action do not dismiss newly positioned options.
 
 Mouse/pen drags begin after 5px movement. Touch swipes scroll normally; holding eligible content for 350ms arms dragging with an accent border. Movement over 8px before the hold cancels the candidate. A hold released without dragging does not reorder. Keep native page panning enabled; suppress it only after the hold arms. Drag ghosts, placeholder motion, edge scrolling, Escape/cancellation and reduced-motion behavior retain the established sorter behavior. Gesture/menu state is transient.
 
-The visible helper reads: ?Drag a card to reorder. On touch, press and hold. Use Reorder for movement options.? Native buttons preserve Tab, Enter and Space; dragging always has a non-drag alternative.
+The visible helper reads: "Drag a card to reorder. On touch, press and hold. Use Reorder for movement options." Native buttons preserve Tab, Enter and Space; dragging always has a non-drag alternative.

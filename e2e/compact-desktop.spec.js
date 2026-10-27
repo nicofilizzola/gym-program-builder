@@ -109,7 +109,7 @@ test('schedule grid preserves actions and cross-column drag order',async({page})
   await expect(duplicate.locator('svg')).toHaveCount(1);
   await duplicate.click();await expect(page.locator('.workout-item')).toHaveCount(10);
   await expect(page.getByRole('button',{name:'Edit Upper A',exact:true}).nth(1)).toBeFocused();
-  const source=await first.locator('.drag-handle').boundingBox();
+  const source=await first.locator('h3').boundingBox();
   await page.mouse.move(source.x+source.width/2,source.y+source.height/2);await page.mouse.down();
   const target=await page.locator('[data-sort-group="1"]').boundingBox();
   await page.mouse.move(target.x+60,target.y+30,{steps:8});await expect(page.locator('.sort-drag-copy')).toBeVisible();await page.mouse.up();

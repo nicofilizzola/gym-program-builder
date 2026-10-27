@@ -94,8 +94,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [
           ['Edit',run(()=>openWorkout(workout.id)),false],
-          ['Move up',()=>move(-1),workouts.indexOf(workout)===0],
-          ['Move down',()=>move(1),workouts.indexOf(workout)===workouts.length-1],
+          ['Move up',()=>move(-1,'Move up'),workouts.indexOf(workout)===0],
+          ['Move down',()=>move(1,'Move down'),workouts.indexOf(workout)===workouts.length-1],
           ['Duplicate',()=>{const copy={...copyWorkout(workout,id()),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);emit();renderWorkouts(copy.id,'Edit');},false],
           ['Remove',()=>{if(!confirm(`Remove ${name} from this program?`))return;value.workouts=value.workouts.filter(w=>w.id!==workout.id);emit();renderWorkouts();root.querySelector('[data-add-empty]').focus();},false]
         ]){
@@ -107,7 +107,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
             button.innerHTML=actionIcon(icon);const text=document.createElement('span');text.className='workout-action-label';text.textContent=label;button.append(text);button.dataset.actionTooltip=label;
           }
         }
-        function move(step){const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts(workout.id,'Reorder');announcePosition();}
+        function move(step,focusAction='Reorder'){const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts(workout.id,focusAction);announcePosition();}
         function announcePosition(){root.querySelector('[data-workout-order]').textContent=`Moved ${name} to position ${value.workouts.filter(w=>group.day===undefined||w.day===group.day).findIndex(w=>w.id===workout.id)+1}${group.day===undefined?'':` in ${group.name}`}.`;}
         if(value.mode==='schedule'){
           const label=document.createElement('label');label.className='day-field';label.textContent='Day ';
