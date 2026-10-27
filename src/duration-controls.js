@@ -1,11 +1,13 @@
 import {computeDuration,DURATION_LIMITS,durationLabel,formatDuration,normalizeWorkoutTiming} from './duration.js';
+import {mountActionTooltips} from './action-controls.js';
 
 /** Inline disclosure; updates preserve the user's focused node and open state. */
 export function mountDurationControls(host,{workout,onChange=()=>{}}) {
   const controller=new AbortController();
   const panelId='duration-details-'+crypto.randomUUID();
   host.classList.add('duration-controls');
-  host.innerHTML='<button type="button" class="secondary-btn duration-toggle" aria-expanded="false" aria-label="Show duration details"><span>Estimated duration</span> <strong data-duration-total></strong><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div class="duration-details" hidden><dl class="duration-breakdown"></dl><div class="duration-allowances"></div><p class="duration-hint">1 min per set, plus rest after every set. Buffer applies to the full subtotal.</p></div>';
+  host.innerHTML='<button type="button" class="secondary-btn duration-toggle" aria-expanded="false" aria-label="Show duration details" data-action-tooltip="Show duration details"><svg class="duration-clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><strong data-duration-total></strong><svg class="duration-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><div class="duration-details" inert aria-hidden="true"><div class="duration-details-clip"><div class="duration-details-content"><dl class="duration-breakdown"></dl><div class="duration-allowances"></div><p class="duration-hint">1 min per set, plus rest after every set. Buffer applies to the full subtotal.</p></div></div></div>';
+  const tooltips=mountActionTooltips(host);
   const toggle=host.querySelector('button'),details=host.querySelector('.duration-details');
   details.id=panelId;toggle.setAttribute('aria-controls',panelId);
   const total=host.querySelector('[data-duration-total]');
@@ -35,15 +37,23 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
       input.parentElement.style.setProperty('--to',n/DURATION_LIMITS[key].max);
     });
   }
-  toggle.addEventListener('click',()=>{
-    details.hidden=!details.hidden;toggle.setAttribute('aria-expanded',String(!details.hidden));
-    toggle.setAttribute('aria-label',details.hidden?'Show duration details':'Hide duration details');
-  },{signal:controller.signal});
+  let opened=false;
+  function setExpanded(next) {
+    if(!next&&details.contains(document.activeElement))toggle.focus({preventScroll:true});
+    tooltips.hide();opened=next;
+    host.setAttribute('data-duration-motion','');
+    toggle.setAttribute('aria-expanded',String(opened));
+    const label=opened?'Hide duration details':'Show duration details';
+    toggle.setAttribute('aria-label',label);toggle.dataset.actionTooltip=label;
+    details.inert=!opened;details.setAttribute('aria-hidden',String(!opened));
+    details.classList.toggle('is-open',opened);
+  }
+  toggle.addEventListener('click',()=>setExpanded(!opened),{signal:controller.signal});
   host.addEventListener('input',event=>{
     const input=event.target,key=input.dataset.allowance;if(!key)return;
     const settings={extraMinutes:value.extraMinutes,bufferPercent:value.bufferPercent,[key]:input.valueAsNumber};
     update({...value,...settings});onChange(settings);
   },{signal:controller.signal});
   update(workout);
-  return {update,destroy(){controller.abort();host.replaceChildren();}};
+  return {update,destroy(){controller.abort();tooltips.destroy();host.replaceChildren();host.removeAttribute('data-duration-motion');}};
 }

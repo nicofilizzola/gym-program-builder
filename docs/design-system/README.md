@@ -231,7 +231,9 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 
 ### Workout duration
 
-A compact Estimated duration disclosure shares the editor heading with the template name. Its inline details show execution/rest/extra/buffer and two native allowance sliders; no additional volume-panel space is used. Totals read ~N min, rounded upward only after calculation. Empty workouts show ~0 min. Details wrap and remain in normal document flow; open state is transient.
+A compact clock + live estimate + chevron disclosure shares the editor heading with the template name in session templates and program workout editors. The 18px outline clock stays still; only the chevron rotates. Accessible Show/Hide duration details names and shared hover/focus tooltips explain the action. Its inline details show execution/rest/extra/buffer and two native allowance sliders; no additional volume-panel space is used. Totals read ~N min, rounded upward only after calculation. Empty workouts show ~0 min. Details wrap and remain in normal document flow; open state is transient.
+
+Duration details expand and collapse with grid rows (0fr to 1fr) and opacity over 200ms ease-out; the chevron rotates over the same duration. Persistent clipped wrappers preserve nodes through closing and rapid reversal, with no residual panel spacing when closed. Closing moves focus from inside to the toggle before immediately making the region inert and aria-hidden. Initial construction has no entrance motion; live values update immediately without resetting focus or open state. Reduced motion makes both transitions instant. The variable-width button retains 32px fine-pointer desktop / 44px touch and hybrid minimum targets.
 
 Rest per set uses the existing native slider appearance and 44px hit area: 0 to 300 seconds, step 15, with readable minutes/seconds. It appears alongside sets/reps on wide desktop cards and in the existing stacked flow on mobile. Desktop main fields use name/sets/reps/rest at card widths of at least 700px; narrower desktop cards put the name above three slider columns. Collapsed summaries append configured rest and wrap naturally.
 
