@@ -1,4 +1,5 @@
 import {createViewTransition} from './view-transition.js';
+import {mountReorderMenu} from './reorder-menu.js';
 import {mountSortable} from './sortable.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {copyWorkout,createTemplate,assignDay,moveWorkout,placeWorkout} from './program.js';
@@ -21,7 +22,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     return viewTransition.swap(commit,{focus:()=>{root.inert=false;focus?.();}}).finally(()=>{if(generation===transitionGeneration)root.inert=false;});
   }
   let value=structuredClone(program),panel,editor,tooltips,disposed=false,viewGeneration=0,selectedMuscle=null,sortable;
-  function cleanup(){tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
+  const reorderMenu=mountReorderMenu();
+  function cleanup(){reorderMenu.close();tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
   function updateWorkoutHighlights(){
@@ -52,7 +54,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     },()=>{window.scrollTo(0,0);root.querySelector('[data-template-name]')?.focus({preventScroll:true});});
   }
   function renderWorkouts(focusId,focusAction){
-    tooltips?.hide();
+    tooltips?.hide();reorderMenu.close();
     sortable?.destroy();sortable=null;
     const container=root.querySelector('[data-workouts]');container.replaceChildren();
     container.classList.toggle('schedule-grid',value.mode==='schedule');
@@ -66,9 +68,9 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       if(!workouts.length){const empty=document.createElement('p');empty.className='empty';empty.textContent=group.day===undefined?'No workouts yet. Add a session template or an empty workout.':group.day===null?'No unscheduled workouts.':'Rest day';groupList.append(empty);}
       for(const workout of workouts){
         const card=document.createElement('article');card.className='workout-item';card.dataset.workout=workout.id;
-        const handle=document.createElement('button');handle.type='button';handle.className='drag-handle';handle.setAttribute('aria-label',`Reorder ${workout.name.trim()||'Untitled workout'}`);
-        handle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';card.append(handle);
-        handle.onkeydown=event=>{const step={ArrowUp:-1,ArrowDown:1}[event.key];if(!step)return;event.preventDefault();const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts();root.querySelector(`[data-workout="${workout.id}"] .drag-handle`)?.focus();};
+        const handle=document.createElement('button');handle.type='button';handle.className='secondary-btn reorder-action';handle.setAttribute('aria-expanded','false');handle.setAttribute('aria-describedby','program-reorder-hint');handle.setAttribute('aria-label',`Reorder ${workout.name.trim()||'Untitled workout'}`);
+        handle.textContent='Reorder';
+        handle.onkeydown=event=>{const step={ArrowUp:-1,ArrowDown:1}[event.key];if(!step)return;event.preventDefault();const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts(workout.id,'Reorder');announcePosition();};
         const title=document.createElement('h3');title.textContent=workout.name.trim()||'Untitled workout';card.append(title);
         const marker=document.createElement('span');marker.dataset.muscleMatch='';marker.className='workout-muscle-match hit-tag';marker.setAttribute('aria-hidden','true');
         // Overlay all possible labels invisibly so switching badges never moves controls,
@@ -80,7 +82,15 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;
         const duration=document.createElement('p');duration.dataset.workoutDuration='';duration.textContent='Estimated duration '+durationLabel(workout);
         const metadata=document.createElement('div');metadata.className='workout-metadata';metadata.append(count,duration,badgeSlot);card.append(metadata);
-        const actions=document.createElement('div');actions.className='item-actions';card.append(actions);
+        const actions=document.createElement('div');actions.className='item-actions';card.append(actions);actions.append(handle);
+        handle.onclick=()=>reorderMenu.toggle(handle,[
+          ...[['Move up',-1],['Move down',1]].map(([label,step])=>({label,disabled:!workouts[workouts.indexOf(workout)+step],run:()=>move(step)})),
+          ...(value.mode==='schedule'?[...DAYS.map((label,day)=>({label,day})),{label:'Unscheduled',day:null}].map(({label,day})=>({label:`Move to ${label}`,disabled:workout.day===day,run:()=>{
+            const destination=value.workouts.filter(w=>w.id!==workout.id&&w.day===day);
+            value=placeWorkout(value,workout.id,{day,afterId:destination.at(-1)?.id??null});emit();renderWorkouts(workout.id,'Reorder');
+            root.querySelector('[data-workout-order]').textContent=`Moved ${workout.name.trim()||'Untitled workout'} to ${label}.`;
+          }})):[])
+        ]);handle.dataset.action='Reorder';
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [
           ['Edit',run(()=>openWorkout(workout.id)),false],
@@ -97,7 +107,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
             button.innerHTML=actionIcon(icon);const text=document.createElement('span');text.className='workout-action-label';text.textContent=label;button.append(text);button.dataset.actionTooltip=label;
           }
         }
-        function move(step){const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts(workout.id,step<0?'Move up':'Move down');}
+        function move(step){const other=workouts[workouts.indexOf(workout)+step];if(!other)return;value=moveWorkout(value,workout.id,value.workouts.findIndex(w=>w.id===other.id));emit();renderWorkouts(workout.id,'Reorder');announcePosition();}
+        function announcePosition(){root.querySelector('[data-workout-order]').textContent=`Moved ${name} to position ${value.workouts.filter(w=>group.day===undefined||w.day===group.day).findIndex(w=>w.id===workout.id)+1}${group.day===undefined?'':` in ${group.name}`}.`;}
         if(value.mode==='schedule'){
           const label=document.createElement('label');label.className='day-field';label.textContent='Day ';
           const select=document.createElement('select');select.setAttribute('aria-label',`Day for ${name}`);
@@ -107,11 +118,11 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         groupList.append(card);
       }
     }
-    sortable=mountSortable(container,{itemSelector:'.workout-item',reorderSelector:'.drag-handle',getGroups:()=>[...container.querySelectorAll('[data-sort-group]')].map(element=>({element,key:element.dataset.sortGroup})),getKey:card=>card.dataset.workout,onCommit:({key,groupKey,beforeKey})=>{
+    sortable=mountSortable(container,{itemSelector:'.workout-item',reorderSelector:'.reorder-action',getGroups:()=>[...container.querySelectorAll('[data-sort-group]')].map(element=>({element,key:element.dataset.sortGroup})),getKey:card=>card.dataset.workout,onCommit:({key,groupKey,beforeKey})=>{
       const group=value.workouts.filter(w=>w.id!==key&&(groupKey==='sequence'||w.day===(groupKey==='unscheduled'?null:Number(groupKey))));
       const next=placeWorkout(value,key,{day:groupKey==='sequence'?undefined:groupKey==='unscheduled'?null:Number(groupKey),beforeId:beforeKey,afterId:beforeKey===null?group.at(-1)?.id??null:null});
       if(JSON.stringify(next)!==JSON.stringify(value)){value=next;emit();}
-      renderWorkouts();root.querySelector(`[data-workout="${key}"] .drag-handle`)?.focus();
+      renderWorkouts();root.querySelector(`[data-workout="${key}"] .reorder-action`)?.focus();
       root.querySelector('[data-workout-order]').textContent=`Moved workout to ${groupKey==='sequence'?'position '+(value.workouts.findIndex(w=>w.id===key)+1):groupKey==='unscheduled'?'Unscheduled':DAYS[Number(groupKey)]}.`;
     }});
     updateWorkoutHighlights();
@@ -139,7 +150,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         </div>
       </div>
       </header><p class="error" role="alert" data-program-error></p>
-      <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
+      <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><p id="program-reorder-hint" class="reorder-hint">Drag a card to reorder. On touch, press and hold. Use Reorder for movement options.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
     root.querySelectorAll('[name="program-layout"]').forEach(input=>{input.checked=input.value===value.mode;input.onchange=()=>{if(!input.checked)return;value.mode=input.value;emit();renderWorkouts();};});
@@ -155,5 +166,5 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((value.workouts.length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();await renderOverview();});
     panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleSelect:muscle=>{selectedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
-  buildOverview();return {syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else {renderWorkouts();updateVolume();}},update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();root.replaceChildren();}};
+  buildOverview();return {syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else {renderWorkouts();updateVolume();}},update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();reorderMenu.destroy();root.replaceChildren();}};
 }

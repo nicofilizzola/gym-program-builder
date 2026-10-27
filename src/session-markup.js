@@ -32,7 +32,7 @@ export const SESSION_MARKUP = `
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         Add exercise
       </button>
-      <p id="reorder-hint" class="visually-hidden">Drag, or use the up and down arrow keys, to move this exercise.</p>
+      <p id="reorder-hint" class="reorder-hint">Drag a card to reorder. On touch, press and hold. Use Reorder for movement options.</p>
       <p id="order-status" class="visually-hidden" aria-live="polite"></p>
     </section>
 

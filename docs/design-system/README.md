@@ -246,3 +246,14 @@ Unavailable icon actions show their restriction tooltip on activation as well as
 Expanded linked exercise cards in both session templates and program workouts show Replace exercise (swap arrows), Create variant (overlapping sheets) and View in catalog (book) as a direct inline icon strip beside the exercise name. There is no Actions menu. The strip stays horizontal with 8px gaps and wraps as a whole beneath long names; names remain complete. Reuse action-button controls: 32px square only at desktop >=1100px with a fine primary pointer and no coarse pointer, otherwise 44px square. Icons are 20px currentColor strokes with accessible button names and shared top-layer hover/focus tooltips.
 
 An archived reference leaves Create variant focusable with aria-disabled and guarded activation; hover, focus or touch activation explains: Restore the reference exercise before creating a variant. Replacement cancellation returns focus to Replace exercise; variant form cancellation returns focus to Create variant. Tooltips dismiss on collapse and teardown. Custom exercise linking and autocomplete retain their existing controls.
+
+
+### Card reordering
+
+Exercise cards (expanded or collapsed) and program workout cards support dragging from backgrounds, headings, summaries and metadata. Buttons, inputs, sliders, selects, links, labels, editable content and custom interactive widgets retain their ordinary behavior. Eligible desktop content uses a grab cursor; interactive controls keep their normal cursors. There is no dotted drag handle or reserved drag gutter.
+
+A visible Reorder text action uses the existing secondary-button appearance and sizes: 32px minimum height only at the established desktop fine-pointer breakpoint with no coarse pointer; otherwise at least 44?44px. Up/Down while focused moves within the current list/group. Activating it opens a viewport-constrained top-layer group of native movement buttons. Program Week options include every weekday and Unscheduled, including empty groups. Escape closes options and restores focus. Successful movement restores focus to Reorder and announces the position or destination. Options close on outside interaction, view rebuild, scroll, resize and teardown.
+
+Mouse/pen drags begin after 5px movement. Touch swipes scroll normally; holding eligible content for 350ms arms dragging with an accent border. Movement over 8px before the hold cancels the candidate. A hold released without dragging does not reorder. Keep native page panning enabled; suppress it only after the hold arms. Drag ghosts, placeholder motion, edge scrolling, Escape/cancellation and reduced-motion behavior retain the established sorter behavior. Gesture/menu state is transient.
+
+The visible helper reads: ?Drag a card to reorder. On touch, press and hold. Use Reorder for movement options.? Native buttons preserve Tab, Enter and Space; dragging always has a non-drag alternative.

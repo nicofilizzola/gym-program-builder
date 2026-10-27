@@ -376,42 +376,6 @@ svg {
   stroke-linejoin: round;
 }
 
-.drag-handle {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-left: -12px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  cursor: grab;
-  touch-action: none;
-  transition: color 150ms ease;
-}
-
-.drag-handle:hover {
-  color: var(--text);
-}
-
-.drag-handle:active,
-.is-dragging .drag-handle {
-  cursor: grabbing;
-}
-
-.exercise.is-dragging {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(249, 115, 22, 0.15);
-  opacity: 0.9;
-}
-
-.drag-handle svg {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -1424,11 +1388,20 @@ button:disabled {opacity:.5;cursor:default}
 .sort-placeholder {box-sizing:border-box;border:1px dashed var(--accent);border-radius:var(--radius);background:var(--accent-soft);margin:12px 0;min-width:0;list-style:none}
 .is-sorting,.is-sorting * {cursor:grabbing !important;user-select:none !important}
 .card-head {position:relative}
-.reorder-menu {position:absolute;top:48px;left:0;display:flex;gap:8px;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;z-index:5;box-shadow:0 8px 24px #0005}
+.reorder-menu {position:fixed;inset:auto;margin:0;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;padding:8px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px #0005}
+.reorder-menu:popover-open {display:flex;flex-direction:column;gap:6px}
+.reorder-menu button {text-align:left}
+.reorder-action {flex:0 0 auto;white-space:nowrap}
+.reorder-hint {color:var(--muted);font-size:.8125rem;margin:8px 0 12px}
+.exercise,.workout-item {cursor:grab}
+:is(.exercise,.workout-item) :is(button,input,select,textarea,a,label,[contenteditable],[role],[tabindex]) {cursor:auto}
+:is(.exercise,.workout-item) button {cursor:pointer}
+:is(.exercise,.workout-item) :is(input[type="text"],textarea,[contenteditable="true"]) {cursor:text}
+:is(.exercise,.workout-item) :is(button:disabled,[aria-disabled="true"]) {cursor:default}
 
 .workout-list {min-height:48px;display:flow-root}
-.workout-item {position:relative;padding-left:64px}
-.workout-item>.drag-handle {position:absolute;left:16px;top:12px;margin:0}
+.workout-item {position:relative}
+
 
 /* Moderate density: keep text and interaction targets comfortable. */
 .layout {padding-top:24px;padding-bottom:24px;gap:24px}
@@ -1443,7 +1416,7 @@ button:disabled {opacity:.5;cursor:default}
 .template-picker label {flex:1 1 160px}
 .template-picker button {flex:0 0 auto;min-height:44px;padding:10px 12px;white-space:nowrap}
 .add-alternative {align-self:end;display:flex;align-items:center;min-height:44px;color:var(--muted);font-size:.875rem}
-.workout-item {padding:16px 16px 16px 64px;margin:12px 0}
+.workout-item {padding:16px;margin:12px 0}
 .workout-metadata {display:flex;align-items:center;flex-wrap:wrap;gap:12px;min-width:0;margin:4px 0 12px}
 .workout-metadata p {flex:none;margin:0}
 .workout-metadata [data-workout-duration] {flex:0 1 auto;min-width:0}
@@ -1453,7 +1426,7 @@ button:disabled {opacity:.5;cursor:default}
 .workout-badge-space>span {grid-area:1/1}
 .workout-muscle-match {align-self:start;justify-self:start;visibility:hidden;opacity:0;transition:opacity 150ms ease-out}
 .workout-muscle-match.is-visible {visibility:visible;opacity:1}
-@media(max-width:600px){.layout,.library,.program-page{padding:16px}.template-picker label{flex-basis:100%}.workout-metadata{gap:8px}.template-picker button{white-space:normal;max-width:100%}.workout-item{padding-left:56px}.workout-item>.drag-handle{left:8px}}
+@media(max-width:600px){.layout,.library,.program-page{padding:16px}.template-picker label{flex-basis:100%}.workout-metadata{gap:8px}.template-picker button{white-space:normal;max-width:100%}}
 @media(prefers-reduced-motion:reduce){.workout-item,.workout-muscle-match{transition:none}}
 
 .navigation-status {position:fixed;right:16px;bottom:16px;z-index:1100;margin:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--muted);font-size:.875rem;box-shadow:0 4px 16px #0004;pointer-events:none}
@@ -1499,7 +1472,7 @@ button:disabled {opacity:.5;cursor:default}
   .template-picker button,.add-btn,.library-toolbar .add-btn {min-height:var(--control-compact);padding:6px 12px;font-size:.875rem}
   input[type="text"],input[type="search"],select {min-height:var(--control-compact);padding:5px 10px;font-size:.875rem;line-height:1.4}
   .field,.slider-head,.chips legend {font-size:.8125rem;gap:4px}
-  .action-button,.icon-btn,.toggle-btn,.drag-handle {width:var(--control-compact);height:var(--control-compact);min-height:var(--control-compact);flex-basis:var(--control-compact)}
+  .action-button,.icon-btn,.toggle-btn {width:var(--control-compact);height:var(--control-compact);min-height:var(--control-compact);flex-basis:var(--control-compact)}
   .program-layout {padding:2px}
   .program-layout label {min-height:var(--control-compact)}
   .program-layout span {padding:6px 10px;font-size:.8125rem}
@@ -1576,8 +1549,8 @@ button:disabled {opacity:.5;cursor:default}
   .day-section {container:day / inline-size;min-width:0}
   .day-section h2 {font-size:1rem;margin:0 0 8px}
   .day-section--unscheduled {grid-column:1/-1}
-  .workout-item {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 12px 12px 52px;margin:0 0 8px}
-  .workout-item>.drag-handle {left:10px;top:10px}
+  .workout-item {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px;margin:0 0 8px}
+
   .workout-item h3 {font-family:var(--font-body);font-size:1rem;grid-column:1;min-width:0}
   .workout-metadata {grid-column:1;gap:8px;margin:0;font-size:.8125rem}
   .workout-item .item-actions {grid-column:2;grid-row:1/span 2;align-self:center;gap:6px}

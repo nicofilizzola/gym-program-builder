@@ -1,3 +1,4 @@
+import {mountReorderMenu} from './reorder-menu.js';
 import { mountSortable } from './sortable.js';
 import { actionIcon } from './action-controls.js';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
@@ -54,7 +55,7 @@ let readoutTimer = null;
 
 /** View state for a pointer drag in progress: the pointer, the dragged card, and its index when the drag started. */
 let sortable;
-let moveMenu;
+const moveMenu=mountReorderMenu();
 
 /** View state: whether each exercise is collapsed, in session order. Never part of the session. */
 let collapsed = session.exercises.map(() => true);
@@ -93,9 +94,7 @@ function setFill(slider, from, to) {
 
 const CARD_HTML = `
   <div class="card-head">
-    <button type="button" class="drag-handle" aria-label="Reorder exercise" aria-describedby="reorder-hint">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
-    </button>
+    <button type="button" class="secondary-btn reorder-action" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">Reorder</button>
     <span class="card-index"></span>
     <span class="hit-tag" data-hit-tag></span>
     <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
@@ -282,7 +281,7 @@ function revealWhenOpen(part, field) {
 /** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag and drops a now-stale file message. */
 function renderExercises() {
   sortable?.cancel();
-  moveMenu?.remove();
+  moveMenu.close();
   fileMessage.textContent = '';
   for(const [ex,picker] of exercisePickers)if(!session.exercises.includes(ex)){picker.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);}
   list.replaceChildren(...session.exercises.map((ex, i) => {
@@ -475,7 +474,7 @@ function commitMove(from, to) {
   collapsed = moveExercise(collapsed, from, to);
   renderExercises();
   refresh();
-  list.children[to].querySelector('.drag-handle').focus();
+  list.children[to].querySelector('.reorder-action').focus();
   const name = session.exercises[to].name.trim() || 'exercise';
   orderStatus.textContent = `Moved ${name} to position ${to + 1} of ${session.exercises.length}.`;
 }
@@ -519,7 +518,7 @@ list.addEventListener('click', (event) => {
 });
 
 list.addEventListener('keydown', (event) => {
-  if (!event.target.classList.contains('drag-handle')) return;
+  if (!event.target.classList.contains('reorder-action')) return;
   const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
   if (!step) return;
   event.preventDefault();
@@ -538,7 +537,7 @@ list.addEventListener('pointerdown', raiseThumb);
 list.addEventListener('focusin', raiseThumb);
 
 sortable=mountSortable(list,{
-  itemSelector:'.exercise',reorderSelector:'.drag-handle',getGroups:()=>[{element:list,key:'exercises'}],getKey:card=>card.dataset.index,
+  itemSelector:'.exercise',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'exercises'}],getKey:card=>card.dataset.index,
   onCommit:({key,beforeKey})=>{
     const from=Number(key),others=session.exercises.map((_,i)=>i).filter(i=>i!==from);
     const to=beforeKey===null?others.length:others.indexOf(Number(beforeKey));
@@ -546,20 +545,12 @@ sortable=mountSortable(list,{
   }
 });
 list.addEventListener('click',event=>{
- const handle=event.target.closest('.drag-handle');if(!handle)return;
- const wasOpen=moveMenu?.previousElementSibling===handle;
- moveMenu?.remove();moveMenu=null;if(wasOpen)return;
- const from=indexOf(handle);
- moveMenu=document.createElement('div');moveMenu.className='reorder-menu';moveMenu.setAttribute('aria-label','Move exercise');
- for(const [label,step]of [['Move up',-1],['Move down',1]]){
-  const button=document.createElement('button');button.type='button';button.className='secondary-btn';button.textContent=label;
-  button.disabled=from+step<0||from+step>=session.exercises.length;
-  button.onclick=()=>{moveMenu.remove();moveMenu=null;commitMove(from,from+step);};moveMenu.append(button);
- }
- handle.after(moveMenu);moveMenu.querySelector('button:not(:disabled)')?.focus();
+ const button=event.target.closest('.reorder-action');if(!button)return;
+ const from=indexOf(button);
+ moveMenu.toggle(button,[['Move up',-1],['Move down',1]].map(([label,step])=>({
+  label,disabled:from+step<0||from+step>=session.exercises.length,run:()=>commitMove(from,from+step)
+ })));
 });
-root.addEventListener('keydown',event=>{if(event.key==='Escape'&&moveMenu){const handle=moveMenu.previousElementSibling;moveMenu.remove();moveMenu=null;handle.focus();}});
-root.addEventListener('pointerdown',event=>{if(moveMenu&&!moveMenu.contains(event.target)&&!event.target.closest('.drag-handle')){moveMenu.remove();moveMenu=null;}});
 
 root.querySelector('#add-exercise').addEventListener('click', () => {
   session.exercises.push(createExercise());
@@ -758,7 +749,7 @@ refresh();
 
 const panelLayout=mountPanelLayout(panel);
 return {setWorkout,syncSaved,focusFirstError,destroy(){
-  destroyed=true;durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu?.remove();
+  destroyed=true;durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
