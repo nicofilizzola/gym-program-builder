@@ -23,6 +23,11 @@ test('authenticated HTTP API validates origin, size, drafts, revisions and error
  assert.equal((await call('documents/a','PATCH',{})).status,405);
  assert.equal((await call('documents/a','DELETE',{revision:2})).status,204);
  assert.equal((await call('documents/a')).status,404);
+ const cycle={name:'',mode:'simple',goals:{},workouts:[],sequence:[{type:'rest',id:'r'}]};
+ assert.equal((await call('documents','POST',{id:'cycle',kind:'program',document:cycle})).status,201);
+ assert.deepEqual((await (await call('documents/cycle')).json()).record.document,cycle);
+ assert.equal((await call('documents/cycle','PUT',{revision:1,document:{...cycle,sequence:[{type:'workout',workoutId:'missing'}]}})).status,400);
+ assert.equal((await (await call('documents/cycle')).json()).record.revision,1);
  await call('auth/logout','POST',{});assert.equal((await call('auth/session')).status,401);
  const broken=createApi({repository:{list:()=>{throw Error('SQL secret');}},auth:{session:async()=>true},origin:'http://localhost'});
  const failed=await broken(new Request('http://localhost/api/documents?kind=template'));assert.equal(failed.status,503);assert.equal((await failed.text()).includes('SQL'),false);

@@ -7,6 +7,7 @@ const paths={
  restore:'<path d="M4 10a8 8 0 1 1 1 8M4 4v6h6M12 8v5l3 2"/>',
  move:'<path d="M4 6h12m-4-4 4 4-4 4M20 18H8m4-4-4 4 4 4"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
+ edit:'<path d="m16 3 5 5-12 12-6 1 1-6L16 3ZM13 6l5 5"/>',
  import:'<path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/>',
  export:'<path d="M12 15V3M8 7l4-4 4 4M4 15v5h16v-5"/>',
  duplicate:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>',

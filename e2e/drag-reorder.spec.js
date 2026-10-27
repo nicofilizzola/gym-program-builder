@@ -112,8 +112,8 @@ test('program drag crosses days, Unscheduled and empty groups',async({page})=>{
   expect(await page.evaluate(()=>window.changes.at(-1).workouts.find(w=>w.id==='a').day)).toBe(day==='unscheduled'?null:Number(day));
   await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('9');
  }
- await page.getByRole('radio',{name:'Sequence',exact:true}).check();await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();
- await expect(page.getByLabel('Day for Press')).toHaveValue('0');
+ await page.getByRole('radio',{name:'Sequence',exact:true}).check();await page.getByRole('radio',{name:'Week',exact:true}).check();
+ await expect(page.locator('[data-sort-group="0"] [data-workout="a"]')).toHaveCount(1);
 });
 test('program drag order and day assignments persist after reload',async({page})=>{
  await page.setViewportSize({width:1280,height:1400});await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'New program',exact:true}).click();await expect(page.getByLabel('Program name',{exact:true})).toBeVisible();
@@ -122,7 +122,7 @@ test('program drag order and day assignments persist after reload',async({page})
  await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Saved drag');
  const key=await page.locator('.workout-item').filter({has:page.getByRole('heading',{name:'First',exact:true})}).getAttribute('data-workout');
  await dragWorkout(page,key,page.locator('[data-sort-group="6"]'));await page.mouse.up();await expect(page.getByTestId('save-status')).toHaveText('Saved');await page.reload();
- await expect(page.getByLabel('Day for First',{exact:true})).toHaveValue('6');await page.getByRole('radio',{name:'Sequence',exact:true}).check();
+ await expect(page.locator('[data-sort-group="6"] h3')).toHaveText(['Second','First']);await page.getByRole('radio',{name:'Sequence',exact:true}).check();
  await expect(page.locator('.workout-item h3')).toHaveText(['Second','First','Third']);
 });
 

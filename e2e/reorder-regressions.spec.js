@@ -7,10 +7,15 @@ async function programFixture(page){
   window.programData=program;window.view=mountProgramView(document.querySelector('#fixture'),{program,templates:[],onChange:v=>window.changes.push(v)});
  });await page.evaluate(()=>document.fonts.ready);
 }
-test('existing movement actions retain focus for repeated keyboard movement',async({page})=>{
- await programFixture(page);await page.getByRole('button',{name:'Move down Press',exact:true}).focus();await page.keyboard.press('Space');
- await expect(page.getByRole('button',{name:'Move down Press',exact:true})).toBeFocused();
- await page.keyboard.press('Space');expect(await page.evaluate(()=>window.changes.at(-1).workouts.map(w=>w.name))).toEqual(['Pull','Extra','Press']);
+test('Reorder menu retains focus for repeated keyboard movement',async({page})=>{
+ await programFixture(page);
+ const reorder=page.getByRole('button',{name:'Reorder Press',exact:true});await reorder.focus();
+ for(let i=0;i<2;i++){
+  await page.keyboard.press('Space');
+  await page.getByRole('button',{name:'Move down',exact:true}).focus();await page.keyboard.press('Space');
+  await expect(reorder).toBeFocused();
+ }
+ expect(await page.evaluate(()=>window.changes.at(-1).workouts.map(w=>w.name))).toEqual(['Pull','Extra','Press']);
 });
 test('queued scroll notifications do not dismiss a newly positioned Reorder popup',async({page})=>{
  await programFixture(page);await page.getByRole('button',{name:'Reorder Press',exact:true}).click();

@@ -13,5 +13,5 @@ test('legacy library import and complete program export round trip without ident
  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export program',exact:true}).click();const file=await download;
  const stream=await file.createReadStream();let text='';for await(const chunk of stream)text+=chunk;
  expect(JSON.parse(text)).toEqual({...document,program:{...document.program,workouts:document.program.workouts.map(w=>({...w,extraMinutes:5,bufferPercent:10}))}});
- await page.getByRole('radio',{name:'Monday–Sunday',exact:true}).check();await expect(page.getByLabel('Day for Monday upper')).toHaveValue('0');
+ await page.getByRole('radio',{name:'Week',exact:true}).check();await expect(page.locator('[data-sort-group="0"] h3')).toHaveText('Monday upper');
 });

@@ -42,3 +42,18 @@ test('draft saves relax empty names and primary selections only',()=>{
   w.exercises[0].sets=11;
   assert.ok(validateDocument('template',w,{draft:true}).error);
 });
+
+test('sequence validation retains rest days and rejects broken references in drafts',()=>{
+ const p={...program(),sequence:[{type:'rest',id:'r'},{type:'workout',workoutId:'a'}]};
+ for(const draft of [false,true]){
+  assert.deepEqual(validateDocument('program',p,{draft}).document,{...p,workouts:p.workouts.map(w=>({...w,extraMinutes:5,bufferPercent:10,exercises:w.exercises.map(e=>({...e,restSeconds:120}))}))});
+  for(const sequence of [null,{},[],[{type:'rest',id:'a'}],[{type:'workout',workoutId:'unknown'}],
+   [{type:'rest',id:'r'},{type:'rest',id:'r'},{type:'workout',workoutId:'a'}],
+   [{type:'workout',workoutId:'a'},{type:'workout',workoutId:'a'}],[{type:'other'}]])
+   assert.ok(validateDocument('program',{...p,sequence},{draft}).error,JSON.stringify(sequence));
+ }
+ assert.ok(validateDocument('program',{...p,workouts:[...p.workouts,{...p.workouts[0],id:'b'}],
+  sequence:[{type:'workout',workoutId:'b'},{type:'workout',workoutId:'a'}]}).error);
+ assert.ok(validateDocument('program',{...p,workouts:[],sequence:[{type:'rest',id:'r'}]}).document);
+ for(const mode of ['simple','schedule'])assert.equal(validateDocument('program',{...program(),mode}).document.mode,mode);
+});

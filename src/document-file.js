@@ -13,7 +13,10 @@ export function serializeDocument(kind,value) {
   const {document,error}=validateDocument(kind,value);
   if(error) throw new Error(error);
   const portable=portableExercises(structuredClone(document));
-  if(kind==='program') portable.workouts=portable.workouts.map(({id,...w})=>w);
+  if(kind==='program') {
+    if(portable.sequence)portable.sequence=portable.sequence.map(e=>e.type==='rest'?{type:'rest'}:{type:'workout',workoutIndex:portable.workouts.findIndex(w=>w.id===e.workoutId)});
+    portable.workouts=portable.workouts.map(({id,...w})=>w);
+  }
   return JSON.stringify({version:2,kind,[kind]:portable},null,2);
 }
 export function parseDocument(text,{makeId=()=>crypto.randomUUID()}={}) {
@@ -30,6 +33,17 @@ export function parseDocument(text,{makeId=()=>crypto.randomUUID()}={}) {
   if(!['template','program'].includes(data.kind)) return {error:'Unknown document kind.'};
   const value=portableExercises(structuredClone(data[data.kind]));
   if(data.kind==='program'&&Array.isArray(value?.workouts)) value.workouts=value.workouts.map(w=>w&&typeof w==='object'?{...w,id:makeId()}:w);
+  if(data.kind==='program'&&value&&Object.hasOwn(value,'sequence')) {
+    if(!Array.isArray(value.sequence))return {error:'Invalid program sequence.'};
+    const sequence=[];
+    for(const entry of value.sequence) {
+      if(entry?.type==='rest')sequence.push({type:'rest',id:makeId()});
+      else if(entry?.type==='workout'&&Number.isInteger(entry.workoutIndex)&&entry.workoutIndex>=0&&entry.workoutIndex<value.workouts?.length)
+        sequence.push({type:'workout',workoutId:value.workouts[entry.workoutIndex]?.id});
+      else return {error:'Invalid sequence entry or workout index.'};
+    }
+    value.sequence=sequence;
+  }
   const result=validateDocument(data.kind,value);
   return result.error?result:{kind:data.kind,document:result.document};
 }
