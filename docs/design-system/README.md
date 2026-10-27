@@ -11,6 +11,16 @@ When you change a value, change it in `style.css` first and then update this fil
 - **Colour never stands alone.** Every body map colour is paired with the heat legend and the volume list's numbers (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with the `volume / goal` value, the met checkmark and the hidden status word, and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
 
+## Feature design and review checklist
+
+Use this checklist while designing, implementing and reviewing every UI change. Record decisions in the feature's existing spec/plan or short design note; a separate document is unnecessary. This is guidance for future changes, not a claim that every existing component already meets it.
+
+- **Fit the existing screen.** Identify the nearest existing component and reuse its layout, spacing, typography and controls. Put related fields on aligned rows when space allows. Use disclosures for secondary settings. Avoid introducing a new card, heading or vertical section when an existing row or toolbar can hold the control. Let content wrap at narrow widths and enlarged text.
+- **Choose icons with purpose.** Familiar repeated actions such as rename, archive, replace and remove should use the existing inline action-button pattern: currentColor SVG, accessible action-and-target name, shared hover/focus tooltip, and a direct action strip. Keep text on primary or unclear actions and preserve specifically required text buttons (including Import, Export and Reorder). Tooltips supplement an accessible name; they never replace it. Preserve the established 32px fine-pointer desktop / 44px touch and hybrid targets, and 44px slider hit boxes.
+- **Describe both states and the transition.** For every changed interaction, note the trigger, open/closed states, animated properties, duration/easing, reduced-motion fallback and focus destination. Choose the nearest existing motion pattern below. Explain any intentionally immediate reveal or dismissal. Live values, typing and save acknowledgements must remain immediate; decorative delays are inappropriate.
+- **Inspect populated layouts.** Use the project's required desktop sizes (1366×768, 1440×900, 1920×1080), relevant mobile/tablet widths, 200% text and touch/hybrid input. Check long names, errors, wrapped action strips, visible focus rings, body figures and reachable content. Review useful density alongside readability and target sizes.
+- **Play the interaction.** In a real browser, verify opening and closing, rapid toggles/reversal, Escape/outside dismissal where supported, keyboard focus and reduced motion. Check that neighbors move smoothly during disclosures and closing content cannot receive focus. Capture screenshots for layout evidence; verify motion through interaction. Report checks actually performed and any gaps in the completion note.
+
 ## Colour tokens
 
 | Token | Value | Use |
@@ -199,7 +209,10 @@ Hover is a preview only; everything is also reachable by click/tap and keyboard 
 ## Motion
 
 - 150ms for colour/border changes on controls, 200–250ms for body map fills, bars and card highlights, `ease` timing; 200ms `ease-out` for card collapse/expand.
-- Only colour, opacity, width of bars, card collapse (grid row and padding) and a tiny press scale are animated.
+- New user-triggered disclosures reuse the existing 200ms `ease-out` grid-row/opacity pattern, with a matching chevron rotation. Animate both expansion and collapse so neighboring content moves smoothly. New overlays reuse the nearest existing tooltip/popover/dialog pattern; where none fits, default to a restrained 150ms `ease-out` opacity transition, with at most the existing 4px slide. Preserve feature-specific behavior and document intentional instant changes.
+- Animate only the properties the interaction needs: colour/border, opacity, bar width, disclosure grid row/padding, or a restrained transform. Never use `transition: all`. Do not introduce decorative entrance sequences or animation libraries.
+- Keep the same nodes alive through exit transitions and rapid reversals where practical; apply final hidden/removal state only after closing finishes. Closing/closed content must be noninteractive and hidden from assistive technology immediately, with focus moved to a logical visible control first. Cancel obsolete completion handlers so repeated toggles cannot hide reopened content. Reduced motion must reach the same final state without waiting for a transition event.
+- Initial rendering, imports and routine refreshes show their final state without entrance motion unless a feature explicitly requires otherwise. Typing, slider readouts and same-subject data updates remain immediate. Preserve focus indicators without a delayed reveal.
 - `prefers-reduced-motion: reduce` turns all transitions off.
 
 ## Accessibility checklist

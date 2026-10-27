@@ -1,5 +1,15 @@
 # Gym Program Builder
 
+## UI workflow: compact layout and deliberate motion
+
+For every feature that adds or changes UI, read [the design system](docs/design-system/README.md), including its **Feature design and review checklist**, before designing or implementing. These are acceptance criteria from the start, not optional polish after the feature works. Existing feature-specific requirements still apply.
+
+- **Design for density first.** In the design/spec and implementation plan (or the task's short design note), identify the existing layout and controls to reuse, where new controls fit, and which details belong behind a disclosure. Prefer aligned inline fields, compact toolbars and direct action strips over extra cards, stacked sections, repeated labels or full-width secondary buttons. Preserve readable content, body-map prominence and touch targets.
+- **Choose action presentation deliberately.** Default familiar, repeated row/card actions to existing icon buttons with accessible action-and-target names and shared hover/focus tooltips. Keep visible text for primary, unfamiliar or ambiguous actions and wherever existing requirements mandate it. Do not hide a small action strip in a menu merely to save space. Follow the design system's pointer-aware 32px/44px sizing.
+- **Specify interaction transitions.** For each new disclosure, popover/dialog, conditional region or other visible state change, state its entry/exit or expand/collapse behavior, properties, duration/easing and reduced-motion behavior. Reuse the nearest established pattern. User-triggered reveals and removals should transition smoothly in both directions; any instant behavior needs a concrete usability reason in the design note. Keep typing, slider values and data updates immediate; do not animate initial rendering or routine refreshes just to add motion.
+- **Implement the complete interaction.** Preserve closing motion before hiding/removing nodes, support rapid reversal without stale callbacks, and keep focus, inert/hidden state and ARIA correct throughout. Avoid blanket `transition: all`, artificial delays and new animation dependencies.
+- **Review behavior as well as screenshots.** Exercise the changed interactions in a real browser with populated data: open/close, expand/collapse, rapid toggles, keyboard/focus, touch and reduced motion. Inspect density at the viewport/text/input settings below. Fix abrupt transitions, excessive spacing and avoidable stacking before declaring completion. Report what was inspected and any verification gaps; screenshots alone cannot verify motion.
+
 ## Workout duration (2026-10-26)
 
 Design: docs/superpowers/specs/2026-10-25-workout-duration-design.md; plan: docs/superpowers/plans/2026-10-25-workout-duration.md.
