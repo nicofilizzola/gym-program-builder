@@ -248,6 +248,9 @@ input:focus-visible {
 .card-name {min-width:0;overflow-wrap:anywhere}
 .card-controls {display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
 .card-controls .toggle-btn {margin-left:0}
+@media (max-width:760px) {
+  .card-identity {flex-basis:100%}
+}
 
 .card-index {
   font-family: var(--font-display);
@@ -255,7 +258,7 @@ input:focus-visible {
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
   flex: 0 0 auto;
-  min-width: 2ch;
+  min-width: 1rem;
   color: var(--muted);
 }
 
@@ -372,6 +375,7 @@ svg {
 .collapsible > .card-summary {
   padding-top: 4px;
   padding-bottom: 0;
+  padding-left: 28px;
 }
 
 .collapsible.is-closed > * {

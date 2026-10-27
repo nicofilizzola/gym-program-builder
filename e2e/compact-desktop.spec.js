@@ -2,6 +2,47 @@ import {test,expect} from '@playwright/test';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 
 const sizes=[{width:1366,height:768},{width:1440,height:900},{width:1920,height:1080}];
+
+for(const kind of ['template','program'])test('name-led collapsed and mixed cards wrap accessibly in '+kind,async({browser})=>{
+ test.setTimeout(90000);
+ const dir='.superpowers/compact-headings';await mkdir(dir,{recursive:true});
+ const cases=[...sizes,{width:390,height:844},{width:768,height:1024},{width:1366,height:768,hasTouch:true},{width:1366,height:768,enlarged:true},{width:390,height:844,enlarged:true}];
+ for(const size of cases){
+  const context=await browser.newContext({viewport:{width:size.width,height:size.height},hasTouch:!!size.hasTouch,reducedMotion:'reduce'}),page=await context.newPage();
+  try{
+   await fixture(page);
+   await page.evaluate(async({kind,enlarged})=>{
+    window.fixtureView.destroy();
+    const root=document.querySelector('#app');
+    const names=['Bench press','Bench press','Long named barbell bench press with a deliberate pause and controlled eccentric','Unbroken'.repeat(20),'',...Array.from({length:7},(_,i)=>'Exercise variant '+i)];
+    const workout={name:'Compact outline',goals:{},exercises:names.map(name=>({name,sets:3,repRange:{min:8,max:12},restSeconds:180,primaryMuscles:['Chest'],secondaryMuscles:['Triceps']}))};
+    if(kind==='template'){
+     const {mountSessionEditor}=await import('/src/session-editor.js');window.fixtureView=mountSessionEditor(root,{workout});
+    }else{
+     const {mountProgramView}=await import('/src/program-view.js');window.fixtureView=mountProgramView(root,{templates:[],program:{name:'Outline program',mode:'simple',goals:{},workouts:[{...workout,id:'outline',day:null}]}});
+    }
+    if(enlarged)document.documentElement.style.fontSize='200%';
+   },{kind,enlarged:size.enlarged});
+   if(kind==='program')await page.getByRole('button',{name:'Edit Compact outline',exact:true}).click();
+   const cards=page.locator('.exercise');await expect(cards).toHaveCount(12);
+   await expect(cards.nth(4).locator('[data-fix-tag]')).toBeVisible();
+   await page.locator('.volume-row[data-muscle="Chest"]').click();
+   await expect(cards.first().locator('[data-hit-tag]')).toHaveText('primary · Chest');
+   await noOverflow(page);
+   const minimum=size.width>=1100&&!size.hasTouch?32:44;
+   for(const box of await cards.first().locator('.card-controls button').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};}))){expect(box.width).toBeGreaterThanOrEqual(minimum);expect(box.height).toBeGreaterThanOrEqual(minimum);}
+   const nameBox=await cards.nth(3).locator('.card-name').boundingBox(),cardBox=await cards.nth(3).boundingBox();expect(nameBox.x+nameBox.width).toBeLessThanOrEqual(cardBox.x+cardBox.width);
+   const suffix=kind+'-'+size.width+(size.hasTouch?'-touch':'')+(size.enlarged?'-text200':'');
+   await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:dir+'/'+suffix+'-collapsed.png',fullPage:true});
+   await cards.first().getByRole('button',{name:'Expand exercise',exact:true}).click();
+   await expect(cards.first().getByLabel('Exercise name',{exact:true})).toBeVisible();
+   const slider=await cards.first().getByRole('slider',{name:'Sets',exact:true}).boundingBox();expect(slider.height).toBeGreaterThanOrEqual(44);
+   await noOverflow(page);
+   if(size.width>=1100)for(const figure of await page.locator('#body-map svg').all())expect((await figure.boundingBox()).height).toBeGreaterThanOrEqual(180);
+   await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:dir+'/'+suffix+'-mixed.png',fullPage:true});
+  }finally{await context.close();}
+ }
+});
 async function fixture(page,kind='session') {
   await page.goto('/');
   await page.waitForFunction(()=>!document.querySelector('#shell').hidden||document.querySelector('input[name="password"]'));
