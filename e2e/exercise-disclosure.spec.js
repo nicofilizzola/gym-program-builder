@@ -55,7 +55,9 @@ test('populated disclosure layouts preserve names targets and body figures',asyn
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
  await page.screenshot({path:testInfo.outputPath('text-200.png'),fullPage:true});
  const context=await browser.newContext({hasTouch:true,viewport:{width:1440,height:900}}),hybrid=await context.newPage();
- await savedEditor(hybrid,'template');expect((await hybrid.locator('[data-action=toggle]').first().boundingBox()).width).toBeGreaterThanOrEqual(44);await context.close();
+ await savedEditor(hybrid,'template');expect((await hybrid.locator('[data-action=toggle]').first().boundingBox()).width).toBeGreaterThanOrEqual(44);
+ const alignment=await hybrid.locator('.exercise').first().evaluate(card=>{const x=selector=>{const range=document.createRange();range.selectNodeContents(card.querySelector(selector));return range.getBoundingClientRect().x;};return {name:x('.card-name'),summary:x('.card-summary')};});
+ expect(alignment.summary).toBeCloseTo(alignment.name,0);await context.close();
 });
 
 test('narrow tablet headings keep room beside muscle tags and hover preserves highlights',async({page})=>{

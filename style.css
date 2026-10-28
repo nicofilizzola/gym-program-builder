@@ -1510,6 +1510,7 @@ button:disabled {opacity:.5;cursor:default}
   input[type="text"],input[type="search"],select {min-height:var(--control-compact);padding:5px 10px;font-size:.875rem;line-height:1.4}
   .field,.slider-head,.chips legend {font-size:.8125rem;gap:4px}
   .action-button,.icon-btn,.toggle-btn {width:var(--control-compact);height:var(--control-compact);min-height:var(--control-compact);flex-basis:var(--control-compact)}
+  .collapsible > .card-summary {padding-left:68px}
   .program-layout {padding:2px}
   .program-layout label {min-height:var(--control-compact)}
   .program-layout span {padding:6px 10px;font-size:.8125rem}
@@ -1531,7 +1532,6 @@ button:disabled {opacity:.5;cursor:default}
 @media (min-width:1100px) {
   .exercise {container-type:inline-size;padding:var(--card-padding)}
   .card-head {gap:8px}
-  .collapsible > .card-summary {padding-left:68px}
   .card-body.exercise-fields {display:grid;gap:var(--field-gap)}
   .exercise-fields>*+*,.exercise-main-fields>*+*,.exercise-muscle-fields>* {margin-top:0}
   .exercise-main-fields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--field-gap);align-items:start}

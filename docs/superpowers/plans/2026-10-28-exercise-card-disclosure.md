@@ -1,6 +1,6 @@
 # Exercise Card Disclosure Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for native execution, or superpowers:subagent-driven-development if the user selects delegation. Steps use checkbox (`- [ ]`) syntax. Implementation is a separate phase from this planning request.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for native execution, or superpowers:subagent-driven-development if the user selects delegation. Steps use checkbox (`- [x]`) syntax. Implementation is a separate phase from this planning request.
 
 **Goal:** Make collapsed exercises open on a normal card click or tap while retaining whole-card dragging and an explicit, nearby collapse button in both workout editors.
 
@@ -88,13 +88,26 @@
 
 **Interfaces:** Consume the unchanged `mountSessionEditor` integration in the template and program workout routes. Reuse the actual route and authenticated fixture setup from existing e2e tests; do not add a second editor implementation or new testing dependency.
 
-- [ ] **Step 1: Add route-level parity tests.** For a populated saved template and a program workout, open via card name, close via nearby chevron, drag the collapsed exercise and verify it remains collapsed at its new position. Open two cards and confirm independence. Verify normal editing still autosaves while disclosure alone sends no document mutation; navigate away/back and verify saved data is unchanged and loaded exercises start collapsed.
-- [ ] **Step 2: Run `npx playwright test e2e/exercise-disclosure.spec.js`.** Expect both route cases to pass; fix integration failures before continuing.
-- [ ] **Step 3: Inspect populated screens in a real browser.** Cover 1366×768, 1440×900, 1920×1080, phone 390px and tablet 768px; include 200% text and a hybrid touch context. Use mixed open/closed cards, long names, errors, muscle highlight tags and linked/custom exercises. Check overflow, control grouping, density, body figures >=180px on desktop and reachable content. Save screenshots as review artifacts without committing temporary fixture data.
-- [ ] **Step 4: Play the interactions with normal and reduced motion.** Exercise tap/click, actual mouse and touch dragging, swipe scrolling, rapid reversal, bulk controls, keyboard/focus, Reorder menu, tooltip state and invalid-export focus. Observe intermediate motion and moving neighbors, not just final screenshots. Confirm no initial animation and no abrupt removal of closing content. Record checked contexts and any gaps in the implementation handoff.
-- [ ] **Step 5: Run `npm test`, `npm run test:e2e`, `npm run build`.** Require all commands to exit successfully; report actual evidence and any environment blockers rather than claiming unrun checks passed. No deployment or database operation is implied.
-- [ ] **Step 6: Review the final diff against every confirmed design bullet and global constraint.** Check shared-sorter changes against program overview dragging if any were needed. Commit parity coverage and justified fixes with `test: verify exercise disclosure across workout editors`.
+- [x] **Step 1: Add route-level parity tests.** For a populated saved template and a program workout, open via card name, close via nearby chevron, drag the collapsed exercise and verify it remains collapsed at its new position. Open two cards and confirm independence. Verify normal editing still autosaves while disclosure alone sends no document mutation; navigate away/back and verify saved data is unchanged and loaded exercises start collapsed.
+- [x] **Step 2: Run `npx playwright test e2e/exercise-disclosure.spec.js`.** Expect both route cases to pass; fix integration failures before continuing.
+- [x] **Step 3: Inspect populated screens in a real browser.** Cover 1366×768, 1440×900, 1920×1080, phone 390px and tablet 768px; include 200% text and a hybrid touch context. Use mixed open/closed cards, long names, errors, muscle highlight tags and linked/custom exercises. Check overflow, control grouping, density, body figures >=180px on desktop and reachable content. Save screenshots as review artifacts without committing temporary fixture data.
+- [x] **Step 4: Play the interactions with normal and reduced motion.** Exercise tap/click, actual mouse and touch dragging, swipe scrolling, rapid reversal, bulk controls, keyboard/focus, Reorder menu, tooltip state and invalid-export focus. Observe intermediate motion and moving neighbors, not just final screenshots. Confirm no initial animation and no abrupt removal of closing content. Record checked contexts and any gaps in the implementation handoff.
+- [x] **Step 5: Run `npm test`, `npm run test:e2e`, `npm run build`.** Require all commands to exit successfully; report actual evidence and any environment blockers rather than claiming unrun checks passed. No deployment or database operation is implied.
+- [x] **Step 6: Review the final diff against every confirmed design bullet and global constraint.** Check shared-sorter changes against program overview dragging if any were needed. Commit parity coverage and justified fixes with `test: verify exercise disclosure across workout editors`.
 
 ## Planning review
 
 This plan covers the approved click-to-expand behavior, explicit nearby collapse, both editor contexts, preserved drag gestures, motion, accessibility and required verification. It makes no implementation or browser-verification claim. The first task deliberately tests native input because source inspection alone cannot establish how pointer capture and synthetic touch clicks behave.
+
+
+## Implementation verification (2026-10-28)
+
+- Implemented in `feat/exercise-card-disclosure`, shared by templates and program workout editors.
+- `npm.cmd test`: 148 passed. `npm.cmd run test:e2e`: 186 passed. Final editor/layout checks after the hybrid alignment correction: 9 passed. `npm.cmd run build`: passed.
+- The first full browser run had one timeout in `stale clone variant drafts refresh their reference without losing fields`; it passed isolated and in the repeated full suite without a catalog code change. No evidence connects that intermittent timeout to this change.
+- Inspected populated Chromium layouts at 1366?768, 1440?900, 1920?1080, 390px phone and 768px tablet, plus 200% text and hybrid targets. Included linked/custom exercises, long names, muscle tags and a collapsed invalid exercise.
+- Exercised native mouse, emulated pen/touch, touch scroll/hold/drag, cancellation, nested control clicks, keyboard/focus, Reorder, export-error focus, rapid disclosure reversal and reduced motion. A real-browser motion probe measured intermediate heights/opacity in both directions, moving neighbors, immediate inert state on closing and no initial animation.
+- Independent review: no Critical/Important findings. Corrected its minor hybrid alignment finding: name/summary x positions changed from 116/104 to 116/116, with a persistent hybrid regression assertion. No deferred findings.
+- Verification gaps: physical devices, manual screen-reader use and non-Chromium browsers were not tested.
+
+Execution decisions: use equivalent Windows `.cmd` launchers because PowerShell blocks `.ps1` launchers (no product effect); add optional scoped tooltip ownership to avoid overlapping picker controllers (existing caller defaults retained, catalog checks passed); overlap read-only final review with repeated full verification (both completed before handoff); correct the minor hybrid offset within this feature's alignment acceptance criteria (final layout checks passed).
