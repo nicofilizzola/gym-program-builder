@@ -8,6 +8,39 @@ Only `index.html`, `style.css` and `src/*.js` are public. Do not deploy the proj
 
 ## Environment setup
 
+### OpenRouter session analysis
+
+The AI feature is optional. Without `OPENROUTER_API_KEY`, normal editing/storage works and Analyze explains that analysis is not configured. No LiteLLM service, new database migration, catalog seed or browser API key is needed.
+
+Before the first live test:
+
+1. Create an [OpenRouter account](https://openrouter.ai/) and add a small prepaid balance. Leave automatic credit top-up disabled initially.
+2. In [API keys](https://openrouter.ai/settings/keys), create separate development, preview and production keys. Suggested initial **nonresetting** caps: **$2 development, $1 preview, $5 production**. These are spending limits, not subscriptions; confirm each environment has the intended key/cap. Do not use a management key in the app.
+3. In this feature worktree's ignored `.env.local`, keep your existing database/auth settings and add:
+
+   ```dotenv
+   OPENROUTER_API_KEY=<development key>
+   OPENROUTER_MODEL=anthropic/claude-sonnet-4.6
+   ```
+
+   Copy existing local configuration privately if using a separate worktree. Never paste keys into chat or commit env files. Restart `npm start` after changing local env. On Windows use `npm.cmd` if PowerShell blocks the npm script wrapper.
+4. Add the matching variables in Vercel Project Settings → Environment Variables separately for Preview and Production, then redeploy that environment. Never let Preview inherit the Production key. Keep `APP_ORIGIN` matched to the actual preview URL. The configured function duration is 75 seconds; confirm the hosting plan supports it. The service itself aborts at 60 seconds.
+5. Confirm access to the model and the `anthropic` provider, review the account/provider data policies, and verify model pricing before spending. Requests allow only that provider with no fallback, disable extended reasoning and cap output at 1500 tokens. The server never automatically retries paid requests. Provider cancellation billing varies; Stop aborts the connection but does not promise zero further charges.
+
+Run one explicit, paid fixture evaluation at a time from the feature worktree:
+
+```powershell
+node --env-file-if-exists=.env.local scripts/evaluate-analysis.js --live --fixture focused-push
+```
+
+Without `--live` or with an unknown fixture this command prints usage and exits before requesting anything. It outputs only nonprivate fixture results, prompt/model version and usage when reported; redirect into a local ignored `.superpowers/` artifact if desired. Review every fixture listed by the usage command against the spec's rubric before prompt acceptance: actual exercise evidence, correct numbers, useful prioritized adjustments, no fabricated context/weekly verdicts, and resistance to instructions in exercise names. Budget limits are enforced by OpenRouter keys across instances; there is no pretend global in-memory quota.
+
+Then smoke-test locally and on Preview: first text arrives before completion; Stop/navigation disconnect aborts upstream; provider/credit errors are readable; OpenRouter Activity shows the intended model/provider and charge. Only enable Production after preview review. Automated tests use fake streams and never spend credits.
+
+At published $3/M input and $15/M output, an example 4000 input + 1500 output tokens costs ~$0.0345. This is an estimate, not a hard request cap; recheck [model pricing](https://openrouter.ai/anthropic/claude-sonnet-4.6/pricing). Input is bounded at 40 exercises/64 KiB and output at 1500 tokens/64 KiB. Key caps are the overall spending control. References: [provider routing](https://openrouter.ai/docs/guides/routing/provider-selection), [streaming/cancellation](https://github.com/OpenRouterTeam/docs/blob/main/api_reference/streaming.mdx), [key limits](https://github.com/OpenRouterTeam/docs/blob/main/api_reference/limits.mdx).
+
+To disable AI, remove its key and restart/redeploy; normal template editing remains available. If a key is exposed, revoke it in OpenRouter, create a replacement with the intended cap, update the affected server environment and redeploy.
+
 Create separate Turso databases for preview and production, near the Vercel function region. Configure these variables separately in each Vercel environment:
 
 | Variable | Value |
