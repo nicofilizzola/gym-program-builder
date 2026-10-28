@@ -13,3 +13,13 @@ test('analysis API enforces capability, auth, methods, origin, size and sanitiza
  assert.equal((await disabled(new Request(origin+'/api/analysis',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({workout:workedSession})}))).status,503);
  assert.equal((await disabled(new Request(origin+'/api/documents'))).status,200);
 });
+test('analysis rejects invalid goal types and null exercises without invoking provider',async()=>{
+ let calls=0;const api=createApi({origin,auth:{session:async()=>true},analysis:{enabled:true,analyze:()=>{calls++;return new Response('bad');}}});
+ for(const workout of [{...workedSession,goals:{Chest:'4'}},{...workedSession,goals:{Chest:true}},{...workedSession,exercises:[null]}]){
+  const response=await api(new Request(origin+'/api/analysis',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({workout})}));assert.equal(response.status,400);assert.equal((await response.json()).error.code,'INVALID');
+ }assert.equal(calls,0);
+});
+test('analysis API returns invalid input rather than provider failure for null exercise',async()=>{
+ const api=createApi({origin,auth:{session:async()=>true},analysis:{enabled:true,analyze:()=>assert.fail('must not spend')}});
+ const response=await api(new Request(origin+'/api/analysis',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({workout:{...workedSession,exercises:[null]}})}));assert.equal(response.status,400);assert.equal((await response.json()).error.code,'INVALID');
+});

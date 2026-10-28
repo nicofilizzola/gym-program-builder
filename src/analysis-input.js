@@ -11,10 +11,11 @@ export function prepareAnalysisSnapshot(workout) {
  if(!workout.exercises.length)fail('Add an exercise before analyzing.');
  if(workout.exercises.length>40)fail('Analyze at most 40 exercises at a time.');
  if(typeof workout.name!=='string'||[...workout.name].length>200)fail('Session name must be at most 200 characters.');
+ workout.exercises.forEach((ex,i)=>{if(!object(ex))fail(`Exercise ${i+1}: Invalid exercise.`,{exerciseIndex:i,field:'name'});});
  const value=normalizeWorkoutTiming(workout);
  for(const key of ['extraMinutes','bufferPercent'])if(timingError(value[key],key))fail(timingError(value[key],key));
  if(!object(value.goals))fail('Invalid session goals.');
- const goals={};for(const m of Object.keys(value.goals))if(!MUSCLE_GROUPS.includes(m)||validateGoal(value.goals[m]))fail('Invalid session goal.');
+ const goals={};for(const m of Object.keys(value.goals))if(!MUSCLE_GROUPS.includes(m)||typeof value.goals[m]!=='number'||validateGoal(value.goals[m]))fail('Invalid session goal.');
  for(const m of MUSCLE_GROUPS)if(Object.hasOwn(value.goals,m))goals[m]=value.goals[m];
  const exercises=value.exercises.map((ex,i)=>{
   const bad=(message,field)=>fail(`Exercise ${i+1}: ${message}`,{exerciseIndex:i,field});

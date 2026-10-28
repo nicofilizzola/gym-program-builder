@@ -6,7 +6,7 @@ import {invalidateCatalog} from './catalog-store.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 export function mountCatalog(root,{api}){
  root.innerHTML='<section class="catalog-page"><header class="catalog-header"><div><h1>Exercise catalog</h1><p class="catalog-intro">Reference exercises and their variants.</p></div><button class="add-btn" data-new>New reference exercise</button></header><div class="catalog-toolbar"><label class="field">Search catalog<input type="search" autocomplete="off" data-search></label><label class="field">Equipment<select data-equipment aria-label="Equipment"><option value="">All equipment</option></select></label><label class="catalog-archived"><input type="checkbox" data-archived>Show archived</label></div><p class="error" role="alert" data-error></p><button class="secondary-btn" data-retry hidden>Retry</button><p data-count role="status"></p><div class="catalog-list"></div></section>';
- let data={entries:[],families:[]},disposed=false,form,retryAction,generation=0,filterKey='',searchExpanded=new Set();
+ let data={entries:[],families:[]},disposed=false,form,retryAction,generation=0,filterKey='',searchExpanded=new Set(),searchSeen=new Set();
  const expanded=new Set(),list=root.querySelector('.catalog-list'),error=root.querySelector('[data-error]'),retry=root.querySelector('[data-retry]'),search=root.querySelector('[data-search]'),equipment=root.querySelector('[data-equipment]'),archived=root.querySelector('[data-archived]');
  const tooltips=mountActionTooltips(root);
  for(const e of EQUIPMENT)equipment.add(new Option(e,e));
@@ -60,7 +60,12 @@ export function mountCatalog(root,{api}){
  function render(){
   tooltips.hide();list.replaceChildren();const filtering=Boolean(search.value.trim()||equipment.value),nextKey=search.value+'\0'+equipment.value;
   const groups=groupCatalog(data,search.value,{equipment:equipment.value,showArchived:archived.checked});
-  if(filtering&&filterKey!==nextKey)searchExpanded=new Set(groups.map(g=>g.reference.id));
+  if(filtering){
+   if(filterKey!==nextKey){searchExpanded=new Set();searchSeen=new Set();}
+   // A filter can be entered before load finishes. Expand newly arriving matches,
+   // while retaining deliberate toggles for groups already shown by this search.
+   for(const group of groups)if(!searchSeen.has(group.reference.id)){searchSeen.add(group.reference.id);searchExpanded.add(group.reference.id);}
+  }else searchSeen.clear();
   filterKey=filtering?nextKey:'';
   const variantCount=flattenVariantOptions(groups).length;
   root.querySelector('[data-count]').textContent=groups.length+' reference exercise'+(groups.length===1?'':'s')+' \u00b7 '+variantCount+' variant'+(variantCount===1?'':'s');

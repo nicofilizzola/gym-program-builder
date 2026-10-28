@@ -22,3 +22,20 @@ Implementation branch: `feat/session-analysis`, isolated `.worktrees/session-ana
 - Automated accessibility checks cover focus and ARIA behavior; no screen-reader software or physical touch device was used. Touch/hybrid is Chromium emulation.
 
 See `docs/deployment.md` → OpenRouter session analysis for the user-owned configuration steps. Future goal-aware coaching and contextual/program analysis remain out of scope.
+
+## Independent review and fixes
+
+One independent read-only reviewer assessed the complete implementation. Six findings were reproduced with failing regression tests, then fixed: Escape now respects other modal/inner interactions; generation controls transfer focus before hiding; enabled Analyze has no disabled-state description; goals require actual numbers; malformed exercises produce indexed INVALID errors before timing normalization; repeated mobile reopening starts its entry transition again. The four new browser regressions and numeric/null API tests pass. No review findings were deferred. Reviewer declined live provider/prompt/billing/preview judgments because those external release gates are still pending.
+
+The first complete browser run reported **195 passed / 1 failed**. The failure, `move collisions preserve the destination and lost move responses retry once`, reproduced in isolation. Investigation found a pre-existing catalog race: entering a filter before initial data arrived recorded an empty expansion set; later matches stayed inert/collapsed. A deterministic delayed-load regression failed before the fix. Newly arriving matching groups now expand, while deliberate collapse of previously seen groups remains intact. Both the new regression and the original failing test then passed. The final full suite after all fixes passed **201/201** in 5.5 minutes.
+
+Implementation decisions: use the current lowercase `anthropic` provider slug, an optional internal usage callback for the evaluation CLI, and `npm.cmd` on this Windows host. These preserve the intended routing/usage/tool behavior; adapter/CLI tests cover their boundaries. The null-input and mobile-motion findings were treated as required fixes despite the reviewer's lower severity because useful input errors and deliberate motion are acceptance criteria. The catalog fix slightly broadens scope to preserve reliable existing behavior, with its own regression coverage. External live gates remain pending rather than waived.
+
+## Final offline verification
+
+- `npm.cmd test`: **171 passed, 0 failed**.
+- `npm.cmd run test:e2e -- --reporter=line`: **201 passed, 0 failed**.
+- `npm.cmd run build`: passed. Public output contains only index.html, style.css and browser src JavaScript; no server source, database or env files.
+- `git diff --check`: passed (Git emits normal Windows LF/CRLF conversion notices).
+- All six independent-review findings were reproduced RED then verified GREEN. No deferred minors. The additional catalog-loading fix was likewise reproduced RED then verified GREEN, and its original move-collision test passed in the full final suite.
+- No live LLM request, preview deployment, production deployment, production migration or seed was performed. This is reviewed code with passing offline verification; model-quality and live-hosting release acceptance remain pending.

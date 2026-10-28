@@ -27,13 +27,14 @@ export function mountAnalysisPanel({anchor,getWorkout,onValidationError=()=>{},r
   anchor.querySelector('[data-analysis-label]').textContent=busy?'Analyzing':state.phase==='idle'?'Analyze':'View analysis';anchor.classList.toggle('is-analyzing',busy);
   const messages={idle:'',connecting:'Preparing analysis',streaming:'Analyzing session',complete:'Analysis complete',stopped:'Stopped · Partial report is incomplete',error:state.error?.message||'Analysis interrupted'};
   if(state.phase!==lastPhase||state.phase==='error')status.textContent=messages[state.phase];lastPhase=state.phase;
-  status.classList.toggle('is-working',busy);snapshot.textContent=state.snapshotName;stale.hidden=!state.stale;report.setAttribute('aria-busy',String(busy));stop.hidden=!busy;run.hidden=busy;run.textContent=state.phase==='error'?'Retry':'Analyze again';
+  status.classList.toggle('is-working',busy);snapshot.textContent=state.snapshotName;stale.hidden=!state.stale;report.setAttribute('aria-busy',String(busy));run.textContent=state.phase==='error'?'Retry':'Analyze again';
+  const replacement=busy?stop:run,retiring=busy?run:stop;replacement.hidden=false;if(document.activeElement===retiring)replacement.focus({preventScroll:true});retiring.hidden=true;
   if(state.text!==lastText&&raf===null)raf=requestAnimationFrame(paint);
   if(state.phase==='error'&&state.error?.code==='INVALID'){close();onValidationError(state.error);}
  }
  const controller=createAnalysisController({getWorkout,request,onState:update});latest=controller.getState();update(latest);
  function visible(){return host===desktop?desktop.matches(':popover-open'):dialog.open;}
- function finishClose(){clearTimeout(closeTimer);closeTimer=null;if(opened)return;if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();closing=false;}
+ function finishClose(){clearTimeout(closeTimer);closeTimer=null;if(opened)return;if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();desktop.classList.remove('is-open');dialog.classList.remove('is-open');closing=false;}
  function close(){if(!opened&&!closing)return;opened=false;closing=true;anchor.setAttribute('aria-expanded','false');
   // Release a modal's focus containment before restoring focus, but keep it painted for exit.
   if(dialog.open){dialog.close();desktop.append(content);host=desktop;desktop.classList.add('is-mobile-exit','is-open');desktop.showPopover();desktop.getBoundingClientRect();}
@@ -45,7 +46,7 @@ export function mountAnalysisPanel({anchor,getWorkout,onValidationError=()=>{},r
   const target=mobile.matches?dialog:desktop;
   if(host!==target){if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();target.append(content);host=target;}
   host.inert=false;host.removeAttribute('aria-hidden');anchor.setAttribute('aria-controls',host.id);anchor.setAttribute('aria-expanded','true');
-  if(!visible()){if(host===dialog)dialog.showModal();else desktop.showPopover();}
+  if(!visible()){host.classList.remove('is-open');if(host===dialog)dialog.showModal();else desktop.showPopover();}
   position();host.getBoundingClientRect();host.classList.add('is-open');title.focus({preventScroll:true});
   if(controller.getState().phase==='idle')controller.start();else paint();
  }
@@ -53,13 +54,13 @@ export function mountAnalysisPanel({anchor,getWorkout,onValidationError=()=>{},r
   if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();host.classList.remove('is-open');target.append(content);host=target;host.inert=false;host.removeAttribute('aria-hidden');anchor.setAttribute('aria-controls',host.id);if(host===dialog)dialog.showModal();else desktop.showPopover();host.classList.add('is-open');scroll.scrollTop=oldScroll;position();if(content.contains(active))active.focus({preventScroll:true});else if(host===dialog)title.focus({preventScroll:true});
  }
  function onAnchor(){if(opened)close();else open();}
- function onKey(event){if(event.key==='Escape'&&opened){event.preventDefault();event.stopPropagation();close();}}
+ function onKey(event){if(event.key!=='Escape'||!opened||event.defaultPrevented)return;const otherModal=[...document.querySelectorAll('dialog[open]')].some(node=>node!==dialog);if(otherModal)return;event.preventDefault();close();}
  function onScroll(){follow=scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop<=48;setJump();}
  function onWindowScroll(event){if(!content.contains(event.target))position();}
- anchor.addEventListener('click',onAnchor);closeButton.addEventListener('click',close);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.addEventListener('keydown',onKey,true);mobile.addEventListener('change',adapt);window.addEventListener('resize',position);window.addEventListener('scroll',onWindowScroll,true);scroll.addEventListener('scroll',onScroll);
+ anchor.addEventListener('click',onAnchor);closeButton.addEventListener('click',close);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.addEventListener('keydown',onKey);mobile.addEventListener('change',adapt);window.addEventListener('resize',position);window.addEventListener('scroll',onWindowScroll,true);scroll.addEventListener('scroll',onScroll);
  run.addEventListener('click',()=>{follow=true;controller.start();});stop.addEventListener('click',()=>controller.stop());jump.addEventListener('click',()=>{follow=true;scroll.scrollTop=scroll.scrollHeight;setJump();scroll.focus({preventScroll:true});});
- function setEnabled(value){available=value;anchor.setAttribute('aria-disabled',String(!value));explanation.textContent=value===null?'Checking analysis availability…':'Session analysis is not configured yet.';if(value)explanation.hidden=true;}
+ function setEnabled(value){available=value;anchor.setAttribute('aria-disabled',String(!value));explanation.textContent=value===null?'Checking analysis availability…':'Session analysis is not configured yet.';if(value){explanation.hidden=true;anchor.removeAttribute('aria-describedby');}else anchor.setAttribute('aria-describedby',explanation.id);}
  const sizeObserver=new ResizeObserver(position);sizeObserver.observe(desktop);sizeObserver.observe(anchor);
  setEnabled(enabled);
- return {refresh:controller.refresh,setEnabled,destroy(){destroyed=true;sizeObserver.disconnect();controller.destroy();clearTimeout(closeTimer);cancelAnimationFrame(raf);renderer.destroy();tooltips.destroy();anchor.removeEventListener('click',onAnchor);document.removeEventListener('keydown',onKey,true);mobile.removeEventListener('change',adapt);window.removeEventListener('resize',position);window.removeEventListener('scroll',onWindowScroll,true);if(dialog.open)dialog.close();desktop.remove();dialog.remove();explanation.remove();}};
+ return {refresh:controller.refresh,setEnabled,destroy(){destroyed=true;sizeObserver.disconnect();controller.destroy();clearTimeout(closeTimer);cancelAnimationFrame(raf);renderer.destroy();tooltips.destroy();anchor.removeEventListener('click',onAnchor);document.removeEventListener('keydown',onKey);mobile.removeEventListener('change',adapt);window.removeEventListener('resize',position);window.removeEventListener('scroll',onWindowScroll,true);if(dialog.open)dialog.close();desktop.remove();dialog.remove();explanation.remove();}};
 }

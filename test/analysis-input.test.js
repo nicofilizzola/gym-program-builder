@@ -21,3 +21,10 @@ test('fingerprint tracks every sent edit and clears when reverted',()=>{
  for(const mutate of [s=>s.name='New',s=>s.exercises[0].restSeconds=90,s=>s.goals.Chest=4,s=>s.exercises[0].equipment='Barbell',s=>s.exercises.reverse()]){const edited=structuredClone(source);mutate(edited);assert.notEqual(analysisFingerprint(prepareAnalysisSnapshot(edited)),base);}
  assert.equal(analysisFingerprint(prepareAnalysisSnapshot(source)),base);
 });
+test('analysis rejects coercible goal types and malformed exercises as indexed input errors',()=>{
+ for(const goal of ['4',true,null,{},[]])assert.throws(()=>prepareAnalysisSnapshot({...workedSession,goals:{Chest:goal}}),e=>e.code==='INVALID'&&e.status===400);
+ for(const exercise of [null,false,3,'press'])assert.throws(()=>prepareAnalysisSnapshot({...workedSession,exercises:[exercise]}),e=>e.code==='INVALID'&&e.exerciseIndex===0&&e.field==='name');
+});
+test('null exercise is an indexed validation error before timing normalization',()=>{
+ assert.throws(()=>prepareAnalysisSnapshot({...workedSession,exercises:[null]}),e=>e.code==='INVALID'&&e.exerciseIndex===0&&e.field==='name');
+});
