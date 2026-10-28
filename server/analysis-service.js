@@ -14,7 +14,7 @@ export function createAnalysisService({apiKey,model='anthropic/claude-sonnet-4.6
   let upstream;
   const timeoutError=()=>analysisError('Analysis timed out. Please retry.','TIMEOUT',504);
   try{
-   upstream=await request('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:abort.signal,body:JSON.stringify({model,messages:buildAnalysisMessages(snapshot),stream:true,max_tokens:1500,reasoning:{enabled:false},provider:{only:[provider],allow_fallbacks:false}})});
+   upstream=await request('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:abort.signal,body:JSON.stringify({model,messages:buildAnalysisMessages(snapshot),stream:true,max_tokens:1500,temperature:0.2,reasoning:{enabled:false},provider:{only:[provider],allow_fallbacks:false}})});
    if(!upstream.ok){await upstream.body?.cancel();const errors={401:['Analysis provider credentials need updating.','CONFIGURATION',503],402:['Analysis credit limit reached.','CREDITS',402],429:['Analysis is busy. Please retry shortly.','RATE_LIMIT',429]};throw analysisError(...(errors[upstream.status]||['Analysis provider is unavailable. Please retry.','PROVIDER',502]));}
    if(!upstream.headers.get('content-type')?.includes('text/event-stream'))throw analysisError('Analysis provider returned an invalid response.','PROVIDER',502);
   }catch(error){cleanup();abort.abort();if(timedOut)throw timeoutError();if(signal?.aborted)throw signal.reason;if(error.code)throw error;throw analysisError('Analysis provider is unavailable. Please retry.','PROVIDER',502);}

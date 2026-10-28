@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-28-session-analysis-design.md` (approved).
 
-**Execution status:** Native execution completed Tasks 1-5 and Task 6's implementation/offline checks. Independent review findings are fixed; 171 unit tests, 201 browser tests and build pass. Task 6 live fixture evaluations and local/Preview provider smoke tests await user-owned OpenRouter configuration and explicit paid-test authorization. See the verification document for evidence and the catalog-loading regression repaired during verification.
+**Execution status:** Native implementation and independent-review fixes are complete. After user-owned OpenRouter setup, all 12 fixture types were evaluated live; targeted rechecks refined prompt version `session-hypertrophy-v6` and temperature 0.2. Local live Chromium streaming and upstream cancellation pass. Latest checks: 172 unit tests, 14 analysis browser regressions and build pass; the full 201-test browser suite passed before the server-only prompt refinement. Vercel Preview deployment/streaming and dashboard accounting remain pending. See the verification document for detailed evidence and scope limitations.
 
 ## Global Constraints
 
@@ -78,7 +78,7 @@ Only `complete` means complete; stopped/error text is incomplete. Events arrivin
 - `prepareAnalysisSnapshot(workout) -> AnalysisSnapshot` throws AnalysisError; immutable clone, canonical muscle order and field order.
 - `analysisFingerprint(snapshot) -> string` returns canonical JSON (no hash dependency).
 - `buildAnalysisMessages(snapshot) -> [{role:'system',content:string},{role:'user',content:string}]`.
-- `ANALYSIS_PROMPT_VERSION = 'session-hypertrophy-v1'`.
+- `ANALYSIS_PROMPT_VERSION = 'session-hypertrophy-v6'` (refined through live evaluations).
 
 - [x] Write input tests: reject 0/41 exercises, 201-code-point names, invalid sets/reps/mappings/rest; allow 40 exercises and 200 code points including astral characters; blank template name becomes Untitled session; strip IDs/arbitrary fields; retain known equipment; do not mutate source. Equipment is optional for custom exercises, invalid explicit equipment rejects.
 - [x] Write fact tests using Bench 4, Dips 3 and Pull-ups 3 from AGENTS.md: Chest=7, Triceps=5, Front delts=3.5, Lats=3, Biceps=1.5, Upper back=1.5; duration matches `computeDuration`; user totals never override computed values. Assert stable fingerprint after exact reversion and difference after each sent field changes.
