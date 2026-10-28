@@ -247,9 +247,14 @@ input:focus-visible {
 
 .card-name {min-width:0;overflow-wrap:anywhere}
 .card-controls {display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
-.card-controls .toggle-btn {margin-left:0}
+.card-title-group {display:flex;align-items:flex-start;gap:8px;flex:1 1 160px;min-width:0}
+.card-title-group .toggle-btn {margin-left:0;flex-shrink:0}
+.card-title-group .card-identity {align-self:center}
+@media (hover:hover) and (pointer:fine) {
+  .exercise[data-collapsed="true"]:hover {border-color:var(--muted)}
+}
 @media (max-width:760px) {
-  .card-identity {flex-basis:100%}
+  .card-title-group {flex-basis:100%}
 }
 
 .card-index {

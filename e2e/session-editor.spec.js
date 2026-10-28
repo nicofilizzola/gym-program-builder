@@ -89,3 +89,37 @@ test('mounted template retains live volume, focus, collapse and tooltip behavior
 });
 
 
+
+test('disclosure stays beside identity with keyboard focus and current tooltip',async({page})=>{
+ await page.goto('/');await page.evaluate(async()=>{
+ const {mountSessionEditor}=await import('/src/session-editor.js');document.body.innerHTML='<div id="fixture"></div>';
+ window.editor=mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Upper',goals:{},exercises:[{name:'A very long bench press exercise name '.repeat(4),sets:3,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}]}});
+ });
+ const card=page.locator('.exercise').first(),toggle=card.locator('[data-action=toggle]');
+ for(const width of [1440,390]){
+ await page.setViewportSize({width,height:900});
+ const t=await toggle.boundingBox(),h=await card.locator('.card-identity').boundingBox();
+ expect(t.x+t.width).toBeLessThanOrEqual(h.x);expect(Math.abs(t.y-h.y)).toBeLessThan(12);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ }
+ await toggle.focus();await expect(page.getByRole('tooltip')).toHaveText('Expand exercise');
+ await toggle.press('Enter');await expect(toggle).toHaveAttribute('aria-expanded','true');await expect(toggle).toBeFocused();
+ await toggle.press('Tab');await toggle.focus();await expect(page.getByRole('tooltip')).toHaveText('Collapse exercise');
+ await toggle.press('Space');await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await expect(card.locator('[data-collapse=body]')).toHaveAttribute('inert','');
+});
+
+test('disclosure reverses smoothly and bulk collapse restores focus before hiding fields',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.goto('/');await page.evaluate(async()=>{
+ const {mountSessionEditor}=await import('/src/session-editor.js');document.body.innerHTML='<div id="fixture"></div>';
+ window.editor=mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Upper',goals:{},exercises:[{name:'Bench',sets:3,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}]}});
+ });
+ const toggle=page.locator('[data-action=toggle]'),body=page.locator('[data-collapse=body]');
+ await toggle.evaluate(async b=>{b.click();await new Promise(requestAnimationFrame);b.click();await new Promise(requestAnimationFrame);b.click();});
+ await expect(toggle).toHaveAttribute('aria-expanded','true');await expect(body).not.toHaveAttribute('inert','');
+ await expect(body).toHaveCSS('transition-duration','0.2s, 0.2s');
+ await page.getByLabel('Exercise name',{exact:true}).focus();
+ await page.locator('#collapse-all').evaluate(b=>b.click());await expect(toggle).toBeFocused();await expect(body).toHaveAttribute('inert','');
+ await page.emulateMedia({reducedMotion:'reduce'});await toggle.click();await expect(body).toHaveCSS('transition-duration','0s');
+});
+

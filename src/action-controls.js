@@ -20,7 +20,7 @@ export function actionIcon(name){
  return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
 }
 let nextId=0,activeController;
-export function mountActionTooltips(root){
+export function mountActionTooltips(root,{selector='[data-action-tooltip]'}={}){
  const tip=document.createElement('div');
  tip.id=`action-tooltip-${++nextId}`;tip.className='action-tooltip';tip.setAttribute('role','tooltip');tip.setAttribute('popover','manual');
  document.body.append(tip);
@@ -51,7 +51,7 @@ export function mountActionTooltips(root){
   if(trigger===document.activeElement)return;
   clearTimeout(showTimer);showTimer=null;clearTimeout(hideTimer);hideTimer=setTimeout(hide,150);
  }
- function buttonAt(target){const button=target instanceof Element?target.closest('[data-action-tooltip]'):null;return button&&root.contains(button)?button:null;}
+ function buttonAt(target){const button=target instanceof Element?target.closest(selector):null;return button&&root.contains(button)?button:null;}
  root.addEventListener('pointerover',event=>{if(event.pointerType==='mouse'){const button=buttonAt(event.target);if(button)schedule(button);}},options);
  root.addEventListener('pointerout',event=>{const button=buttonAt(event.target);if(button&&!button.contains(event.relatedTarget)&&!tip.contains(event.relatedTarget))depart();},options);
  root.addEventListener('focusin',event=>{const button=buttonAt(event.target);if(button)schedule(button);},options);

@@ -1,6 +1,6 @@
 import {mountReorderMenu} from './reorder-menu.js';
 import { mountSortable } from './sortable.js';
-import { actionIcon } from './action-controls.js';
+import { actionIcon, mountActionTooltips } from './action-controls.js';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
 import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, heatLevel, visibleMuscles } from './volume.js';
 import { LIMITS, validateExercise } from './validate.js';
@@ -19,6 +19,7 @@ import {getCatalogStore} from './catalog-store.js';
 
 export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,api}={}) {
 root.innerHTML=SESSION_MARKUP;
+const disclosureTooltips=mountActionTooltips(root,{selector:'.card-title-group [data-action-tooltip]'});
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
 let destroyed=false;
 if(api)getCatalogStore(api).load(true).catch(()=>{});
@@ -94,14 +95,16 @@ function setFill(slider, from, to) {
 
 const CARD_HTML = `
   <div class="card-head">
+    <div class="card-title-group">
+    <button type="button" class="toggle-btn" data-action="toggle" aria-expanded="true" aria-label="Collapse exercise" data-action-tooltip="Collapse exercise">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
     <h2 class="card-identity"><span class="card-index" aria-hidden="true"></span><span class="visually-hidden" data-position></span><span class="card-name"></span></h2>
+    </div>
     <span class="hit-tag" data-hit-tag></span>
     <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
     <div class="card-controls">
     <button type="button" class="secondary-btn reorder-action" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">Reorder</button>
-    <button type="button" class="toggle-btn" data-action="toggle" aria-expanded="true" aria-label="Collapse exercise">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
     <button type="button" class="icon-btn" data-action="remove" aria-label="Remove exercise">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
     </button>
@@ -354,8 +357,10 @@ function refresh() {
     setOpen(card.querySelector('[data-collapse="summary"]'), isCollapsed);
     card.querySelector('[data-summary]').textContent = exerciseSummary(ex);
     const toggle = card.querySelector('[data-action="toggle"]');
+    if(toggle.getAttribute('aria-expanded')!==String(!isCollapsed))disclosureTooltips.hide();
     toggle.setAttribute('aria-expanded', String(!isCollapsed));
     toggle.setAttribute('aria-label', isCollapsed ? 'Expand exercise' : 'Collapse exercise');
+    toggle.dataset.actionTooltip=isCollapsed ? 'Expand exercise' : 'Collapse exercise';
     const { min, max } = ex.repRange;
     const setsInput = card.querySelector('[data-field="sets"]');
     setsInput.value = ex.sets;
@@ -588,6 +593,8 @@ root.querySelector('#expand-all').addEventListener('click', () => {
 });
 
 root.querySelector('#collapse-all').addEventListener('click', () => {
+  const activeCard=document.activeElement?.closest('.exercise');
+  if(activeCard&&list.contains(activeCard)&&activeCard.querySelector('[data-collapse="body"]').contains(document.activeElement))activeCard.querySelector('[data-action="toggle"]').focus({preventScroll:true});
   collapsed.fill(true);
   refresh();
 });
@@ -771,7 +778,7 @@ refresh();
 
 const panelLayout=mountPanelLayout(panel);
 return {setWorkout,syncSaved,focusFirstError,destroy(){
-  destroyed=true;durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
+  destroyed=true;disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();
