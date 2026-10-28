@@ -7,6 +7,8 @@ import {createAuth,hashPassword} from '../server/auth.js';
 import {createRepository} from '../server/repository.js';
 import {createApi} from '../server/api.js';
 import {createCatalogRepository} from '../server/catalog-repository.js';
+import {createAnalysisService} from '../server/analysis-service.js';
+import {pipeWebResponse} from '../server/http-response.js';
 import {seedCatalog} from '../server/catalog-seed.js';
 const testing=process.argv.includes('--test'),port=testing?3199:Number(process.env.PORT||3000);
 const temp=testing?await mkdtemp(join(tmpdir(),'gym-browser-')):null;
@@ -14,15 +16,17 @@ if(!testing&&!process.env.APP_PASSWORD_HASH)throw Error('Set APP_PASSWORD_HASH a
 const db=createDb({url:testing?`file:${join(temp,'test.db')}`:process.env.TURSO_DATABASE_URL||'file:local.db',authToken:process.env.TURSO_AUTH_TOKEN});
 if(testing){await migrate(db);await seedCatalog(db);}
 const origin=testing?`http://127.0.0.1:${port}`:process.env.APP_ORIGIN||`http://localhost:${port}`;
-const api=createApi({repository:createRepository(db),catalog:createCatalogRepository(db),auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
+const analysis=testing?{enabled:true,analyze:async()=>new Response('event: start\ndata: {"requestId":"test","promptVersion":"test"}\n\nevent: delta\ndata: {"text":"Assessment\\nA test session review.\\nStrengths\\n- Clear exercise selection.\\nImprovements\\nNo clear changes needed.\\nLimits\\nEffort is unknown."}\n\nevent: complete\ndata: {}\n\n',{headers:{'content-type':'text/event-stream'}})}:createAnalysisService({apiKey:process.env.OPENROUTER_API_KEY,model:process.env.OPENROUTER_MODEL});
+const api=createApi({repository:createRepository(db),catalog:createCatalogRepository(db),analysis,auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
 const root=resolve('.'),mime={'.js':'text/javascript','.css':'text/css','.html':'text/html'};
 const server=createServer(async(req,res)=>{
  try {
   const url=new URL(req.url,origin);
   if(url.pathname.startsWith('/api/')) {
    const headers=new Headers();for(const [key,value]of Object.entries(req.headers))if(value)headers.set(key,Array.isArray(value)?value.join(','):value);
-   const request=new Request(url,{method:req.method,headers,...(['GET','HEAD'].includes(req.method)?{}:{body:req,duplex:'half'})});
-   const response=await api(request);res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;
+   const abort=new AbortController();const disconnect=()=>{if(!res.writableFinished)abort.abort();};req.once('aborted',disconnect);res.once('close',disconnect);
+   try{const request=new Request(url,{method:req.method,headers,signal:abort.signal,...(['GET','HEAD'].includes(req.method)?{}:{body:req,duplex:'half'})});await pipeWebResponse(await api(request),res,{signal:abort.signal});}
+   finally{req.off('aborted',disconnect);res.off('close',disconnect);}return;
   }
   const path=decodeURIComponent(url.pathname),file=path==='/'?'/index.html':path;
   if(!['/index.html','/style.css'].includes(file)&&!/^\/src\/[\w-]+\.js$/.test(file)){res.writeHead(404);res.end('Not found');return;}

@@ -1,14 +1,16 @@
 import {MAX_DOCUMENT_BYTES} from '../src/document-file.js';
 import {domainError} from './repository.js';
+import {prepareAnalysisSnapshot} from '../src/analysis-input.js';
 const statuses={INVALID:400,UNAUTHORIZED:401,FORBIDDEN:403,NOT_FOUND:404,METHOD:405,CONFLICT:409,TOO_LARGE:413,RATE_LIMIT:429};
-async function body(request) {
+async function body(request,limit=MAX_DOCUMENT_BYTES) {
   if(!request.headers.get('content-type')?.startsWith('application/json'))throw domainError('INVALID','Expected JSON.');
-  if(Number(request.headers.get('content-length'))>MAX_DOCUMENT_BYTES)throw domainError('TOO_LARGE','Request must be at most 1 MiB.');
+  const sizeMessage=limit===65536?'Analysis request must be at most 64 KiB.':'Request must be at most 1 MiB.';
+  if(Number(request.headers.get('content-length'))>limit)throw domainError('TOO_LARGE',sizeMessage);
   let size=0;const chunks=[];
-  if(request.body) {const reader=request.body.getReader();while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>MAX_DOCUMENT_BYTES){await reader.cancel();throw domainError('TOO_LARGE','Request must be at most 1 MiB.');}chunks.push(value);}}
+  if(request.body) {const reader=request.body.getReader();try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw domainError('TOO_LARGE',sizeMessage);}chunks.push(value);}}finally{reader.releaseLock();}}
   try {const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}const data=JSON.parse(new TextDecoder().decode(bytes));if(!data||typeof data!=='object'||Array.isArray(data))throw Error();return data;}catch {throw domainError('INVALID','Request is not valid JSON.');}
 }
-export function createApi({repository,catalog,auth,origin,clientIp=()=> 'local'}) {
+export function createApi({repository,catalog,auth,origin,analysis,clientIp=()=> 'local'}) {
   const respond=(value,status=200,headers={})=>new Response(status===204?null:JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store',...headers}});
   return async request=>{
     try {
@@ -22,6 +24,15 @@ export function createApi({repository,catalog,auth,origin,clientIp=()=> 'local'}
         throw domainError('METHOD','Method not allowed.');
       }
       if(!await auth.session(request.headers.get('cookie')))throw domainError('UNAUTHORIZED','Sign in to continue.');
+      if(path[0]==='analysis'&&path.length===1){
+        if(method==='GET')return respond({enabled:Boolean(analysis?.enabled)});
+        if(method!=='POST')throw domainError('METHOD','Method not allowed.');
+        try{
+          if(!analysis?.enabled)return respond({error:{code:'CONFIGURATION',message:'Session analysis is not configured.'}},503);
+          const data=await body(request,65536),snapshot=prepareAnalysisSnapshot(data.workout);
+          return await analysis.analyze(snapshot,{signal:request.signal});
+        }catch(error){const allowed={INVALID:400,TOO_LARGE:413,CONFIGURATION:503,CREDITS:402,RATE_LIMIT:429,PROVIDER:502,TIMEOUT:504};const status=allowed[error.code]||502;return respond({error:{code:allowed[error.code]?error.code:'PROVIDER',message:allowed[error.code]?error.message:'Analysis is unavailable. Please retry.'}},status);}
+      }
       if(path[0]==='catalog'&&catalog){
         if(path[1]==='references'){
           if(path.length===2&&method==='POST')return respond({reference:await catalog.createReference(await body(request))},201);

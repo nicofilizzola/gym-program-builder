@@ -7,6 +7,7 @@ export function createApiClient({fetch:request=globalThis.fetch}={}) {
     return result;
   }
   return {
+    analysisCapability:()=>call('analysis'),
     catalog:()=>call('catalog'),
     createReference:async value=>(await call('catalog/references','POST',value)).reference,
     getReference:async id=>(await call('catalog/references/'+encodeURIComponent(id))).reference,
