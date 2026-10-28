@@ -118,8 +118,11 @@ test('disclosure reverses smoothly and bulk collapse restores focus before hidin
  await toggle.evaluate(async b=>{b.click();await new Promise(requestAnimationFrame);b.click();await new Promise(requestAnimationFrame);b.click();});
  await expect(toggle).toHaveAttribute('aria-expanded','true');await expect(body).not.toHaveAttribute('inert','');
  await expect(body).toHaveCSS('transition-duration','0.2s, 0.2s');
+ await expect.poll(()=>body.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(20);
  await page.getByLabel('Exercise name',{exact:true}).focus();
  await page.locator('#collapse-all').evaluate(b=>b.click());await expect(toggle).toBeFocused();await expect(body).toHaveAttribute('inert','');
  await page.emulateMedia({reducedMotion:'reduce'});await toggle.click();await expect(body).toHaveCSS('transition-duration','0s');
+ await page.getByLabel('Exercise name',{exact:true}).fill('');await toggle.click();
+ await page.getByRole('button',{name:'Export',exact:true}).click();await expect(toggle).toHaveAttribute('aria-expanded','true');await expect(page.getByLabel('Exercise name',{exact:true})).toBeFocused();
 });
 

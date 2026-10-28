@@ -73,7 +73,7 @@ for(const cancel of ['Escape','pointercancel','lostpointercapture','outside','de
  else await page.locator('.exercise').first().dispatchEvent(cancel,{pointerId:1});
  await page.mouse.up();await expect(page.locator('.sort-drag-copy')).toHaveCount(0);await expect(page.locator('.sort-placeholder')).toHaveCount(0);
  expect(await page.evaluate(()=>window.changes.length)).toBe(0);
- if(cancel!=='destroy'){await expect(page.locator('.exercise .card-name')).toHaveText(['Bench','Row','Curl']);await expect(page.locator('.exercise').nth(1).getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();}
+ if(cancel!=='destroy'){await expect(page.locator('[data-action=toggle][aria-expanded=true]')).toHaveCount(1);await expect(page.locator('.exercise .card-name')).toHaveText(['Bench','Row','Curl']);await expect(page.locator('.exercise').nth(1).getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();}
 });
 test('exercise reorder supports keyboard and click alternatives',async({page})=>{
  await exerciseFixture(page);const handles=page.getByRole('button',{name:'Reorder exercise',exact:true});
@@ -208,6 +208,7 @@ test('touch swipe scrolls before hold without reordering',async({browser})=>{
  await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(initial);
  await expect(page.locator('.sort-drag-copy')).toHaveCount(0);
+ await expect(page.locator('[data-action=toggle][aria-expanded=true]')).toHaveCount(0);
  expect(await page.evaluate(()=>window.changes.at(-1).exercises.slice(0,3).map(e=>e.name))).toEqual(['Bench','Row','Curl']);await context.close();
 });
 test('touch hold then drag commits once; hold then release does not',async({browser})=>{
@@ -216,6 +217,7 @@ test('touch hold then drag commits once; hold then release does not',async({brow
  await expect(page.locator('.exercise').first()).toHaveClass(/is-hold-armed/);
  await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  expect(await page.evaluate(()=>window.changes.length)).toBe(0);
+ await expect(page.locator('[data-action=toggle]').first()).toHaveAttribute('aria-expanded','false');
  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
  await expect(page.locator('.exercise').first()).toHaveClass(/is-hold-armed/);
  const target=await page.locator('.exercise').nth(2).boundingBox();
