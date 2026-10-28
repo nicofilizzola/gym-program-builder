@@ -15,6 +15,38 @@ async function startExerciseDrag(page) {
  await page.mouse.move(box.x+15,box.y+15);
  return box;
 }
+test('collapsed content opens once without saving and expanded content stays open',async({page})=>{
+ await exerciseFixture(page);const cards=page.locator('.exercise');
+ for(const [index,target] of [[0,'.card-name'],[1,'.card-summary'],[2,null]]){
+  const card=cards.nth(index);
+  if(target)await card.locator(target).click();else await card.click({position:{x:8,y:8}});
+  await expect(card.locator('[data-action=toggle]')).toHaveAttribute('aria-expanded','true');
+  await expect(card.locator('[data-action=toggle]')).toBeFocused();
+  await expect(card.locator('[data-collapse=body]')).not.toHaveAttribute('inert','');
+  await card.locator('.card-name').click();await expect(card.locator('[data-action=toggle]')).toHaveAttribute('aria-expanded','true');
+ }
+ expect(await page.evaluate(()=>window.changes.length)).toBe(0);
+});
+
+test('nested controls act once and secondary clicks never open a card',async({page})=>{
+ await exerciseFixture(page);const card=page.locator('.exercise').first(),toggle=card.locator('[data-action=toggle]');
+ await card.locator('.card-name').click({button:'right'});await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await toggle.locator('path').click();await expect(toggle).toHaveAttribute('aria-expanded','true');
+ await toggle.locator('path').click();await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await card.locator('.reorder-action').click();await expect(toggle).toHaveAttribute('aria-expanded','false');await page.keyboard.press('Escape');
+ await card.locator('[data-action=remove] path').click();await expect(page.locator('.card-name')).toHaveText(['Row','Curl']);
+ await expect(page.locator('[data-action=toggle][aria-expanded=false]')).toHaveCount(2);
+});
+
+test('mouse movement below drag threshold opens but cancelled presses never do',async({page})=>{
+ await exerciseFixture(page);let b=await page.locator('.card-name').first().boundingBox();
+ await page.mouse.move(b.x+3,b.y+3);await page.mouse.down();await page.mouse.move(b.x+5,b.y+4);await page.mouse.up();
+ await expect(page.locator('[data-action=toggle]').first()).toHaveAttribute('aria-expanded','true');
+ await page.locator('[data-action=toggle]').first().click();b=await page.locator('.card-name').first().boundingBox();
+ await page.mouse.move(b.x+3,b.y+3);await page.mouse.down();await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(page.locator('[data-action=toggle]').first()).toHaveAttribute('aria-expanded','false');
+});
+
 test('exercise follows pointer before release',async({page})=>{
  await exerciseFixture(page);const start=await startExerciseDrag(page);
  const copy=page.locator('.sort-drag-copy');await expect(copy).toBeVisible();
@@ -268,3 +300,20 @@ test('Reorder menus stay usable on mobile, tablet and enlarged text',async({brow
   await page.screenshot({path:`.superpowers/sdd/2026-10-26-whole-card-dragging/program-touch-${size.width}.png`,fullPage:true});await context.close();
  }
 });
+
+ test('short touch tap opens without saving and a later tap still works after cancellation',async({browser})=>{
+ const {context,page,client,x,y}=await touchFixture(browser);await page.evaluate(()=>window.changes=[]);
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expect(page.locator('[data-action=toggle]').first()).toHaveAttribute('aria-expanded','true');
+ expect(await page.evaluate(()=>window.changes.length)).toBe(0);
+ await page.locator('[data-action=toggle]').first().tap();
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ await client.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+ await expect(page.locator('[data-action=toggle]').first()).toHaveAttribute('aria-expanded','false');
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expect(page.locator('[data-action=toggle]').first()).toHaveAttribute('aria-expanded','true');
+ await context.close();
+});
+

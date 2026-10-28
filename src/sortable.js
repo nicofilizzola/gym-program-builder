@@ -70,7 +70,9 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
   if(d.savedStyle!==undefined){if(d.savedStyle===null)d.item.removeAttribute('style');else d.item.setAttribute('style',d.savedStyle);}
   document.documentElement.classList.remove('is-sorting');
   if(d.pointerId!==undefined&&d.item.hasPointerCapture(d.pointerId))d.item.releasePointerCapture(d.pointerId);
-  if(d.copy||d.armed){suppressClick=true;clickTimer=setTimeout(clearClick,d.touchId===undefined?0:700);}
+  // Cancellation can still be followed by a native release click, even before
+  // the preview starts. Keep it suppressed until consumed or a new press begins.
+  if(!commit||d.copy||d.armed)suppressClick=true;
   if(d.copy)d.item.querySelector(reorderSelector)?.focus({preventScroll:true});
   if(result)onCommit(result);
  }
@@ -122,7 +124,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
  window.addEventListener('pointerup',event=>{if(event.pointerId===drag?.pointerId){if(drag.copy)preview();finish(true);}},options);
  for(const name of ['pointercancel','lostpointercapture'])window.addEventListener(name,event=>{if(event.pointerId===drag?.pointerId)finish();},options);
  window.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag){event.preventDefault();event.stopImmediatePropagation();finish();}}, {...options,capture:true});
- root.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopImmediatePropagation();}},{...options,capture:true});
+ root.addEventListener('click',event=>{if(suppressClick&&event.detail>0){clearClick();event.preventDefault();event.stopImmediatePropagation();}},{...options,capture:true});
  return {cancel:()=>finish(),destroy(){finish();clearTimeout(holdTimer);clearClick();events.abort();}};
 }
 

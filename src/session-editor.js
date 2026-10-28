@@ -348,6 +348,7 @@ function refresh() {
     card.querySelector('.card-name').textContent=ex.name.trim()||'Untitled exercise';
     const errors = validateExercise(ex);
     const isCollapsed = collapsed[i];
+    card.dataset.collapsed = String(isCollapsed);
     if(isCollapsed)exercisePickers.get(ex)?.close();
     setOpen(card.querySelector('[data-collapse="body"]'), !isCollapsed);
     setOpen(card.querySelector('[data-collapse="summary"]'), isCollapsed);
@@ -509,15 +510,29 @@ list.addEventListener('change', (event) => {
   refresh();
 });
 
+function setExerciseCollapsed(index, nextCollapsed, {focusToggle=false}={}) {
+  const card=list.children[index];
+  if(!card)return;
+  const toggle=card.querySelector('[data-action="toggle"]');
+  if(focusToggle||(nextCollapsed&&card.querySelector('[data-collapse="body"]').contains(document.activeElement)))toggle.focus({preventScroll:true});
+  collapsed[index]=nextCollapsed;
+  refresh();
+}
+
 list.addEventListener('click', (event) => {
+  if(event.defaultPrevented||event.button!==0||!event.target.closest('.exercise'))return;
   const action = event.target.closest('[data-action]')?.dataset.action;
-  if (!action) return;
   const i = indexOf(event.target);
+  if(i<0)return;
   if (action === 'toggle') {
-    collapsed[i] = !collapsed[i];
-    refresh();
+    setExerciseCollapsed(i,!collapsed[i]);
     return;
   }
+  if(!action){
+    if(collapsed[i]&&!event.target.closest('button,input,select,textarea,a,label,[contenteditable]:not([contenteditable="false"]),[role],[tabindex]'))setExerciseCollapsed(i,false,{focusToggle:true});
+    return;
+  }
+  if(action!=='remove')return;
   session.exercises.splice(i, 1);
   collapsed.splice(i, 1);
   renderExercises();
