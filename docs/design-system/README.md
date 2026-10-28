@@ -6,6 +6,12 @@ When you change a value, change it in `style.css` first and then update this fil
 
 ## Principles
 
+### Session analysis overlay
+
+The labeled Analyze toolbar action uses the existing orange tint/border and a restrained waveform SVG. Its report is a top-layer desktop region (at most 480px wide, 16px viewport clearance) or a full-screen mobile dialog at <=760px. Existing Barlow/dark/orange tokens remain authoritative; a raised surface, orange edge and editorial text sections distinguish the AI component. No chat bubbles, scores or new palette. Fine-pointer desktop targets remain 32px, otherwise 44px.
+
+Open/close animate opacity and a 4px translation for 180ms ease-out; nodes survive exit and rapid reversal cancels old callbacks. Closing content becomes inert/aria-hidden immediately after focus restoration. Mobile closing transfers the same content into a nonmodal exit surface so native focus containment ends immediately. Reduced motion settles instantly. The streaming indicator changes opacity only; no artificial typing or per-token entrance effects. Jump to latest fades for 150ms without shifting controls. Opening focuses the heading, Escape/Close restores the trigger, desktop editing stays available, and mobile uses native modal focus containment. Streaming only follows while within 48px of the report bottom; status announcements are separate from report text. Initial editor rendering never animates the overlay.
+
 - **One accent.** Orange (`--accent`) marks actions and selected state. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`), reserved for the volume-list bars and the met checkmark, and the body map heat ramp (`--untrained`, `--heat-1` to `--heat-4`), reserved for the body map and its legend.
 - **Volume is the hero.** Keep the body map and volume list prominent while editing: a sticky desktop rail when it fits, normal document flow when it exceeds the viewport, and the existing mobile panel placement.
 - **Colour never stands alone.** Every body map colour is paired with the heat legend and the volume list's numbers (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with the `volume / goal` value, the met checkmark and the hidden status word, and every highlight with a text tag.

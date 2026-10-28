@@ -138,7 +138,10 @@ async function prepareRecord(record){
  if(record.kind==='program'){const [module,items]=await Promise.all([import('./program-view.js'),api.list('template')]);mountProgramView=module.mountProgramView;templates=items;}
  return ()=>{
   const onChange=track(record),host=createViewHost();
-  if(record.kind==='template')mounted=mountSessionEditor(host,{api,workout:active.document,onChange,onExport:action(()=>exportActive('template'))});
+  if(record.kind==='template'){
+   mounted=mountSessionEditor(host,{api,workout:active.document,onChange,analysisEnabled:null,onExport:action(()=>exportActive('template'))});
+   const editor=mounted;api.analysisCapability().then(result=>{if(mounted===editor)editor.setAnalysisEnabled(result.enabled);}).catch(()=>{if(mounted===editor)editor.setAnalysisEnabled(false);});
+  }
   else mounted=mountProgramView(host,{api,program:active.document,templates,onLoadTemplate:id=>api.get(id),onChange,onExport:action(()=>exportActive('program')),onExportWorkout:action((document,id)=>exportActive('template',id))});
  };
 }
