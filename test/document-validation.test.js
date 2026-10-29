@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { validateDocument } from '../src/document-validation.js';
 
 const workout = () => ({name:'Upper',exercises:[{name:'Bench',sets:3,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}],goals:{Chest:12}});
-const program = () => ({name:'Week',mode:'simple',goals:{Chest:30},workouts:[{...workout(),id:'a',day:null}]});
+const program = () => ({name:'Week',mode:'simple',goals:{Chest:30},workouts:[{id:'a',templateId:'upper',day:null}]});
 
-test('timing defaults only absent fields in templates and program workouts',()=>{
- for(const kind of ['template','program']) {
+test('timing defaults only absent fields in templates',()=>{
+ for(const kind of ['template']) {
   const original=kind==='template'?workout():program();
   const cleaned=validateDocument(kind,original).document;
   const w=kind==='template'?cleaned:cleaned.workouts[0];
@@ -46,7 +46,7 @@ test('draft saves relax empty names and primary selections only',()=>{
 test('sequence validation retains rest days and rejects broken references in drafts',()=>{
  const p={...program(),sequence:[{type:'rest',id:'r'},{type:'workout',workoutId:'a'}]};
  for(const draft of [false,true]){
-  assert.deepEqual(validateDocument('program',p,{draft}).document,{...p,workouts:p.workouts.map(w=>({...w,extraMinutes:5,bufferPercent:10,exercises:w.exercises.map(e=>({...e,restSeconds:120}))}))});
+  assert.deepEqual(validateDocument('program',p,{draft}).document,p);
   for(const sequence of [null,{},[],[{type:'rest',id:'a'}],[{type:'workout',workoutId:'unknown'}],
    [{type:'rest',id:'r'},{type:'rest',id:'r'},{type:'workout',workoutId:'a'}],
    [{type:'workout',workoutId:'a'},{type:'workout',workoutId:'a'}],[{type:'other'}]])

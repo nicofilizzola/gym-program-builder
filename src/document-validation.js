@@ -60,10 +60,12 @@ export function validateDocument(kind,value,{draft=false}={}) {
     const ids=new Set();
     const workouts=value.workouts.map((w,i)=>{
       try {
-        if(!object(w)||typeof w.id!=='string'||!w.id||ids.has(w.id)) fail('Missing or duplicate workout ID.');
+        if(!object(w)||typeof w.id!=='string'||!w.id||w.id.length>100||ids.has(w.id)) fail('Missing or duplicate workout ID.');
         ids.add(w.id);
         if(w.day!==null&&(!Number.isInteger(w.day)||w.day<0||w.day>6)) fail('Invalid weekday.');
-        return {...workout(w,draft),id:w.id,day:w.day};
+        if(typeof w.templateId!=='string'||!w.templateId||w.templateId.length>100)fail('Missing or invalid session template ID.');
+        if(Object.keys(w).some(key=>!['id','templateId','day'].includes(key)))fail('Embedded session content is not allowed in a program.');
+        return {id:w.id,templateId:w.templateId,day:w.day};
       } catch(error) {fail(`Workout ${i+1}: ${error.message}`);}
     });
     const document={name:title,mode:value.mode,workouts,goals:goals(value.goals,LIMITS.weeklyGoal)};
