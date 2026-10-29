@@ -41,6 +41,12 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
     const found=await tx.execute({sql:catalogSelect+' WHERE e.id=?',args:[id]});
     if(found.rows.length){
       const old=catalogRow(found.rows[0]);
+      if(referenceDefinition!==undefined){
+        const intent=validateReference({name:familyName,exerciseType:referenceExerciseType,equipment:entry.equipment,...referenceDefinition});
+        if(intent.error)throw domainError('INVALID',intent.error);
+        const saved=validateReference(await readReference(tx,old.familyId));
+        if(JSON.stringify(intent.reference)!==JSON.stringify(saved.reference))throw domainError('CONFLICT','This variant was already created with different reference exercise metadata. Refresh the reference exercise before retrying.');
+      }
       if(entry.equipment!==undefined&&entry.equipment!==old.equipment)throw domainError('INVALID','Equipment is inherited from the reference exercise.');
       const referenceIntent=referenceExerciseType!==undefined&&referenceExerciseType!=='';
       if(referenceIntent&&(old.exerciseType!==referenceType(referenceExerciseType)||old.familyName!==title(familyName)))throw domainError('CONFLICT','This variant was already created with a different reference exercise name or type. Refresh the reference exercise or restore the original values before retrying.');
