@@ -15,7 +15,7 @@ export async function resolveCatalogLinks(tx,document,{previous}={}) {
    copied=Boolean(source.rows[0]&&documentExercises(JSON.parse(source.rows[0].document_json)).some(e=>e.catalogId===entry.id));
    if(!copied)throw domainError('INVALID','Copy source does not contain this catalog exercise.');
   }
-  if(entry.archived){const remaining=allowed.get(entry.id)||0;if(!remaining&&!copied)throw domainError('INVALID','Archived exercises cannot be newly selected. Choose an active exercise or create a variant.');if(remaining)allowed.set(entry.id,remaining-1);}
+  if(entry.archived||entry.equipmentConfigured===false){const remaining=allowed.get(entry.id)||0;if(!remaining&&!copied)throw domainError('INVALID',entry.archived?'Archived exercises cannot be newly selected. Choose an active exercise or create a variant.':'Set equipment on the reference exercise before selecting this variant.');if(remaining)allowed.set(entry.id,remaining-1);}
   Object.assign(ex,snapshotExercise(ex,entry));
   delete ex.catalogCopyOf;
  }

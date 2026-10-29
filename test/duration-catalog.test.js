@@ -13,13 +13,13 @@ async function setup(t){const db=createDb({url:':memory:'});t.after(()=>db.close
 
 test('reference type is required for creation, validated and revision protected',async t=>{
  const {c}=await setup(t);
- for(const exerciseType of [undefined,null,'unknown',42])await assert.rejects(c.createReference({id:'bad',name:'Reference',exerciseType}),{code:'INVALID'});
+ for(const exerciseType of [undefined,null,'unknown',42])await assert.rejects(c.createReference({equipment:'Barbell',id:'bad',name:'Reference',exerciseType}),{code:'INVALID'});
  await assert.rejects(c.create({id:'bad-variant',familyId:'bad-inline',familyName:'Inline',entry:definition}),{code:'INVALID'});
  const inline=await c.create({id:'inline-v',familyId:'inline',familyName:'Inline',referenceExerciseType:'isolation',entry:definition});
  assert.equal(inline.exerciseType,'isolation');
- const ref=await c.createReference({id:'r',name:'Reference',exerciseType:'compound'});
- assert.equal(ref.exerciseType,'compound');assert.equal((await c.createReference({id:'r',name:'Reference',exerciseType:'compound'})).revision,1);
- await assert.rejects(c.createReference({id:'r',name:'Reference',exerciseType:'isolation'}),{code:'CONFLICT'});
+ const ref=await c.createReference({equipment:'Barbell',id:'r',name:'Reference',exerciseType:'compound'});
+ assert.equal(ref.exerciseType,'compound');assert.equal((await c.createReference({equipment:'Barbell',id:'r',name:'Reference',exerciseType:'compound'})).revision,1);
+ await assert.rejects(c.createReference({equipment:'Barbell',id:'r',name:'Reference',exerciseType:'isolation'}),{code:'CONFLICT'});
  const updated=await c.updateReference({id:'r',revision:1,name:'Reference',exerciseType:'isolation'});
  assert.equal(updated.exerciseType,'isolation');assert.equal(updated.revision,2);
  assert.equal((await c.updateReference({id:'r',revision:1,name:'Reference',exerciseType:'isolation'})).revision,2);
@@ -39,8 +39,8 @@ test('inline creation retry refuses changed reference intent after a lost acknow
 });
 test('variants read their reference default while propagation and moves preserve saved rest',async t=>{
  const {c,r}=await setup(t);
- await c.createReference({id:'compound',name:'Press',exerciseType:'compound'});
- await c.createReference({id:'isolation',name:'Fly',exerciseType:'isolation'});
+ await c.createReference({equipment:'Barbell',id:'compound',name:'Press',exerciseType:'compound'});
+ await c.createReference({equipment:'Barbell',id:'isolation',name:'Fly',exerciseType:'isolation'});
  const entry=await c.create({id:'v',familyId:'compound',entry:definition});
  const variant=await c.create({id:'v2',familyId:'compound',entry:{...definition,name:'Alternate'}});
  assert.equal(entry.exerciseType,'compound');assert.equal(variant.exerciseType,'compound');

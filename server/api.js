@@ -34,7 +34,15 @@ export function createApi({repository,commands,catalog,auth,origin,analysis,clie
         }catch(error){const allowed={INVALID:400,TOO_LARGE:413,CONFIGURATION:503,CREDITS:402,RATE_LIMIT:429,PROVIDER:502,TIMEOUT:504};const status=allowed[error.code]||502;return respond({error:{code:allowed[error.code]?error.code:'PROVIDER',message:allowed[error.code]?error.message:'Analysis is unavailable. Please retry.'}},status);}
       }
       if(path[0]==='catalog'&&catalog){
+        if(path[1]==='tags'){
+          if(path.length===2&&method==='GET')return respond({tags:await catalog.listTags({kind:url.searchParams.get('kind')||undefined})});
+          if(path.length===2&&method==='POST')return respond({tag:await catalog.createTag(await body(request))},201);
+          if(path.length===3&&method==='PUT')return respond({tag:await catalog.updateTag({...await body(request),id:path[2]})});
+          if(path.length===4&&path[3]==='archive'&&method==='PUT')return respond({tag:await catalog.archiveTag({...await body(request),id:path[2]})});
+          throw domainError('METHOD','Method not allowed.');
+        }
         if(path[1]==='references'){
+          if(path.length===4&&path[3]==='impact'&&method==='GET')return respond({impact:await catalog.referenceImpact(path[2])});
           if(path.length===2&&method==='POST')return respond({reference:await catalog.createReference(await body(request))},201);
           if(path.length===3&&method==='GET')return respond({reference:await catalog.getReference(path[2])});
           if(path.length===3&&method==='PUT')return respond({reference:await catalog.updateReference({...await body(request),id:path[2]})});
