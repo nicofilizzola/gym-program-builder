@@ -3,10 +3,14 @@ export function createApiClient({fetch:request=globalThis.fetch}={}) {
     const response=await request(`/api/${path}`,{method,credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json'},...(value===undefined?{}:{body:JSON.stringify(value)})});
     if(response.status===204)return;
     let result;try {result=await response.json();}catch {throw Object.assign(Error('Server returned an invalid response.'),{status:response.status});}
-    if(!response.ok)throw Object.assign(Error(result.error?.message||'Request failed.'),{status:response.status,code:result.error?.code});
+    if(!response.ok)throw Object.assign(Error(result.error?.message||'Request failed.'),{status:response.status,code:result.error?.code,details:result.error?.details});
     return result;
   }
   return {
+    programBundle:id=>call('documents/'+encodeURIComponent(id)+'/bundle'),
+    templateUsage:async id=>(await call('documents/'+encodeURIComponent(id)+'/usage')).programs,
+    createAndAttach:request=>call('document-commands/attach','POST',request),
+    importDocument:request=>call('document-commands/import','POST',request),
     analysisCapability:()=>call('analysis'),
     catalog:()=>call('catalog'),
     createReference:async value=>(await call('catalog/references','POST',value)).reference,

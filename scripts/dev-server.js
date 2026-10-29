@@ -1,3 +1,4 @@
+import {createDocumentCommands} from '../server/document-commands.js';
 import {createServer} from 'node:http';
 import {readFile,mkdtemp,rm} from 'node:fs/promises';
 import {join,resolve,sep} from 'node:path';
@@ -17,7 +18,7 @@ const db=createDb({url:testing?`file:${join(temp,'test.db')}`:process.env.TURSO_
 if(testing){await migrate(db);await seedCatalog(db);}
 const origin=testing?`http://127.0.0.1:${port}`:process.env.APP_ORIGIN||`http://localhost:${port}`;
 const analysis=testing?{enabled:true,analyze:async()=>new Response('event: start\ndata: {"requestId":"test","promptVersion":"test"}\n\nevent: delta\ndata: {"text":"Assessment\\nA test session review.\\nStrengths\\n- Clear exercise selection.\\nImprovements\\nNo clear changes needed.\\nLimits\\nEffort is unknown."}\n\nevent: complete\ndata: {}\n\n',{headers:{'content-type':'text/event-stream'}})}:createAnalysisService({apiKey:process.env.OPENROUTER_API_KEY,model:process.env.OPENROUTER_MODEL});
-const api=createApi({repository:createRepository(db),catalog:createCatalogRepository(db),analysis,auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
+const api=createApi({repository:createRepository(db),commands:createDocumentCommands(db),catalog:createCatalogRepository(db),analysis,auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
 const root=resolve('.'),mime={'.js':'text/javascript','.css':'text/css','.html':'text/html'};
 const server=createServer(async(req,res)=>{
  try {

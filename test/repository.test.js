@@ -53,8 +53,9 @@ test('SQLite records persist, enforce revisions and safely retry lost acknowledg
 
 test('repository preserves sequences and rejects invalid updates atomically',async t=>{
  const db=createDb({url:'file::memory:'});t.after(()=>db.close());await migrate(db);
- const r=createRepository(db),document={name:'',mode:'simple',goals:{},workouts:[{id:'a',day:null,name:'',exercises:[],goals:{},extraMinutes:5,bufferPercent:10}],
+ const r=createRepository(db),document={name:'',mode:'simple',goals:{},workouts:[{id:'a',templateId:'t',day:null}],
   sequence:[{type:'workout',workoutId:'a'},{type:'rest',id:'r'}]};
+ await r.create({id:'t',kind:'template',document:{name:'',exercises:[],goals:{}}});
  await r.create({id:'cycle',kind:'program',document});
  assert.deepEqual((await r.get('cycle')).document,document);
  await assert.rejects(r.update({id:'cycle',revision:1,document:{...document,sequence:[]}}),{code:'INVALID'});

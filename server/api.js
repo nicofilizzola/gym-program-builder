@@ -1,7 +1,7 @@
 import {MAX_DOCUMENT_BYTES} from '../src/document-file.js';
 import {domainError} from './repository.js';
 import {prepareAnalysisSnapshot} from '../src/analysis-input.js';
-const statuses={INVALID:400,UNAUTHORIZED:401,FORBIDDEN:403,NOT_FOUND:404,METHOD:405,CONFLICT:409,TOO_LARGE:413,RATE_LIMIT:429};
+const statuses={INVALID:400,UNAUTHORIZED:401,FORBIDDEN:403,NOT_FOUND:404,METHOD:405,CONFLICT:409,IN_USE:409,TOO_LARGE:413,RATE_LIMIT:429};
 async function body(request,limit=MAX_DOCUMENT_BYTES) {
   if(!request.headers.get('content-type')?.startsWith('application/json'))throw domainError('INVALID','Expected JSON.');
   const sizeMessage=limit===65536?'Analysis request must be at most 64 KiB.':'Request must be at most 1 MiB.';
@@ -10,7 +10,7 @@ async function body(request,limit=MAX_DOCUMENT_BYTES) {
   if(request.body) {const reader=request.body.getReader();try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw domainError('TOO_LARGE',sizeMessage);}chunks.push(value);}}finally{reader.releaseLock();}}
   try {const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}const data=JSON.parse(new TextDecoder().decode(bytes));if(!data||typeof data!=='object'||Array.isArray(data))throw Error();return data;}catch {throw domainError('INVALID','Request is not valid JSON.');}
 }
-export function createApi({repository,catalog,auth,origin,analysis,clientIp=()=> 'local'}) {
+export function createApi({repository,commands,catalog,auth,origin,analysis,clientIp=()=> 'local'}) {
   const respond=(value,status=200,headers={})=>new Response(status===204?null:JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store',...headers}});
   return async request=>{
     try {
@@ -50,6 +50,14 @@ export function createApi({repository,catalog,auth,origin,analysis,clientIp=()=>
         if(path.length===2&&method==='PUT')return respond({entry:await catalog.update({...await body(request),id:path[1]})});
         throw domainError('METHOD','Method not allowed.');
       }
+      if(path[0]==='document-commands'&&path.length===2&&method==='POST'&&commands){
+        if(path[1]==='attach')return respond(await commands.createAndAttach(await body(request)));
+        if(path[1]==='import')return respond(await commands.importDocument(await body(request)));
+      }
+      if(path[0]==='documents'&&path.length===3&&method==='GET'){
+        if(path[2]==='bundle')return respond(await repository.programBundle(path[1]));
+        if(path[2]==='usage')return respond({programs:await repository.templateUsage(path[1])});
+      }
       if(path[0]!=='documents'||path.length>2)throw domainError('NOT_FOUND','Endpoint not found.');
       const id=path[1];
       if(!id&&method==='GET')return respond({records:await repository.list(url.searchParams.get('kind'))});
@@ -58,6 +66,6 @@ export function createApi({repository,catalog,auth,origin,analysis,clientIp=()=>
       if(id&&method==='PUT')return respond({record:await repository.update({...await body(request),id})});
       if(id&&method==='DELETE') {await repository.remove({...await body(request),id});return respond(null,204);}
       throw domainError('METHOD','Method not allowed.');
-    } catch(error) {const status=statuses[error.code]||503;return respond({error:{code:status===503?'UNAVAILABLE':error.code,message:status===503?'Storage is unavailable. Please retry.':error.message}},status);}
+    } catch(error) {const status=statuses[error.code]||503;return respond({error:{code:status===503?'UNAVAILABLE':error.code,message:status===503?'Storage is unavailable. Please retry.':error.message,...(error.code==='IN_USE'?{details:error.details}:{})}},status);}
   };
 }
