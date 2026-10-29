@@ -277,7 +277,7 @@ test('program workout exercise whole-card reorder preserves prescriptions after 
  await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.getByRole('button',{name:'Expand exercise',exact:true}).last().click();await expect(page.locator('.exercise').last().getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
- await page.getByRole('button',{name:'Back to program',exact:true}).click();await page.reload();await page.getByRole('button',{name:'Edit Upper persisted',exact:true}).click();
+ await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await page.reload();await page.getByRole('button',{name:'Edit Upper persisted',exact:true}).click();
  await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  for(const [i,rest,sets]of [[0,'135','3'],[1,'90','4'],[2,'180','2']]){
   await page.locator('.exercise').nth(i).getByRole('button',{name:'Expand exercise',exact:true}).click();

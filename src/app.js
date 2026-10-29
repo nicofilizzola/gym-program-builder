@@ -1,6 +1,8 @@
+import {mountBreadcrumbs} from './breadcrumbs.js';
 import {resolveProgram,programArrangement} from './program-links.js';
 import {createSharedSessionController} from './shared-session-controller.js';
 import {parseDocumentBundle,serializeDocumentBundle} from './document-bundle.js';
+import {mountTagView} from './tag-view.js';
 import {createViewTransition} from './view-transition.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {createApiClient} from './api-client.js';
@@ -14,6 +16,7 @@ import {parseDocument,serializeDocument,documentFileName} from './document-file.
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
+let breadcrumb,updateCurrentBreadcrumb=()=>{};
 let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=location.hash||'#/programs',authenticated=false,transitioning=false,creation=null,mountedVersion=0;
 const retryCreation=document.querySelector('#retry-creation');
 const viewTransition=createViewTransition(app),navigationStatus=document.querySelector('#navigation-status');
@@ -33,7 +36,7 @@ const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
 function createViewHost(){return app.appendChild(document.createElement('div'));}
-function clearView(){shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
+function clearView(){breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
  transitioning=true;shell.inert=true;
@@ -46,13 +49,13 @@ function track(record,{project=value=>value}={}){
  templateController?.dispose();templateController=null;queue?.dispose();active=structuredClone(record);saveStatus('Saved');
  let copyRequest;
  const onStatus=text=>{if(queue===owned)saveStatus(text);};
- const onRecord=value=>{if(queue===owned){const changed=JSON.stringify(active?.document)!==JSON.stringify(value.document);active=value;if(changed&&!owned.isDirty())mounted?.syncSaved?.(project(value.document));}};
+ const onRecord=value=>{if(queue===owned){const changed=JSON.stringify(active?.document)!==JSON.stringify(value.document);active=value;updateCurrentBreadcrumb(value.document);if(changed&&!owned.isDirty())mounted?.syncSaved?.(project(value.document));}};
  let owned;
  if(record.kind==='template'){
   templateController=createSharedSessionController({api,onStatus,onTemplate:onRecord,onConflict:error=>{message.textContent=error.message+' Save as copy creates a new template; existing programs keep their original template.';}});owned=templateController.load(record);
  }else owned=createAutosave({record,save:args=>api.update(args),createCopy:document=>{copyRequest??={id:uid(),kind:record.kind,copyOf:record.id,document:structuredClone(document)};return api.create(copyRequest);},onStatus,onRecord});
  queue=owned;
- return document=>{if(queue!==owned||active?.id!==record.id)return;active.document=document;owned.change(document);};
+ return document=>{if(queue!==owned||active?.id!==record.id)return;active.document=document;updateCurrentBreadcrumb(document);owned.change(document);};
 }
 async function leave(){
  if(!queue?.isDirty())return true;
@@ -169,20 +172,17 @@ async function prepareRecord(record,context){
  if(record.kind==='program'){const [module,items,loaded]=await Promise.all([import('./program-view.js'),api.list('template'),api.programBundle(record.id)]);mountProgramView=module.mountProgramView;templates=items;bundle=loaded;record=bundle.record;}
  return ()=>{
   programTemplates=bundle?.templates||[];
-  const onChange=track(record,{project:document=>record.kind==='program'?resolveProgram(document,programTemplates):document}),host=createViewHost();
+  const onChange=track(record,{project:document=>record.kind==='program'?resolveProgram(document,programTemplates):document}),host=createViewHost(),contentHost=host.appendChild(document.createElement('div'));
+  const parents=context?[{label:'Programs',href:'#/programs'},{label:context.program.document.name.trim()||'Untitled program',href:'#/programs/'+context.program.id}]:[{label:record.kind==='template'?'Session templates':'Programs',href:record.kind==='template'?'#/templates':'#/programs'}];
+  breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
   if(record.kind==='template'){
-   let editorHost=host;
-   if(context){
-    const bar=document.createElement('div');bar.className='program-context';
-    const back=document.createElement('button');back.type='button';back.className='secondary-btn';back.textContent='Back to program';back.onclick=action(()=>navigate(`#/programs/${context.program.id}`));
-    const shared=document.createElement('a');shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};
-    bar.append(back,shared);host.append(bar);editorHost=host.appendChild(document.createElement('div'));
-   }
+   const editorHost=contentHost;
    mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),analysisEnabled:null,onExport:action(()=>exportActive('template'))});
+   if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
    const editor=mounted;api.analysisCapability().then(result=>{if(mounted===editor)editor.setAnalysisEnabled(result.enabled);}).catch(()=>{if(mounted===editor)editor.setAnalysisEnabled(false);});
   }else{
    let attachRequest;
-   mounted=mountProgramView(host,{api,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:async()=>{
+   mounted=mountProgramView(contentHost,{api,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:async()=>{
     const owned=queue,version=mountedVersion;await owned.flush();if(owned!==queue)return;
     attachRequest??={operationId:uid(),programId:record.id,revision:active.revision,templateId:uid(),occurrenceId:uid(),template:{...createTemplate(),name:'Untitled workout'}};
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
@@ -200,10 +200,10 @@ async function renderRoute(version=++routeVersion){
  try{
   const commit=await prepareRoute(route,version);if(version!==routeVersion)return;
   await viewTransition.swap(()=>{
-   clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=targetHash;
+   clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
    document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',route.view.startsWith(a.dataset.nav.slice(0,-1))?'page':'false'));
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,0);
-  },{focus:()=>{app.inert=false;if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-edit="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
+  },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-edit="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
  }catch(error){
   if(version!==routeVersion)return;
   history.replaceState(null,'',currentHash);report(error);
@@ -211,7 +211,22 @@ async function renderRoute(version=++routeVersion){
  }finally{idle(version);}
 }
 async function prepareRoute(route,version){
- if(route.view==='catalog')return ()=>{mounted=mountCatalog(createViewHost(),{api});};
+ if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
+ if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
+  const data=route.view==='catalog'?undefined:await api.catalog();
+  const variant=route.variantId?data.entries.find(e=>e.id===route.variantId):null,reference=data?.families.find(r=>r.id===(variant?.familyId||route.referenceId));
+  const commit=()=>{
+   const host=createViewHost(),content=host.appendChild(document.createElement('div'));
+   if(data&&(!reference||(route.variantId&&!variant))){breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Not found'}],onNavigate:hash=>action(()=>navigate(hash))()});const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='This reference exercise or variant is unavailable. Return to Exercise catalog.';content.append(p);return;}
+   if(data)breadcrumb=mountBreadcrumbs(host,{items:[],onNavigate:hash=>action(()=>navigate(hash))()});
+   mounted=mountCatalog(content,{api,initialData:data,target:data?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
+    breadcrumb?.update([{label:'Exercise catalog',href:'#/catalog'},...(variant?[{label:reference.name,href:'#/catalog/references/'+reference.id},{label:variant.name}]:[{label:reference.name}])]);
+    const hash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;}
+   }});
+  };
+  if(data&&reference&&(!route.variantId||variant)){commit.canonicalHash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');commit.focus=()=>mounted?.focusTarget?.();}
+  return commit;
+ }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='program-workout'){const bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence});}
  if(route.id)return prepareRecord(await api.get(route.id));

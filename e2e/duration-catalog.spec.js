@@ -5,13 +5,13 @@ test('reference defaults initialize once and replacement, linking and later edit
  await login(page);
  const suffix=crypto.randomUUID(),headers={origin:'http://127.0.0.1:3199'},refs=[];
  for(const [type,label,muscle] of [['compound','Press','Chest'],['isolation','Curl','Biceps']]) {
-  const ref={id:crypto.randomUUID(),name:label+' '+suffix,exerciseType:type};
+  const ref={equipment:'Barbell',id:crypto.randomUUID(),name:label+' '+suffix,exerciseType:type};
   const r=await page.request.post('/api/catalog/references',{headers,data:ref});expect(r.ok()).toBeTruthy();
   const entry={name:label+' '+suffix,equipment:'Barbell',primaryMuscles:[muscle],secondaryMuscles:[]};
   const created=await page.request.post('/api/catalog',{headers,data:{id:crypto.randomUUID(),familyId:ref.id,entry}});
   expect(created.ok()).toBeTruthy();refs.push({...ref,entry:(await created.json()).entry});
  }
- await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();await select(page,refs[0].entry.name);
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
  await page.getByRole('slider',{name:'Rest per set',exact:true}).fill('45');
@@ -40,13 +40,13 @@ test('reference defaults initialize once and replacement, linking and later edit
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('45');
 });
 test('reference form requires classification and exposes editable defaults',async({page})=>{
- await login(page);await page.getByRole('link',{name:'Exercise catalog',exact:true}).click();
+ await login(page);await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true}).click();
  await page.getByRole('button',{name:'New reference exercise',exact:true}).click();
  const dialog=page.getByRole('dialog'),name='Timing reference '+crypto.randomUUID();
  await dialog.getByLabel('Reference exercise name',{exact:true}).fill(name);
  await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();
  await expect(dialog).toBeVisible();await expect(dialog.getByRole('alert')).toContainText('Choose');
- await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');await dialog.getByRole('radio',{name:'Barbell',exact:true}).check();
  for(const [width,height] of [[1366,768],[1440,900],[1920,1080],[768,1024],[390,844]]) {
   await page.setViewportSize({width,height});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -57,19 +57,19 @@ test('reference form requires classification and exposes editable defaults',asyn
  const group=page.locator('.reference-group').filter({has:page.getByText(name,{exact:true})});
  await expect(group).toContainText('Compound');
  await group.getByRole('button',{name:'Edit reference exercise '+name,exact:true}).click();
- await dialog.getByLabel('Exercise type',{exact:true}).selectOption('isolation');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('isolation');await dialog.getByRole('radio',{name:'Barbell',exact:true}).check();
  await dialog.getByRole('button',{name:'Save reference exercise',exact:true}).click();
  await expect(group).toContainText('Isolation');
 });
 test('lost inline creation response cannot silently accept a changed reference type',async({page})=>{
  test.setTimeout(60000);
- await login(page);await page.getByRole('link',{name:'Session templates',exact:true}).click();
+ await login(page);await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();
  await page.getByRole('button',{name:'New session template',exact:true}).click();
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();await page.getByRole('button',{name:'New variant',exact:true}).click();
  const dialog=page.getByRole('dialog'),name='Lost timing creation '+crypto.randomUUID();
  await dialog.getByLabel('Variant name',{exact:true}).fill(name);
  await dialog.getByLabel('New reference exercise name',{exact:true}).fill(name+' reference');
- await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');await dialog.getByRole('radio',{name:'Barbell',exact:true}).check();
  await dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();
  let first=true,familyId;
  await page.route('**/api/catalog',async route=>{
@@ -79,12 +79,12 @@ test('lost inline creation response cannot silently accept a changed reference t
   await route.continue();
  });
  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toContainText('Lost creation response');
- await dialog.getByLabel('Exercise type',{exact:true}).selectOption('isolation');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('isolation');await dialog.getByRole('radio',{name:'Barbell',exact:true}).check();
  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();
  await expect(dialog.getByRole('alert')).toContainText('different reference exercise');
  const saved=(await (await page.request.get('/api/catalog/references/'+familyId)).json()).reference;
  expect(saved.exerciseType).toBe('compound');
- await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');
+ await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');await dialog.getByRole('radio',{name:'Barbell',exact:true}).check();
  await dialog.getByRole('button',{name:'Save variant',exact:true}).click();
  await expect(dialog).toHaveCount(0);await expect(page.locator('.card-name')).toHaveText(name);
  await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');

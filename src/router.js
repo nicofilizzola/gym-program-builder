@@ -1,4 +1,8 @@
 export function parseRoute(hash) {
+  const [path,query='']=String(hash||'').split('?');hash=path;
+  if(/^#?\/catalog\/tags$/.test(hash)){const params=new URLSearchParams(query),kind=params.get('kind')||'brand';return ['brand','focus'].includes(kind)?{view:'catalog-tags',kind,query:params.get('q')||''}:{view:'not-found'};}
+  const catalog=/^#?\/catalog\/references\/([\w-]+)(?:\/variants\/([\w-]+))?$/.exec(hash);
+  if(catalog)return catalog[2]?{view:'catalog-variant',referenceId:catalog[1],variantId:catalog[2]}:{view:'catalog-reference',referenceId:catalog[1]};
   const workout=/^#?\/programs\/([\w-]+)\/workouts\/([\w-]+)$/.exec(hash);
   if(workout)return {view:'program-workout',id:workout[1],occurrenceId:workout[2]};
   if(/^#?\/catalog$/.test(hash))return {view:'catalog'};

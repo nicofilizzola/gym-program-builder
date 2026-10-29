@@ -1,5 +1,18 @@
 # Gym Program Builder
 
+## Reference metadata, tags and breadcrumbs (2026-10-29)
+
+Design: docs/superpowers/specs/2026-10-29-linked-sessions-catalog-design.md; plan: docs/superpowers/plans/2026-10-29-catalog-metadata-navigation.md. These approved requirements supersede older variant-owned equipment and independent program-copy rules.
+
+- Reference exercises own one equipment value, optional plain-text description (max 2,000 characters) and optional default primary/secondary muscles. Equipment creation/editing uses native single-select icon pills with visible labels. Variants inherit equipment, own their actual muscles and optional description, and cannot override equipment.
+- Reference muscles initialize a new variant only; later default edits never change existing variants. Create variant from a variant starts with its own muscles, description and tags. Moves inherit destination equipment/reference description while preserving variant identity/own fields, archive state and workout rest/prescriptions.
+- Brand is zero/one tag; Focus is zero/many independent free-form tags, never a replacement for the fixed volume muscles. Manage tags in the catalog's dedicated Tags screen: create, rename, archive/restore, with stable IDs and revision checks. Names are 1–80 characters and unique case-insensitively within kind. Archived assignments remain visible; new archived assignments reject except source-verified cloning of retained source assignments.
+- Search reference/variant names, equipment and tag labels. Show labeled tags in catalog/autocomplete/workout cards, including collapsed cards. One accessible info surface shows both description levels; hide its trigger when both are empty. Long content wraps/scrolls inside the viewport without covering its trigger.
+- Reference equipment/description and tag label mutations propagate transactionally to templates, once per affected template even when multiple variants are used. Guard definition/impact revisions; preserve dirty edits, open variant drafts and all timing rules.
+- Migration 006 leaves mixed-equipment/empty references unconfigured for manual choice and preserves old values in an equipment backup. Never split existing references. Existing linked snapshots stay readable; block new selections/variants/move destinations until configured. Run migration/seed version 3 explicitly per environment and preserve all personal metadata on seed replay.
+- Breadcrumbs replace redundant Back controls on nested views, retain program occurrence context and reveal catalog reference/variant targets. Keep global labeled navigation, native links, live names, valid ancestor routes, wrap/touch sizing and existing motion/reduced-motion behavior.
+- Follow docs/operations/catalog-metadata-rollout.md for manual cleanup and explicit rollout. V3 files retain portable metadata values, never trusted internal IDs; v1/v2 import support remains.
+
 ## Shared session templates (2026-10-29)
 
 Design: docs/superpowers/specs/2026-10-29-linked-sessions-catalog-design.md; plan: docs/superpowers/plans/2026-10-29-shared-session-templates.md. These approved requirements supersede older independent program-copy rules.

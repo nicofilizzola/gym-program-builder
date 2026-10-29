@@ -1,3 +1,4 @@
+import {renderVariantMetadata} from './catalog-metadata.js';
 import {EQUIPMENT} from './catalog.js';
 import {groupCatalog,flattenVariantOptions} from './catalog-groups.js';
 import {openCatalogForm} from './catalog-form.js';
@@ -20,7 +21,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   const button=document.createElement('button');button.type='button';button.className='action-button';button.dataset.exerciseAction=key;button.setAttribute('aria-label',label);button.dataset.actionTooltip=label;button.innerHTML=actionIcon(icon);button.onclick=activate;strip.append(button);return button;
  }
  const actions=action('replace','Replace exercise','move',()=>{hide();editing=true;display();input.value='';input.focus();show();});
- const clone=action('variant','Create variant','duplicate',()=>{if(store.value?.entries.find(e=>e.id===exercise.catalogId)?.referenceArchived)return;create('variant');});
+ const clone=action('variant','Create variant','duplicate',()=>{if(((e)=>e?.referenceArchived||e?.equipmentConfigured===false)(store.value?.entries.find(e=>e.id===exercise.catalogId)))return;create('variant');});
  action('catalog','View in catalog','catalog',()=>{hide();onView?.();});
  // Keep the filter in document order beside the combobox, even though suggestions use the top layer.
  const equipmentLabel=filter.closest('label');
@@ -40,16 +41,16 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   host.querySelector('.linked-exercise-name').textContent=exercise.name;
   host.querySelector('.linked-exercise-name').hidden=!showLinkedName;
   const current=store.value?.entries.find(e=>e.id===exercise.catalogId);
-  host.querySelector('[data-meta]').textContent=[current?.familyName,exercise.equipment,current?.archived?'Archived':null].filter(Boolean).join(' · ');
-  const restricted=String(Boolean(current?.referenceArchived));
+  host.querySelector('[data-meta]').textContent=[current?.familyName,current?.archived?'Archived':null].filter(Boolean).join(' · ');
+  const restricted=String(Boolean(current?.referenceArchived||current?.equipmentConfigured===false));
   if(clone.getAttribute('aria-disabled')!==restricted)tooltips.hide();
   clone.setAttribute('aria-disabled',restricted);
-  clone.dataset.actionTooltip=current?.referenceArchived?'Restore the reference exercise before creating a variant.':'Create variant';
+  clone.dataset.actionTooltip=current?.referenceArchived?'Restore the reference exercise before creating a variant.':current?.equipmentConfigured===false?'Set equipment on the reference exercise before creating a variant.':'Create variant';
  }
  function position(el,anchor){
   if(!el.matches(':popover-open'))return;
   const view=window.visualViewport,r=anchor.getBoundingClientRect(),viewportTop=view?.offsetTop||0,bottom=viewportTop+(view?.height||innerHeight),width=Math.min(520,innerWidth-16);
-  const navigationBottom=Math.max(0,...[...document.querySelectorAll('.app-header,.program-context')].map(el=>el.getBoundingClientRect().bottom));
+  const navigationBottom=Math.max(0,...[...document.querySelectorAll('.app-header,.program-context,.breadcrumbs')].map(el=>el.getBoundingClientRect().bottom));
   const top=Math.max(viewportTop,Math.min(navigationBottom,bottom-100));
   el.style.width=width+'px';el.style.left=Math.max(8,Math.min(r.left,innerWidth-width-8))+'px';
   const below=bottom-r.bottom-12,above=r.top-top-12,useBelow=below>=Math.min(360,above),space=useBelow?below:above;
@@ -80,7 +81,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
    for(const entry of group.variants){
     const option=document.createElement('div');option.className='exercise-option';option.id=optionId(entry);option.setAttribute('role','option');
     const name=document.createElement('strong');name.textContent=entry.name;
-    const meta=document.createElement('span');meta.className='catalog-meta';meta.textContent=entry.equipment;
+    const meta=document.createElement('span');meta.className='catalog-meta';renderVariantMetadata(meta,entry);
     const mapping=document.createElement('span');mapping.className='catalog-mapping';mapping.textContent='Primary: '+entry.primaryMuscles.join(', ')+' · Secondary: '+(entry.secondaryMuscles.join(', ')||'None');
     option.append(name,meta,mapping);option.onpointerdown=event=>event.preventDefault();option.onclick=()=>select(entry);section.append(option);
    }
@@ -104,7 +105,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
   hide();
   const current=store.value?.entries.find(e=>e.id===exercise.catalogId);
   if(mode==='variant'&&!current){error.textContent='Refresh the catalog before creating a variant.';editing=true;display();show();return;}
-  form?.destroy();form=openCatalogForm({api,mode,entry:mode==='variant'?current:legacy?exercise:undefined,families:store.value?.families||[],initialName:input.value,onSaved:async entry=>{await load(true);if(!disposed)select(entry,{created:true});}});
+  form?.destroy();form=openCatalogForm({api,mode,entry:mode==='variant'?current:legacy?exercise:undefined,families:store.value?.families||[],tags:store.value?.tags||[],initialName:input.value,onSaved:async entry=>{await load(true);if(!disposed)select(entry,{created:true});}});
  }
  host.querySelector('[data-link]').onclick=()=>{editing=true;display();input.value=exercise.name;input.focus();show();};
  newExercise.onclick=()=>create('create');

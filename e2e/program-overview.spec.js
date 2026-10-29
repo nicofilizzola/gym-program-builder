@@ -116,8 +116,8 @@ test('hover grace and interrupted fades show the newest subject and clean up on 
   await expect(page.locator('#readout')).toContainText('Chest 7 sets');
   await row(page,'Lats').dispatchEvent('pointerover',{pointerType:'mouse',bubbles:true});
   await page.getByRole('button',{name:'Edit Press',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Back to program',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'Back to program',exact:true}).click();
+  await expect(page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last()).toBeVisible();
+  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
   await expect(page.locator('#readout')).toHaveText('Tap a muscle to highlight its workouts.');
   expect(errors).toEqual([]);
 });
@@ -215,7 +215,7 @@ test('workout mutations retain highlights and replacements clear them',async({pa
   await page.getByLabel('Session template name',{exact:true}).fill('');
   await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
   await page.locator('.primary').getByRole('checkbox',{name:'Triceps',exact:true}).uncheck();
-  await page.getByRole('button',{name:'Back to program',exact:true}).click();
+  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);
   await expect(row(page,'Chest').locator('.value')).toHaveText('7');
   await region(page,'Chest').locator('path').first().click();await page.mouse.move(0,0);

@@ -1,0 +1,33 @@
+import {test,expect} from '@playwright/test';
+test('reference icon pills and defaults initialize a variant with searchable descriptions and tags',async({page})=>{
+ await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
+ const ids=await page.evaluate(async()=>{const {createApiClient}=await import('/src/api-client.js'),api=createApiClient();return {brand:await api.createTag({id:crypto.randomUUID(),kind:'brand',name:'Visual Prime'}),focus:await api.createTag({id:crypto.randomUUID(),kind:'focus',name:'Visual upper chest'})};});
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByRole('button',{name:'New reference exercise',exact:true}).click();
+ const dialog=page.getByRole('dialog');await dialog.getByLabel('Reference exercise name',{exact:true}).fill('Visual bench');await dialog.getByLabel('Exercise type',{exact:true}).selectOption('compound');
+ await dialog.getByRole('radio',{name:'Machine',exact:true}).check();await expect(dialog.getByRole('radio',{name:'Barbell',exact:true})).not.toBeChecked();
+ await dialog.getByRole('radio',{name:'Machine',exact:true}).focus();await page.keyboard.press('ArrowLeft');await expect(dialog.getByRole('radio',{name:'Cable',exact:true})).toBeChecked();await dialog.getByRole('radio',{name:'Machine',exact:true}).check();
+ await expect(dialog.locator('.equipment-pills label svg')).toHaveCount(8);
+ await dialog.getByRole('group',{name:'Default primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();
+ await dialog.getByRole('button',{name:'Reference description',exact:true}).click();await dialog.getByRole('textbox',{name:'Reference description',exact:true}).fill('Reference <img> notes');
+ await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await page.getByRole('button',{name:'Add variant to Visual bench',exact:true}).click();await dialog.getByLabel('Variant name',{exact:true}).fill('Visual paused press');
+ await expect(dialog.getByText('Equipment: Machine',{exact:true})).toBeVisible();await expect(dialog.getByRole('radio',{name:'Machine',exact:true})).toHaveCount(0);
+ await expect(dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true})).toBeChecked();
+ await dialog.getByLabel('Brand',{exact:true}).selectOption(ids.brand.id);await dialog.getByRole('group',{name:'Focus',exact:true}).getByLabel('Visual upper chest',{exact:true}).check();
+ await dialog.getByRole('button',{name:'Variant description',exact:true}).click();await dialog.getByRole('textbox',{name:'Variant description',exact:true}).fill('Pause two seconds');
+ await dialog.getByRole('button',{name:'Save variant',exact:true}).click();await expect(dialog).toHaveCount(0);await expect(page.locator('.catalog-row').filter({hasText:'Visual paused press'})).toContainText('Brand: Visual Prime');
+ await page.getByRole('button',{name:'Create variant from Visual paused press',exact:true}).click();await expect(dialog.getByLabel('Brand',{exact:true})).toHaveValue(ids.brand.id);await expect(dialog.getByRole('group',{name:'Focus',exact:true}).getByLabel('Visual upper chest',{exact:true})).toBeChecked();await expect(dialog.getByRole('textbox',{name:'Variant description',exact:true})).toHaveValue('Pause two seconds');await dialog.getByRole('button',{name:'Cancel',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();await page.getByRole('button',{name:'Add exercise',exact:true}).click();
+ const picker=page.getByRole('combobox',{name:'Exercise',exact:true});await picker.fill('Visual Prime upper chest');await expect(page.getByRole('option').filter({hasText:'Visual paused press'})).toBeVisible();await picker.press('ArrowDown');await picker.press('Enter');
+ await page.getByRole('button',{name:'About Visual paused press',exact:true}).click();await expect(page.getByRole('tooltip').filter({hasText:'Pause two seconds'})).toContainText('Reference <img> notes');
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'Collapse exercise',exact:true}).click();await expect(page.locator('.exercise')).toContainText('Focus: Visual upper chest');
+});
+test('description disclosure and catalog modal preserve closing motion focus and reduced motion',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true}).click();
+ const create=page.getByRole('button',{name:'New reference exercise',exact:true});await create.click();const dialog=page.getByRole('dialog');await expect(dialog).toHaveCSS('opacity','1');
+ const toggle=dialog.getByRole('button',{name:'Reference description',exact:true});await toggle.press('Enter');await expect(toggle).toHaveAttribute('aria-expanded','true');
+ const text=dialog.getByRole('textbox',{name:'Reference description',exact:true});await text.focus();await toggle.evaluate(b=>b.click());await expect(toggle).toBeFocused();await expect(dialog.locator('.catalog-disclosure-region')).toHaveAttribute('inert','');
+ await toggle.evaluate(b=>{b.click();b.click();b.click();});await expect(toggle).toHaveAttribute('aria-expanded','true');await text.focus();await page.keyboard.press('Escape');
+ expect(await dialog.count()).toBe(1);await expect(dialog).toHaveClass(/is-closing/);await expect(dialog.locator('form')).toHaveAttribute('inert','');await expect(dialog).toHaveCount(0);await expect(create).toBeFocused();
+ await page.emulateMedia({reducedMotion:'reduce'});await create.click();await dialog.getByRole('button',{name:'Cancel',exact:true}).evaluate(b=>b.click());expect(await dialog.count()).toBe(0);await expect(create).toBeFocused();
+});

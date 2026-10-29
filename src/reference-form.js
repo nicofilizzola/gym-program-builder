@@ -1,11 +1,17 @@
+import {renderVariantMetadata} from './catalog-metadata.js';
+import {mountEquipmentPills} from './equipment-controls.js';
+import {mountMuscleChoices,mountDescriptionField} from './catalog-controls.js';
+import {validateReference} from './catalog.js';
+import {mountDialogMotion} from './dialog-motion.js';
 import {invalidateCatalog} from './catalog-store.js';
 function modal(title,{onClosed}){
  const invoker=document.activeElement,dialog=document.createElement('dialog'),titleId='reference-form-'+crypto.randomUUID();dialog.className='catalog-dialog';dialog.setAttribute('aria-labelledby',titleId);
  dialog.innerHTML='<form novalidate><h2></h2><div data-content></div><p class="error" role="alert"></p><div data-recovery class="catalog-recovery"></div><div class="catalog-form-actions"><button type="button" class="secondary-btn" data-cancel>Cancel</button><button class="add-btn" type="submit"></button></div></form>';
  dialog.querySelector('h2').id=titleId;dialog.querySelector('h2').textContent=title;document.body.append(dialog);
  const form=dialog.querySelector('form'),content=dialog.querySelector('[data-content]'),error=dialog.querySelector('.error'),save=dialog.querySelector('[type=submit]'),cancel=dialog.querySelector('[data-cancel]'),recovery=dialog.querySelector('[data-recovery]');
+ const motion=mountDialogMotion(dialog,{onClosed:()=>{if(onClosed)onClosed();else if(invoker?.isConnected&&!document.querySelector('dialog[open]'))invoker.focus({preventScroll:true});}});
  let closed=false,busy=false;
- const close=()=>{if(closed)return;closed=true;dialog.close();dialog.remove();if(onClosed)onClosed();else if(invoker?.isConnected)invoker.focus({preventScroll:true});};
+ const close=()=>{if(closed)return;closed=true;motion.close();};
  cancel.onclick=()=>{if(!busy)close();};dialog.oncancel=e=>{e.preventDefault();if(!busy)close();};
  dialog.onclick=e=>{if(e.target!==dialog||busy)return;const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();};
  function action(text,fn){const b=document.createElement('button');b.type='button';b.className='secondary-btn';b.textContent=text;b.onclick=()=>Promise.resolve().then(fn).catch(e=>{if(!closed)error.textContent=e.message;});recovery.append(b);return b;}
@@ -16,18 +22,24 @@ function modal(title,{onClosed}){
   catch(e){if(!closed){error.textContent=e.message;onError?.(e);}}
   finally{busy=false;if(!closed)controls.forEach(([el,disabled])=>{el.disabled=disabled;});}
  }
- return {dialog,form,content,error,save,recovery,action,perform,close,get closed(){return closed;},show(){dialog.showModal();content.querySelector('input,select')?.focus();}};
+ return {dialog,form,content,error,save,recovery,action,perform,close,destroy(){closed=true;motion.destroy();},get closed(){return closed;},show(){motion.open();content.querySelector('input,select')?.focus();}};
 }
 export function openReferenceForm({api,reference,onSaved=()=>{},onClosed}){
- const ui=modal(reference?'Edit reference exercise':'New reference exercise',{onClosed});let current=reference;const id=reference?.id||crypto.randomUUID();
- ui.content.innerHTML='<label class="field">Reference exercise name<input type="text" maxlength="200" required autocomplete="off"></label><label class="field">Exercise type<select aria-label="Exercise type" required><option value="">Choose type</option><option value="compound">Compound · 3 min rest</option><option value="isolation">Isolation · 1 min 30 sec rest</option></select></label><p class="catalog-meta">Supplies initial rest for new selections. Existing workout rest stays unchanged.</p>';
- const input=ui.content.querySelector('input'),type=ui.content.querySelector('select');input.value=current?.name||'';type.value=current?.exerciseType||'';ui.save.textContent=current?'Save reference exercise':'Create reference exercise';
- const reload=async()=>{const value=await api.getReference(id);if(ui.closed)return;current=value;input.value=value.name;type.value=value.exerciseType||'';ui.save.textContent='Save reference exercise';ui.error.textContent='';ui.recovery.replaceChildren();};
- const submit=()=>{const name=input.value.trim();if(!name||name.length>200){ui.error.textContent='Enter a reference exercise name (up to 200 characters).';input.focus();return;}
-  if(!type.value){ui.error.textContent='Choose Compound or Isolation.';type.focus();return;}
-  ui.perform(async()=>{const saved=current?await api.updateReference({id,revision:current.revision,name,exerciseType:type.value}):await api.createReference({id,name,exerciseType:type.value});invalidateCatalog(api);if(!ui.closed)await onSaved(saved);},e=>{if(e.status===409)ui.action('Reload saved version',reload);else ui.action('Retry',submit);});
+ const ui=modal(reference?'Edit reference exercise':'New reference exercise',{onClosed});let current=reference,impact=null;const id=reference?.id||crypto.randomUUID();
+ ui.content.innerHTML='<div class="reference-main-fields"><label class="field">Reference exercise name<input type="text" name="referenceName" maxlength="200" required autocomplete="off"></label><label class="field">Exercise type<select name="exerciseType" aria-label="Exercise type" required><option value="">Choose type</option><option value="compound">Compound \u00b7 3 min rest</option><option value="isolation">Isolation \u00b7 1 min 30 sec rest</option></select></label></div><div data-equipment></div><div data-defaults></div><div data-notes></div><p class="catalog-meta">Muscles preselect new variants only. Type supplies initial rest; existing workout rest stays unchanged.</p><p data-impact class="catalog-meta" role="status"></p>';
+ const input=ui.content.querySelector('input'),type=ui.content.querySelector('select'),equipment=mountEquipmentPills(ui.content.querySelector('[data-equipment]'),{name:'referenceEquipment',value:reference?.equipment||''});
+ const muscles=mountMuscleChoices(ui.content.querySelector('[data-defaults]'),{primary:reference?.defaultPrimaryMuscles,secondary:reference?.defaultSecondaryMuscles,primaryLabel:'Default primary muscles',secondaryLabel:'Default secondary muscles'});
+ const description=mountDescriptionField(ui.content.querySelector('[data-notes]'),{label:'Reference description',name:'referenceDescription',value:reference?.description||''});
+ input.value=current?.name||'';type.value=current?.exerciseType||'';ui.save.textContent=current?'Save reference exercise':'Create reference exercise';
+ async function loadImpact(){if(!current)return;ui.save.disabled=true;try{impact=await api.referenceImpact(id);if(ui.closed)return;ui.content.querySelector('[data-impact]').textContent=impact.variants.length+' variants \u00b7 '+impact.templates.length+' shared templates \u00b7 '+impact.programs.length+' programs'+(impact.programs.length?': '+impact.programs.map(p=>p.name||'Untitled program').join(', '):'');ui.error.textContent='';ui.recovery.replaceChildren();ui.save.disabled=false;}catch(e){if(!ui.closed){ui.error.textContent=e.message;ui.action('Retry usage preview',loadImpact);}}}
+ const reload=async()=>{const value=await api.getReference(id);if(ui.closed)return;current=value;input.value=value.name;type.value=value.exerciseType||'';equipment.setValue(value.equipment);description.setValue(value.description);muscles.setValue({primaryMuscles:value.defaultPrimaryMuscles,secondaryMuscles:value.defaultSecondaryMuscles});ui.error.textContent='';ui.recovery.replaceChildren();await loadImpact();};
+ const submit=()=>{
+  const selected=muscles.getValue(),result=validateReference({name:input.value,exerciseType:type.value,equipment:equipment.getValue(),description:description.getValue(),defaultPrimaryMuscles:selected.primaryMuscles,defaultSecondaryMuscles:selected.secondaryMuscles});
+  if(result.error){ui.error.textContent=result.error;if(!input.value.trim())input.focus();else if(!type.value)type.focus();else if(!equipment.getValue())ui.content.querySelector('[type=radio]').focus();return;}
+  if(current&&!impact){ui.error.textContent='Load the usage preview before saving.';return;}
+  ui.perform(async()=>{const request={id,...result.reference};const saved=current?await api.updateReference({...request,revision:current.revision,impact}):await api.createReference(request);invalidateCatalog(api);if(!ui.closed)await onSaved(saved);},e=>{if(e.status===409){ui.action('Reload saved version',reload);ui.action('Refresh usage preview',loadImpact);}else ui.action('Retry',submit);});
  };
- ui.form.onsubmit=e=>{e.preventDefault();submit();};ui.show();return {destroy:ui.close};
+ ui.form.onsubmit=e=>{e.preventDefault();submit();};ui.show();loadImpact();return {destroy:ui.destroy};
 }
 export function openReferenceArchive({api,reference,entries,onSaved=()=>{},onClosed}){
  const ui=modal(reference.archived?'Restore reference exercise':'Archive reference exercise',{onClosed});let current=reference,children=entries;
@@ -41,22 +53,23 @@ export function openReferenceArchive({api,reference,entries,onSaved=()=>{},onClo
  }
  const reload=async()=>{const data=await api.catalog();if(ui.closed)return;current=data.families.find(r=>r.id===current.id);if(!current)throw Error('Reference exercise not found.');children=data.entries;render();ui.error.textContent='';ui.recovery.replaceChildren();};
  const submit=()=>ui.perform(async()=>{const saved=await api.archiveReference({id:current.id,revision:current.revision,archived:!current.archived});invalidateCatalog(api);if(!ui.closed)await onSaved(saved);},e=>{if(e.status===409)ui.action('Reload saved version',reload);else ui.action('Retry',submit);});
- ui.form.onsubmit=e=>{e.preventDefault();submit();};render();ui.show();return {destroy:ui.close};
+ ui.form.onsubmit=e=>{e.preventDefault();submit();};render();ui.show();return {destroy:ui.destroy};
 }
 export function openVariantMove({api,entry,references,entries,onSaved=()=>{},onClosed}){
  const ui=modal('Move variant',{onClosed});let current=entry,refs=references,variants=entries,impact=[],ready=false;
- ui.content.innerHTML='<p data-source></p><p>Moves this variant and its linked workouts to another reference exercise. Muscle mappings, sets and reps stay unchanged.</p><label class="field">Destination reference exercise<select aria-label="Destination reference exercise"></select></label><p data-state></p><p data-usage role="status"></p>';
+ ui.content.innerHTML='<p data-source></p><div data-variant-meta></div><p>Moves this variant and its linked workouts to another reference exercise. Equipment and reference description follow the destination. Variant muscles, tags, description and workout prescriptions stay unchanged.</p><label class="field">Destination reference exercise<select aria-label="Destination reference exercise"></select></label><p data-state></p><p data-usage role="status"></p>';
  const destination=ui.content.querySelector('select');
  function availability(){ui.save.disabled=!ready||!destination.value;}
  function render(){
   const selected=destination.value;destination.replaceChildren(new Option('Choose destination',''));
-  for(const ref of refs.filter(r=>!r.archived&&r.id!==current.familyId).sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id))){
+  for(const ref of refs.filter(r=>!r.archived&&r.equipment&&r.id!==current.familyId).sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id))){
    const duplicate=refs.filter(r=>r.name===ref.name).length>1,preview=variants.filter(e=>e.familyId===ref.id).slice(0,2).map(e=>e.name).join(', ')||'No variants yet';
    destination.add(new Option(ref.name+(duplicate?' — '+preview:''),ref.id));
   }
   if([...destination.options].some(o=>o.value===selected))destination.value=selected;
+  renderVariantMetadata(ui.content.querySelector('[data-variant-meta]'),current);
   ui.content.querySelector('[data-source]').textContent=current.name+' · From '+(refs.find(r=>r.id===current.familyId)?.name||current.familyName);
-  ui.content.querySelector('[data-state]').textContent=current.archived?'This variant will remain archived after moving.':'';
+  ui.content.querySelector('[data-state]').textContent=(current.archived?'This variant will remain archived after moving. ':'')+(destination.value?'Equipment: '+(current.equipment||'Not configured')+' \u2192 '+refs.find(r=>r.id===destination.value)?.equipment:'');
   availability();
  }
  async function preview({reload=false}={}){
@@ -71,5 +84,5 @@ export function openVariantMove({api,entry,references,entries,onSaved=()=>{},onC
   const target=refs.find(r=>r.id===destination.value),source=refs.find(r=>r.id===current.familyId);
   ui.perform(async()=>{const saved=await api.moveCatalog({id:current.id,revision:current.revision,destinationReferenceId:target.id,sourceReferenceRevision:source.revision,destinationReferenceRevision:target.revision,impact});invalidateCatalog(api);if(!ui.closed)await onSaved(saved);},e=>{if(e.status===409)ui.action('Refresh move preview',()=>preview({reload:true}));else ui.action('Retry',submit);});
  };
- destination.onchange=availability;ui.form.onsubmit=e=>{e.preventDefault();submit();};ui.save.textContent='Move variant';render();ui.show();preview();return {destroy:ui.close};
+ destination.onchange=()=>{availability();ui.content.querySelector('[data-state]').textContent=(current.archived?'This variant will remain archived after moving. ':'')+(destination.value?'Equipment: '+(current.equipment||'Not configured')+' \u2192 '+refs.find(r=>r.id===destination.value)?.equipment:'');};ui.form.onsubmit=e=>{e.preventDefault();submit();};ui.save.textContent='Move variant';render();ui.show();preview();return {destroy:ui.destroy};
 }

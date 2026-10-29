@@ -1,3 +1,4 @@
+import {renderVariantMetadata,mountExerciseInfo} from './catalog-metadata.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {mountAnalysisPanel} from './analysis-panel.js';
 import { mountSortable } from './sortable.js';
@@ -31,7 +32,7 @@ if(api)getCatalogStore(api).load(true).catch(()=>{});
  */
 let session = normalizeWorkoutTiming(structuredClone(workout));
 let lastDocument = JSON.stringify(session);
-const exerciseCards=new Map(),exercisePickers=new Map();
+const exerciseCards=new Map(),exercisePickers=new Map(),exerciseInfos=new Map();
 const nameInput=root.querySelector("[data-template-name]");
 nameInput.value=session.name;
 nameInput.addEventListener("input",()=>{session.name=nameInput.value;refresh();});
@@ -112,6 +113,7 @@ const CARD_HTML = `
     </button>
     </div>
   </div>
+  <div data-variant-metadata hidden></div>
   <div class="collapsible" data-collapse="summary"><p class="card-summary" data-summary></p></div>
   <div class="collapsible" data-collapse="body"><div class="card-body exercise-fields">
   <div class="exercise-main-fields">
@@ -216,6 +218,7 @@ const tipFor = (button) => document.getElementById(button.getAttribute('aria-con
 
 /** Show a muscle's info tooltip next to its button, hiding any other one. */
 function showTip(button, pinned) {
+  document.dispatchEvent(new Event('gym-info-open'));
   clearTimeout(tipHideTimer);
   if (shownTip && shownTip.button !== button) hideTip();
   const tip = tipFor(button);
@@ -291,6 +294,8 @@ function renderExercises() {
   moveMenu.close();
   fileMessage.textContent = '';
   for(const [ex,picker] of exercisePickers)if(!session.exercises.includes(ex)){picker.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);}
+  for(const ex of exerciseCards.keys())if(!session.exercises.includes(ex))exerciseCards.delete(ex);
+  for(const [ex,info]of exerciseInfos)if(!session.exercises.includes(ex)||!exerciseCards.has(ex)){info.controller.destroy();exerciseInfos.delete(ex);}
   list.replaceChildren(...session.exercises.map((ex, i) => {
     let card=exerciseCards.get(ex);
     if(!card){
@@ -312,7 +317,7 @@ function renderExercises() {
           const p=document.createElement('p');p.className='linked-muscles';const title=document.createElement('strong');title.textContent=label+': ';p.append(title,values.join(', ')||'None');muscles.append(p);
         }
       }
-      const picker=mountExercisePicker(host,{api,exercise:ex,legacy,showLinkedName:false,onView:()=>{location.hash='#/catalog';},onSelect:entry=>{
+      const picker=mountExercisePicker(host,{api,exercise:ex,legacy,showLinkedName:false,onView:()=>{location.hash='#/catalog/references/'+encodeURIComponent(ex.familyId)+'/variants/'+encodeURIComponent(ex.catalogId);},onSelect:entry=>{
         if(destroyed||!session.exercises.includes(ex))return;
         if(!ex.catalogId&&!legacy)ex.restSeconds=defaultRestSeconds(entry.exerciseType??undefined);
         Object.assign(ex,snapshotExercise(ex,entry));exercisePickers.get(ex)?.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);
@@ -321,6 +326,8 @@ function renderExercises() {
       }});
       exercisePickers.set(ex,picker);
     }
+    const infoButton=document.createElement('button');infoButton.type='button';infoButton.className='action-button exercise-info';infoButton.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 8.5a2.5 2.5 0 1 1 4 2l-1.5 1.3V14m0 3h.01"/></svg>';
+    card.querySelector('.card-title-group').append(infoButton);exerciseInfos.set(ex,{button:infoButton,controller:mountExerciseInfo(infoButton,{getDescriptions:()=>ex}),collapsed:null});
     if(card.querySelector('[data-field="name"]'))card.querySelector('[data-field="name"]').value = ex.name;
     }
     card.dataset.index = i;
@@ -356,6 +363,8 @@ function refresh() {
     const isCollapsed = collapsed[i];
     card.dataset.collapsed = String(isCollapsed);
     if(isCollapsed)exercisePickers.get(ex)?.close();
+    renderVariantMetadata(card.querySelector('[data-variant-metadata]'),ex);
+    const info=exerciseInfos.get(ex);if(info){if(info.collapsed!==isCollapsed)info.controller.hide();info.collapsed=isCollapsed;const target=!isCollapsed&&ex.catalogId?card.querySelector('.exercise-definition-actions'):card.querySelector('.card-title-group');if(target&&info.button.parentElement!==target)target.append(info.button);info.controller.update();}
     setOpen(card.querySelector('[data-collapse="body"]'), !isCollapsed);
     setOpen(card.querySelector('[data-collapse="summary"]'), isCollapsed);
     card.querySelector('[data-summary]').textContent = exerciseSummary(ex);
@@ -653,7 +662,7 @@ fileInput.addEventListener('change',async()=>{
 function setWorkout(value,{silent=false}={}){session=normalizeWorkoutTiming(structuredClone(value));if(silent)lastDocument=JSON.stringify(session);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
 function syncSaved(value){
  let changed=false;
- const definition=ex=>JSON.stringify([ex.name,ex.catalogId,ex.catalogRevision,ex.familyId,ex.equipment,ex.primaryMuscles,ex.secondaryMuscles]);
+ const definition=ex=>JSON.stringify([ex.name,ex.catalogId,ex.catalogRevision,ex.familyId,ex.equipment,ex.primaryMuscles,ex.secondaryMuscles,ex.referenceDescription,ex.variantDescription,ex.brand,ex.focusTags]);
  session.exercises.forEach((ex,i)=>{
   const saved=value.exercises[i];if(!ex.catalogId||saved?.catalogId!==ex.catalogId)return;
   const before=definition(ex);Object.assign(ex,structuredClone(saved));delete ex.catalogCopyOf;
@@ -793,6 +802,7 @@ if(analysisEnabled!==false)setAnalysisEnabled(analysisEnabled);
 return {setWorkout,syncSaved,focusFirstError,setAnalysisEnabled,destroy(){
   analysisPanel?.destroy();
   destroyed=true;disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
+  exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
   hideTip();goalsDialog.close();window.removeEventListener('resize',hideTip);root.replaceChildren();

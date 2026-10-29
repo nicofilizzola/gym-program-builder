@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-async function start(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();await expect(page.getByLabel('Session template name')).toBeVisible();}
+async function start(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();await expect(page.getByLabel('Session template name')).toBeVisible();}
 
 test('timing survives failed saves and copies while reload adopts saved timing',async({page})=>{
  test.setTimeout(60000);await start(page);
@@ -53,7 +53,7 @@ test('recovery controls are visible only for their matching save state',async({p
 });
 test('late file reads cannot overwrite the document opened after import started',async({page})=>{
  await start(page);const first=page.url();
- await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();await page.getByLabel('Session template name').fill('Target stays');await expect(page.getByTestId('save-status')).toHaveText('Saved');const second=page.url();
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();await page.getByLabel('Session template name').fill('Target stays');await expect(page.getByTestId('save-status')).toHaveText('Saved');const second=page.url();
  await page.goto(first);await expect(page.getByLabel('Session template name')).toBeVisible();
  await page.evaluate(()=>{window.originalFileText=File.prototype.text;File.prototype.text=function(){return new Promise(resolve=>{window.releaseImport=()=>resolve('{"version":2,"kind":"template","template":{"name":"Wrong import","exercises":[],"goals":{}}}');});};});
  await page.locator('#import-file').setInputFiles({name:'delayed.json',mimeType:'application/json',buffer:Buffer.from('{}')});
@@ -66,7 +66,7 @@ test('navigation locks the old editor before a delayed document load',async({pag
  await expect(page.getByLabel('Session template name')).toBeVisible();await expect.poll(()=>page.locator('#app').evaluate(el=>el.inert)).toBe(true);release();await expect(page.getByLabel('Session template name')).toHaveValue('Next document');await page.goto(original);await expect(page.getByLabel('Session template name')).toHaveValue('Untitled template');
 });
 test('creation retry reuses its ID after the server commits but the response is lost',async({page})=>{
- await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('link',{name:'Session templates',exact:true}).click();await expect(page.getByRole('heading',{name:'Session templates',exact:true})).toBeVisible();
+ await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await expect(page.getByRole('heading',{name:'Session templates',exact:true})).toBeVisible();
  let firstId,attempt=0;await page.route('**/api/documents',async route=>{if(route.request().method()!=='POST')return route.continue();attempt++;const body=route.request().postDataJSON();if(!firstId)firstId=body.id;else expect(body.id).toBe(firstId);const response=await route.fetch();if(attempt===1)return route.abort('failed');return route.fulfill({response});});
  await page.getByRole('button',{name:'New session template',exact:true}).click();await page.getByRole('button',{name:'Retry creation',exact:true}).click();await expect(page.getByLabel('Session template name')).toBeVisible();const list=await page.request.get('/api/documents?kind=template');expect((await list.json()).records.filter(r=>r.id===firstId)).toHaveLength(1);expect(attempt).toBe(2);
 });

@@ -245,13 +245,13 @@ test('program durations survive shared occurrences, editing, schedule moves and 
  await page.getByRole('button',{name:'Show duration details'}).click();
  await page.getByRole('slider',{name:'Extra time',exact:true}).fill('0');
  await page.getByRole('slider',{name:'Buffer',exact:true}).fill('0');
- await page.getByRole('button',{name:'Back to program',exact:true}).click();
+ await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
  await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
  await card('Original timed workout').getByRole('button',{name:'Duplicate Original timed workout',exact:true}).click();
  await page.getByRole('button',{name:'Edit Original timed workout',exact:true}).last().click();
  await page.getByRole('button',{name:'Expand all',exact:true}).click();
  await page.getByRole('slider',{name:'Rest per set',exact:true}).first().fill('300');
- await page.getByRole('button',{name:'Back to program',exact:true}).click();
+ await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
  await expect(page.locator('[data-workout-duration]')).toHaveText(['Estimated duration ~26 min','Estimated duration ~26 min']);
  await page.getByRole('button',{name:'Reorder Original timed workout',exact:true}).first().click();await page.getByRole('button',{name:'Move to Monday',exact:true}).click();
  await page.getByRole('button',{name:'Reorder Original timed workout',exact:true}).last().click();await page.getByRole('button',{name:'Move to Sunday',exact:true}).click();

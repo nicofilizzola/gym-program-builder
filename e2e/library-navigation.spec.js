@@ -14,19 +14,19 @@ test('logout is an accessible icon with a dismissible tooltip',async({page})=>{
  await logout.click();await expect(page.getByLabel('Password',{exact:true})).toBeVisible();await expect(page.getByRole('tooltip')).toHaveCount(0);
 });
 test('navigation shows active tabs and respects motion preference',async({page})=>{
- await login(page);const programs=page.getByRole('link',{name:'Programs',exact:true});
+ await login(page);const programs=page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true});
  await expect(programs).toHaveAttribute('aria-current','page');
  expect(await programs.evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s');
  await page.emulateMedia({reducedMotion:'no-preference'});
  expect(await programs.evaluate(el=>getComputedStyle(el).transitionDuration)).toContain('0.15s');
- await page.getByRole('link',{name:'Session templates',exact:true}).click();
- await expect(page.getByRole('link',{name:'Session templates',exact:true})).toHaveAttribute('aria-current','page');
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();
+ await expect(page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true})).toHaveAttribute('aria-current','page');
  await page.getByRole('button',{name:'New session template',exact:true}).click();
- await expect(page.getByRole('link',{name:'Session templates',exact:true})).toHaveAttribute('aria-current','page');
+ await expect(page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true})).toHaveAttribute('aria-current','page');
 });
 async function fixture(page,kind='program'){
  await login(page);
- if(kind==='template')await page.getByRole('link',{name:'Session templates',exact:true}).click();
+ if(kind==='template')await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();
  await page.evaluate(async kind=>{
   const {mountLibrary}=await import('/src/library-view.js');window.calls=[];
   const records=[{id:'one',name:'Same'},{id:'two',name:'Same'},{id:'empty',name:' '},{id:'literal',name:'<img src=x onerror=alert(1)>'}];
@@ -61,7 +61,7 @@ for(const kind of ['program','template']){
 test('library actions preserve file picker, download, duplicate and delete confirmation',async({page})=>{
  await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();
  await page.getByLabel('Program name',{exact:true}).fill('Action check');await expect(page.getByTestId('save-status')).toHaveText('Saved');
- await page.getByRole('link',{name:'Programs',exact:true}).click();
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();
  const row=page.locator('.library-item').filter({has:page.getByRole('link',{name:'Action check',exact:true})});
  page.once('dialog',dialog=>dialog.dismiss());await row.getByRole('button',{name:'Delete Action check',exact:true}).click();await expect(row).toHaveCount(1);
  const downloadPromise=page.waitForEvent('download');await row.getByRole('button',{name:'Export Action check',exact:true}).click();const download=await downloadPromise;
@@ -103,7 +103,7 @@ test('tooltips survive rapid reentry, respect bounds and clean up on updates',as
  await exportButton.focus();await expect(tip).toHaveText('Export');await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));await expect(tip).toHaveCount(0);
  await duplicate.focus();await expect(tip).toHaveText('Duplicate');await page.evaluate(()=>window.library.update([{id:'new',name:'New'}]));await expect(tip).toHaveCount(0);
  await page.getByRole('button',{name:'Delete New',exact:true}).focus();await expect(tip).toHaveText('Delete');await page.evaluate(()=>window.library.destroy());await expect(page.locator('.action-tooltip')).toHaveCount(tooltipNodes-1);await expect(tip).toHaveCount(0);
- await page.getByRole('button',{name:'Log out',exact:true}).focus();await expect(tip).toHaveText('Log out');await page.getByRole('link',{name:'Session templates',exact:true}).click();await expect(tip).toHaveCount(0);
+ await page.getByRole('button',{name:'Log out',exact:true}).focus();await expect(tip).toHaveText('Log out');await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await expect(tip).toHaveCount(0);
 });
 test('touch actions execute with a single tap',async({browser})=>{
  const context=await browser.newContext({hasTouch:true,viewport:{width:375,height:812}});const page=await context.newPage();

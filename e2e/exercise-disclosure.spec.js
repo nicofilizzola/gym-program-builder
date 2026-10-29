@@ -29,8 +29,8 @@ for(const kind of ['template','program'])test(`saved ${kind} editor preserves da
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await cards.first().locator('.card-name').click();await page.getByLabel('Sets',{exact:true}).first().fill('4');
  await expect(page.getByTestId('save-status')).toHaveText('Saved');expect(mutations).toBeGreaterThan(0);
- if(kind==='program'){await page.getByRole('button',{name:'Back to program',exact:true}).click();await page.getByRole('button',{name:'Edit Disclosure workout',exact:true}).click();}
- else{await page.getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:'Disclosure workout',exact:true}).click();}
+ if(kind==='program'){await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await page.getByRole('button',{name:'Edit Disclosure workout',exact:true}).click();}
+ else{await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:'Disclosure workout',exact:true}).click();}
  await expect(page.locator('[data-action=toggle][aria-expanded=false]')).toHaveCount(3);
  await cards.first().locator('.card-name').click();await expect(page.getByLabel('Sets',{exact:true}).first()).toHaveValue('4');
  const response=await page.request.get(`/api/documents/${id}`);expect(response.ok()).toBe(true);

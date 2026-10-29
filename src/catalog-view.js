@@ -1,12 +1,13 @@
+import {renderVariantMetadata} from './catalog-metadata.js';
 import {EQUIPMENT} from './catalog.js';
 import {groupCatalog,flattenVariantOptions} from './catalog-groups.js';
 import {openCatalogForm} from './catalog-form.js';
 import {openReferenceForm,openReferenceArchive,openVariantMove} from './reference-form.js';
 import {invalidateCatalog} from './catalog-store.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
-export function mountCatalog(root,{api}){
- root.innerHTML='<section class="catalog-page"><header class="catalog-header"><div><h1>Exercise catalog</h1><p class="catalog-intro">Reference exercises and their variants.</p></div><button class="add-btn" data-new>New reference exercise</button></header><div class="catalog-toolbar"><label class="field">Search catalog<input type="search" autocomplete="off" data-search></label><label class="field">Equipment<select data-equipment aria-label="Equipment"><option value="">All equipment</option></select></label><label class="catalog-archived"><input type="checkbox" data-archived>Show archived</label></div><p class="error" role="alert" data-error></p><button class="secondary-btn" data-retry hidden>Retry</button><p data-count role="status"></p><div class="catalog-list"></div></section>';
- let data={entries:[],families:[]},disposed=false,form,retryAction,generation=0,filterKey='',searchExpanded=new Set(),searchSeen=new Set();
+export function mountCatalog(root,{api,initialData,target,onNavigate,onTargetChange=()=>{}}){
+ root.innerHTML='<section class="catalog-page"><header class="catalog-header"><div><h1>Exercise catalog</h1><p class="catalog-intro">Reference exercises and their variants.</p></div><button class="add-btn" data-new>New reference exercise</button></header><div class="catalog-toolbar"><a class="secondary-btn manage-tags" href="#/catalog/tags">Manage tags</a><label class="field">Search catalog<input type="search" autocomplete="off" data-search></label><label class="field">Equipment<select data-equipment aria-label="Equipment"><option value="">All equipment</option></select></label><label class="catalog-archived"><input type="checkbox" data-archived>Show archived</label></div><p class="error" role="alert" data-error></p><button class="secondary-btn" data-retry hidden>Retry</button><p data-count role="status"></p><div class="catalog-list"></div></section>';
+ let data=initialData||{entries:[],families:[]},targetResolved=false,lastTargetReference=null,disposed=false,form,retryAction,generation=0,filterKey='',searchExpanded=new Set(),searchSeen=new Set();
  const expanded=new Set(),list=root.querySelector('.catalog-list'),error=root.querySelector('[data-error]'),retry=root.querySelector('[data-retry]'),search=root.querySelector('[data-search]'),equipment=root.querySelector('[data-equipment]'),archived=root.querySelector('[data-archived]');
  const tooltips=mountActionTooltips(root);
  for(const e of EQUIPMENT)equipment.add(new Option(e,e));
@@ -51,13 +52,22 @@ export function mountCatalog(root,{api}){
  }
  function variantForm(entry,mode,reference){
   tooltips.hide();let savedId,sourceKey=mode==='variant'?'create':'edit';
-  form?.destroy();form=openCatalogForm({api,entry,mode,families:data.families,referenceId:reference?.id,referenceRevision:reference?.revision,onSaved:async saved=>{savedId=saved.id;expand(saved.familyId);await load();},onClosed:()=>{if(savedId)focusVariant(savedId);else if(entry)focusVariant(entry.id,sourceKey,entry.familyId);else if(reference)focusReference(reference.id,'add');}});
+  form?.destroy();form=openCatalogForm({api,entry,mode,families:data.families,tags:data.tags||[],referenceId:reference?.id,referenceRevision:reference?.revision,onSaved:async saved=>{savedId=saved.id;expand(saved.familyId);await load();},onClosed:()=>{if(savedId)focusVariant(savedId);else if(entry)focusVariant(entry.id,sourceKey,entry.familyId);else if(reference)focusReference(reference.id,'add');}});
  }
  function move(entry){
   tooltips.hide();form?.destroy();form=openVariantMove({api,entry,references:data.families,entries:data.entries,onSaved:async saved=>{expand(saved.familyId);await load();},onClosed:()=>focusVariant(entry.id,'move')});
  }
  async function archive(entry){try{await api.archiveCatalog({id:entry.id,revision:entry.revision,archived:!entry.individuallyArchived});await load();focusVariant(entry.id,'archive',entry.familyId);}catch(e){report(e,e.status===409?load:()=>archive(entry));}}
+ function syncTarget(){
+  if(!target)return;
+  const variant=target.variantId?data.entries.find(e=>e.id===target.variantId):null,reference=data.families.find(r=>r.id===(variant?.familyId||target.referenceId));
+  if(!reference)return;
+  if(!targetResolved||lastTargetReference!==reference.id){expand(reference.id);if(reference.archived||variant?.archived)archived.checked=true;targetResolved=true;lastTargetReference=reference.id;}
+  onTargetChange({reference,variant});
+ }
+ function focusTarget(){if(!target)return;if(target.variantId)focusVariant(target.variantId,'edit',lastTargetReference);else focusReference(lastTargetReference||target.referenceId);}
  function render(){
+  syncTarget();
   tooltips.hide();list.replaceChildren();const filtering=Boolean(search.value.trim()||equipment.value),nextKey=search.value+'\0'+equipment.value;
   const groups=groupCatalog(data,search.value,{equipment:equipment.value,showArchived:archived.checked});
   if(filtering){
@@ -79,10 +89,10 @@ export function mountCatalog(root,{api}){
    const body=document.createElement('div');body.className='reference-variants';body.id='reference-variants-'+encodeURIComponent(ref.id);toggle.setAttribute('aria-controls',body.id);
    const content=document.createElement('div');content.className='reference-variants-inner';body.append(content);
    heading.append(toggle);section.setAttribute('aria-labelledby',heading.id);
-   const counts=document.createElement('span');counts.className='reference-count';counts.textContent=group.activeCount+' active variant'+(group.activeCount===1?'':'s')+' · '+(ref.exerciseType==='compound'?'Compound':ref.exerciseType==='isolation'?'Isolation':'Type not set')+(archived.checked?' \u00b7 '+group.archivedCount+' archived':'')+(ref.archived?' \u00b7 Archived':'');
+   const counts=document.createElement('span');counts.className='reference-count';counts.textContent=group.activeCount+' active variant'+(group.activeCount===1?'':'s')+' · '+(ref.exerciseType==='compound'?'Compound':ref.exerciseType==='isolation'?'Isolation':'Type not set')+(archived.checked?' \u00b7 '+group.archivedCount+' archived':'')+(ref.archived?' \u00b7 Archived':'')+(!ref.equipment?' \u00b7 Needs equipment':'');
    const controls=document.createElement('div');controls.className='reference-header-actions';
    controls.append(
-    iconAction({action:'add',label:'Add variant to '+ref.name,tooltip:'Add variant',icon:'plus',onActivate:()=>variantForm(undefined,'create',ref),disabledReason:ref.archived?'Restore the reference exercise before adding a variant.':undefined}),
+    iconAction({action:'add',label:'Add variant to '+ref.name,tooltip:'Add variant',icon:'plus',onActivate:()=>variantForm(undefined,'create',ref),disabledReason:ref.archived?'Restore the reference exercise before adding a variant.':!ref.equipment?'Set equipment on the reference exercise before adding a variant.':undefined}),
     iconAction({action:'rename',label:'Edit reference exercise '+ref.name,tooltip:'Edit reference exercise',icon:'edit',onActivate:()=>referenceForm(ref)}),
     iconAction({action:'archive',label:(ref.archived?'Restore':'Archive')+' reference exercise '+ref.name,tooltip:(ref.archived?'Restore':'Archive')+' reference exercise',icon:ref.archived?'restore':'archive',onActivate:()=>referenceArchive(ref)})
    );header.append(heading,counts,controls);section.append(header,body);list.append(section);
@@ -90,14 +100,14 @@ export function mountCatalog(root,{api}){
    if(!group.variants.length){const empty=document.createElement('p');empty.className='reference-empty';empty.textContent=group.childCount?'No active variants.':'No variants yet.';content.append(empty);}
    for(const entry of group.variants){
     const row=document.createElement('article');row.className='catalog-row';row.dataset.variant=entry.id;
-    const definition=document.createElement('div');definition.className='catalog-definition';const name=document.createElement('h3');name.textContent=entry.name;
-    const meta=document.createElement('p');meta.className='catalog-meta';meta.textContent=entry.equipment;
+    const definition=document.createElement('div');definition.className='catalog-definition';const name=document.createElement('h3'),link=document.createElement('a');link.className='catalog-name-link';link.textContent=entry.name;link.href='#/catalog/references/'+encodeURIComponent(entry.familyId)+'/variants/'+encodeURIComponent(entry.id);if(onNavigate)link.onclick=e=>{if(e.button===0&&!e.ctrlKey&&!e.metaKey){e.preventDefault();onNavigate(link.hash);}};name.append(link);
+    const meta=document.createElement('p');meta.className='catalog-meta';renderVariantMetadata(meta,entry);
     const state=document.createElement('span');state.className='variant-status';state.textContent=entry.individuallyArchived?' \u00b7 Archived individually':entry.referenceArchived?' \u00b7 Archived with reference':'';
     meta.append(state);const muscles=document.createElement('p');muscles.className='catalog-mapping';muscles.textContent='Primary: '+entry.primaryMuscles.join(', ')+' \u00b7 Secondary: '+(entry.secondaryMuscles.join(', ')||'None');definition.append(name,meta,muscles);
     const actions=document.createElement('div');actions.className='catalog-row-actions';
     actions.append(
      iconAction({action:'edit',label:'Edit variant '+entry.name,tooltip:'Edit variant',icon:'edit',onActivate:()=>variantForm(entry,'edit')}),
-     iconAction({action:'create',label:'Create variant from '+entry.name,tooltip:'Create variant',icon:'duplicate',onActivate:()=>variantForm(entry,'variant'),disabledReason:entry.referenceArchived?'Restore the reference exercise before creating a variant.':undefined}),
+     iconAction({action:'create',label:'Create variant from '+entry.name,tooltip:'Create variant',icon:'duplicate',onActivate:()=>variantForm(entry,'variant'),disabledReason:entry.referenceArchived?'Restore the reference exercise before creating a variant.':entry.equipmentConfigured===false?'Set equipment on the reference exercise before creating a variant.':undefined}),
      iconAction({action:'move',label:'Move variant '+entry.name+' to reference exercise',tooltip:'Move to reference exercise',icon:'move',onActivate:()=>move(entry)}),
      iconAction({action:'archive',label:(entry.individuallyArchived?'Restore':'Archive')+' variant '+entry.name,tooltip:(entry.individuallyArchived?'Restore':'Archive')+' variant',icon:entry.individuallyArchived?'restore':'archive',onActivate:()=>archive(entry),disabledReason:entry.referenceArchived?'Restore the reference exercise before changing variant archive state.':undefined})
     );row.append(definition,actions);content.append(row);
@@ -106,6 +116,6 @@ export function mountCatalog(root,{api}){
   });
  }
  root.querySelector('[data-new]').onclick=()=>referenceForm();
- search.oninput=equipment.onchange=archived.onchange=render;root.querySelector('[data-count]').textContent='Loading reference exercises\u2026';load();
- return {destroy(){disposed=true;generation++;form?.destroy();tooltips.destroy();root.replaceChildren();}};
+ search.oninput=equipment.onchange=archived.onchange=render;root.querySelector('[data-count]').textContent='Loading reference exercises\u2026';if(initialData)render();else load();
+ return {focusTarget,destroy(){disposed=true;generation++;form?.destroy();tooltips.destroy();root.replaceChildren();}};
 }

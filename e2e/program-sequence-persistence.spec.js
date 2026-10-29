@@ -26,7 +26,7 @@ test('rest sequence survives save, reload, portable export, import and library d
  const portable=JSON.parse(text);
  expect(portable.version).toBe(3);expect(portable.program.sequence).toEqual([{type:'rest',key:'rest-0'},{type:'workout',workoutKey:'workout-0'},{type:'rest',key:'rest-2'}]);
  expect(portable.program.workouts[0].day).toBeNull();expect(portable.program.workouts[0].id).toBeUndefined();
- await page.getByRole('link',{name:'Programs',exact:true}).click();
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();
  await page.getByRole('button',{name:'Duplicate Rest cycle',exact:true}).click();
  await expect(page.getByRole('link',{name:'Rest cycle',exact:true})).toHaveCount(2);
  await page.locator('.library-item h2 a:not([href="#/programs/'+original.id+'"])').filter({hasText:'Rest cycle'}).click();
@@ -36,7 +36,7 @@ test('rest sequence survives save, reload, portable export, import and library d
  expect(duplicate.document.workouts[0].id).not.toBe(original.document.workouts[0].id);
  expect(duplicate.document.sequence[0].id).not.toBe(original.document.sequence[0].id);
  expect(await entryTypes(page)).toEqual(['rest','workout','rest']);
- await page.getByRole('link',{name:'Programs',exact:true}).click();
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
  await page.locator('[data-file]').setInputFiles({name:'cycle.json',mimeType:'application/json',buffer:Buffer.from(text)});
  await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Rest cycle');

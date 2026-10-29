@@ -6,7 +6,7 @@ async function setup(page,kind='template'){
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
  const fixture=await page.evaluate(async kind=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient();
-  const reference=await api.createReference({id:crypto.randomUUID(),name:'Inline reference '+crypto.randomUUID(),exerciseType:'compound'});
+  const reference=await api.createReference({equipment:'Barbell',id:crypto.randomUUID(),name:'Inline reference '+crypto.randomUUID(),exerciseType:'compound'});
   const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:reference.id,entry:{name:'Long named barbell bench press with a deliberate pause and controlled eccentric '+crypto.randomUUID(),equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:['Triceps']}});
   const workout={name:'Inline workout',goals:{},extraMinutes:5,bufferPercent:10,exercises:[{name:entry.name,equipment:entry.equipment,catalogId:entry.id,catalogRevision:entry.revision,familyId:entry.familyId,sets:4,repRange:{min:6,max:10},restSeconds:45,primaryMuscles:entry.primaryMuscles,secondaryMuscles:entry.secondaryMuscles}]};
   const template=kind==='program'?await api.create({id:crypto.randomUUID(),kind:'template',document:workout}):null;
@@ -57,7 +57,7 @@ test('archived parent blocks inline variant creation and refresh updates restric
 
 for(const kind of ['template','program'])for(const viewport of [{width:1366,height:768},{width:1440,height:900},{width:1920,height:1080},{width:390,height:844},{width:768,height:1024}])test(kind+' inline strip fits populated editor at '+viewport.width,async({page})=>{
  await page.setViewportSize(viewport);await setup(page,kind);
- const buttons=page.locator('.exercise-definition-actions button');await expect(buttons).toHaveCount(3);
+ const buttons=page.locator('.exercise-definition-actions button:visible');await expect(buttons).toHaveCount(3);
  const boxes=await buttons.evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right};}));
  for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(viewport.width>=1100?32:44);expect(box.height).toBeGreaterThanOrEqual(viewport.width>=1100?32:44);expect(box.right).toBeLessThanOrEqual(viewport.width);expect(box.y).toBe(boxes[0].y);}
  expect(Math.round(boxes[1].x-boxes[0].right)).toBe(8);
@@ -76,8 +76,8 @@ for(const hasTouch of [false,true])test('200% text and hybrid targets '+hasTouch
  const context=await browser.newContext({viewport:{width:1366,height:768},hasTouch,reducedMotion:hasTouch?'reduce':'no-preference'});const page=await context.newPage();
  try{
   await setup(page);await page.addStyleTag({content:'html {font-size:200%}'});await page.evaluate(()=>document.fonts.ready);
-  const buttons=page.locator('.exercise-definition-actions button');
-  const geometry=await page.locator('.exercise-definition-actions').evaluate(strip=>({y:strip.getBoundingClientRect().y,buttons:[...strip.querySelectorAll('button')].map(button=>{const r=button.getBoundingClientRect();return {y:r.y,width:r.width,height:r.height};})}));
+  const buttons=page.locator('.exercise-definition-actions button:visible');
+  const geometry=await page.locator('.exercise-definition-actions').evaluate(strip=>({y:strip.getBoundingClientRect().y,buttons:[...strip.querySelectorAll('button:not([hidden])')].map(button=>{const r=button.getBoundingClientRect();return {y:r.y,width:r.width,height:r.height};})}));
   for(const b of geometry.buttons){expect(b.width).toBeGreaterThanOrEqual(hasTouch?44:32);expect(b.height).toBeGreaterThanOrEqual(hasTouch?44:32);expect(b.y).toBe(geometry.y);}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await buttons.first().focus();await expect(page.getByRole('tooltip')).toHaveText('Replace exercise');await page.keyboard.press('Escape');await expect(page.locator('.action-tooltip:popover-open')).toHaveCount(0);
