@@ -1,6 +1,6 @@
 # Shared sessions and richer exercise catalog
 
-Date: 2026-10-29. Status: proposed written design for review; implementation has not started.
+Date: 2026-10-29. Status: approved for implementation planning, including equipment-pill icons; implementation has not started.
 
 ## Intent and confirmed decisions
 
@@ -18,7 +18,7 @@ Confirmed with the user:
 - A variant has zero or one Brand and zero or more Focus tags. Focus labels are free-form, independent of the 12 volume muscles. Each tag type has create, rename and archive/restore management.
 - Archived tags remain on existing variants but cannot be newly assigned. Renames update labels everywhere.
 - Search names and tags; show tags in catalog, autocomplete and expanded/collapsed workout cards.
-- Equipment creation/editing uses muscle-style single-select chips.
+- Equipment creation/editing uses muscle-style single-select pills, each with an equipment-specific icon and visible text label.
 - Breadcrumbs replace redundant Back controls and retain program context when editing a shared template.
 - Self-contained program files include each distinct template once and retain repeated occurrences. Imports create new templates and never overwrite library templates automatically.
 - Moving a variant inherits destination equipment and reference description, retains its own muscles, description and tags, and previews equipment changes and affected workouts.
@@ -95,7 +95,7 @@ New assignments must be active. Existing archived assignments survive edits and 
 
 Use a dedicated `Exercise catalog › Tags` screen, opened by a visible Manage tags toolbar action. Two compact Brand/Focus tabs, labeled search, inline create, and dense named rows with rename/archive/restore icon strips. Preserve selected kind/search on return. No separate general settings subsystem.
 
-Variant forms show one Brand single-selection control and Focus multi-selection chips/search within existing aligned form rows. Reference equipment uses native radio inputs styled like existing muscle chips, with a visible legend and ordinary keyboard radio navigation. All equipment options remain visible; one value can be selected. Existing equipment filters can retain their compact dropdown because they filter rather than define exercises.
+Variant forms show one Brand single-selection control and Focus multi-selection chips/search within existing aligned form rows. Reference equipment uses native radio inputs styled like existing muscle chips, with a visible legend and ordinary keyboard radio navigation. Each equipment pill includes a recognizable equipment-specific 18–20px inline SVG icon before its visible label: Barbell, Dumbbell, Cable, Machine, Bodyweight, Kettlebell, Resistance band and Other. Use a consistent currentColor outline style, no emoji, icon fonts or new dependencies; icons are decorative (`aria-hidden="true"`) because the text names the option. Icons and text share the complete clickable label and selected/focus treatment, with no separate icon target or tooltip required to understand the choice. All equipment options remain visible; one value can be selected. Preserve readable wrapping, existing pointer-aware target sizes and immediate radio selection without additional motion. Existing equipment filters can retain their compact dropdown because they filter rather than define exercises.
 
 ### Search and variant display
 
