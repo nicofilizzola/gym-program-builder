@@ -1,3 +1,4 @@
+import {resolveProgram} from '../src/program-links.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createDb,migrate} from '../server/db.js';
@@ -10,19 +11,19 @@ async function fixture(t){
  const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);const c=createCatalogRepository(db),r=createRepository(db);
  const entry=await c.create({id:'v',familyId:'r1',referenceExerciseType:'compound',familyName:'Press',entry:definition});await c.createReference({exerciseType:'compound',id:'r2',name:'Destination'});
  const workout={name:'Upper',goals:{Chest:6},exercises:[snapshotExercise({sets:4,repRange:{min:6,max:8}},entry)]};
- await r.create({id:'t',kind:'template',document:workout});await r.create({id:'p',kind:'program',document:{name:'Week',mode:'schedule',goals:{Chest:12},workouts:[{...workout,id:'w1',day:0},{...workout,id:'w2',day:null}]}});
+ await r.create({id:'t',kind:'template',document:workout});await r.create({id:'p',kind:'program',document:{name:'Week',mode:'schedule',goals:{Chest:12},workouts:[{id:'w1',templateId:'t',day:0},{id:'w2',templateId:'t',day:null}]}});
  const request=async()=>({id:'v',revision:(await c.list()).entries.find(e=>e.id==='v').revision,destinationReferenceId:'r2',sourceReferenceRevision:(await c.getReference('r1')).revision,destinationReferenceRevision:(await c.getReference('r2')).revision,impact:await c.impact('v')});
  return {db,c,r,workout,request};
 }
 test('moving a variant updates linked snapshots once per document and replays safely',async t=>{
- const {c,r,workout,request}=await fixture(t);const args=await request(),before=(await r.get('p')).document;
+ const {c,r,workout,request}=await fixture(t);const args=await request(),before=await r.programBundle('p').then(b=>resolveProgram(b.record.document,b.templates));
  assert.equal(computeProgramVolume(before).Chest,8);assert.equal(computeProgramVolume(before).Triceps,4);
  const moved=await c.move(args);assert.equal(moved.id,'v');assert.equal(moved.familyId,'r2');assert.equal(moved.revision,2);
  assert.equal((await c.getReference('r1')).revision,args.sourceReferenceRevision+1);assert.equal((await c.getReference('r2')).revision,args.destinationReferenceRevision+1);
- const program=await r.get('p');assert.equal(program.revision,2);assert.equal((await r.get('t')).revision,2);
+ const bundle=await r.programBundle('p'),program={...bundle.record,document:resolveProgram(bundle.record.document,bundle.templates)};assert.equal(program.revision,1);assert.equal((await r.get('t')).revision,2);
  assert.equal(program.document.workouts[1].day,null);assert.deepEqual(program.document.goals,{Chest:12});assert.equal(computeProgramVolume(program.document).Chest,8);
  for(const w of program.document.workouts){assert.equal(w.exercises[0].sets,4);assert.deepEqual(w.exercises[0].repRange,{min:6,max:8});assert.equal(w.exercises[0].familyId,'r2');}
- await c.move(args);assert.equal((await r.get('p')).revision,2);
+ await c.move(args);assert.equal((await r.get('p')).revision,1);
  await assert.rejects(r.update({id:'t',revision:1,document:{...workout,name:'Unsaved edit'}}),{code:'CONFLICT'});
  const copy=await r.create({id:'copy',kind:'template',copyOf:'t',document:{...workout,exercises:[{...workout.exercises[0],sets:7}]}});
  assert.equal(copy.document.exercises[0].familyId,'r2');assert.equal(copy.document.exercises[0].sets,7);

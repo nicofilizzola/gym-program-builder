@@ -17,11 +17,12 @@ test('document links are resolved by the server and reject unknown and new archi
  await assert.rejects(r.create({id:'new',kind:'template',document:doc}),{code:'INVALID'});
  assert.equal((await r.update({id:'t',revision:1,document:{...doc,name:'Upper edited'}})).document.exercises[0].sets,4);
  assert.equal((await r.create({id:'copy',kind:'template',document:doc,copyOf:'t'})).document.exercises[0].catalogId,'bench');
- const program={name:'Week',mode:'simple',goals:{},workouts:[{...doc,id:'w',day:null,exercises:[{...ex,catalogCopyOf:'t'}]}]};
- const copiedWorkout=await r.create({id:'program',kind:'program',document:program});
- assert.equal(copiedWorkout.document.workouts[0].exercises[0].catalogId,'bench');
- assert.equal(copiedWorkout.document.workouts[0].exercises[0].catalogCopyOf,undefined);
- await assert.rejects(r.create({id:'forgedcopy',kind:'program',document:{...program,workouts:[{...program.workouts[0],exercises:[{...ex,catalogCopyOf:'nonexistent'}]}]}}),{code:'INVALID'});
+ const program={name:'Week',mode:'simple',goals:{},workouts:[{id:'w',templateId:'t',day:null}]};
+ await r.create({id:'program',kind:'program',document:program});
+ const bundle=await r.programBundle('program');
+ assert.equal(bundle.templates[0].document.exercises[0].catalogId,'bench');
+ assert.equal(bundle.templates[0].document.exercises[0].catalogCopyOf,undefined);
+ await assert.rejects(r.create({id:'forgedcopy',kind:'program',document:{...program,workouts:[{id:'w',templateId:'nonexistent',day:null}]}}),{code:'NOT_FOUND'});
 });
 test('propagation conflicts stale edits and save as copy resolves latest mappings',async t=>{
  const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);const r=createRepository(db),c=createCatalogRepository(db);

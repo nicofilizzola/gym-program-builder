@@ -1,3 +1,4 @@
+import {resolveProgram} from '../src/program-links.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createDb,migrate} from '../server/db.js';
@@ -46,7 +47,7 @@ test('variants read their reference default while propagation and moves preserve
  const ex=snapshotExercise({sets:3,restSeconds:45,repRange:{min:8,max:12}},entry);
  const workout={name:'Upper',goals:{},extraMinutes:12,bufferPercent:25,exercises:[ex]};
  await r.create({id:'t',kind:'template',document:workout});
- await r.create({id:'p',kind:'program',document:{name:'Week',mode:'simple',goals:{},workouts:[{...workout,id:'w',day:null}]}});
+ await r.create({id:'p',kind:'program',document:{name:'Week',mode:'simple',goals:{},workouts:[{id:'w',templateId:'t',day:null}]}});
  const parent=await c.getReference('compound');
  await c.updateReference({id:parent.id,revision:parent.revision,name:parent.name,exerciseType:'isolation'});
  assert.equal((await c.list()).entries.find(e=>e.id==='v').exerciseType,'isolation');
@@ -55,7 +56,7 @@ test('variants read their reference default while propagation and moves preserve
  const source=await c.getReference('compound'),dest=await c.getReference('isolation');
  await c.move({id:'v',revision:2,destinationReferenceId:dest.id,sourceReferenceRevision:source.revision,destinationReferenceRevision:dest.revision,impact:await c.impact('v')});
  for(const record of [await r.get('t'),await r.get('p')]) {
-  const w=record.kind==='template'?record.document:record.document.workouts[0];
+  const w=record.kind==='template'?record.document:await r.programBundle('p').then(b=>resolveProgram(b.record.document,b.templates).workouts[0]);
   assert.equal(w.extraMinutes,12);assert.equal(w.bufferPercent,25);assert.equal(w.exercises[0].restSeconds,45);assert.equal(w.exercises[0].familyId,'isolation');
  }
  const saved=(await r.get('t')).document;

@@ -1,6 +1,6 @@
 import {snapshotExercise} from '../src/catalog.js';
-export const documentExercises=document=>document.workouts?document.workouts.flatMap(w=>w.exercises):document.exercises;
-async function documents(tx){return (await tx.execute('SELECT id,revision,document_json FROM documents ORDER BY id')).rows.map(r=>({id:r.id,revision:Number(r.revision),document:JSON.parse(r.document_json)}));}
+export const documentExercises=document=>document.exercises||[];
+async function documents(tx){return (await tx.execute("SELECT id,revision,document_json FROM documents WHERE kind='template' ORDER BY id")).rows.map(r=>({id:r.id,revision:Number(r.revision),document:JSON.parse(r.document_json)}));}
 export async function catalogImpact(tx,id){
  return (await documents(tx)).map(r=>({id:r.id,revision:r.revision,count:documentExercises(r.document).filter(ex=>ex.catalogId===id).length})).filter(r=>r.count);
 }
