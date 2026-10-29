@@ -7,7 +7,7 @@ import {getSequence,addRestDay,removeRestDay,placeSequenceEntry,reconcileSequenc
 import {computeProgramVolume,computeProgramVolumeSplit,contributingWorkouts} from './program-volume.js';
 import {mountVolumePanel} from './volume-panel.js';
 import {mountSessionEditor} from './session-editor.js';
-import {validateDocument} from './document-validation.js';
+import {validateLegacyDocument as validateDocument} from './document-validation.js';
 import {parseDocument} from './document-file.js';
 import {validateExercise} from './validate.js';
 import {MUSCLE_GROUPS} from './muscles.js';
@@ -15,7 +15,7 @@ import {durationLabel} from './duration.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,onCreateEmpty,onImportFile}={}) {
   const weekHelpId='program-reorder-hint';
   const viewTransition=createViewTransition(root);
   let overviewScroll=0,transitionGeneration=0,layoutTransition=null,layoutGeneration=0,editingWorkoutId=null;
@@ -52,6 +52,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     }
   }
   async function openWorkout(workoutId){
+    if(onOpenWorkout){await onOpenWorkout(workoutId);return;}
     cancelLayoutTransition();
     overviewScroll=scrollY;
     const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;editingWorkoutId=workoutId;
@@ -97,7 +98,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [
           ['Edit',run(()=>openWorkout(workout.id)),false],
-          ['Duplicate',()=>{const copy={...copyWorkout(workout,id()),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');},false],
+          ['Duplicate',()=>{const copy={...structuredClone(workout),id:id(),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');},false],
           ['Remove',()=>{if(!confirm(`Remove ${name} from this program?`))return;value=reconcileSequence({...value,workouts:value.workouts.filter(w=>w.id!==workout.id)});emit();renderWorkouts();root.querySelector('[data-add-empty]').focus();},false]
         ]){
           const button=document.createElement('button');button.className='secondary-btn';button.type='button';button.textContent=label;button.setAttribute('aria-label',`${label} ${name}`);button.disabled=disabled;button.dataset.action=label;if(label==='Edit')button.dataset.edit=workout.id;button.onclick=callback;actions.append(button);
@@ -213,7 +214,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         </div>
       </div>
       </header><p class="error" role="alert" data-program-error></p>
-      <div class="program-grid"><div><div class="template-picker"><label class="field">Session template to copy<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div class="sequence-toolbar"><button type="button" class="secondary-btn" data-add-rest>${actionIcon('plus')}Add rest day</button></div><p class="reorder-hint" id="${weekHelpId}" data-week-help>Drag a card to reorder. On touch, press and hold. Use Reorder for movement options. In Week, Up/Down reorders and Alt+Up/Down changes day.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
+      <div class="program-grid"><div><div class="template-picker"><label class="field">Session template<select data-template><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div class="sequence-toolbar"><button type="button" class="secondary-btn" data-add-rest>${actionIcon('plus')}Add rest day</button></div><p class="reorder-hint" id="${weekHelpId}" data-week-help>Drag a card to reorder. On touch, press and hold. Use Reorder for movement options. In Week, Up/Down reorders and Alt+Up/Down changes day.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
     layoutTransition=createViewTransition(root.querySelector('[data-workouts]'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
@@ -223,12 +224,12 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     picker.onchange=()=>{addTemplate.disabled=!picker.value;};
     if(!templates.length){picker.options[0].textContent='No templates yet';picker.disabled=true;}
     for(const template of templates){const option=document.createElement('option');option.value=template.id;option.textContent=template.name.trim()||'Untitled template';picker.append(option);}
-    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy=copyWorkout(template.document,id(),template.id);value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');});
-    root.querySelector('[data-add-empty]').onclick=()=>{const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');};
+    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy={...structuredClone(template.document),id:id(),templateId:template.id,templateRevision:template.revision,day:null};value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');});
+    root.querySelector('[data-add-empty]').onclick=run(async()=>{if(onCreateEmpty){await onCreateEmpty();return;}const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');});
     root.querySelector('[data-add-rest]').onclick=()=>{const key=id();value=addRestDay(value,key);emit();renderWorkouts();focusHandle(key);};
     root.querySelector('[data-export]').onclick=run(async()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);await focusError();return;}onExport(value);});
     const file=root.querySelector('[data-file]');root.querySelector('[data-import]').onclick=()=>file.click();
-    file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((getSequence(value).length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();await renderOverview();});
+    file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(onImportFile){await onImportFile(chosen);return;}if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((getSequence(value).length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();await renderOverview();});
     panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleSelect:muscle=>{selectedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
   buildOverview();return {syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else {renderWorkouts();updateVolume();}},update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();reorderMenu.destroy();root.replaceChildren();}};

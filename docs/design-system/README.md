@@ -126,6 +126,10 @@ Week/Sequence switches fade only the session area: 75ms out, then 100ms in, ease
 
 ## Components
 
+### Shared session context
+
+Program sessions resolve shared template data; session editing saves the template rather than the program arrangement. The compact program context row contains the return control and a muted Shared template link, wrapping naturally without an extra card. The link uses 32px minimum height only at the established fine-pointer desktop breakpoint without any coarse pointer, otherwise 44px. Use the existing view fade for route entry/exit; do not add an entrance animation to the context row. Template and program names remain ordinary editable fields, and errors/recovery retain their existing surfaces. Acknowledgements update linked definitions without replacing focused controls or open variant drafts. Week/Sequence, body figures and volume layout stay unchanged.
+
 ### Inputs
 32px minimum height on fine-pointer desktop (?1100px), 44px elsewhere, `--surface-2` background, `--border` border. Focus: `--accent` border plus a 3px `--accent-soft` halo. Labels always visible above the field (never placeholder-only). Errors sit directly under the field they belong to.
 Numbers (sets, rep range, goals) are never typed: they use sliders (below). Text fields remain only for names.

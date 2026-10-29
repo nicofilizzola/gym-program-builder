@@ -6,7 +6,8 @@ async function savedEditor(page,kind){
  const id=await page.evaluate(async kind=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient();
   const workout={name:'Disclosure workout',goals:{Chest:6},extraMinutes:5,bufferPercent:10,exercises:['Bench press','Row','Curl'].map(name=>({name,sets:3,restSeconds:180,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:['Triceps']}))};
-  const id=crypto.randomUUID();await api.create({id,kind,document:kind==='template'?workout:{name:'Disclosure program',mode:'schedule',goals:{},workouts:[{...workout,id:crypto.randomUUID(),day:null}]}});return id;
+  const template=kind==='program'?await api.create({id:crypto.randomUUID(),kind:'template',document:workout}):null;
+  const id=crypto.randomUUID();await api.create({id,kind,document:kind==='template'?workout:{name:'Disclosure program',mode:'schedule',goals:{},workouts:[{id:crypto.randomUUID(),templateId:template.id,day:null}]}});return id;
  },kind);
  await page.goto(`/#/${kind==='template'?'templates':'programs'}/${id}`);
  if(kind==='program')await page.getByRole('button',{name:'Edit Disclosure workout',exact:true}).click();

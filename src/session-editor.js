@@ -18,7 +18,7 @@ import {snapshotExercise} from './catalog.js';
 import {getCatalogStore} from './catalog-store.js';
 
 
-export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,api,analysisEnabled=false}={}) {
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,analysisEnabled=false}={}) {
 root.innerHTML=SESSION_MARKUP;
 const disclosureTooltips=mountActionTooltips(root,{selector:'.card-title-group [data-action-tooltip]'});
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
@@ -641,6 +641,7 @@ root.querySelector('#import-session').addEventListener('click',()=>fileInput.cli
 fileInput.addEventListener('change',async()=>{
   const [file]=fileInput.files;if(!file)return;fileInput.value='';
   if(file.size>1048576){fileMessage.textContent='File must be at most 1 MiB.';return;}
+  if(onImportFile){try{await onImportFile(file);}catch(error){if(!destroyed)fileMessage.textContent=error.message;}return;}
   const text=await file.text();
   if(destroyed)return;
   const result=parseDocument(text);

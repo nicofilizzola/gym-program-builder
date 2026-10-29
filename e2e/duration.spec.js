@@ -212,7 +212,7 @@ test('duration controls retain touch targets on coarse and hybrid desktops',asyn
  }
 });
 
-test('program durations survive independent copies, editing, schedule moves and file round trips',async({page})=>{
+test('program durations survive shared occurrences, editing, schedule moves and file round trips',async({page})=>{
  test.setTimeout(90000);
  await signIn(page);
  const name='Timed source '+crypto.randomUUID();
@@ -224,11 +224,11 @@ test('program durations survive independent copies, editing, schedule moves and 
  expect(created.ok()).toBeTruthy();const sourceId=(await created.json()).record.id;
  await page.getByRole('button',{name:'New program',exact:true}).click();
  await page.getByLabel('Program name',{exact:true}).fill('Timed week');
- await page.getByLabel('Session template to copy').selectOption({label:name});
+ await page.getByRole('combobox',{name:'Session template',exact:true}).selectOption({label:name});
  await page.getByRole('button',{name:'Add template',exact:true}).click();
  const card=title=>page.locator('.workout-item').filter({has:page.getByRole('heading',{name:title,exact:true,level:3})});
  await expect(card(name).locator('[data-workout-duration]')).toHaveText('Estimated duration ~27 min');
- await card(name).getByRole('button',{name:'Edit '+name,exact:true}).click();
+ await card(name).getByRole('button',{name:'Edit '+name,exact:true}).click();await expect(page.locator('[data-template-name]')).toBeFocused();
  await page.emulateMedia({reducedMotion:'no-preference'});
  const durationToggle=page.locator('.duration-toggle');
  await expect(durationToggle.locator('.duration-clock')).toBeVisible();
@@ -249,39 +249,26 @@ test('program durations survive independent copies, editing, schedule moves and 
  await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
  await card('Original timed workout').getByRole('button',{name:'Duplicate Original timed workout',exact:true}).click();
  await page.getByRole('button',{name:'Edit Original timed workout',exact:true}).last().click();
- await page.getByLabel('Session template name').fill('Duplicate timed workout');
  await page.getByRole('button',{name:'Expand all',exact:true}).click();
  await page.getByRole('slider',{name:'Rest per set',exact:true}).first().fill('300');
  await page.getByRole('button',{name:'Back to program',exact:true}).click();
- await expect(card('Duplicate timed workout').locator('[data-workout-duration]')).toContainText('~26 min');
- await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
- await card('Duplicate timed workout').getByRole('button',{name:'Reorder Duplicate timed workout',exact:true}).focus();await page.keyboard.press('ArrowUp');
- await page.getByRole('radio',{name:'Week',exact:true}).check();
- await card('Original timed workout').getByRole('button',{name:'Reorder Original timed workout',exact:true}).click();await page.getByRole('button',{name:'Move to Monday',exact:true}).click();
- await card('Duplicate timed workout').getByRole('button',{name:'Reorder Duplicate timed workout',exact:true}).click();await page.getByRole('button',{name:'Move to Sunday',exact:true}).click();
- await card('Duplicate timed workout').getByRole('button',{name:'Reorder Duplicate timed workout',exact:true}).click();await page.getByRole('button',{name:'Move to Unscheduled',exact:true}).click();
- await page.getByRole('radio',{name:'Sequence',exact:true}).check();
- await page.getByRole('radio',{name:'Week',exact:true}).check();
- await expect(card('Duplicate timed workout').locator('[data-workout-duration]')).toContainText('~26 min');
- await expect(page.locator('[data-sort-group="0"] h3')).toHaveText('Original timed workout');
- await expect(page.getByTestId('save-status')).toHaveText('Saved');
- await page.reload();
- await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
+ await expect(page.locator('[data-workout-duration]')).toHaveText(['Estimated duration ~26 min','Estimated duration ~26 min']);
+ await page.getByRole('button',{name:'Reorder Original timed workout',exact:true}).first().click();await page.getByRole('button',{name:'Move to Monday',exact:true}).click();
+ await page.getByRole('button',{name:'Reorder Original timed workout',exact:true}).last().click();await page.getByRole('button',{name:'Move to Sunday',exact:true}).click();
+ await page.getByRole('radio',{name:'Sequence',exact:true}).check();await page.getByRole('radio',{name:'Week',exact:true}).check();
+ await expect(page.getByTestId('save-status')).toHaveText('Saved');await page.reload();
+ await expect(page.locator('[data-workout-duration]')).toHaveText(['Estimated duration ~26 min','Estimated duration ~26 min']);
  for(const [width,height] of [[1366,768],[1440,900],[1920,1080],[900,900],[390,844]]) {
-  await page.setViewportSize({width,height});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-  await page.screenshot({path:'.superpowers/sdd/2026-10-25-workout-duration/program-'+width+'.png',fullPage:true});
+  await page.setViewportSize({width,height});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.screenshot({path:'.superpowers/sdd/2026-10-29-shared-session-templates/program-'+width+'.png',fullPage:true});
  }
  await page.setViewportSize({width:1366,height:768});
  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Export program',exact:true}).click();
  let text='';for await(const chunk of await (await download).createReadStream())text+=chunk;
- const portable=JSON.parse(text),original=portable.program.workouts.find(w=>w.name==='Original timed workout');
- expect(original.extraMinutes).toBe(0);expect(original.bufferPercent).toBe(0);expect(original.exercises[0].restSeconds).toBe(0);
- expect(portable.program.workouts.find(w=>w.name==='Duplicate timed workout').exercises[0].restSeconds).toBe(300);
- page.once('dialog',d=>d.accept());
- await page.locator('[data-file]').setInputFiles({name:'timed-week.json',mimeType:'application/json',buffer:Buffer.from(text)});
- await expect(page.getByTestId('save-status')).toHaveText('Saved');await page.reload();
- await expect(card('Duplicate timed workout').locator('[data-workout-duration]')).toContainText('~26 min');
- const unchanged=(await (await page.request.get('/api/documents/'+sourceId)).json()).record.document;
- expect(unchanged).toEqual(source);
+ const portable=JSON.parse(text);expect(portable.templates).toHaveLength(1);
+ expect(portable.templates[0].template.extraMinutes).toBe(0);expect(portable.templates[0].template.bufferPercent).toBe(0);expect(portable.templates[0].template.exercises[0].restSeconds).toBe(300);
+ page.once('dialog',d=>d.accept());await page.locator('[data-file]').setInputFiles({name:'timed-week.json',mimeType:'application/json',buffer:Buffer.from(text)});
+ await expect(page.locator('[data-workout-duration]')).toHaveText(['Estimated duration ~26 min','Estimated duration ~26 min']);
+ const shared=(await (await page.request.get('/api/documents/'+sourceId)).json()).record.document;
+ expect(shared.name).toBe('Original timed workout');expect(shared.exercises[0].restSeconds).toBe(300);
 });

@@ -9,7 +9,8 @@ async function setup(page,kind='template'){
   const reference=await api.createReference({id:crypto.randomUUID(),name:'Inline reference '+crypto.randomUUID(),exerciseType:'compound'});
   const entry=await api.createCatalog({id:crypto.randomUUID(),familyId:reference.id,entry:{name:'Long named barbell bench press with a deliberate pause and controlled eccentric '+crypto.randomUUID(),equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:['Triceps']}});
   const workout={name:'Inline workout',goals:{},extraMinutes:5,bufferPercent:10,exercises:[{name:entry.name,equipment:entry.equipment,catalogId:entry.id,catalogRevision:entry.revision,familyId:entry.familyId,sets:4,repRange:{min:6,max:10},restSeconds:45,primaryMuscles:entry.primaryMuscles,secondaryMuscles:entry.secondaryMuscles}]};
-  const record=await api.create({id:crypto.randomUUID(),kind,document:kind==='template'?workout:{name:'Inline program',mode:'simple',goals:{},workouts:[{...workout,id:crypto.randomUUID(),day:null}]}});
+  const template=kind==='program'?await api.create({id:crypto.randomUUID(),kind:'template',document:workout}):null;
+  const record=await api.create({id:crypto.randomUUID(),kind,document:kind==='template'?workout:{name:'Inline program',mode:'simple',goals:{},workouts:[{templateId:template.id,id:crypto.randomUUID(),day:null}]}});
   return {record,entry,reference};
  },kind);
  await page.goto('/#/'+(kind==='template'?'templates':'programs')+'/'+fixture.record.id);

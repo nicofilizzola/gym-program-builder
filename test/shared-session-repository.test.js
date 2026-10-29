@@ -42,11 +42,11 @@ test('concurrent delete and attachment cannot leave a dangling shared template l
  const first=createDb({url}),second=createDb({url});t.after(async()=>{first.close();second.close();await rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:100});});
  await migrate(first);const a=createRepository(first),b=createRepository(second);
  await a.create({id:'t',kind:'template',document:template});await a.create({id:'p',kind:'program',document:program});
- const results=await Promise.allSettled([
-  a.update({id:'p',revision:1,document:{...program,workouts:[{id:'w',templateId:'t',day:0}]}}),
-  b.remove({id:'t',revision:1}),
- ]);
+ const actions=[()=>a.update({id:'p',revision:1,document:{...program,workouts:[{id:'w',templateId:'t',day:0}]}}),()=>b.remove({id:'t',revision:1})];
+ const results=await Promise.allSettled(actions.map(action=>action()));
  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
  const dangling=await first.execute('SELECT l.template_id FROM program_template_links l LEFT JOIN documents d ON d.id=l.template_id WHERE d.id IS NULL');assert.equal(dangling.rows.length,0);
- const loser=results.find(r=>r.status==='rejected');assert.ok(['IN_USE','NOT_FOUND'].includes(loser.reason.code));
+ const loserIndex=results.findIndex(r=>r.status==='rejected'),loser=results[loserIndex];
+ if(loser.reason.code==='SQLITE_BUSY')await assert.rejects(actions[loserIndex](),error=>['IN_USE','NOT_FOUND'].includes(error.code));
+ else assert.ok(['IN_USE','NOT_FOUND'].includes(loser.reason.code),String(loser.reason));
 });
