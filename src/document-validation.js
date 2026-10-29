@@ -38,6 +38,15 @@ function workout(value,draft) {
       if(draft) {delete errors.name;if(ex.primaryMuscles.length===0) delete errors.muscles;}
       if(Object.keys(errors).length) fail(Object.values(errors)[0]);
       const clean={name:ex.name,sets:ex.sets,restSeconds:ex.restSeconds,repRange:{min:ex.repRange.min,max:ex.repRange.max},primaryMuscles:MUSCLE_GROUPS.filter(m=>ex.primaryMuscles.includes(m)),secondaryMuscles:MUSCLE_GROUPS.filter(m=>ex.secondaryMuscles.includes(m))};
+      for(const key of ['referenceDescription','variantDescription','brand'])if(Object.hasOwn(ex,key)){
+        if(typeof ex[key]!=='string'||ex[key].length>(key==='brand'?80:2000))fail('Invalid exercise '+key+'.');
+        clean[key]=ex[key].replace(/\r\n?/g,'\n');
+      }
+      if(Object.hasOwn(ex,'equipment')){if(!EQUIPMENT.includes(ex.equipment))fail('Invalid equipment.');clean.equipment=ex.equipment;}
+      if(Object.hasOwn(ex,'focusTags')){
+        if(!Array.isArray(ex.focusTags)||ex.focusTags.some(v=>typeof v!=='string'||!v.trim()||v.length>80)||new Set(ex.focusTags.map(v=>v.trim().toLocaleLowerCase())).size!==ex.focusTags.length)fail('Invalid Focus tags.');
+        clean.focusTags=ex.focusTags.map(v=>v.trim());
+      }
       if(Object.hasOwn(ex,'catalogId')) {
         if(typeof ex.catalogId!=='string'||!ex.catalogId||ex.catalogId.length>100||typeof ex.familyId!=='string'||!ex.familyId||ex.familyId.length>100||!Number.isInteger(ex.catalogRevision)||ex.catalogRevision<1||!EQUIPMENT.includes(ex.equipment))fail('Invalid exercise catalog link.');
         Object.assign(clean,{catalogId:ex.catalogId,familyId:ex.familyId,catalogRevision:ex.catalogRevision,equipment:ex.equipment});
@@ -51,7 +60,7 @@ function workout(value,draft) {
   });
   return {name:title,exercises,goals:goals(value.goals,LIMITS.goal),extraMinutes:value.extraMinutes,bufferPercent:value.bufferPercent};
 }
-export function validateDocument(kind,value,{draft=false}={}) {
+function validate(kind,value,{draft=false,embedded=false}={}) {
   try {
     if(kind==='template') return {document:workout(value,draft)};
     if(kind!=='program'||!object(value)||!Array.isArray(value.workouts)) fail('Invalid document kind or format.');
@@ -63,6 +72,7 @@ export function validateDocument(kind,value,{draft=false}={}) {
         if(!object(w)||typeof w.id!=='string'||!w.id||w.id.length>100||ids.has(w.id)) fail('Missing or duplicate workout ID.');
         ids.add(w.id);
         if(w.day!==null&&(!Number.isInteger(w.day)||w.day<0||w.day>6)) fail('Invalid weekday.');
+        if(embedded)return {...workout(w,draft),id:w.id,day:w.day};
         if(typeof w.templateId!=='string'||!w.templateId||w.templateId.length>100)fail('Missing or invalid session template ID.');
         if(Object.keys(w).some(key=>!['id','templateId','day'].includes(key)))fail('Embedded session content is not allowed in a program.');
         return {id:w.id,templateId:w.templateId,day:w.day};
@@ -87,3 +97,6 @@ export function validateDocument(kind,value,{draft=false}={}) {
     return {document};
   } catch(error) {return {error:error.message};}
 }
+export const validateDocument=(kind,value,{draft=false}={})=>validate(kind,value,{draft});
+/** Only portable legacy files use this boundary; repository writes never do. */
+export const validateLegacyDocument=(kind,value,{draft=false}={})=>validate(kind,value,{draft,embedded:true});

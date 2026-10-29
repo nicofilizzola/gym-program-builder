@@ -1,5 +1,5 @@
 import {parseSession} from './session-file.js';
-import {validateDocument} from './document-validation.js';
+import {validateLegacyDocument as validateDocument} from './document-validation.js';
 import {unlinkExercise} from './catalog.js';
 function portableExercises(value) {
   if(value&&typeof value==='object'){
