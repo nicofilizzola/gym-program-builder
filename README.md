@@ -1,6 +1,6 @@
 # Gym Program Builder
 
-A personal library of named session templates and weekly programs. Add independent template copies to a program, keep a simple workout order or assign Monday–Sunday days, and see live direct/indirect volume and optional workout/weekly goals.
+A personal library of named session templates and weekly programs. Link shared session templates into programs, keep a simple workout order or assign Monday–Sunday days, and see live direct/indirect volume and optional workout/weekly goals. Editing a shared session from any program updates its template and every occurrence; weekday and position remain program-specific.
 
 Data autosaves through a password-protected API to SQLite. Use a local database for development and Turso with Vercel for cross-device access. Changes appear on another device when you reopen/reload a document; concurrent edits show a conflict instead of silently overwriting.
 

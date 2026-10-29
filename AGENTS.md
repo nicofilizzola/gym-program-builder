@@ -1,5 +1,17 @@
 # Gym Program Builder
 
+## Shared session templates (2026-10-29)
+
+Design: docs/superpowers/specs/2026-10-29-linked-sessions-catalog-design.md; plan: docs/superpowers/plans/2026-10-29-shared-session-templates.md. These approved requirements supersede older independent program-copy rules.
+
+- Programs persist occurrences `{id,templateId,day}` and arrangement only. Session name, ordered exercises, prescriptions, goals and duration allowances belong to the shared template and save with its own revision.
+- Adding/duplicating a program session links the same template; creating an empty workout creates and attaches a new template atomically. Duplicating a program shares its templates but copies arrangement/weekly goals. Library template duplication remains independent.
+- Count each occurrence in weekly volume, including repeated and Unscheduled occurrences. Removing occurrences/programs never deletes templates. Templates in use cannot be deleted; show affected program links.
+- Migration 005 explicitly converts each old embedded workout to a separate linked template without guessing sources or merging equal content. Preserve timing, catalog links, drafts and scheduling. Never migrate in production builds/requests.
+- Export self-contained v3 bundles with distinct templates and file-local occurrence references; retain v1/v2 imports. Imports are atomic, remap identities and never trust catalog IDs. Shared editor import replaces the same template after the existing nonempty replacement confirmation; library import creates new records.
+- Preserve retries/revisions and dirty edits. Save as copy opens an independent template and does not silently relink existing programs. Revalidate shared dependencies on entry/focus, coordinating with in-flight acknowledgements.
+- Follow docs/operations/shared-sessions-rollout.md for an explicit environment-specific migration/backup/maintenance rollout.
+
 ## UI workflow: compact layout and deliberate motion
 
 For every feature that adds or changes UI, read [the design system](docs/design-system/README.md), including its **Feature design and review checklist**, before designing or implementing. These are acceptance criteria from the start, not optional polish after the feature works. Existing feature-specific requirements still apply.

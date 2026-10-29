@@ -48,6 +48,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   async function focusError(){
     if(!value.name.trim()){root.querySelector('[data-program-name]')?.focus();return;}
     for(const workout of value.workouts)if(!workout.name.trim()||workout.exercises.some(e=>Object.keys(validateExercise(e)).length)){
+      if(onOpenWorkout){await onOpenWorkout(workout.id,{focusError:true});return;}
       await openWorkout(workout.id);if(disposed||!editor)return;editor.focusFirstError();showError(`Fix workout ${value.workouts.indexOf(workout)+1} before exporting.`);return;
     }
   }

@@ -37,7 +37,7 @@ test('navigation transitions respect motion and heading focus',async({page})=>{
  expect(await page.evaluate(()=>window.phases)).toContain(100);
  await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('link',{name:'Programs',exact:true}).click();await expect(page.locator('#app h1')).toBeFocused();expect(await page.locator('#app').evaluate(el=>el.getAnimations().length)).toBe(0);
 });
-test('embedded workout navigation animates, restores focus and focuses export errors',async({page})=>{
+test('shared workout navigation animates, restores focus and focuses export errors',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByRole('button',{name:'Empty workout',exact:true}).click();
  await page.evaluate(()=>{window.internalDurations=[];const root=document.querySelector('#app');new MutationObserver(()=>window.internalDurations.push(...root.getAnimations({subtree:true}).map(a=>a.effect.getTiming().duration))).observe(root,{childList:true,subtree:true});});
  await page.getByRole('button',{name:'Edit Untitled workout',exact:true}).click();await expect(page.getByLabel('Session template name')).toBeFocused();
@@ -58,9 +58,10 @@ test('successful save followed by destination failure keeps editor queue usable'
 });
 test('internal transition cannot unlock the source during pending page navigation',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByRole('button',{name:'Empty workout',exact:true}).click();
+ await expect(page.locator('[data-edit]')).toBeVisible();
  const pending=await holdTemplates(page);
  await page.evaluate(()=>{document.querySelector('[data-edit]').click();document.querySelector('[data-nav="templates"]').click();});await pending.seen;
- await expect(page.getByLabel('Session template name')).toBeVisible();await expect.poll(()=>page.locator('#app').evaluate(el=>el.getAnimations({subtree:true}).length)).toBe(0);
+ await expect(page.getByLabel('Program name',{exact:true})).toBeVisible();await expect.poll(()=>page.locator('#app').evaluate(el=>el.getAnimations({subtree:true}).length)).toBe(0);
  expect(await page.locator('#app').evaluate(el=>el.inert)).toBe(true);await expect(page.locator('#app')).toHaveAttribute('aria-busy','true');
  pending.release();await expect(page.locator('#app h1')).toHaveText('Session templates');
 });
