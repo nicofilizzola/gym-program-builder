@@ -67,7 +67,7 @@ export function openCatalogForm({api,entry,families=[],tags=[],mode='create',onS
    fields.family.value=selected||'';presentation();
    error.textContent=referenceUnavailable()?'Restore the reference exercise first.':'';
   }catch(e){if(!closed)error.textContent=e.message;}
-  finally{refreshingReference=false;if(!closed){recovery.replaceChildren(button('Refresh reference exercise',refreshCreationReference));updateSave();}}
+  finally{refreshingReference=false;if(!closed){recovery.replaceChildren(button(operation==='edit'?'Refresh catalog':'Refresh reference exercise',refreshCreationReference));updateSave();}}
  }
  async function preview(){
   if(operation!=='edit')return;
@@ -97,7 +97,8 @@ export function openCatalogForm({api,entry,families=[],tags=[],mode='create',onS
     recovery.append(button('Reload saved version',async()=>{try{const data=await api.catalog();if(closed)return;families=data.families;tags=data.tags||[];tagFields.setTags(tags);current=data.entries.find(e=>e.id===current.id);if(!current)throw Error('Exercise not found.');populate();error.textContent='';recovery.replaceChildren();await preview();}catch(err){error.textContent=err.message;}}));
     recovery.append(button('Save as variant',()=>{operation='variant';id=crypto.randomUUID();presentation();dialog.querySelector('[data-impact]').textContent='';error.textContent='Give this variant a distinct name, then save.';recovery.replaceChildren();fields.exerciseName.focus();}));
     recovery.append(button('Refresh usage preview',()=>{recovery.replaceChildren();error.textContent='';preview();}));
-   }else if(operation!=='edit'&&targetReferenceId()&&(e.status===409||e.status===400))recovery.append(button('Refresh reference exercise',refreshCreationReference));
+   }else if(operation==='edit'&&e.status===400)recovery.append(button('Refresh catalog',refreshCreationReference));
+   else if(operation!=='edit'&&targetReferenceId()&&(e.status===409||e.status===400))recovery.append(button('Refresh reference exercise',refreshCreationReference));
    else recovery.append(button('Retry',()=>form.requestSubmit()));
   }finally{saving=false;if(!closed){updateSave();dialog.querySelector('[data-cancel]').disabled=false;}}
  }

@@ -45,7 +45,7 @@ export function mountTagView(root,{api,kind='brand',query='',onNavigate=()=>{}})
  }
  root.querySelector('.tag-create').onsubmit=async e=>{
   e.preventDefault();if(createButton.disabled)return;createRequest??={id:crypto.randomUUID(),kind,name:name.value};createButton.disabled=true;
-  try{const tag=await api.createTag(createRequest);if(disposed)return;if(name.value.trim()===createRequest.name.trim())name.value='';createRequest=null;invalidateCatalog(api);await load({animate:true,focusId:tag.id});}catch(e){report(e,()=>root.querySelector('.tag-create').requestSubmit());}finally{if(!disposed)createButton.disabled=false;}
+  try{const tag=await api.createTag(createRequest);if(disposed)return;if(name.value.trim()===createRequest.name.trim())name.value='';createRequest=null;invalidateCatalog(api);await load({animate:true,focusId:tag.id});}catch(e){if(e.status===400||e.status===409)createRequest=null;report(e,()=>root.querySelector('.tag-create').requestSubmit());}finally{if(!disposed)createButton.disabled=false;}
  };
  search.oninput=()=>{transition.cancel();render();onNavigate({kind,query:search.value,replace:true});};archived.onchange=()=>{transition.cancel();render();};
  root.querySelector('[data-count]').textContent='Loading tags…';load();
