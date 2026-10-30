@@ -213,7 +213,7 @@ test('workout mutations retain highlights and replacements clear them',async({pa
   // Draft name and primary choices may be empty; secondary membership still contributes.
   await page.getByRole('button',{name:'Edit Assistance',exact:true}).click();
   await page.getByLabel('Session template name',{exact:true}).fill('');
-  await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
+  await page.getByRole('button',{name:/^Expand exercise: /}).click();
   await page.locator('.primary').getByRole('checkbox',{name:'Triceps',exact:true}).uncheck();
   await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(0);

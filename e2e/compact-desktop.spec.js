@@ -34,7 +34,7 @@ for(const kind of ['template','program'])test('name-led collapsed and mixed card
    const nameBox=await cards.nth(3).locator('.card-name').boundingBox(),cardBox=await cards.nth(3).boundingBox();expect(nameBox.x+nameBox.width).toBeLessThanOrEqual(cardBox.x+cardBox.width);
    const suffix=kind+'-'+size.width+(size.hasTouch?'-touch':'')+(size.enlarged?'-text200':'');
    await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:dir+'/'+suffix+'-collapsed.png',fullPage:true});
-   await cards.first().getByRole('button',{name:'Expand exercise',exact:true}).click();
+   await cards.first().getByRole('button',{name:/^Expand exercise: /}).click();
    await expect(cards.first().getByLabel('Exercise name',{exact:true})).toBeVisible();
    const slider=await cards.first().getByRole('slider',{name:'Sets',exact:true}).boundingBox();expect(slider.height).toBeGreaterThanOrEqual(44);
    await noOverflow(page);
@@ -190,9 +190,9 @@ test('compact fields keep keyboard editing, collapse and error focus',async({pag
   await name.fill('Press');await expect(name).toBeFocused();
   const min=first.getByRole('slider',{name:'Reps min',exact:true});await min.focus();await page.keyboard.press('End');
   await expect(first.getByRole('slider',{name:'Reps max',exact:true})).toHaveValue('30');
-  await first.getByRole('button',{name:'Collapse exercise',exact:true}).click();
+  await first.getByRole('button',{name:/^Collapse exercise: /}).click();
   await expect(first.locator('[data-collapse="body"]')).toHaveAttribute('inert','');
-  await first.getByRole('button',{name:'Expand exercise',exact:true}).click();await name.fill('');
+  await first.getByRole('button',{name:/^Expand exercise: /}).click();await name.fill('');
   await page.getByRole('button',{name:'Export',exact:true}).click();await expect(name).toBeFocused();
 });
 
@@ -208,7 +208,7 @@ test('enlarged volume names and values remain inside their columns',async({page}
 test('desktop coarse pointers retain touch targets',async({browser})=>{
   const context=await browser.newContext({hasTouch:true,viewport:sizes[0],reducedMotion:'reduce'}),page=await context.newPage();
   await fixture(page);
-  for(const locator of [page.locator('.exercise .toggle-btn').first(),page.locator('.exercise .chip span').first(),page.locator('#export-session')]) {
+  for(const locator of [page.locator('.exercise .heading-toggle').first(),page.locator('.exercise .chip span').first(),page.locator('#export-session')]) {
     const r=await locator.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
   }
   await context.close();
@@ -219,7 +219,7 @@ test('hybrid mouse and touchscreen desktops retain touch targets',async({browser
   try {
     const page=await hybrid.newPage({viewport:sizes[0],reducedMotion:'reduce'});await fixture(page);
     expect(await page.evaluate(()=>matchMedia('(pointer:fine)').matches&&matchMedia('(any-pointer:coarse)').matches)).toBe(true);
-    for(const selector of ['.exercise .toggle-btn','.exercise .chip span','#export-session','.volume-row']) {
+    for(const selector of ['.exercise .heading-toggle','.exercise .chip span','#export-session','.volume-row']) {
       const box=await page.locator(selector).first().boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
     }
     await page.setViewportSize(sizes[2]);await fixture(page,'program');

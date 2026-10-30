@@ -12,10 +12,11 @@ test('card headings identify exercises while collapsed summaries show only presc
  await expect(cards.first().getByRole('heading',{name:'Exercise 1: Bench < & press',exact:true})).toBeVisible();
  await expect(cards.nth(1).getByRole('heading',{name:'Exercise 2: Bench < & press',exact:true})).toBeVisible();
  await expect(cards.last().getByRole('heading',{name:'Exercise 3: Untitled exercise',exact:true})).toBeVisible();
+ await expect(cards.first().locator('[data-action=toggle]')).toHaveAccessibleName('Expand exercise: Bench < & press');
  await expect(cards.locator('.card-index')).toHaveText(['01','02','03']);
  await expect(cards.locator('.card-summary')).toHaveText(Array(3).fill('3 × 8–12 · Rest 3 min'));
- await expect(cards.first().getByRole('button',{name:'Expand exercise',exact:true})).toBeVisible();
- await cards.first().getByRole('button',{name:'Expand exercise',exact:true}).click();
+ await expect(cards.first().getByRole('button',{name:/^Expand exercise: /})).toBeVisible();
+ await cards.first().getByRole('button',{name:/^Expand exercise: /}).click();
  expect(await page.evaluate(()=>window.headingChanges.length)).toBe(0);
  const input=cards.first().getByLabel('Exercise name',{exact:true});
  await input.fill('Edited bench');
@@ -24,14 +25,14 @@ test('card headings identify exercises while collapsed summaries show only presc
  await cards.nth(1).getByRole('button',{name:'Reorder exercise',exact:true}).focus();await page.keyboard.press('ArrowUp');
  await expect(cards.first().getByRole('heading')).toHaveAccessibleName('Exercise 1: Bench < & press');
  await expect(cards.first().getByRole('button',{name:'Reorder exercise',exact:true})).toBeFocused();
- await expect(cards.first().getByRole('button',{name:'Expand exercise',exact:true})).toBeVisible();
- await expect(cards.nth(1).getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();
+ await expect(cards.first().getByRole('button',{name:/^Expand exercise: /})).toBeVisible();
+ await expect(cards.nth(1).getByRole('button',{name:/^Collapse exercise: /})).toBeVisible();
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();
  await expect(cards.last().getByRole('heading')).toHaveAccessibleName('Exercise 4: Untitled exercise');
- await expect(cards.last().getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();
+ await expect(cards.last().getByRole('button',{name:/^Collapse exercise: /})).toBeVisible();
  await page.evaluate(()=>window.editor.setWorkout({name:'Reloaded',goals:{},exercises:[{name:'Reloaded row',sets:2,repRange:{min:10,max:10},primaryMuscles:['Lats'],secondaryMuscles:[]}]}));
  await expect(cards.first().getByRole('heading')).toHaveAccessibleName('Exercise 1: Reloaded row');
- await expect(cards.first().getByRole('button',{name:'Expand exercise',exact:true})).toBeVisible();
+ await expect(cards.first().getByRole('button',{name:/^Expand exercise: /})).toBeVisible();
 });
 
 test('muscle preview leaves exercise selection unchanged until activation',async({page})=>{
@@ -72,14 +73,14 @@ test('mounted template retains live volume, focus, collapse and tooltip behavior
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('3');
  await page.getByLabel('Sets',{exact:true}).fill('4');
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('4');
- await page.getByRole('button',{name:'Collapse exercise',exact:true}).click();
+ await page.getByRole('button',{name:/^Collapse exercise: /}).click();
  await expect(page.locator('[data-collapse=body]').first()).toHaveAttribute('inert','');
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();
  await page.getByLabel('Exercise name',{exact:true}).last().fill('Row');
  await page.getByRole('button',{name:'Reorder exercise',exact:true}).last().focus();
  await page.keyboard.press('ArrowUp');
  await expect(page.getByRole('button',{name:'Reorder exercise',exact:true}).first()).toBeFocused();
- await expect(page.locator('.exercise').last().getByRole('button',{name:'Expand exercise',exact:true})).toBeVisible();
+ await expect(page.locator('.exercise').last().getByRole('button',{name:/^Expand exercise: /})).toBeVisible();
  await page.getByRole('button',{name:'Set goals',exact:true}).click();
  await page.getByRole('button',{name:'About Chest',exact:true}).click();
  await expect(page.getByRole('button',{name:'About Chest',exact:true})).toHaveAttribute('aria-expanded','true');
@@ -99,7 +100,7 @@ test('disclosure stays beside identity with keyboard focus and current tooltip',
  for(const width of [1440,390]){
  await page.setViewportSize({width,height:900});
  const t=await toggle.boundingBox(),h=await card.locator('.card-identity').boundingBox();
- expect(t.x+t.width).toBeLessThanOrEqual(h.x);expect(Math.abs(t.y-h.y)).toBeLessThan(12);
+ expect(t.x).toBeCloseTo(h.x,0);expect(t.x+t.width).toBeLessThanOrEqual(h.x+h.width+1);expect(Math.abs(t.y-h.y)).toBeLessThan(12);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
  }
  await toggle.focus();await expect(page.getByRole('tooltip')).toHaveText('Expand exercise');

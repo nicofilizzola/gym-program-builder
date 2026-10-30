@@ -6,7 +6,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
  const controls='button,input,select,textarea,a,label,[contenteditable]:not([contenteditable="false"]),[role="button"],[role="slider"],[role="combobox"],[role="listbox"],[role="option"],[role="checkbox"],[role="radio"],[role="switch"],[tabindex]';
  function eligible(target){
   const item=target.closest(itemSelector),control=target.closest(controls);
-  return item&&root.contains(item)&&!(control&&item.contains(control))?item:null;
+  return item&&root.contains(item)&&!(control&&item.contains(control)&&!control.matches('[data-sortable-heading]'))?item:null;
  }
  function clearClick(){clearTimeout(clickTimer);suppressClick=false;}
  const animations=new Map();
@@ -50,6 +50,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
  }
  function begin(){
   const d=drag,r=d.item.getBoundingClientRect();
+  if(d.pointerId!==undefined)d.item.setPointerCapture(d.pointerId);
   d.copy=d.item.cloneNode(true);d.copy.classList.add('sort-drag-copy');
   for(const el of [d.copy,...d.copy.querySelectorAll('*')]){el.removeAttribute('id');el.removeAttribute('aria-controls');el.removeAttribute('aria-describedby');}
   d.copy.inert=true;d.copy.setAttribute('aria-hidden','true');
@@ -80,7 +81,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
   if(event.pointerType==='touch')return;
   clearClick();const item=eligible(event.target);
   if(!item||event.button!==0||drag)return;
-  event.preventDefault();item.setPointerCapture(event.pointerId);
+  event.preventDefault();
   drag={item,pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,x:event.clientX,y:event.clientY};
  },options);
  window.addEventListener('touchstart',event=>{

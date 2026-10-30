@@ -15,7 +15,7 @@ async function setup(page,kind='template'){
  },kind);
  await page.goto('/#/'+(kind==='template'?'templates':'programs')+'/'+fixture.record.id);
  if(kind==='program')await page.getByRole('button',{name:'Edit Inline workout',exact:true}).click();
- await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
+ await page.getByRole('button',{name:/^Expand exercise: /}).click();
  await page.evaluate(()=>document.fonts.ready);return fixture;
 }
 
@@ -49,8 +49,8 @@ test('archived parent blocks inline variant creation and refresh updates restric
  let mutations=0;page.on('request',request=>{if(request.url().includes('/api/catalog')&&request.method()!=='GET')mutations++;});
  await variant.click({force:true});await expect(page.getByRole('tooltip')).toHaveText('Restore the reference exercise before creating a variant.');await expect(page.getByRole('dialog')).toHaveCount(0);
  expect(mutations).toBe(0);
- await page.getByRole('button',{name:'Collapse exercise',exact:true}).click();await expect(page.locator('.action-tooltip:popover-open')).toHaveCount(0);
- await page.getByRole('button',{name:'Expand exercise',exact:true}).click();
+ await page.getByRole('button',{name:/^Collapse exercise: /}).click();await expect(page.locator('.action-tooltip:popover-open')).toHaveCount(0);
+ await page.getByRole('button',{name:/^Expand exercise: /}).click();
  await page.evaluate(async id=>{const {createApiClient}=await import('/src/api-client.js');const api=createApiClient();const data=await api.catalog();const ref=data.families.find(r=>r.id===id);await api.archiveReference({id,revision:ref.revision,archived:false});},fixture.reference.id);
  await variant.focus();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(variant).toHaveAttribute('aria-disabled','false');await expect(variant).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByRole('dialog')).toBeVisible();
 });

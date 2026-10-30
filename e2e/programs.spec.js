@@ -8,7 +8,7 @@ test('shared program sessions synchronize and weekly goals and schedules survive
  for(let i=0;i<2;i++){await page.getByRole('combobox',{name:'Session template',exact:true}).selectOption({label:'Source upper'});await page.getByRole('button',{name:'Add template',exact:true}).click();await expect(page.locator('.workout-item')).toHaveCount(i+1);}
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('6');
  await page.getByRole('button',{name:'Edit Source upper',exact:true}).first().click();
- await page.getByLabel('Session template name').fill('Independent upper');await page.getByRole('button',{name:'Expand exercise',exact:true}).click();await page.getByLabel('Sets',{exact:true}).fill('4');
+ await page.getByLabel('Session template name').fill('Independent upper');await page.getByRole('button',{name:/^Expand exercise: /}).click();await page.getByLabel('Sets',{exact:true}).fill('4');
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('8');
  await page.getByRole('radio',{name:'Week',exact:true}).check();

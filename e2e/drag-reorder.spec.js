@@ -23,7 +23,7 @@ test('collapsed content opens once without saving and expanded content stays ope
   await expect(card.locator('[data-action=toggle]')).toHaveAttribute('aria-expanded','true');
   await expect(card.locator('[data-action=toggle]')).toBeFocused();
   await expect(card.locator('[data-collapse=body]')).not.toHaveAttribute('inert','');
-  await card.locator('.card-name').click();await expect(card.locator('[data-action=toggle]')).toHaveAttribute('aria-expanded','true');
+  await card.locator('.card-body').click({position:{x:5,y:5}});await expect(card.locator('[data-action=toggle]')).toHaveAttribute('aria-expanded','true');
  }
  expect(await page.evaluate(()=>window.changes.length)).toBe(0);
 });
@@ -31,8 +31,8 @@ test('collapsed content opens once without saving and expanded content stays ope
 test('nested controls act once and secondary clicks never open a card',async({page})=>{
  await exerciseFixture(page);const card=page.locator('.exercise').first(),toggle=card.locator('[data-action=toggle]');
  await card.locator('.card-name').click({button:'right'});await expect(toggle).toHaveAttribute('aria-expanded','false');
- await toggle.locator('path').click();await expect(toggle).toHaveAttribute('aria-expanded','true');
- await toggle.locator('path').click();await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await toggle.locator('.card-name').click();await expect(toggle).toHaveAttribute('aria-expanded','true');
+ await toggle.locator('.card-name').click();await expect(toggle).toHaveAttribute('aria-expanded','false');
  await card.locator('.reorder-action').click();await expect(toggle).toHaveAttribute('aria-expanded','false');await page.keyboard.press('Escape');
  await card.locator('[data-action=remove] path').click();await expect(page.locator('.card-name')).toHaveText(['Row','Curl']);
  await expect(page.locator('[data-action=toggle][aria-expanded=false]')).toHaveCount(2);
@@ -65,7 +65,7 @@ test('exercise drop commits once',async({page})=>{
  await expect(page.locator('.exercise .reorder-action').last()).toBeFocused();
 });
 for(const cancel of ['Escape','pointercancel','lostpointercapture','outside','destroy'])test(`exercise cancel restores mixed collapsed order: ${cancel}`,async({page})=>{
- await exerciseFixture(page);await page.getByRole('button',{name:'Expand exercise',exact:true}).nth(1).click();await startExerciseDrag(page);
+ await exerciseFixture(page);await page.getByRole('button',{name:/^Expand exercise: /}).nth(1).click();await startExerciseDrag(page);
  const target=await page.locator('#exercises > .exercise:not(.sort-source)').last().boundingBox();await page.mouse.move(target.x+80,target.y+target.height-5);
  if(cancel==='Escape')await page.keyboard.press('Escape');
  else if(cancel==='outside')await page.mouse.move(1,1);
@@ -73,7 +73,7 @@ for(const cancel of ['Escape','pointercancel','lostpointercapture','outside','de
  else await page.locator('.exercise').first().dispatchEvent(cancel,{pointerId:1});
  await page.mouse.up();await expect(page.locator('.sort-drag-copy')).toHaveCount(0);await expect(page.locator('.sort-placeholder')).toHaveCount(0);
  expect(await page.evaluate(()=>window.changes.length)).toBe(0);
- if(cancel!=='destroy'){await expect(page.locator('[data-action=toggle][aria-expanded=true]')).toHaveCount(1);await expect(page.locator('.exercise .card-name')).toHaveText(['Bench','Row','Curl']);await expect(page.locator('.exercise').nth(1).getByRole('button',{name:'Collapse exercise',exact:true})).toBeVisible();}
+ if(cancel!=='destroy'){await expect(page.locator('[data-action=toggle][aria-expanded=true]')).toHaveCount(1);await expect(page.locator('.exercise .card-name')).toHaveText(['Bench','Row','Curl']);await expect(page.locator('.exercise').nth(1).getByRole('button',{name:/^Collapse exercise: /})).toBeVisible();}
 });
 test('exercise reorder supports keyboard and click alternatives',async({page})=>{
  await exerciseFixture(page);const handles=page.getByRole('button',{name:'Reorder exercise',exact:true});
@@ -160,7 +160,7 @@ test('program drag order and day assignments persist after reload',async({page})
 
 for(const surface of ['.card-index','.card-name','.card-summary','padding'])test(`exercise drag starts from ${surface}`,async({page})=>{
  await exerciseFixture(page);
- if(surface!=='.card-summary')await page.getByRole('button',{name:'Expand exercise',exact:true}).first().click();
+ if(surface!=='.card-summary')await page.getByRole('button',{name:/^Expand exercise: /}).first().click();
  const card=page.locator('.exercise').first(),el=surface==='padding'?card:card.locator(surface),box=await el.boundingBox();
  const x=box.x+5,y=box.y+5;
  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+12,y+12);
@@ -170,11 +170,11 @@ for(const surface of ['.card-index','.card-name','.card-summary','padding'])test
 });
 
 test('interactive ancestors preserve editing and never start a drag',async({page})=>{
- await exerciseFixture(page);await page.getByRole('button',{name:'Expand exercise',exact:true}).first().click();
+ await exerciseFixture(page);await page.getByRole('button',{name:/^Expand exercise: /}).first().click();
  await page.locator('.exercise').first().evaluate(card=>{
  const controls=document.createElement('div');controls.innerHTML='<button disabled>Unavailable</button><button aria-disabled="true"><svg width="25" height="25"><path d="M0 0h20v20"/></svg></button><a href="#test">Link</a><span contenteditable="true">Editable</span><div role="slider" tabindex="0">Custom slider</div><label>Test label<input type="checkbox"></label>';card.append(controls);
  });
- for(const selector of ['input[data-field="name"]','input[type="range"]','label','button svg','button[disabled]','button[aria-disabled]','a','[contenteditable]','[role="slider"]']){
+ for(const selector of ['input[data-field="name"]','input[type="range"]','label','button svg:visible','button[disabled]','button[aria-disabled]','a','[contenteditable]','[role="slider"]']){
   const control=page.locator('.exercise').first().locator(selector).first();await control.scrollIntoViewIfNeeded();const b=await control.boundingBox();
   await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width/2+15,b.y+b.height/2+15);
   await expect(page.locator('.sort-drag-copy')).toHaveCount(0);await page.mouse.up();
@@ -240,7 +240,7 @@ for(const cancel of ['second finger','touchcancel','destroy'])test(`pending touc
 
 test('Reorder actions replace dotted handles and expose accessible options',async({page})=>{
  await exerciseFixture(page);const button=page.getByRole('button',{name:'Reorder exercise',exact:true}).first();
- await expect(button).toHaveText('Reorder');await expect(page.locator('.drag-handle')).toHaveCount(0);
+ await expect(button).toHaveText('');await expect(page.locator('.drag-handle')).toHaveCount(0);
  await button.focus();await page.keyboard.press('Enter');
  await expect(page.getByRole('button',{name:'Move up',exact:true})).toBeDisabled();
  await expect(page.getByRole('button',{name:'Move down',exact:true})).toBeFocused();
@@ -276,11 +276,11 @@ test('program workout exercise whole-card reorder preserves prescriptions after 
  await startExerciseDrag(page);await expect(page.locator('.sort-drag-copy')).toBeVisible();const target=await page.locator('#exercises > .exercise:not(.sort-source)').last().boundingBox();await page.mouse.move(target.x+80,target.y+target.height-3);await expect(page.locator('.sort-placeholder')).toBeVisible();await page.mouse.up();
  await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
- await page.getByRole('button',{name:'Expand exercise',exact:true}).last().click();await expect(page.locator('.exercise').last().getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
+ await page.getByRole('button',{name:/^Expand exercise: /}).last().click();await expect(page.locator('.exercise').last().getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await page.reload();await page.getByRole('button',{name:'Edit Upper persisted',exact:true}).click();
  await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  for(const [i,rest,sets]of [[0,'135','3'],[1,'90','4'],[2,'180','2']]){
-  await page.locator('.exercise').nth(i).getByRole('button',{name:'Expand exercise',exact:true}).click();
+  await page.locator('.exercise').nth(i).getByRole('button',{name:/^Expand exercise: /}).click();
   await expect(page.locator('.exercise').nth(i).getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue(rest);
   await expect(page.locator('.exercise').nth(i).getByRole('slider',{name:'Sets',exact:true})).toHaveValue(sets);
  }

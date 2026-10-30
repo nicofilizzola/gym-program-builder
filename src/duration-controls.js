@@ -1,3 +1,4 @@
+import {mountSliderPresentation} from './slider-presentation.js';
 import {computeDuration,DURATION_LIMITS,durationLabel,formatDuration,normalizeWorkoutTiming} from './duration.js';
 import {mountActionTooltips} from './action-controls.js';
 
@@ -25,6 +26,7 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
     host.querySelector('.duration-allowances').append(field);
   }
   let value;
+  const sliderPresentation=mountSliderPresentation(host);
   function update(next) {
     value=normalizeWorkoutTiming(next);
     host.querySelector('[data-duration-total]').textContent=durationLabel(value);
@@ -36,6 +38,7 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
       input.closest('.slider-field').querySelector('.slider-value').textContent=text;
       input.parentElement.style.setProperty('--to',n/DURATION_LIMITS[key].max);
     });
+    sliderPresentation.sync();
   }
   let opened=false;
   function setExpanded(next) {
@@ -55,5 +58,5 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
     update({...value,...settings});onChange(settings);
   },{signal:controller.signal});
   update(workout);
-  return {update,destroy(){controller.abort();tooltips.destroy();host.replaceChildren();host.removeAttribute('data-duration-motion');}};
+  return {update,destroy(){sliderPresentation.destroy();controller.abort();tooltips.destroy();host.replaceChildren();host.removeAttribute('data-duration-motion');}};
 }

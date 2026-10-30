@@ -249,7 +249,6 @@ input:focus-visible {
 .card-name {min-width:0;overflow-wrap:anywhere}
 .card-controls {display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
 .card-title-group {display:flex;align-items:flex-start;gap:8px;flex:1 1 240px;min-width:0}
-.card-title-group .toggle-btn {margin-left:0;flex-shrink:0}
 .card-title-group .card-identity {align-self:center}
 @media (hover:hover) and (pointer:fine) {
   .exercise[data-collapsed="true"][data-hit=""]:hover {border-color:var(--muted)}
@@ -318,32 +317,6 @@ svg {
   font-weight: 600;
 }
 
-.toggle-btn {
-  margin-left: auto;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  transition: color 150ms ease, background-color 150ms ease;
-}
-
-.toggle-btn:hover {
-  color: var(--text);
-  background: var(--surface-2);
-}
-
-.toggle-btn svg {
-  transition: transform 150ms ease;
-}
-
-.toggle-btn[aria-expanded="true"] svg {
-  transform: rotate(180deg);
-}
-
 /* Summary and fields slide open and closed: the row track animates from 1fr to 0fr while the part fades.
    Cards built fresh get their state before the first style pass, so they never animate. */
 .exercise > .collapsible {
@@ -381,7 +354,7 @@ svg {
 .collapsible > .card-summary {
   padding-top: 4px;
   padding-bottom: 0;
-  padding-left: 80px;
+  padding-left: 4px;
 }
 
 .collapsible.is-closed > * {
@@ -396,7 +369,6 @@ svg {
 }
 
 .icon-btn svg,
-.toggle-btn svg,
 .add-btn svg {
   width: 20px;
   height: 20px;
@@ -1425,7 +1397,7 @@ button:disabled {opacity:.5;cursor:default}
 .sort-drag-copy.is-invalid-drop {opacity:.6}
 .sort-placeholder {box-sizing:border-box;border:1px dashed var(--accent);border-radius:var(--radius);background:var(--accent-soft);margin:12px 0;min-width:0;list-style:none}
 .is-sorting,.is-sorting * {cursor:grabbing !important;user-select:none !important}
-.card-head {position:relative}
+.card-head {position:relative;isolation:isolate}
 .reorder-menu {position:fixed;inset:auto;margin:0;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;padding:8px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px #0005}
 .reorder-menu:popover-open {display:flex;flex-direction:column;gap:6px}
 .reorder-menu button {text-align:left}
@@ -1510,8 +1482,8 @@ button:disabled {opacity:.5;cursor:default}
   .template-picker button,.add-btn,.library-toolbar .add-btn {min-height:var(--control-compact);padding:6px 12px;font-size:.875rem}
   input[type="text"],input[type="search"],select {min-height:var(--control-compact);padding:5px 10px;font-size:.875rem;line-height:1.4}
   .field,.slider-head,.chips legend {font-size:.8125rem;gap:4px}
-  .action-button,.icon-btn,.toggle-btn {width:var(--control-compact);height:var(--control-compact);min-height:var(--control-compact);flex-basis:var(--control-compact)}
-  .collapsible > .card-summary {padding-left:68px}
+  .action-button,.icon-btn {width:var(--control-compact);height:var(--control-compact);min-height:var(--control-compact);flex-basis:var(--control-compact)}
+  .collapsible > .card-summary {padding-left:4px}
   .program-layout {padding:2px}
   .program-layout label {min-height:var(--control-compact)}
   .program-layout span {padding:6px 10px;font-size:.8125rem}
@@ -1876,3 +1848,31 @@ button:disabled {opacity:.5;cursor:default}
  .analysis-panel, .analysis-jump { transition: none; }
  .analysis-trigger.is-analyzing svg, .analysis-status.is-working::before { animation: none; }
 }
+
+/* The heading is the disclosure target; sibling actions remain independent. */
+.heading-toggle {display:flex;align-items:baseline;gap:8px;min-width:0;min-height:44px;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;text-transform:none;letter-spacing:normal;cursor:grab}
+.heading-toggle::after {content:'';position:absolute;inset:0;border-radius:8px;transition:background-color 150ms ease-out;z-index:0}
+.heading-toggle:hover::after,.heading-toggle:focus-visible::after {background:var(--accent-soft)}
+.heading-toggle:focus-visible::after {outline:2px solid var(--accent);outline-offset:2px}
+.card-head .card-controls,.card-head .exercise-info {position:relative;z-index:1}
+.card-head .hit-tag,.card-head .fix-tag {pointer-events:none}
+.heading-toggle .card-index,.heading-toggle .card-name {position:relative;z-index:1;pointer-events:none}
+.icon-btn.reorder-action:hover {color:var(--text);background:var(--surface-2)}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.heading-toggle {min-height:32px}}
+@media (prefers-reduced-motion:reduce) {.heading-toggle::after {transition:none}}
+
+/* Native thumbs retain hit testing; synchronized, noninteractive knobs carry motion. */
+.slider.has-slider-presentation .slider-fill {left:calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--visual-from));width:calc((100% - var(--thumb)) * (var(--visual-to) - var(--visual-from)))}
+.has-slider-presentation input[type="range"]::-webkit-slider-thumb {background:transparent}
+.has-slider-presentation input[type="range"]::-moz-range-thumb {background:transparent}
+.has-slider-presentation input[type="range"]:is(:hover,:active,:focus-visible)::-webkit-slider-thumb {background:transparent}
+.has-slider-presentation input[type="range"]:is(:hover,:active,:focus-visible)::-moz-range-thumb {background:transparent}
+.slider-thumb {position:absolute;top:0;width:var(--thumb);height:44px;transform:translateX(-50%);background:var(--knob);pointer-events:none;z-index:3}
+.slider:hover .slider-thumb {background:var(--knob-hover)}
+.slider .slider-thumb.is-focused {background:var(--knob-focus)}
+.slider .slider-thumb.is-top {z-index:4}
+
+.catalog-toolbar > .field {flex:1 1 160px;min-width:0}
+.catalog-toolbar > .field:has([data-search]) {flex:2 1 240px}
+.catalog-toolbar > .field select {width:100%}
+@media (max-width:760px) {.catalog-toolbar > .field {flex:1 1 calc(50% - 8px);min-width:min(160px,100%)}.catalog-toolbar > .field:has([data-search]) {flex-basis:100%}}

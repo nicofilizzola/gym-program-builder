@@ -1,3 +1,4 @@
+import {mountSliderPresentation} from './slider-presentation.js';
 import {MUSCLE_GROUPS} from './muscles.js';
 import {barScale,barSegments,goalStatus,visibleMuscles} from './volume.js';
 import {SESSION_MARKUP} from './session-markup.js';
@@ -30,6 +31,7 @@ export function mountVolumePanel(root,{scope='week',onGoalsChange=()=>{},onMuscl
     label.innerHTML='<span class="goal-name"></span><div class="slider"><span class="slider-fill"></span><input type="range" min="0" max="30" step="0.5"></div><span class="slider-value"></span>';
     label.querySelector('.goal-name').textContent=m;const input=label.querySelector('input');input.dataset.goal=m;input.setAttribute('aria-label',`${m} weekly goal`);fields.append(label);
   }
+  const sliderPresentation=mountSliderPresentation(root);
   function readoutText(m) {
     if(!m)return 'Tap a muscle to highlight its workouts.';
     const {volume,split,goals,contributorCount}=data,n=contributorCount(m),g=goals[m],status=goalStatus(volume[m],g)?.status;
@@ -65,6 +67,7 @@ export function mountVolumePanel(root,{scope='week',onGoalsChange=()=>{},onMuscl
       const marker=row.querySelector('.bar-goal');marker.hidden=g===undefined;if(g!==undefined)marker.style.left=`${g/scale*100}%`;
     });
     fields.querySelectorAll('input').forEach(input=>{const g=goals[input.dataset.goal]||0;input.value=g;input.setAttribute('aria-valuetext',g?String(g):'No goal');input.closest('label').querySelector('.slider-value').textContent=g?String(g):'No goal';input.parentElement.style.setProperty('--from',0);input.parentElement.style.setProperty('--to',g/30);});
+    sliderPresentation.sync();
     updateReadout();
     if(focus!==notifiedMuscle){notifiedMuscle=focus;onMuscleFocusChange(focus);}
   }
@@ -93,5 +96,5 @@ export function mountVolumePanel(root,{scope='week',onGoalsChange=()=>{},onMuscl
   });
   list.addEventListener('focusout',e=>{focused=muscleAt(e.relatedTarget);update(data);});
   const panelLayout=mountPanelLayout(panel);
-  return {update,destroy(){disposed=true;panelLayout.destroy();clearTimeout(hoverTimer);clearTimeout(fadeTimer);dialog.close();root.replaceChildren();}};
+  return {update,destroy(){sliderPresentation.destroy();disposed=true;panelLayout.destroy();clearTimeout(hoverTimer);clearTimeout(fadeTimer);dialog.close();root.replaceChildren();}};
 }

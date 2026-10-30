@@ -1,3 +1,4 @@
+import {mountSliderPresentation} from './slider-presentation.js';
 import {renderVariantMetadata,mountExerciseInfo} from './catalog-metadata.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {mountAnalysisPanel} from './analysis-panel.js';
@@ -21,7 +22,8 @@ import {getCatalogStore} from './catalog-store.js';
 
 export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,analysisEnabled=false}={}) {
 root.innerHTML=SESSION_MARKUP;
-const disclosureTooltips=mountActionTooltips(root,{selector:'.card-title-group [data-action-tooltip]'});
+const sliderPresentation=mountSliderPresentation(root);
+const disclosureTooltips=mountActionTooltips(root,{selector:'.card-head [data-action-tooltip]'});
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
 let destroyed=false;
 let analysisPanel=null;
@@ -99,15 +101,12 @@ function setFill(slider, from, to) {
 const CARD_HTML = `
   <div class="card-head">
     <div class="card-title-group">
-    <button type="button" class="toggle-btn" data-action="toggle" aria-expanded="true" aria-label="Collapse exercise" data-action-tooltip="Collapse exercise">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <h2 class="card-identity"><span class="card-index" aria-hidden="true"></span><span class="visually-hidden" data-position></span><span class="card-name"></span></h2>
+    <h2 class="card-identity"><button type="button" class="heading-toggle" data-action="toggle" data-sortable-heading aria-expanded="true" aria-label="Collapse exercise" data-action-tooltip="Collapse exercise"><span class="card-index" aria-hidden="true"></span><span class="visually-hidden" data-position></span><span class="card-name"></span></button></h2>
     </div>
     <span class="hit-tag" data-hit-tag></span>
     <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
     <div class="card-controls">
-    <button type="button" class="secondary-btn reorder-action" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">Reorder</button>
+    <button type="button" class="icon-btn reorder-action" data-action-tooltip="Reorder exercise" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">${actionIcon('reorder')}</button>
     <button type="button" class="icon-btn" data-action="remove" aria-label="Remove exercise">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
     </button>
@@ -268,6 +267,7 @@ function syncGoalFields() {
 function setOpen(part, open) {
   part.classList.toggle('is-closed', !open);
   part.toggleAttribute('inert', !open);
+  part.setAttribute('aria-hidden',String(!open));
 }
 
 /**
@@ -351,6 +351,7 @@ function hitFor(ex) {
 
 /** Update everything derived from state without recreating inputs. */
 function refresh() {
+  queueMicrotask(()=>sliderPresentation.sync());
   analysisPanel?.refresh();
   durationControls.update(session);
   const fingerprint=JSON.stringify(session);
@@ -359,6 +360,7 @@ function refresh() {
     const i = Number(card.dataset.index);
     const ex = session.exercises[i];
     card.querySelector('.card-name').textContent=ex.name.trim()||'Untitled exercise';
+    card.querySelector('.card-identity').setAttribute('aria-label',`Exercise ${i+1}: ${ex.name.trim()||'Untitled exercise'}`);
     const errors = validateExercise(ex);
     const isCollapsed = collapsed[i];
     card.dataset.collapsed = String(isCollapsed);
@@ -371,7 +373,7 @@ function refresh() {
     const toggle = card.querySelector('[data-action="toggle"]');
     if(toggle.getAttribute('aria-expanded')!==String(!isCollapsed))disclosureTooltips.hide();
     toggle.setAttribute('aria-expanded', String(!isCollapsed));
-    toggle.setAttribute('aria-label', isCollapsed ? 'Expand exercise' : 'Collapse exercise');
+    toggle.setAttribute('aria-label', `${isCollapsed ? 'Expand exercise' : 'Collapse exercise'}: ${ex.name.trim()||'Untitled exercise'}`);
     toggle.dataset.actionTooltip=isCollapsed ? 'Expand exercise' : 'Collapse exercise';
     const { min, max } = ex.repRange;
     const setsInput = card.querySelector('[data-field="sets"]');
@@ -542,7 +544,7 @@ list.addEventListener('click', (event) => {
   const i = indexOf(event.target);
   if(i<0)return;
   if (action === 'toggle') {
-    setExerciseCollapsed(i,!collapsed[i]);
+    setExerciseCollapsed(i,!collapsed[i],{focusToggle:true});
     return;
   }
   if(!action){
@@ -801,7 +803,7 @@ const panelLayout=mountPanelLayout(panel);
 if(analysisEnabled!==false)setAnalysisEnabled(analysisEnabled);
 return {setWorkout,syncSaved,focusFirstError,setAnalysisEnabled,destroy(){
   analysisPanel?.destroy();
-  destroyed=true;disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
+  destroyed=true;sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);
