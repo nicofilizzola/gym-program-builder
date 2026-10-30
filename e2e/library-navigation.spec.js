@@ -66,7 +66,7 @@ test('library actions preserve file picker, download, duplicate and delete confi
  page.once('dialog',dialog=>dialog.dismiss());await row.getByRole('button',{name:'Delete Action check',exact:true}).click();await expect(row).toHaveCount(1);
  const downloadPromise=page.waitForEvent('download');await row.getByRole('button',{name:'Export Action check',exact:true}).click();const download=await downloadPromise;
  const stream=await download.createReadStream();let text='';for await(const chunk of stream)text+=chunk;expect(JSON.parse(text).version).toBe(3);
- await row.getByRole('button',{name:'Duplicate Action check',exact:true}).click();await expect(row).toHaveCount(2);
+ await row.getByRole('button',{name:'Duplicate Action check',exact:true}).click();await expect(page.getByRole('link',{name:'Action check 1',exact:true})).toBeVisible();
  const chooserPromise=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Import',exact:true}).click();expect(await chooserPromise).toBeTruthy();
 });
 for(const kind of ['program','template']){

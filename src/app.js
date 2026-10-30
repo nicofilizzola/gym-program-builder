@@ -1,3 +1,4 @@
+import {duplicateName} from './duplicate-name.js';
 import {mountBreadcrumbs} from './breadcrumbs.js';
 import {resolveProgram,programArrangement} from './program-links.js';
 import {createSharedSessionController} from './shared-session-controller.js';
@@ -236,9 +237,11 @@ async function prepareRoute(route,version){
   onCreate:action(()=>create(kind,kind==='program'?createProgram():createTemplate())),
   onOpen:action(record=>navigate(`#/${route.view}/${record.id}`)),
   onDuplicate:action(async record=>{
-   const source=await api.get(record.id);
+   const [source,latest]=await Promise.all([api.get(record.id),api.list(kind)]);
    if(version!==mountedVersion)return;
-   await create(kind,kind==='program'?duplicateProgram(source.document,uid):structuredClone(source.document),{open:false,copyOf:source.id});
+   const document=kind==='program'?duplicateProgram(source.document,uid):structuredClone(source.document);
+   document.name=duplicateName(source.document.name,latest.map(item=>item.name),kind==='program'?'Untitled program':'Untitled template');
+   await create(kind,document,{open:false,copyOf:source.id});
   }),
   onDelete:action(record=>transition(async()=>{
    if(!confirm(`Delete ${record.name||'this item'}?`))return;

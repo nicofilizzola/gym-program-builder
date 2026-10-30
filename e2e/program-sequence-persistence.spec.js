@@ -28,9 +28,10 @@ test('rest sequence survives save, reload, portable export, import and library d
  expect(portable.program.workouts[0].day).toBeNull();expect(portable.program.workouts[0].id).toBeUndefined();
  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();
  await page.getByRole('button',{name:'Duplicate Rest cycle',exact:true}).click();
- await expect(page.getByRole('link',{name:'Rest cycle',exact:true})).toHaveCount(2);
- await page.locator('.library-item h2 a:not([href="#/programs/'+original.id+'"])').filter({hasText:'Rest cycle'}).click();
- await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Rest cycle');
+ await expect(page.getByRole('link',{name:'Rest cycle',exact:true})).toHaveCount(1);
+ await expect(page.getByRole('link',{name:'Rest cycle 1',exact:true})).toBeVisible();
+ await page.getByRole('link',{name:'Rest cycle 1',exact:true}).click();
+ await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Rest cycle 1');
  const duplicate=await getRecord(page);
  expect(duplicate.id).not.toBe(original.id);
  expect(duplicate.document.workouts[0].id).not.toBe(original.document.workouts[0].id);
