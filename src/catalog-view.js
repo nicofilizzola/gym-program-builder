@@ -1,3 +1,4 @@
+import {MUSCLE_GROUPS} from './muscles.js';
 import {renderVariantMetadata} from './catalog-metadata.js';
 import {EQUIPMENT} from './catalog.js';
 import {groupCatalog,flattenVariantOptions} from './catalog-groups.js';
@@ -6,9 +7,11 @@ import {openReferenceForm,openReferenceArchive,openVariantMove} from './referenc
 import {invalidateCatalog} from './catalog-store.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 export function mountCatalog(root,{api,initialData,target,onNavigate,onTargetChange=()=>{}}){
- root.innerHTML='<section class="catalog-page"><header class="catalog-header"><div><h1>Exercise catalog</h1><p class="catalog-intro">Reference exercises and their variants.</p></div><button class="add-btn" data-new>New reference exercise</button></header><div class="catalog-toolbar"><a class="secondary-btn manage-tags" href="#/catalog/tags">Manage tags</a><label class="field">Search catalog<input type="search" autocomplete="off" data-search></label><label class="field">Equipment<select data-equipment aria-label="Equipment"><option value="">All equipment</option></select></label><label class="catalog-archived"><input type="checkbox" data-archived>Show archived</label></div><p class="error" role="alert" data-error></p><button class="secondary-btn" data-retry hidden>Retry</button><p data-count role="status"></p><div class="catalog-list"></div></section>';
+ root.innerHTML='<section class="catalog-page"><header class="catalog-header"><div><h1>Exercise catalog</h1><p class="catalog-intro">Reference exercises and their variants.</p></div><button class="add-btn" data-new>New reference exercise</button></header><div class="catalog-toolbar"><a class="secondary-btn manage-tags" href="#/catalog/tags">Manage tags</a><label class="field">Search catalog<input type="search" autocomplete="off" data-search></label><label class="field">Equipment<select data-equipment aria-label="Equipment"><option value="">All equipment</option></select></label><label class="field">Primary muscle<select data-primary-muscle aria-label="Primary muscle"><option value="">All primary muscles</option></select></label><label class="field">Secondary muscle<select data-secondary-muscle aria-label="Secondary muscle"><option value="">All secondary muscles</option></select></label><label class="field">Exercise type<select data-exercise-type aria-label="Exercise type"><option value="">All types</option><option value="compound">Compound</option><option value="isolation">Isolation</option></select></label><label class="catalog-archived"><input type="checkbox" data-archived>Show archived</label></div><p class="error" role="alert" data-error></p><button class="secondary-btn" data-retry hidden>Retry</button><p data-count role="status"></p><div class="catalog-list"></div></section>';
  let data=initialData||{entries:[],families:[]},targetResolved=false,lastTargetReference=null,disposed=false,form,retryAction,generation=0,filterKey='',searchExpanded=new Set(),searchSeen=new Set();
  const expanded=new Set(),list=root.querySelector('.catalog-list'),error=root.querySelector('[data-error]'),retry=root.querySelector('[data-retry]'),search=root.querySelector('[data-search]'),equipment=root.querySelector('[data-equipment]'),archived=root.querySelector('[data-archived]');
+ const primaryMuscle=root.querySelector('[data-primary-muscle]'),secondaryMuscle=root.querySelector('[data-secondary-muscle]'),exerciseType=root.querySelector('[data-exercise-type]');
+ for(const muscle of MUSCLE_GROUPS){primaryMuscle.add(new Option(muscle,muscle));secondaryMuscle.add(new Option(muscle,muscle));}
  const tooltips=mountActionTooltips(root);
  for(const e of EQUIPMENT)equipment.add(new Option(e,e));
  const action=(label,fn)=>{const button=document.createElement('button');button.type='button';button.className='secondary-btn';button.textContent=label;button.onclick=fn;return button;};
@@ -68,8 +71,8 @@ export function mountCatalog(root,{api,initialData,target,onNavigate,onTargetCha
  function focusTarget(){if(!target)return;if(target.variantId)focusVariant(target.variantId,'edit',lastTargetReference);else focusReference(lastTargetReference||target.referenceId);}
  function render(){
   syncTarget();
-  tooltips.hide();list.replaceChildren();const filtering=Boolean(search.value.trim()||equipment.value),nextKey=search.value+'\0'+equipment.value;
-  const groups=groupCatalog(data,search.value,{equipment:equipment.value,showArchived:archived.checked});
+  tooltips.hide();list.replaceChildren();const filtering=Boolean(search.value.trim()||equipment.value||primaryMuscle.value||secondaryMuscle.value||exerciseType.value),nextKey=JSON.stringify([search.value,equipment.value,primaryMuscle.value,secondaryMuscle.value,exerciseType.value]);
+  const groups=groupCatalog(data,search.value,{equipment:equipment.value,primaryMuscle:primaryMuscle.value,secondaryMuscle:secondaryMuscle.value,exerciseType:exerciseType.value,showArchived:archived.checked});
   if(filtering){
    if(filterKey!==nextKey){searchExpanded=new Set();searchSeen=new Set();}
    // A filter can be entered before load finishes. Expand newly arriving matches,
@@ -116,6 +119,6 @@ export function mountCatalog(root,{api,initialData,target,onNavigate,onTargetCha
   });
  }
  root.querySelector('[data-new]').onclick=()=>referenceForm();
- search.oninput=equipment.onchange=archived.onchange=render;root.querySelector('[data-count]').textContent='Loading reference exercises\u2026';if(initialData)render();else load();
+ search.oninput=equipment.onchange=primaryMuscle.onchange=secondaryMuscle.onchange=exerciseType.onchange=archived.onchange=render;root.querySelector('[data-count]').textContent='Loading reference exercises\u2026';if(initialData)render();else load();
  return {focusTarget,destroy(){disposed=true;generation++;form?.destroy();tooltips.destroy();root.replaceChildren();}};
 }
