@@ -22,24 +22,33 @@ export function mountDisclosure(root,{label,opened=false}){
  return {content,setExpanded};
 }
 export function mountDescriptionField(root,{label,value='',name}){
- const disclosure=mountDisclosure(root,{label,opened:Boolean(value)}),field=document.createElement('label');field.className='field';field.append(document.createTextNode(label));const input=document.createElement('textarea');input.name=name;input.maxLength=2000;input.rows=3;input.value=value;field.append(input);disclosure.content.append(field);
+ const field=document.createElement('label');field.className='field';field.append(document.createTextNode(label+' (optional)'));const input=document.createElement('textarea');input.name=name;input.maxLength=2000;input.rows=3;input.value=value;field.append(input);root.append(field);
  return {getValue:()=>input.value,setValue(value){input.value=value||'';},input};
 }
 
 export function mountVariantTags(root,{tags=[],brandId=null,focusTagIds=[]}={}){
  const container=document.createElement('div');container.className='variant-tag-fields';
- const brandLabel=document.createElement('label');brandLabel.className='field';brandLabel.append(document.createTextNode('Brand'));const brand=document.createElement('select');brand.name='brandId';brand.setAttribute('aria-label','Brand');brandLabel.append(brand);container.append(brandLabel);
+ const brandGroup=document.createElement('fieldset'),brandLegend=document.createElement('legend');brandLegend.textContent='Brand';
+ const brandSearchLabel=document.createElement('label');brandSearchLabel.className='field';brandSearchLabel.append(document.createTextNode('Filter Brand tags'));const brandSearch=document.createElement('input');brandSearch.type='search';brandSearch.autocomplete='off';brandSearchLabel.append(brandSearch);
+ const brand=document.createElement('div');brand.className='chips';brandGroup.append(brandLegend,brandSearchLabel,brand);container.append(brandGroup);const brandNodes=new Map();
  const focus=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent='Focus';const search=document.createElement('input');search.type='search';search.name='focusSearch';search.autocomplete='off';search.setAttribute('aria-label','Search Focus tags');const searchLabel=document.createElement('label');searchLabel.className='field';searchLabel.append(document.createTextNode('Filter Focus tags'),search);const choices=document.createElement('div');choices.className='chips';focus.append(legend,searchLabel,choices);container.append(focus);root.append(container);
  let selectedBrand=brandId,selectedFocus=new Set(focusTagIds);
  function render(){
   const filterable=tags.filter(t=>t.kind==='focus'&&(!t.archived||selectedFocus.has(t.id))).length>8;searchLabel.hidden=!filterable;if(!filterable)search.value='';
-  brand.replaceChildren(new Option('No Brand',''));
-  for(const tag of tags.filter(t=>t.kind==='brand'&&(!t.archived||t.id===selectedBrand)))brand.add(new Option(tag.name+(tag.archived?' (Archived)':''),tag.id));brand.value=selectedBrand||'';
+  const available=tags.filter(t=>t.kind==='brand'&&(!t.archived||t.id===selectedBrand));brandSearchLabel.hidden=available.length<=8;if(brandSearchLabel.hidden)brandSearch.value='';
+  const brands=[{id:'',name:'No Brand'},...available],retained=new Set(brands.map(t=>t.id));
+  for(const [id,node]of brandNodes)if(!retained.has(id)){node.remove();brandNodes.delete(id);}
+  brands.forEach((tag,index)=>{
+   let node=brandNodes.get(tag.id);
+   if(!node){node=document.createElement('label');node.className='chip';const input=document.createElement('input');input.type='radio';input.name='brandId';input.value=tag.id;const span=document.createElement('span');node.append(input,span);brandNodes.set(tag.id,node);input.onchange=()=>{selectedBrand=input.value||null;render();};}
+   const input=node.querySelector('input');input.checked=tag.id===(selectedBrand||'');node.querySelector('span').textContent=tag.name+(tag.archived?' (Archived)':'');node.hidden=Boolean(tag.id&&brandSearch.value&&!tag.name.toLocaleLowerCase().includes(brandSearch.value.toLocaleLowerCase()));
+   if(brand.children[index]!==node)brand.insertBefore(node,brand.children[index]||null);
+  });
   choices.replaceChildren();
   for(const tag of tags.filter(t=>t.kind==='focus'&&(!t.archived||selectedFocus.has(t.id)))){
    const label=document.createElement('label');label.className='chip';label.hidden=Boolean(search.value&&!tag.name.toLocaleLowerCase().includes(search.value.toLocaleLowerCase()));const input=document.createElement('input');input.type='checkbox';input.checked=selectedFocus.has(tag.id);input.value=tag.id;input.name='focusTagIds';const span=document.createElement('span');span.textContent=tag.name+(tag.archived?' (Archived)':'');label.append(input,span);choices.append(label);input.onchange=()=>{if(input.checked)selectedFocus.add(tag.id);else selectedFocus.delete(tag.id);if(tag.archived)render();};
   }
  }
- brand.onchange=()=>{selectedBrand=brand.value||null;render();};search.oninput=render;render();
+ brandSearch.oninput=render;search.oninput=render;render();
  return {getValue:()=>({brandId:selectedBrand,focusTagIds:[...selectedFocus]}),setValue(value){selectedBrand=value.brandId??value.brand?.id??null;selectedFocus=new Set(value.focusTagIds??value.focusTags?.map(t=>t.id).filter(Boolean)??[]);render();},setTags(value){tags=value;render();}};
 }
