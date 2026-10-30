@@ -9,7 +9,7 @@ const workout=()=>({name:'Upper',day:null,goals:{},exercises:[
 test('weekly sums count scheduled and unscheduled independent workouts once',()=>{
  const p={workouts:[{...workout(),id:'1',day:0},{...workout(),id:'2'}],goals:{Chest:14},mode:'simple'};
  const v=computeProgramVolume(p);
- assert.deepEqual(v,{Chest:14,Lats:6,'Upper back':3,Biceps:3,Triceps:10,'Front delts':7,'Side delts':0,'Rear delts':0,Abs:0,Quads:0,Hamstrings:0,Calves:0});
+ assert.deepEqual(v,{Chest:14,Lats:6,'Upper back':3,Biceps:3,Triceps:10,'Front delts':7,'Side delts':0,'Rear delts':0,Abs:0,Glutes:0,Quads:0,Hamstrings:0,Calves:0});
  assert.deepEqual(computeProgramVolumeSplit(p).Triceps,{direct:6,indirect:4});
  assert.equal(contributingWorkouts(p,'Chest'),2);
  assert.equal(weeklyHeatLevel(v.Chest),3);

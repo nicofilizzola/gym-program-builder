@@ -29,7 +29,8 @@ const REGIONS = {
     ['Rear delts', INNER_DELT],
     ['Side delts', SIDE_DELT],
     ['Triceps', UPPER_ARM],
-    ['Hamstrings', THIGH],
+    ['Glutes', 'M30 101 Q37 98 49 100 L49 119 Q44 126 33 121 Q28 115 30 101 Z'],
+    ['Hamstrings', 'M31 128 Q29 140 31 160 Q34 170 38 171 Q43 168 45 160 Q47 142 47.5 129 Q40 125 31 128 Z'],
     ['Calves', 'M32 177 Q30 186 33 194 L38 195 Q42 188 43.5 179 Q38 173 32 177 Z'],
   ],
 };

@@ -1,3 +1,4 @@
+import {confirmAction} from './confirm-dialog.js';
 import {createViewTransition} from './view-transition.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {mountSortable} from './sortable.js';
@@ -15,7 +16,8 @@ import {durationLabel} from './duration.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,onCreateEmpty,onImportFile}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile}={}) {
+  let confirmationController=new AbortController();
   const weekHelpId='program-reorder-hint';
   const viewTransition=createViewTransition(root);
   let overviewScroll=0,transitionGeneration=0,layoutTransition=null,layoutGeneration=0,editingWorkoutId=null;
@@ -29,7 +31,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   let value=structuredClone(program),panel,editor,tooltips,disposed=false,viewGeneration=0,selectedMuscle=null,sortable;
   const reorderMenu=mountReorderMenu();
-  function cleanup(){reorderMenu.close();cancelLayoutTransition();layoutTransition?.destroy();layoutTransition=null;tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
+  function cleanup(){confirmationController.abort();confirmationController=new AbortController();reorderMenu.close();cancelLayoutTransition();layoutTransition?.destroy();layoutTransition=null;tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
   function emit(){onChange(structuredClone(value));updateVolume();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
   function updateWorkoutHighlights(){
@@ -83,7 +85,10 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         const handle=document.createElement('button');handle.type='button';handle.className='secondary-btn reorder-action';handle.setAttribute('aria-expanded','false');handle.setAttribute('aria-describedby','program-reorder-hint');handle.setAttribute('aria-label',`Reorder ${workout.name.trim()||'Untitled workout'}`);
         handle.textContent='Reorder';
         handle.onkeydown=event=>reorderKey(event,workout.id);
-        const title=document.createElement('h3');title.textContent=workout.name.trim()||'Untitled workout';card.append(title);
+        const title=document.createElement('h3'),open=document.createElement(workoutHref?'a':'button');
+        open.className='workout-title';open.textContent=workout.name.trim()||'Untitled workout';open.dataset.workoutTitle=workout.id;open.dataset.action='Open';
+        if(workoutHref)open.href=workoutHref(workout.id);else open.type='button';
+        open.onclick=event=>{if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();run(()=>openWorkout(workout.id))();};title.append(open);card.append(title);
         const marker=document.createElement('span');marker.dataset.muscleMatch='';marker.className='workout-muscle-match hit-tag';marker.setAttribute('aria-hidden','true');
         // Overlay all possible labels invisibly so switching badges never moves controls,
         // even when the current font or enlarged text makes a different label widest.
@@ -98,11 +103,10 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         wireReorder(handle,workout.id);handle.dataset.action='Reorder';
         const name=workout.name.trim()||'Untitled workout';
         for(const [label,callback,disabled]of [
-          ['Edit',run(()=>openWorkout(workout.id)),false],
-          ['Duplicate',()=>{const copy={...structuredClone(workout),id:id(),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');},false],
-          ['Remove',()=>{if(!confirm(`Remove ${name} from this program?`))return;value=reconcileSequence({...value,workouts:value.workouts.filter(w=>w.id!==workout.id)});emit();renderWorkouts();root.querySelector('[data-add-empty]').focus();},false]
+          ['Duplicate',()=>{const copy={...structuredClone(workout),id:id(),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Open');},false],
+          ['Remove',run(async()=>{const before=JSON.stringify(value);if(!await confirmAction({title:'Remove session?',message:`Remove ${name} from this program? The shared template remains in Session templates.`,confirmLabel:'Remove session',destructive:true,signal:confirmationController.signal,returnFocus:()=>root.querySelector(`[data-workout="${CSS.escape(workout.id)}"] [data-action=Remove]`)||root.querySelector('[data-add-empty]')}))return;if(disposed||before!==JSON.stringify(value))return;value=reconcileSequence({...value,workouts:value.workouts.filter(w=>w.id!==workout.id)});emit();renderWorkouts();root.querySelector('[data-add-empty]').focus();}),false]
         ]){
-          const button=document.createElement('button');button.className='secondary-btn';button.type='button';button.textContent=label;button.setAttribute('aria-label',`${label} ${name}`);button.disabled=disabled;button.dataset.action=label;if(label==='Edit')button.dataset.edit=workout.id;button.onclick=callback;actions.append(button);
+          const button=document.createElement('button');button.className='secondary-btn';button.type='button';button.textContent=label;button.setAttribute('aria-label',`${label} ${name}`);button.disabled=disabled;button.dataset.action=label;if(label==='Open')button.dataset.edit=workout.id;button.onclick=callback;actions.append(button);
           {
             button.classList.add('workout-action');
             if(label==='Remove')button.classList.add('action-button--delete');
@@ -140,7 +144,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       announceMove(key,groupKey);
     }});
     updateWorkoutHighlights();
-    if(focusId){const controls=[...container.querySelectorAll(`[data-workout="${focusId}"] button`)];const target=controls.find(b=>b.dataset.action===focusAction&&!b.disabled)||controls.find(b=>!b.disabled);target?.focus();}
+    if(focusId){const controls=[...container.querySelectorAll(`[data-workout="${focusId}"] :is(button,a)`)];const target=controls.find(b=>b.dataset.action===focusAction&&!b.disabled)||controls.find(b=>!b.disabled);target?.focus();}
   }
   function wireReorder(button,key){
     button.onclick=()=>{
@@ -195,7 +199,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   function renderOverview(returnId){
     return changeView(buildOverview,()=>{
-      if(returnId){window.scrollTo(0,overviewScroll);root.querySelector(`[data-edit="${returnId}"]`)?.focus({preventScroll:true});}
+      if(returnId){window.scrollTo(0,overviewScroll);root.querySelector(`[data-workout-title="${returnId}"]`)?.focus({preventScroll:true});}
       else {const heading=root.querySelector('h1');heading.tabIndex=-1;heading.focus({preventScroll:true});}
     });
   }
@@ -225,12 +229,12 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     picker.onchange=()=>{addTemplate.disabled=!picker.value;};
     if(!templates.length){picker.options[0].textContent='No templates yet';picker.disabled=true;}
     for(const template of templates){const option=document.createElement('option');option.value=template.id;option.textContent=template.name.trim()||'Untitled template';picker.append(option);}
-    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy={...structuredClone(template.document),id:id(),templateId:template.id,templateRevision:template.revision,day:null};value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');});
-    root.querySelector('[data-add-empty]').onclick=run(async()=>{if(onCreateEmpty){await onCreateEmpty();return;}const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Edit');});
+    root.querySelector('[data-add-template]').onclick=run(async()=>{if(!picker.value){picker.focus();return;}const generation=viewGeneration,selected=picker.value,template=await onLoadTemplate(selected);if(disposed||generation!==viewGeneration)return;const copy={...structuredClone(template.document),id:id(),templateId:template.id,templateRevision:template.revision,day:null};value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Open');});
+    root.querySelector('[data-add-empty]').onclick=run(async()=>{if(onCreateEmpty){await onCreateEmpty();return;}const copy=copyWorkout({...createTemplate(),name:'Untitled workout'},id());value.workouts.push(copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Open');});
     root.querySelector('[data-add-rest]').onclick=()=>{const key=id();value=addRestDay(value,key);emit();renderWorkouts();focusHandle(key);};
     root.querySelector('[data-export]').onclick=run(async()=>{const result=validateDocument('program',value);if(result.error){showError(result.error);await focusError();return;}onExport(value);});
     const file=root.querySelector('[data-file]');root.querySelector('[data-import]').onclick=()=>file.click();
-    file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(onImportFile){await onImportFile(chosen);return;}if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');if((getSequence(value).length||Object.keys(value.goals).length)&&!confirm('Replace this program and all of its workouts?'))return;value=parsed.document;emit();await renderOverview();});
+    file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(onImportFile){await onImportFile(chosen);return;}if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');const before=JSON.stringify(value);if((getSequence(value).length||Object.keys(value.goals).length)&&!await confirmAction({title:'Replace program?',message:'Replace this program and all of its workouts?',confirmLabel:'Replace program',destructive:true,signal:confirmationController.signal}))return;if(disposed||generation!==viewGeneration||before!==JSON.stringify(value))return;value=parsed.document;emit();await renderOverview();});
     panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleSelect:muscle=>{selectedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
   buildOverview();return {syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else {renderWorkouts();updateVolume();}},update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();reorderMenu.destroy();root.replaceChildren();}};

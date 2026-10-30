@@ -7,10 +7,10 @@ function exercise(sets, primaryMuscles, secondaryMuscles = [], repRange = { min:
   return { name: 'Exercise', sets, repRange, primaryMuscles, secondaryMuscles };
 }
 
-test('MUSCLE_GROUPS has the 12 spec values in order', () => {
+test('MUSCLE_GROUPS has the 13 spec values in order', () => {
   assert.deepEqual([...MUSCLE_GROUPS], [
     'Chest', 'Lats', 'Upper back', 'Biceps', 'Triceps',
-    'Front delts', 'Side delts', 'Rear delts', 'Abs', 'Quads', 'Hamstrings', 'Calves',
+    'Front delts', 'Side delts', 'Rear delts', 'Abs', 'Glutes', 'Quads', 'Hamstrings', 'Calves',
   ]);
   assert.ok(Object.isFrozen(MUSCLE_GROUPS));
 });
@@ -25,7 +25,7 @@ test('worked example from spec', () => {
   };
   assert.deepEqual(computeVolume(session), {
     Chest: 7, Lats: 3, 'Upper back': 1.5, Biceps: 1.5, Triceps: 5,
-    'Front delts': 3.5, 'Side delts': 0, 'Rear delts': 0, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
+    'Front delts': 3.5, 'Side delts': 0, 'Rear delts': 0, Abs: 0, Glutes: 0, Quads: 0, Hamstrings: 0, Calves: 0,
   });
 });
 
@@ -84,7 +84,7 @@ test('computeVolumeSplit worked example from spec', () => {
     'Front delts': { direct: 0, indirect: 3.5 },
     'Side delts': { direct: 0, indirect: 0 },
     'Rear delts': { direct: 0, indirect: 0 },
-    Abs: { direct: 0, indirect: 0 },
+    Abs: { direct: 0, indirect: 0 }, Glutes: { direct: 0, indirect: 0 },
     Quads: { direct: 0, indirect: 0 },
     Hamstrings: { direct: 0, indirect: 0 },
     Calves: { direct: 0, indirect: 0 },
@@ -131,7 +131,7 @@ test('heatLevel worked example from spec (goals make no difference)', () => {
   const volume = computeVolume(WORKED_EXAMPLE);
   assert.deepEqual(Object.fromEntries(MUSCLE_GROUPS.map((m) => [m, heatLevel(volume[m])])), {
     Chest: 3, Lats: 1, 'Upper back': 1, Biceps: 1, Triceps: 2, 'Front delts': 2,
-    'Side delts': 0, 'Rear delts': 0, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
+    'Side delts': 0, 'Rear delts': 0, Abs: 0, Glutes: 0, Quads: 0, Hamstrings: 0, Calves: 0,
   });
 });
 

@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 const screens='.superpowers/sdd/2026-10-26-inline-exercise-actions/screens';
@@ -14,7 +15,7 @@ async function setup(page,kind='template'){
   return {record,entry,reference};
  },kind);
  await page.goto('/#/'+(kind==='template'?'templates':'programs')+'/'+fixture.record.id);
- if(kind==='program')await page.getByRole('button',{name:'Edit Inline workout',exact:true}).click();
+ if(kind==='program')await page.locator('.workout-title').filter({hasText:'Inline workout'}).click();
  await page.getByRole('button',{name:/^Expand exercise: /}).click();
  await page.evaluate(()=>document.fonts.ready);return fixture;
 }
@@ -34,8 +35,8 @@ for(const kind of ['template','program'])test(kind+' exposes direct actions and 
  await expect(page.locator('.card-name')).toHaveText(fixture.entry.name);
  await replace.click();const input=page.getByRole('combobox',{name:'Exercise',exact:true});await input.press('Escape');await input.press('Escape');await expect(replace).toBeFocused();
  await replace.click();await input.fill('Dumbbell lateral raise');await expect(page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first()).toBeVisible();
- page.once('dialog',dialog=>dialog.dismiss());await input.press('ArrowDown');await input.press('Enter');await expect(input).toBeVisible();
- page.once('dialog',dialog=>dialog.accept());await input.press('Enter');await expect(page.locator('.card-name')).toHaveText('Dumbbell lateral raise');
+ await answerNextConfirmation(page,false);await input.press('ArrowDown');await input.press('Enter');await expect(input).toBeVisible();
+ await answerNextConfirmation(page,true);await input.press('Enter');await expect(page.locator('.card-name')).toHaveText('Dumbbell lateral raise');
  await variant.click();await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();await expect(variant).toBeFocused();
  await expect(page.getByRole('slider',{name:'Sets',exact:true})).toHaveValue('4');await expect(page.getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('45');
  await page.getByRole('button',{name:'View in catalog',exact:true}).click();await expect(page.getByRole('heading',{name:'Exercise catalog',exact:true})).toBeVisible();

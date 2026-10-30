@@ -33,7 +33,7 @@ test('queued scroll notifications do not dismiss a newly positioned Reorder popu
 
 test('pending touch hold is cancelled when the program view rerenders',async({browser})=>{
  const context=await browser.newContext({hasTouch:true}),page=await context.newPage();await programFixture(page);
- const b=await page.locator('[data-workout="0"] h3').boundingBox(),client=await context.newCDPSession(page);
+ const b=await page.locator('[data-workout="0"] .workout-metadata').boundingBox(),client=await context.newCDPSession(page);
  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:b.x+5,y:b.y+5}]});
  await page.evaluate(()=>window.view.update(window.programData));
  await page.waitForTimeout(400); // The old 350ms hold must never arm after teardown.
@@ -44,13 +44,13 @@ test('pending touch hold is cancelled when the program view rerenders',async({br
 
 test('an independent touch action works immediately after a touch drop',async({browser})=>{
  const context=await browser.newContext({hasTouch:true}),page=await context.newPage();await programFixture(page);
- const b=await page.locator('[data-workout="0"] h3').boundingBox(),client=await context.newCDPSession(page);
+ const b=await page.locator('[data-workout="0"] .workout-metadata').boundingBox(),client=await context.newCDPSession(page);
  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:b.x+5,y:b.y+5}]});
  await expect(page.locator('[data-workout="0"]')).toHaveClass(/is-hold-armed/);
  const target=await page.locator('[data-workout="2"]').boundingBox();
  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:target.x+50,y:target.y+target.height-5}]});
  await expect(page.locator('.sort-drag-copy')).toBeVisible();await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  expect(await page.evaluate(()=>window.changes.map(p=>p.workouts.map(w=>w.name)))).toEqual([['Pull','Extra','Press']]);
- await page.getByRole('button',{name:'Edit Press',exact:true}).tap();await expect(page.getByRole('button',{name:'Back to program',exact:true})).toBeVisible();
+ await page.locator('.workout-title').filter({hasText:'Press'}).tap();await expect(page.getByRole('button',{name:'Back to program',exact:true})).toBeVisible();
  await expect(page.locator('[data-template-name]')).toHaveValue('Press');await context.close();
 });

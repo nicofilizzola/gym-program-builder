@@ -23,7 +23,7 @@ for(const kind of ['template','program'])test('name-led collapsed and mixed card
     }
     if(enlarged)document.documentElement.style.fontSize='200%';
    },{kind,enlarged:size.enlarged});
-   if(kind==='program')await page.getByRole('button',{name:'Edit Compact outline',exact:true}).click();
+   if(kind==='program')await page.locator('.workout-title').filter({hasText:'Compact outline'}).click();
    const cards=page.locator('.exercise');await expect(cards).toHaveCount(12);
    await expect(cards.nth(4).locator('[data-fix-tag]')).toBeVisible();
    await page.locator('.volume-row[data-muscle="Chest"]').click();
@@ -106,7 +106,7 @@ test('desktop editor exposes compact expanded fields',async({page})=>{
     const card=page.locator('.exercise').first();
     const fields=await card.locator('[data-field="name"],[data-field="sets"],[data-field="min"]').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().top));
     expect(Math.max(...fields)-Math.min(...fields)).toBeLessThan(18);
-    for(const role of ['primary','secondary'])await expect(card.locator(`input[data-role="${role}"]`)).toHaveCount(12);
+    for(const role of ['primary','secondary'])await expect(card.locator(`input[data-role="${role}"]`)).toHaveCount(13);
     await noOverflow(page);
   }
 });
@@ -114,7 +114,7 @@ test('desktop editor exposes compact expanded fields',async({page})=>{
 test('desktop volume keeps both bodies prominent',async({page})=>{
   for(const kind of ['session','program'])for(const size of sizes) {
     await page.setViewportSize(size);await fixture(page,kind);
-    await expect(page.locator('.volume-row:visible')).toHaveCount(12);
+    await expect(page.locator('.volume-row:visible')).toHaveCount(13);
     const m=await metrics(page);expect(m.bodies).toHaveLength(2);
     for(const body of m.bodies)expect(body.height).toBeGreaterThanOrEqual(size.width>=1600?200:180);
     expect(m.panel.bottom).toBeLessThanOrEqual(size.height);
@@ -149,8 +149,8 @@ test('schedule grid preserves actions and cross-column drag order',async({page})
   const duplicate=first.getByRole('button',{name:'Duplicate Upper A',exact:true});
   await expect(duplicate.locator('svg')).toHaveCount(1);
   await duplicate.click();await expect(page.locator('.workout-item')).toHaveCount(10);
-  await expect(page.getByRole('button',{name:'Edit Upper A',exact:true}).nth(1)).toBeFocused();
-  const source=await first.locator('h3').boundingBox();
+  await expect(page.locator('.workout-title').filter({hasText:'Upper A'}).nth(1)).toBeFocused();
+  const source=await first.locator('.workout-metadata').boundingBox();
   await page.mouse.move(source.x+source.width/2,source.y+source.height/2);await page.mouse.down();
   const target=await page.locator('[data-sort-group="1"]').boundingBox();
   await page.mouse.move(target.x+60,target.y+30,{steps:8});await expect(page.locator('.sort-drag-copy')).toBeVisible();await page.mouse.up();
@@ -162,11 +162,11 @@ test('schedule grid preserves actions and cross-column drag order',async({page})
   expect(await page.evaluate(()=>window.changes.at(-1).workouts)).toEqual(saved);
 });
 
-test('wide day cards show three icon actions without a day selector',async({page})=>{
+test('wide day cards show two icon actions without a day selector',async({page})=>{
   await page.setViewportSize(sizes[2]);await fixture(page,'program');
   const card=page.locator('[data-workout="w0"]');
   await expect(card.locator('.day-field')).toHaveCount(0);
-  await expect(card.locator('.item-actions button svg')).toHaveCount(3);
+  await expect(card.locator('.item-actions button svg')).toHaveCount(2);
 });
 
 test('short and enlarged panels release sticky without shrinking the bodies',async({page})=>{

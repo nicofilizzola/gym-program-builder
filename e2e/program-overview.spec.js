@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 
 async function openProgram(page) {
@@ -60,7 +61,7 @@ test('program toolbar groups file actions and switches layouts accessibly',async
 test('weekly body heat is independent from goals',async({page})=>{
   await openProgram(page);await importProgram(page);
   await expect(page.locator('#body-map figure')).toHaveCount(2);
-  expect(await page.locator('#body-map .region').evaluateAll(nodes=>new Set(nodes.map(n=>n.dataset.muscle)).size)).toBe(12);
+  expect(await page.locator('#body-map .region').evaluateAll(nodes=>new Set(nodes.map(n=>n.dataset.muscle)).size)).toBe(13);
   await expect(page.locator('.region[data-muscle="Side delts"]')).toHaveCount(2);
   await expect(region(page,'Chest')).toHaveAttribute('data-heat','2');
   await expect(page.locator('#heat-key li')).toHaveText(['0','0.5–6','6.5–12','12.5–18','18.5+']);
@@ -94,7 +95,7 @@ test('map and rows share muscle interaction and keyboard preview',async({page})=
 
 test('empty map permits zero-volume selection without revealing irrelevant rows',async({page})=>{
   await openProgram(page);
-  await expect(page.locator('.region[data-heat="0"]')).toHaveCount(13);
+  await expect(page.locator('.region[data-heat="0"]')).toHaveCount(14);
   await region(page,'Calves').locator('path').first().click();
   await expect(page.locator('#readout')).toContainText('Calves 0 sets (0 direct · 0 indirect) · 0 workouts');
   await expect(row(page,'Calves')).toBeHidden();
@@ -115,7 +116,7 @@ test('hover grace and interrupted fades show the newest subject and clean up on 
   await page.mouse.move(0,0);
   await expect(page.locator('#readout')).toContainText('Chest 7 sets');
   await row(page,'Lats').dispatchEvent('pointerover',{pointerType:'mouse',bubbles:true});
-  await page.getByRole('button',{name:'Edit Press',exact:true}).click();
+  await page.locator('.workout-title').filter({hasText:'Press'}).click();
   await expect(page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last()).toBeVisible();
   await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
   await expect(page.locator('#readout')).toHaveText('Tap a muscle to highlight its workouts.');
@@ -207,11 +208,11 @@ test('workout mutations retain highlights and replacements clear them',async({pa
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(3);
   await page.getByRole('radio',{name:'Sequence',exact:true}).check();
   await expect(page.locator('.workout-item h3')).toHaveText(['Press','Press','Pull','Empty','Assistance']);
-  page.once('dialog',dialog=>dialog.accept());
+  await answerNextConfirmation(page,true);
   await page.getByRole('button',{name:'Remove Press',exact:true}).first().click();
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(2);
   // Draft name and primary choices may be empty; secondary membership still contributes.
-  await page.getByRole('button',{name:'Edit Assistance',exact:true}).click();
+  await page.locator('.workout-title').filter({hasText:'Assistance'}).click();
   await page.getByLabel('Session template name',{exact:true}).fill('');
   await page.getByRole('button',{name:/^Expand exercise: /}).click();
   await page.locator('.primary').getByRole('checkbox',{name:'Triceps',exact:true}).uncheck();
@@ -220,11 +221,11 @@ test('workout mutations retain highlights and replacements clear them',async({pa
   await expect(row(page,'Chest').locator('.value')).toHaveText('7');
   await region(page,'Chest').locator('path').first().click();await page.mouse.move(0,0);
   await expect(page.locator('.workout-item.is-muscle-match h3')).toHaveText(['Press','Untitled workout']);
-  page.once('dialog',dialog=>dialog.dismiss());
+  await answerNextConfirmation(page,false);
   const replacement={...programFixture(),name:'Replacement',workouts:[]};
   await page.locator('[data-file]').setInputFiles({name:'replacement.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:2,kind:'program',program:replacement}))});
   await expect(page.locator('.workout-item.is-muscle-match')).toHaveCount(2);
-  page.once('dialog',dialog=>dialog.accept());await importProgram(page,replacement);
+  await answerNextConfirmation(page,true);await importProgram(page,replacement);
   await expect(page.locator('.workout-item')).toHaveCount(0);
   await expect(page.locator('.region.is-selected')).toHaveCount(0);
   await expect(page.locator('#readout')).toHaveText('Tap a muscle to highlight its workouts.');

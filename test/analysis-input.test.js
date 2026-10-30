@@ -11,7 +11,7 @@ test('analysis validates limits and exercise fields without mutating or leaking 
  for(const name of ['x'.repeat(200),'💪'.repeat(200)]) assert.equal(prepareAnalysisSnapshot({...raw,name}).name,name);
  assert.throws(()=>prepareAnalysisSnapshot({...raw,name:'💪'.repeat(201)}),/200/);
  assert.equal(prepareAnalysisSnapshot({...raw,name:''}).name,'Untitled session');
- for(const change of [{name:''},{name:'x'.repeat(201)},{sets:0},{repRange:{min:13,max:12}},{primaryMuscles:[]},{primaryMuscles:['Glutes']},{secondaryMuscles:['Chest']},{restSeconds:14},{equipment:'Spaceship'}]){
+ for(const change of [{name:''},{name:'x'.repeat(201)},{sets:0},{repRange:{min:13,max:12}},{primaryMuscles:[]},{primaryMuscles:['Forearms']},{secondaryMuscles:['Chest']},{restSeconds:14},{equipment:'Spaceship'}]){
   assert.throws(()=>prepareAnalysisSnapshot({...raw,exercises:[{...raw.exercises[0],...change}]}),e=>e.code==='INVALID'&&e.exerciseIndex===0&&Boolean(e.field));
  }
  assert.equal(prepareAnalysisSnapshot({...raw,exercises:[{...raw.exercises[0],equipment:'Barbell'}]}).exercises[0].equipment,'Barbell');

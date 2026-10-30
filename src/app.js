@@ -1,3 +1,4 @@
+import {confirmAction,cancelActiveConfirmation} from './confirm-dialog.js';
 import {duplicateName} from './duplicate-name.js';
 import {mountBreadcrumbs} from './breadcrumbs.js';
 import {resolveProgram,programArrangement} from './program-links.js';
@@ -22,7 +23,16 @@ let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,c
 const retryCreation=document.querySelector('#retry-creation');
 const viewTransition=createViewTransition(app),navigationStatus=document.querySelector('#navigation-status');
 let loadingTimer;
+const pendingConfirmations=new Set();
+function cancelConfirmations(){for(const controller of pendingConfirmations)controller.abort();pendingConfirmations.clear();}
+async function confirmCurrent(options){
+ const controller=new AbortController(),version=routeVersion,mount=mountedVersion,owned=queue,record=active?.id,revision=active?.revision,document=JSON.stringify(active?.document);
+ pendingConfirmations.add(controller);
+ try{return await confirmAction({...options,signal:controller.signal})&&version===routeVersion&&mount===mountedVersion&&owned===queue&&record===active?.id&&revision===active?.revision&&document===JSON.stringify(active?.document);}
+ finally{pendingConfirmations.delete(controller);}
+}
 function busy(version){
+ cancelConfirmations();
  viewTransition.cancel();clearTimeout(loadingTimer);navigationStatus.hidden=true;app.inert=true;app.setAttribute('aria-busy','true');
  loadingTimer=setTimeout(()=>{if(version===routeVersion)navigationStatus.hidden=false;},250);
 }
@@ -37,12 +47,14 @@ const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
 function createViewHost(){return app.appendChild(document.createElement('div'));}
-function clearView(){breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
+function clearView(){cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
+ const invoker=document.activeElement;
  transitioning=true;shell.inert=true;
  try{return await work();}finally{
   transitioning=false;shell.inert=false;
+  if(document.activeElement===document.body&&invoker?.isConnected&&!invoker.closest('[inert]'))invoker.focus({preventScroll:true});
  }
 }
 function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t save','Sign in to save'].includes(text);reloadSaved.hidden=copySaved.hidden=text!=='Conflict';if(text==='Sign in to save')showLogin(true);}
@@ -60,7 +72,7 @@ function track(record,{project=value=>value}={}){
 }
 async function leave(){
  if(!queue?.isDirty())return true;
- try{await queue.flush();return true;}catch(error){report(error);if(error.status===401)return false;if(!confirm('Changes could not be saved. Discard them and leave?'))return false;return true;}
+ try{await queue.flush();return true;}catch(error){report(error);if(error.status===401)return false;if(!await confirmCurrent({title:'Discard unsaved changes?',message:'Changes could not be saved. Discard them and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;return true;}
 }
 async function navigate(hash,{push=true}={}){
  const version=++routeVersion;busy(version);
@@ -78,6 +90,8 @@ document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('cli
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(location.hash||'#/programs',{push:false});}));
 function showLogin(resuming=false){
+ cancelActiveConfirmation();
+ cancelConfirmations();
  routeVersion++;viewTransition.cancel();idle(routeVersion);
  shellTooltips.hide();
  authenticated=false;shell.hidden=true;authHost.hidden=false;
@@ -99,7 +113,7 @@ function showLogin(resuming=false){
 }
 document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
-reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!confirm('Discard local edits and reload the saved version?'))return;const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
+reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
 copySaved.addEventListener('click',action(()=>transition(async()=>{if(!queue)return;const record=await queue.saveAsCopy();queue=null;active=null;history.pushState(null,'',`#/${record.kind==='program'?'programs':'templates'}/${record.id}`);await renderRoute();})));
 function download(kind,document,templates=[]){const text=serializeDocumentBundle({record:{kind,document},templates}),url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=documentElement('a');a.href=url;a.download=documentFileName(kind);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function externalConflict(owned){
@@ -159,8 +173,8 @@ async function importFile(kind,file,version,{replace=false}={}){
  const parsed=parseDocumentBundle(text);if(parsed.error)throw Error(parsed.error);if(parsed.bundle.kind!==kind)throw Error(`Import this file from ${parsed.bundle.kind==='program'?'Programs':'Session templates'}.`);
  if(replace){
   const hasContent=kind==='program'?(active.document.workouts.length||active.document.sequence?.length||Object.keys(active.document.goals).length):(active.document.exercises.length||Object.keys(active.document.goals).length);
-  if(hasContent&&!confirm(kind==='program'?'Replace this program and all of its workouts?':'Replace this shared session template everywhere it is used?'))return;
-  await queue.flush();
+  if(hasContent&&!await confirmCurrent({title:kind==='program'?'Replace program?':'Replace shared template?',message:kind==='program'?'Replace this program and all of its workouts?':'Replace this shared session template everywhere it is used?',confirmLabel:kind==='program'?'Replace program':'Replace shared template',destructive:true}))return;
+  const owned=queue;await owned.flush();if(version!==mountedVersion||owned!==queue)return;
  }
  const targetId=replace?active.id:undefined;
  if(!importRequest||importRequest.text!==text||importRequest.targetId!==targetId)importRequest={text,targetId,request:{operationId:uid(),bundle:parsed.bundle,...(replace?{targetId,revision:active.revision}:{})}};
@@ -183,7 +197,7 @@ async function prepareRecord(record,context){
    const editor=mounted;api.analysisCapability().then(result=>{if(mounted===editor)editor.setAnalysisEnabled(result.enabled);}).catch(()=>{if(mounted===editor)editor.setAnalysisEnabled(false);});
   }else{
    let attachRequest;
-   mounted=mountProgramView(contentHost,{api,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
+   mounted=mountProgramView(contentHost,{api,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
     const owned=queue,version=mountedVersion;await owned.flush();if(owned!==queue)return;
     attachRequest??={operationId:uid(),programId:record.id,revision:active.revision,templateId:uid(),occurrenceId:uid(),template:{...createTemplate(),name:'Untitled workout'}};
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
@@ -204,7 +218,7 @@ async function renderRoute(version=++routeVersion){
    clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
    document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',route.view.startsWith(a.dataset.nav.slice(0,-1))?'page':'false'));
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,0);
-  },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-edit="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
+  },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-workout-title="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
  }catch(error){
   if(version!==routeVersion)return;
   history.replaceState(null,'',currentHash);report(error);
@@ -244,7 +258,7 @@ async function prepareRoute(route,version){
    await create(kind,document,{open:false,copyOf:source.id});
   }),
   onDelete:action(record=>transition(async()=>{
-   if(!confirm(`Delete ${record.name||'this item'}?`))return;
+   if(!await confirmCurrent({title:'Delete '+(record.name||'this item')+'?',message:'This item will be deleted. This cannot be undone.',confirmLabel:'Delete',destructive:true}))return;
    try{await api.remove(record);}catch(error){if(error.code==='IN_USE'){message.textContent=error.message;for(const program of error.details?.programs||[]){const a=document.createElement('a');a.href=`#/programs/${program.id}`;a.textContent=' '+(program.name||'Untitled program');message.append(a);}return;}throw error;}await renderRoute();app.querySelector('[data-new]')?.focus();
   })),
   onExport:action(async record=>{

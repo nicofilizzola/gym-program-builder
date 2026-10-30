@@ -126,7 +126,7 @@ async function programFixture(page,mode='simple') {
  },mode);await page.evaluate(()=>document.fonts.ready);
 }
 async function dragWorkout(page,id,target) {
- const box=await page.locator(`[data-workout="${id}"] h3`).boundingBox();await page.mouse.move(box.x+5,box.y+5);await page.mouse.down();
+ const box=await page.locator(`[data-workout="${id}"] .workout-metadata`).boundingBox();await page.mouse.move(box.x+5,box.y+5);await page.mouse.down();
  const end=await target.boundingBox();await page.mouse.move(end.x+60,end.y+end.height-12,{steps:5});
 }
 test('program sequence drag previews and commits canonical order',async({page})=>{
@@ -272,12 +272,12 @@ test('program workout exercise whole-card reorder preserves prescriptions after 
  await expect(page.getByLabel('Program name',{exact:true})).toBeVisible();
  const workout={name:'Upper persisted',day:2,extraMinutes:7,bufferPercent:15,goals:{Chest:6},exercises:['Bench','Row','Curl'].map((name,i)=>({name,sets:i+2,repRange:{min:8,max:12},restSeconds:180-i*45,primaryMuscles:['Chest'],secondaryMuscles:[]}))};
  await page.locator('[data-file]').setInputFiles({name:'week.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:2,kind:'program',program:{name:'Whole-card persistence',mode:'schedule',goals:{},workouts:[workout]}}))});
- await page.getByRole('button',{name:'Edit Upper persisted',exact:true}).click();await expect(page.locator('.exercise')).toHaveCount(3);await expect(page.locator('[data-template-name]')).toBeFocused();
+ await page.locator('.workout-title').filter({hasText:'Upper persisted'}).click();await expect(page.locator('.exercise')).toHaveCount(3);await expect(page.locator('[data-template-name]')).toBeFocused();
  await startExerciseDrag(page);await expect(page.locator('.sort-drag-copy')).toBeVisible();const target=await page.locator('#exercises > .exercise:not(.sort-source)').last().boundingBox();await page.mouse.move(target.x+80,target.y+target.height-3);await expect(page.locator('.sort-placeholder')).toBeVisible();await page.mouse.up();
  await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.getByRole('button',{name:/^Expand exercise: /}).last().click();await expect(page.locator('.exercise').last().getByRole('slider',{name:'Rest per set',exact:true})).toHaveValue('180');
- await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await page.reload();await page.getByRole('button',{name:'Edit Upper persisted',exact:true}).click();
+ await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await page.reload();await page.locator('.workout-title').filter({hasText:'Upper persisted'}).click();
  await expect(page.locator('.card-name')).toHaveText(['Row','Curl','Bench']);
  for(const [i,rest,sets]of [[0,'135','3'],[1,'90','4'],[2,'180','2']]){
   await page.locator('.exercise').nth(i).getByRole('button',{name:/^Expand exercise: /}).click();

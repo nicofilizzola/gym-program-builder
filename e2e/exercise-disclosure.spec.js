@@ -10,7 +10,7 @@ async function savedEditor(page,kind){
   const id=crypto.randomUUID();await api.create({id,kind,document:kind==='template'?workout:{name:'Disclosure program',mode:'schedule',goals:{},workouts:[{id:crypto.randomUUID(),templateId:template.id,day:null}]}});return id;
  },kind);
  await page.goto(`/#/${kind==='template'?'templates':'programs'}/${id}`);
- if(kind==='program')await page.getByRole('button',{name:'Edit Disclosure workout',exact:true}).click();
+ if(kind==='program')await page.locator('.workout-title').filter({hasText:'Disclosure workout'}).click();
  await expect(page.locator('.exercise')).toHaveCount(3);await page.evaluate(()=>document.fonts.ready);
  return id;
 }
@@ -29,7 +29,7 @@ for(const kind of ['template','program'])test(`saved ${kind} editor preserves da
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await cards.first().locator('.card-name').click();await page.getByLabel('Sets',{exact:true}).first().fill('4');
  await expect(page.getByTestId('save-status')).toHaveText('Saved');expect(mutations).toBeGreaterThan(0);
- if(kind==='program'){await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await page.getByRole('button',{name:'Edit Disclosure workout',exact:true}).click();}
+ if(kind==='program'){await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await page.locator('.workout-title').filter({hasText:'Disclosure workout'}).click();}
  else{await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:'Disclosure workout',exact:true}).click();}
  await expect(page.locator('[data-action=toggle][aria-expanded=false]')).toHaveCount(3);
  await cards.first().locator('.card-name').click();await expect(page.getByLabel('Sets',{exact:true}).first()).toHaveValue('4');
@@ -88,4 +88,16 @@ test('exercise heading actions stay underneath the pinned mobile volume panel',a
   const action=head.querySelector('.reorder-action').getBoundingClientRect();const x=action.left+action.width/2,y=action.top+action.height/2;
   return {overlaps:h.bottom>p.top&&h.top<p.bottom,cardAbove:Boolean(document.elementFromPoint(x,y)?.closest('.exercise'))};
  });expect(covered.overlaps).toBe(true);expect(covered.cardAbove).toBe(false);
+});
+
+test('collapse surface is expanded-only and header content has a consistent inset',async({page})=>{
+ await savedEditor(page,'template');const card=page.locator('.exercise').first(),toggle=card.locator('[data-action=toggle]');
+ await toggle.hover();
+ expect(await toggle.evaluate(el=>getComputedStyle(el,'::after').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+ await toggle.click();await toggle.hover();
+ await expect.poll(()=>toggle.evaluate(el=>getComputedStyle(el,'::after').backgroundColor)).toBe('rgba(249, 115, 22, 0.14)');
+ const geometry=await card.evaluate(el=>{const head=el.querySelector('.card-head').getBoundingClientRect(),index=el.querySelector('.card-index').getBoundingClientRect(),name=el.querySelector('.card-name').getBoundingClientRect();return {inset:index.left-head.left,delta:Math.abs((index.top+index.height/2)-(name.top+name.height/2))};});
+ expect(geometry.inset).toBeGreaterThanOrEqual(12);expect(geometry.delta).toBeLessThan(1);
+ await toggle.click();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');await expect(toggle).toBeFocused();
+ expect(await toggle.evaluate(el=>getComputedStyle(el,'::after').outlineStyle)).toBe('solid');
 });

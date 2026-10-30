@@ -14,14 +14,14 @@ export async function mountProgram(page,{mode='simple',sequence}={}) {
 const sequenceKeys=page=>page.locator('[data-sequence-key]').evaluateAll(els=>els.map(el=>el.dataset.sequenceKey));
 const current=page=>page.evaluate(()=>window.changes.at(-1));
 
-test('program controls use Week first, session heading and accessible Edit icons',async({page})=>{
+test('program controls use Week first, session heading and accessible title actions',async({page})=>{
  await mountProgram(page);
  await expect(page.locator('.program-layout label')).toHaveText(['Week','Sequence']);
  await expect(page.getByRole('heading',{name:'Sessions',exact:true})).toBeVisible();
  await expect(page.getByRole('radio',{name:'Sequence',exact:true})).toBeChecked();
- const edit=page.getByRole('button',{name:'Edit Upper',exact:true});
- await expect(edit.locator('svg')).toHaveCount(1);await edit.focus();
- await expect(page.getByRole('tooltip')).toHaveText('Edit');
+ const edit=page.locator('.workout-title').filter({hasText:'Upper'});
+ await expect(edit).toHaveText('Upper');await edit.focus();await expect(edit).toBeFocused();
+ await expect(page.locator('.workout-action[data-action=Edit]')).toHaveCount(0);
  await expect(page.getByRole('button',{name:/Move (up|down)/})).toHaveCount(0);
  await page.getByRole('radio',{name:'Week',exact:true}).check();
  await expect(page.locator('.day-field')).toHaveCount(0);
@@ -86,9 +86,9 @@ test('rest-only programs support consecutive rests and removal focus',async({pag
 
 test('import asks before replacing a rest-only program',async({page})=>{
  await mountProgram(page);await page.evaluate(()=>window.view.update({...window.fixtureProgram,workouts:[],sequence:[{type:'rest',id:'r'}]}));
- let prompted=false;page.on('dialog',async dialog=>{prompted=true;await dialog.dismiss();});
+
  await page.locator('[data-file]').setInputFiles({name:'replace.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({version:2,kind:'program',program:{name:'Replacement',mode:'schedule',goals:{},workouts:[]}}))});
- await expect.poll(()=>prompted).toBe(true);
+ await expect(page.getByRole('dialog',{name:'Replace program?',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
  await expect(page.locator('[data-rest="r"]')).toHaveCount(1);
  await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Cycle');
 });
@@ -133,7 +133,7 @@ test('rapid layout reversals and mutations cancel stale commits',async({page})=>
  await page.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))));
  await expect(page.locator('.day-section')).toHaveCount(1);
  await page.getByRole('radio',{name:'Week',exact:true}).check();
- await page.getByRole('button',{name:'Edit Upper',exact:true}).click();
+ await page.locator('.workout-title').filter({hasText:'Upper'}).click();
  await expect(page.getByRole('button',{name:'Back to program',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Back to program',exact:true}).click();
  await expect(page.locator('.day-section')).toHaveCount(8);

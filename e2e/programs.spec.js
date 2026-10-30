@@ -7,7 +7,7 @@ test('shared program sessions synchronize and weekly goals and schedules survive
  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByLabel('Program name',{exact:true}).fill('Week A');
  for(let i=0;i<2;i++){await page.getByRole('combobox',{name:'Session template',exact:true}).selectOption({label:'Source upper'});await page.getByRole('button',{name:'Add template',exact:true}).click();await expect(page.locator('.workout-item')).toHaveCount(i+1);}
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('6');
- await page.getByRole('button',{name:'Edit Source upper',exact:true}).first().click();
+ await page.getByRole('link',{name:'Source upper',exact:true}).first().click();
  await page.getByLabel('Session template name').fill('Independent upper');await page.getByRole('button',{name:/^Expand exercise: /}).click();await page.getByLabel('Sets',{exact:true}).fill('4');
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('8');
@@ -18,5 +18,5 @@ test('shared program sessions synchronize and weekly goals and schedules survive
  await page.getByRole('button',{name:'Set weekly goals',exact:true}).click();await page.getByLabel('Chest weekly goal',{exact:true}).fill('30');await page.getByRole('button',{name:'Done',exact:true}).click();
  await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('8 / 30');await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.reload();await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Week A');await expect(page.locator('[data-sort-group="6"] h3')).toHaveText('Independent upper');
- await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:'Independent upper',exact:true}).click();await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('4');
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:'Independent upper',exact:true}).first().click();await expect(page.locator('.volume-row[data-muscle="Chest"] .value')).toHaveText('4');
 });

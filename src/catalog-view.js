@@ -103,7 +103,7 @@ export function mountCatalog(root,{api,initialData,target,onNavigate,onTargetCha
    if(!group.variants.length){const empty=document.createElement('p');empty.className='reference-empty';empty.textContent=group.childCount?'No active variants.':'No variants yet.';content.append(empty);}
    for(const entry of group.variants){
     const row=document.createElement('article');row.className='catalog-row';row.dataset.variant=entry.id;
-    const definition=document.createElement('div');definition.className='catalog-definition';const name=document.createElement('h3'),link=document.createElement('a');link.className='catalog-name-link';link.textContent=entry.name;link.href='#/catalog/references/'+encodeURIComponent(entry.familyId)+'/variants/'+encodeURIComponent(entry.id);if(onNavigate)link.onclick=e=>{if(e.button===0&&!e.ctrlKey&&!e.metaKey){e.preventDefault();onNavigate(link.hash);}};name.append(link);
+    const definition=document.createElement('div');definition.className='catalog-definition';const name=document.createElement('h3');name.textContent=entry.name;
     const meta=document.createElement('p');meta.className='catalog-meta';renderVariantMetadata(meta,entry);
     const state=document.createElement('span');state.className='variant-status';state.textContent=entry.individuallyArchived?' \u00b7 Archived individually':entry.referenceArchived?' \u00b7 Archived with reference':'';
     meta.append(state);const muscles=document.createElement('p');muscles.className='catalog-mapping';muscles.textContent='Primary: '+entry.primaryMuscles.join(', ')+' \u00b7 Secondary: '+(entry.secondaryMuscles.join(', ')||'None');definition.append(name,meta,muscles);

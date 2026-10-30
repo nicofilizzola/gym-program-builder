@@ -1,3 +1,4 @@
+import {confirmAction} from './confirm-dialog.js';
 import {mountSliderPresentation} from './slider-presentation.js';
 import {renderVariantMetadata,mountExerciseInfo} from './catalog-metadata.js';
 import {mountReorderMenu} from './reorder-menu.js';
@@ -32,6 +33,7 @@ if(api)getCatalogStore(api).load(true).catch(()=>{});
  * The only domain state. Volume, goal status and errors are derived from it in refresh().
  * `goals` has a key only for muscles with a valid goal.
  */
+const confirmationController=new AbortController();
 let session = normalizeWorkoutTiming(structuredClone(workout));
 let lastDocument = JSON.stringify(session);
 const exerciseCards=new Map(),exercisePickers=new Map(),exerciseInfos=new Map();
@@ -658,7 +660,9 @@ fileInput.addEventListener('change',async()=>{
   const result=parseDocument(text);
   if(result.error){fileMessage.textContent=result.error;return;}
   if(result.kind!=='template'){fileMessage.textContent='Import program files from Programs.';return;}
-  if((session.exercises.length||Object.keys(session.goals).length)&&!confirm('Replace this session template?'))return;
+  const before=JSON.stringify(session);
+  if((session.exercises.length||Object.keys(session.goals).length)&&!await confirmAction({title:'Replace template?',message:'Replace this session template?',confirmLabel:'Replace template',destructive:true,signal:confirmationController.signal}))return;
+  if(destroyed||before!==JSON.stringify(session))return;
   setWorkout(result.document);onImport?.(result.document);
 });
 function setWorkout(value,{silent=false}={}){session=normalizeWorkoutTiming(structuredClone(value));if(silent)lastDocument=JSON.stringify(session);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
@@ -803,7 +807,7 @@ const panelLayout=mountPanelLayout(panel);
 if(analysisEnabled!==false)setAnalysisEnabled(analysisEnabled);
 return {setWorkout,syncSaved,focusFirstError,setAnalysisEnabled,destroy(){
   analysisPanel?.destroy();
-  destroyed=true;sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
+  confirmationController.abort();destroyed=true;sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);

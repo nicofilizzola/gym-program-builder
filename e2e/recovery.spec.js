@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 async function start(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('button',{name:'New session template',exact:true}).click();await expect(page.getByLabel('Session template name')).toBeVisible();}
 
@@ -37,7 +38,7 @@ test('timing survives failed saves and copies while reload adopts saved timing',
  await externalRest(30);
  await page.getByRole('slider',{name:'Rest per set',exact:true}).fill('120');
  await expect(page.getByTestId('save-status')).toHaveText('Conflict');
- page.once('dialog',dialog=>dialog.accept());
+ await answerNextConfirmation(page,true);
  await page.getByRole('button',{name:'Reload saved version',exact:true}).click();
  await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.getByRole('button',{name:'Expand all',exact:true}).click();

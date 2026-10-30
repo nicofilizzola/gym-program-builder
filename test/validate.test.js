@@ -68,7 +68,7 @@ test('rejects overlap', () => {
 });
 
 test('rejects unknown muscle', () => {
-  const errors = validateExercise({ ...valid(), primaryMuscles: ['Glutes'] });
+  const errors = validateExercise({ ...valid(), primaryMuscles: ['Forearms'] });
   assert.equal(errors.muscles, 'Unknown muscle group.');
 });
 

@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 test('editing a program occurrence updates its shared template and every repeated occurrence',async({page})=>{
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
@@ -6,11 +7,11 @@ test('editing a program occurrence updates its shared template and every repeate
  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();await page.getByRole('button',{name:'New program',exact:true}).click();
  await page.getByRole('combobox',{name:'Session template',exact:true}).selectOption({label:'Shared push'});await page.getByRole('button',{name:'Add template',exact:true}).click();
  await page.getByRole('button',{name:'Duplicate Shared push',exact:true}).click();await expect(page.locator('.workout-item')).toHaveCount(2);
- await page.getByRole('button',{name:'Edit Shared push',exact:true}).first().click();await expect(page).toHaveURL(/programs\/[^/]+\/workouts\//);
+ await page.locator('.workout-title').filter({hasText:'Shared push'}).first().click();await expect(page).toHaveURL(/programs\/[^/]+\/workouts\//);
  await expect(page.getByRole('link',{name:'Shared template',exact:true})).toBeVisible();
  await page.getByLabel('Session template name').fill('Updated push');await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();await expect(page.locator('.workout-item h3')).toHaveText(['Updated push','Updated push']);
- await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.getByRole('link',{name:'Updated push',exact:true}).click();await expect(page.getByLabel('Session template name')).toHaveValue('Updated push');
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await page.locator('.library-item').getByRole('link',{name:'Updated push',exact:true}).click();await expect(page.getByLabel('Session template name')).toHaveValue('Updated push');
 });
 test('shared session conflict copy keeps program links on the original template',async({page})=>{
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
@@ -30,7 +31,7 @@ test('shared session conflict copy keeps program links on the original template'
  await page.getByRole('button',{name:'Save as copy',exact:true}).click();await expect(page).toHaveURL(/#\/templates\//);await expect(page.getByLabel('Session template name')).toHaveValue('Local copy');
  for(const program of fixture.programs){const saved=(await (await page.request.get('/api/documents/'+program.id)).json()).record;expect(saved.document.workouts[0].templateId).toBe(fixture.template.id);}
  const original=(await (await page.request.get('/api/documents/'+fixture.template.id)).json()).record;expect(original.document.name).toBe('Remote shared');
- await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();page.once('dialog',dialog=>dialog.accept());
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();await answerNextConfirmation(page,true);
  await page.getByRole('button',{name:'Delete Remote shared',exact:true}).click();await expect(page.locator('#app-message')).toContainText('Remove this session template');
  expect((await page.locator('#app-message a').allTextContents()).map(name=>name.trim()).sort()).toEqual(['Shared program 0','Shared program 1']);await other.close();
 });

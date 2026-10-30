@@ -37,7 +37,7 @@ export function openCatalogForm({api,entry,families=[],tags=[],mode='create',onS
  };
  fields.family.onchange=()=>{familyVisibility();if(!musclesTouched){const parent=families.find(r=>r.id===fields.family.value);muscles.setValue({primaryMuscles:parent?.defaultPrimaryMuscles||[],secondaryMuscles:parent?.defaultSecondaryMuscles||[]});}updateSave();};
  function populate(){
-  fields.exerciseName.value=current?.name||initialName;fields.family.value=referenceId||current?.familyId||'';
+  fields.exerciseName.value=current?.name||initialName||(referenceId?families.find(r=>r.id===referenceId)?.name||'':'');fields.family.value=referenceId||current?.familyId||'';
   fields.familyName.value='';
   const parent=families.find(r=>r.id===targetReferenceId());musclesTouched=Boolean(current?.primaryMuscles?.length);
   muscles.setValue(current?current:{primaryMuscles:parent?.defaultPrimaryMuscles||[],secondaryMuscles:parent?.defaultSecondaryMuscles||[]});notes.setValue(current?.description||current?.variantDescription||'');tagFields.setValue(current||{});

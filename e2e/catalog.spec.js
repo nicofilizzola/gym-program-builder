@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 async function login(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();}
 
@@ -82,9 +83,9 @@ test('legacy linking previews changes and does not silently alter custom exercis
  const search=page.getByRole('combobox',{name:'Exercise',exact:true});
  await search.press('Escape');await search.press('Escape');await expect(page.getByRole('button',{name:'Link to catalog',exact:true})).toBeFocused();
  await page.getByRole('button',{name:'Link to catalog',exact:true}).click();await search.fill('Barbell bench press');await search.press('ArrowDown');
- page.once('dialog',dialog=>dialog.dismiss());await search.press('Enter');
+ await answerNextConfirmation(page,false);await search.press('Enter');
  await expect(page.getByLabel('Exercise name',{exact:true})).toHaveValue('My press');await expect(page.locator('.volume-row[data-muscle="Triceps"] .value')).toHaveText('6');
- page.once('dialog',dialog=>dialog.accept());await search.press('Enter');
+ await answerNextConfirmation(page,true);await search.press('Enter');
  await expect(page.locator('.card-name')).toHaveText('Barbell bench press');await expect(page.getByLabel('Sets',{exact:true})).toHaveValue('6');await expect(page.getByLabel('Reps min',{exact:true})).toHaveValue('5');
 });
 test('picker retry is idempotent after a committed variant response is lost',async({page})=>{

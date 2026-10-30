@@ -1,3 +1,4 @@
+import {confirmAction} from './confirm-dialog.js';
 import {renderVariantMetadata} from './catalog-metadata.js';
 import {EQUIPMENT} from './catalog.js';
 import {groupCatalog,flattenVariantOptions} from './catalog-groups.js';
@@ -5,6 +6,7 @@ import {openCatalogForm} from './catalog-form.js';
 import {getCatalogStore} from './catalog-store.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=false,showLinkedName=true}){
+ const confirmationController=new AbortController();
  const store=getCatalogStore(api),id='exercise-options-'+crypto.randomUUID();
  let disposed=false,open=false,active=-1,matches=[],form,editing=!exercise.catalogId&&!legacy,announcementTimer;
  let renderedQuery='';
@@ -96,9 +98,13 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  function show(){
   if(disposed||!editing)return;tooltips.hide();if(!open){popup.showPopover();open=true;input.setAttribute('aria-expanded','true');}render();load();
  }
- function select(entry,{created=false}={}){
+ async function select(entry,{created=false}={}){
+  const before=JSON.stringify(exercise),revision=entry.revision;
   const replacing=Boolean(exercise.catalogId||legacy);
-  if(replacing&&!created&&!confirm('Use '+entry.name+' instead of '+exercise.name+'?\nPrimary: '+exercise.primaryMuscles.join(', ')+' → '+entry.primaryMuscles.join(', ')+'\nSecondary: '+exercise.secondaryMuscles.join(', ')+' → '+entry.secondaryMuscles.join(', ')+'\nSets and reps stay unchanged.'))return;
+  if(replacing&&!created&&!await confirmAction({title:'Replace exercise?',message:'Use '+entry.name+' instead of '+exercise.name+'?\nPrimary: '+exercise.primaryMuscles.join(', ')+' → '+entry.primaryMuscles.join(', ')+'\nSecondary: '+exercise.secondaryMuscles.join(', ')+' → '+entry.secondaryMuscles.join(', ')+'\nSets, reps and rest stay unchanged.',confirmLabel:'Replace exercise',signal:confirmationController.signal,returnFocus:input})){
+   if(!disposed){active=matches.findIndex(e=>e.id===entry.id);updateActive();}return;
+  }
+  if(disposed||before!==JSON.stringify(exercise)||(!created&&store.value?.entries.find(e=>e.id===entry.id)?.revision!==revision))return;
   hide();onSelect(entry);editing=false;
  }
  function create(mode){
@@ -130,5 +136,5 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  const focus=()=>load(true),resize=()=>hide();
  document.addEventListener('pointerdown',outside);document.addEventListener('focusin',outside);document.addEventListener('keydown',key);document.addEventListener('scroll',scrolling,true);window.addEventListener('resize',resize);window.addEventListener('focus',focus);
  display();load();
- return {close:hide,update:display,refresh:()=>load(true),destroy(){disposed=true;hide();clearTimeout(announcementTimer);form?.destroy();popup.remove();tooltips.destroy();document.removeEventListener('pointerdown',outside);document.removeEventListener('focusin',outside);document.removeEventListener('keydown',key);document.removeEventListener('scroll',scrolling,true);window.removeEventListener('resize',resize);window.removeEventListener('focus',focus);}};
+ return {close:hide,update:display,refresh:()=>load(true),destroy(){confirmationController.abort();disposed=true;hide();clearTimeout(announcementTimer);form?.destroy();popup.remove();tooltips.destroy();document.removeEventListener('pointerdown',outside);document.removeEventListener('focusin',outside);document.removeEventListener('keydown',key);document.removeEventListener('scroll',scrolling,true);window.removeEventListener('resize',resize);window.removeEventListener('focus',focus);}};
 }

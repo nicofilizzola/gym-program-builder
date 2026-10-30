@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 async function login(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#app h1')).toHaveText('Programs');}
 async function holdTemplates(page){let release,requested;const held=new Promise(r=>release=r),seen=new Promise(r=>requested=r);await page.route('**/api/documents?kind=template',async route=>{requested();await held;await route.continue();});return {seen,release};}
@@ -27,7 +28,7 @@ test('navigation waits for autosave and retains edits on a declined discard',asy
  await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();
  await page.route('**/api/documents/*',async route=>{if(route.request().method()==='PUT')await route.fulfill({status:503,json:{error:{message:'Save unavailable'}}});else await route.continue();});
  await page.getByLabel('Program name',{exact:true}).fill('Keep these edits');
- page.once('dialog',d=>d.dismiss());await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();
+ await answerNextConfirmation(page,false);await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Session templates',exact:true}).click();
  await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Keep these edits');await expect(page.getByTestId('save-status')).toHaveText('Couldn’t save');await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
 });
 test('navigation transitions respect motion and heading focus',async({page})=>{
@@ -40,10 +41,10 @@ test('navigation transitions respect motion and heading focus',async({page})=>{
 test('shared workout navigation animates, restores focus and focuses export errors',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByRole('button',{name:'Empty workout',exact:true}).click();
  await page.evaluate(()=>{window.internalDurations=[];const root=document.querySelector('#app');new MutationObserver(()=>window.internalDurations.push(...root.getAnimations({subtree:true}).map(a=>a.effect.getTiming().duration))).observe(root,{childList:true,subtree:true});});
- await page.getByRole('button',{name:'Edit Untitled workout',exact:true}).click();await expect(page.getByLabel('Session template name')).toBeFocused();
+ await page.locator('.workout-title').filter({hasText:'Untitled workout'}).click();await expect(page.getByLabel('Session template name')).toBeFocused();
  expect(await page.evaluate(()=>window.internalDurations)).toContain(100);
  await page.getByRole('button',{name:'Add exercise',exact:true}).click();await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
- await expect(page.getByRole('button',{name:'Edit Untitled workout',exact:true})).toBeFocused();
+ await expect(page.locator('.workout-title').filter({hasText:'Untitled workout'})).toBeFocused();
  await page.getByRole('button',{name:'Export program',exact:true}).click();await expect(page.getByRole('combobox',{name:'Exercise',exact:true})).toBeFocused();
 });
 test('expired login during destination fetch retains recoverable source edits',async({page})=>{
@@ -58,9 +59,9 @@ test('successful save followed by destination failure keeps editor queue usable'
 });
 test('internal transition cannot unlock the source during pending page navigation',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByRole('button',{name:'Empty workout',exact:true}).click();
- await expect(page.locator('[data-edit]')).toBeVisible();
+ await expect(page.locator('[data-workout-title]')).toBeVisible();
  const pending=await holdTemplates(page);
- await page.evaluate(()=>{document.querySelector('[data-edit]').click();document.querySelector('[data-nav="templates"]').click();});await pending.seen;
+ await page.evaluate(()=>{document.querySelector('[data-workout-title]').click();document.querySelector('[data-nav="templates"]').click();});await pending.seen;
  await expect(page.getByLabel('Program name',{exact:true})).toBeVisible();await expect.poll(()=>page.locator('#app').evaluate(el=>el.getAnimations({subtree:true}).length)).toBe(0);
  expect(await page.locator('#app').evaluate(el=>el.inert)).toBe(true);await expect(page.locator('#app')).toHaveAttribute('aria-busy','true');
  pending.release();await expect(page.locator('#app h1')).toHaveText('Session templates');
@@ -77,7 +78,7 @@ test('failed reload preparation retains conflict edits for Save as copy',async({
  await login(page);await page.getByRole('button',{name:'New program',exact:true}).click();await page.getByLabel('Program name',{exact:true}).fill('Conflicted local draft');
  await page.route('**/api/documents/*',async route=>{if(route.request().method()==='PUT')await route.fulfill({status:409,json:{error:{message:'Conflict'}}});else await route.continue();});
  await expect(page.getByTestId('save-status')).toHaveText('Conflict');
- await page.route('**/api/documents?kind=template',route=>route.fulfill({status:503,json:{error:{message:'Reload preparation failed'}}}));page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Reload saved version',exact:true}).click();await expect(page.locator('#app-message')).toContainText('Reload preparation failed');
+ await page.route('**/api/documents?kind=template',route=>route.fulfill({status:503,json:{error:{message:'Reload preparation failed'}}}));await answerNextConfirmation(page,true);await page.getByRole('button',{name:'Reload saved version',exact:true}).click();await expect(page.locator('#app-message')).toContainText('Reload preparation failed');
  await page.getByLabel('Program name',{exact:true}).fill('Recover edits after failed reload');await page.unroute('**/api/documents/*');await page.unroute('**/api/documents?kind=template');
  const previous=page.url();await page.getByRole('button',{name:'Save as copy',exact:true}).click();await expect.poll(()=>page.url()).not.toBe(previous);await expect(page.getByTestId('save-status')).toHaveText('Saved');await page.reload();await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Recover edits after failed reload');
 });

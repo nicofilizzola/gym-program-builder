@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 async function login(page){
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');
@@ -63,7 +64,7 @@ test('library actions preserve file picker, download, duplicate and delete confi
  await page.getByLabel('Program name',{exact:true}).fill('Action check');await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();
  const row=page.locator('.library-item').filter({has:page.getByRole('link',{name:'Action check',exact:true})});
- page.once('dialog',dialog=>dialog.dismiss());await row.getByRole('button',{name:'Delete Action check',exact:true}).click();await expect(row).toHaveCount(1);
+ await answerNextConfirmation(page,false);await row.getByRole('button',{name:'Delete Action check',exact:true}).click();await expect(row).toHaveCount(1);await expect(row.getByRole('button',{name:'Delete Action check',exact:true})).toBeFocused();
  const downloadPromise=page.waitForEvent('download');await row.getByRole('button',{name:'Export Action check',exact:true}).click();const download=await downloadPromise;
  const stream=await download.createReadStream();let text='';for await(const chunk of stream)text+=chunk;expect(JSON.parse(text).version).toBe(3);
  await row.getByRole('button',{name:'Duplicate Action check',exact:true}).click();await expect(page.getByRole('link',{name:'Action check 1',exact:true})).toBeVisible();

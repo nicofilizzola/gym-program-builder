@@ -10,7 +10,7 @@ test('reference icon pills and defaults initialize a variant with searchable des
  await dialog.getByRole('group',{name:'Default primary muscles',exact:true}).getByLabel('Chest',{exact:true}).check();
  await expect(dialog.getByRole('button',{name:'Reference description (optional)',exact:true})).toHaveCount(0);await dialog.getByRole('textbox',{name:'Reference description (optional)',exact:true}).fill('Reference <img> notes');
  await dialog.getByRole('button',{name:'Create reference exercise',exact:true}).click();await expect(dialog).toHaveCount(0);
- await page.getByRole('button',{name:'Add variant to Visual bench',exact:true}).click();await dialog.getByLabel('Variant name',{exact:true}).fill('Visual paused press');
+ await page.getByRole('button',{name:'Add variant to Visual bench',exact:true}).click();await expect(dialog.getByLabel('Variant name',{exact:true})).toHaveValue('Visual bench');await dialog.getByLabel('Variant name',{exact:true}).fill('Visual paused press');
  await expect(dialog.getByText('Equipment: Machine',{exact:true})).toBeVisible();await expect(dialog.getByRole('radio',{name:'Machine',exact:true})).toHaveCount(0);
  await expect(dialog.getByRole('group',{name:'Primary muscles',exact:true}).getByLabel('Chest',{exact:true})).toBeChecked();
  await dialog.getByRole('group',{name:'Brand',exact:true}).getByRole('radio',{name:'Visual Prime',exact:true}).check();await dialog.getByRole('group',{name:'Focus',exact:true}).getByLabel('Visual upper chest',{exact:true}).check();

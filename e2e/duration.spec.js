@@ -1,3 +1,4 @@
+import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 
 async function signIn(page) {
@@ -228,7 +229,7 @@ test('program durations survive shared occurrences, editing, schedule moves and 
  await page.getByRole('button',{name:'Add template',exact:true}).click();
  const card=title=>page.locator('.workout-item').filter({has:page.getByRole('heading',{name:title,exact:true,level:3})});
  await expect(card(name).locator('[data-workout-duration]')).toHaveText('Estimated duration ~27 min');
- await card(name).getByRole('button',{name:'Edit '+name,exact:true}).click();await expect(page.locator('[data-template-name]')).toBeFocused();
+ await card(name).locator('.workout-title').click();await expect(page.locator('[data-template-name]')).toBeFocused();
  await page.emulateMedia({reducedMotion:'no-preference'});
  const durationToggle=page.locator('.duration-toggle');
  await expect(durationToggle.locator('.duration-clock')).toBeVisible();
@@ -248,7 +249,7 @@ test('program durations survive shared occurrences, editing, schedule moves and 
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
  await expect(card('Original timed workout').locator('[data-workout-duration]')).toContainText('~11 min');
  await card('Original timed workout').getByRole('button',{name:'Duplicate Original timed workout',exact:true}).click();
- await page.getByRole('button',{name:'Edit Original timed workout',exact:true}).last().click();
+ await page.locator('.workout-title').filter({hasText:'Original timed workout'}).last().click();
  await page.getByRole('button',{name:'Expand all',exact:true}).click();
  await page.getByRole('slider',{name:'Rest per set',exact:true}).first().fill('300');
  await page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link').last().click();
@@ -267,7 +268,7 @@ test('program durations survive shared occurrences, editing, schedule moves and 
  let text='';for await(const chunk of await (await download).createReadStream())text+=chunk;
  const portable=JSON.parse(text);expect(portable.templates).toHaveLength(1);
  expect(portable.templates[0].template.extraMinutes).toBe(0);expect(portable.templates[0].template.bufferPercent).toBe(0);expect(portable.templates[0].template.exercises[0].restSeconds).toBe(300);
- page.once('dialog',d=>d.accept());await page.locator('[data-file]').setInputFiles({name:'timed-week.json',mimeType:'application/json',buffer:Buffer.from(text)});
+ await answerNextConfirmation(page,true);await page.locator('[data-file]').setInputFiles({name:'timed-week.json',mimeType:'application/json',buffer:Buffer.from(text)});
  await expect(page.locator('[data-workout-duration]')).toHaveText(['Estimated duration ~26 min','Estimated duration ~26 min']);
  const shared=(await (await page.request.get('/api/documents/'+sourceId)).json()).record.document;
  expect(shared.name).toBe('Original timed workout');expect(shared.exercises[0].restSeconds).toBe(300);

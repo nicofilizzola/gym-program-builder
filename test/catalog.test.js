@@ -7,7 +7,7 @@ import {seedCatalog} from '../server/catalog-seed.js';
 const definition={name:'Bench press',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:['Triceps','Front delts']};
 test('catalog validation rejects incompatible mappings and incomplete definitions',()=>{
   assert.equal(catalog.validateCatalogEntry({...definition,name:'  Bench press  '}).entry.name,'Bench press');
-  for(const bad of [{name:''},{equipment:'Unknown'},{primaryMuscles:[]},{secondaryMuscles:['Chest']},{primaryMuscles:['Glutes']},{primaryMuscles:['Chest','Chest']}])assert.ok(catalog.validateCatalogEntry({...definition,...bad}).error);
+  for(const bad of [{name:''},{equipment:'Unknown'},{primaryMuscles:[]},{secondaryMuscles:['Chest']},{primaryMuscles:['Forearms']},{primaryMuscles:['Chest','Chest']}])assert.ok(catalog.validateCatalogEntry({...definition,...bad}).error);
 });
 test('search matches every normalized word and ranks exact names ahead of prefixes',()=>{
   const entries=[{...definition,id:'b',familyName:'Press',name:'Bench press incline'},{...definition,id:'a',familyName:'Press'},{...definition,id:'c',familyName:'Press',name:'Décline bench press'},{...definition,id:'d',familyName:'Press',archived:true}];

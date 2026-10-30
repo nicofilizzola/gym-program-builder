@@ -21,7 +21,7 @@ test('round trip keeps the worked example', () => {
   assert.deepEqual(parsed, session);
   assert.deepEqual(computeVolume(parsed), {
     Chest: 7, Lats: 3, 'Upper back': 1.5, Biceps: 1.5, Triceps: 5,
-    'Front delts': 3.5, 'Side delts': 0, 'Rear delts': 0, Abs: 0, Quads: 0, Hamstrings: 0, Calves: 0,
+    'Front delts': 3.5, 'Side delts': 0, 'Rear delts': 0, Abs: 0, Glutes: 0, Quads: 0, Hamstrings: 0, Calves: 0,
   });
 });
 
@@ -97,8 +97,8 @@ test('rejects wrong types without throwing', () => {
 
 test('rejects unknown muscle', () => {
   const ex0 = workedExample().exercises[0];
-  const text = file({ exercises: [ex0, { ...ex0, secondaryMuscles: ['Glutes'] }] });
-  assert.equal(errorOf(text), 'Exercise 2: unknown muscle group "Glutes".');
+  const text = file({ exercises: [ex0, { ...ex0, secondaryMuscles: ['Forearms'] }] });
+  assert.equal(errorOf(text), 'Exercise 2: unknown muscle group "Forearms".');
 });
 
 test('rejects duplicate muscles', () => {
@@ -119,7 +119,7 @@ test('rejects exercises the form would reject', () => {
 });
 
 test('rejects bad goals', () => {
-  assert.equal(errorOf(file({ goals: { Glutes: 5 } })), 'Goal for unknown muscle group "Glutes".');
+  assert.equal(errorOf(file({ goals: { Forearms: 5 } })), 'Goal for unknown muscle group "Forearms".');
   for (const value of [0, 7.3, '7', null, 12.5, 30]) {
     assert.equal(
       errorOf(file({ goals: { Chest: value } })),
