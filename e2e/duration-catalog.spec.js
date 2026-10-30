@@ -30,6 +30,8 @@ test('reference defaults initialize once and replacement, linking and later edit
  const portable={version:2,kind:'template',template:{name:'Imported timing',extraMinutes:5,bufferPercent:10,goals:{},exercises:[{name:'Custom curl',sets:3,restSeconds:45,repRange:{min:8,max:12},primaryMuscles:['Biceps'],secondaryMuscles:[]}]}};
  page.once('dialog',d=>d.accept());
  await page.locator('#import-file').setInputFiles({name:'timing.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(portable))});
+ await expect(page.getByLabel('Session template name',{exact:true})).toHaveValue('Imported timing');
+ await expect(page.locator('.card-name')).toHaveText('Custom curl');
  await page.getByRole('button',{name:'Expand all',exact:true}).click();
  await page.getByRole('button',{name:'Link to catalog',exact:true}).click();
  page.once('dialog',d=>d.accept());await select(page,refs[1].entry.name);
