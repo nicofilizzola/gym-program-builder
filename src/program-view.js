@@ -81,7 +81,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     tooltips?.hide();reorderMenu.close();
     sortable?.destroy();sortable=null;
     const container=root.querySelector('[data-workouts]');container.replaceChildren();
-    container.classList.toggle('schedule-grid',value.mode==='schedule');
+    container.classList.toggle('week-agenda',value.mode==='schedule');
     root.querySelector('[data-add-rest]').hidden=value.mode!=='simple';
 
     const groups=value.mode==='schedule'?[...DAYS.map((name,day)=>({name,day})),{name:'Unscheduled',day:null}]:[{name:'Sessions',day:undefined}];

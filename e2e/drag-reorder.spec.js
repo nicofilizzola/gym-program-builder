@@ -127,7 +127,9 @@ async function programFixture(page,mode='simple') {
 }
 async function dragWorkout(page,id,target) {
  const box=await page.locator(`[data-workout="${id}"] .workout-metadata`).boundingBox();await page.mouse.move(box.x+5,box.y+5);await page.mouse.down();
- const end=await target.boundingBox();await page.mouse.move(end.x+60,end.y+end.height-12,{steps:5});
+ await page.mouse.move(box.x+15,box.y+15);
+ // The agenda reflows while the placeholder moves, so read the target after the drag has begun and jump to it.
+ const end=await target.boundingBox();await page.mouse.move(end.x+60,end.y+end.height-12);
 }
 test('program sequence drag previews and commits canonical order',async({page})=>{
  await programFixture(page);await dragWorkout(page,'a',page.locator('[data-workout="c"]'));

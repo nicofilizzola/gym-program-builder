@@ -126,23 +126,29 @@ test('desktop library rows are compact',async({page})=>{
   for(const size of sizes){await page.setViewportSize(size);await fixture(page,'library');const m=await metrics(page);for(const row of m.libraryRows)expect(row.height).toBeLessThanOrEqual(64);await noOverflow(page);}
 });
 
-test('schedule uses responsive day columns',async({page})=>{
+test('week uses a single-column day agenda',async({page})=>{
   for(const size of sizes) {
     await page.setViewportSize(size);await fixture(page,'program');
     const panelBounds=await page.locator('.panel').boundingBox();
     expect(panelBounds.x+panelBounds.width).toBe(size.width-24);
     await expect(page.locator('.program-page > .program-grid')).toHaveCount(1);
-    const sections=page.locator('.day-section');await expect(sections).toHaveCount(8);
-    const boxes=await sections.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width};}));
-    const columns=size.width>=1600?3:2;
-    expect(new Set(boxes.slice(0,columns).map(r=>r.x)).size).toBe(columns);
-    expect(Math.max(...boxes.slice(0,columns).map(r=>r.y))-Math.min(...boxes.slice(0,columns).map(r=>r.y))).toBeLessThan(1);
-    expect(boxes[7].width).toBeGreaterThan(boxes[0].width*1.9);
+    const sections=page.locator('.week-agenda > .day-section');await expect(sections).toHaveCount(8);
+    const boxes=await sections.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),h=el.querySelector('h2').getBoundingClientRect(),l=el.querySelector('.workout-list').getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,labelRight:h.right,labelY:h.y,listX:l.x,listY:l.y};}));
+    expect(new Set(boxes.map(b=>Math.round(b.x))).size).toBe(1);
+    for(let i=1;i<8;i++)expect(boxes[i].y).toBeGreaterThan(boxes[i-1].y);
+    for(const b of boxes){expect(b.listX).toBeGreaterThanOrEqual(b.labelRight);expect(Math.abs(b.listY-b.labelY)).toBeLessThan(12);}
     await expect(sections.first().locator('.workout-item')).toHaveCount(2);await noOverflow(page);
   }
 });
 
-test('schedule grid preserves actions and cross-column drag order',async({page})=>{
+test('week agenda cards keep name, metadata and actions on one row',async({page})=>{
+  await page.setViewportSize({width:1440,height:900});await fixture(page,'program');
+  const m=await page.locator('.workout-item').first().evaluate(el=>{const c=r=>r.y+r.height/2,q=s=>el.querySelector(s).getBoundingClientRect();return {h3:c(q('h3')),meta:c(q('.workout-metadata')),actions:c(q('.item-actions')),height:el.getBoundingClientRect().height};});
+  expect(Math.abs(m.h3-m.meta)).toBeLessThan(8);expect(Math.abs(m.h3-m.actions)).toBeLessThan(8);expect(Math.abs(m.meta-m.actions)).toBeLessThan(8);
+  expect(m.height).toBeLessThanOrEqual(64);
+});
+
+test('week agenda preserves actions and cross-day drag order',async({page})=>{
   await page.setViewportSize({width:1440,height:1200});await fixture(page,'program');
   const first=page.locator('[data-workout="w0"]');
   await expect(first.getByRole('button',{name:'Move up Upper A',exact:true})).toHaveCount(0);

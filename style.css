@@ -1559,31 +1559,37 @@ button:disabled {opacity:.5;cursor:default}
   .panel .volume-row {min-height:44px}
 }
 @media (min-width:1100px) {
-  .schedule-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--layout-gap);align-items:start}
-  .day-section {container:day / inline-size;min-width:0}
+  .day-section {min-width:0}
   .day-section h2 {font-size:1rem;margin:0 0 8px}
-  .day-section--unscheduled {grid-column:1/-1}
   .workout-item {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px;margin:0 0 8px}
 
   .workout-item h3 {font-family:var(--font-body);font-size:1rem;grid-column:1;min-width:0}
   .workout-metadata {grid-column:1;gap:8px;margin:0;font-size:.8125rem}
   .workout-item .item-actions {grid-column:2;grid-row:1/span 2;align-self:center;gap:6px}
-  .schedule-grid .workout-item {grid-template-columns:minmax(0,1fr)}
-  .schedule-grid .workout-item .item-actions {grid-column:1;grid-row:auto;justify-self:start}
-  .schedule-grid .day-section .empty {min-height:44px;margin:0;padding:10px 12px;text-align:left;font-size:.8125rem}
-  .schedule-grid .workout-list {min-height:44px}
   .workout-action-label {display:none}
   .workout-item .workout-action {display:inline-grid;place-items:center;width:44px;height:44px;min-width:44px;padding:0;flex:0 0 44px}
-  @container day (min-width:27rem) {
-    @media (pointer:fine) and (not (any-pointer:coarse)) {
-    .schedule-grid .workout-item {grid-template-columns:minmax(0,1fr) auto;column-gap:8px}
-    .schedule-grid .workout-item h3,.schedule-grid .workout-metadata {grid-column:1/-1}
-    .schedule-grid .workout-item .item-actions {grid-row:3;grid-column:1}
-    }
-  }
+}
+/* Week agenda: one compact row per weekday, label left of its sessions. */
+.week-agenda {display:block}
+.week-agenda .day-section {container:day / inline-size;min-width:0;display:flow-root;border-top:1px solid var(--border);padding:4px 0}
+.week-agenda .day-section--unscheduled {margin-top:8px}
+.week-agenda .day-section h2 {display:flex;align-items:center;min-height:44px;margin:0;font-family:var(--font-body);font-weight:500;font-size:.8125rem;color:var(--muted)}
+.week-agenda .workout-list {min-height:44px}
+.week-agenda .workout-item {display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:6px 10px;margin:0 0 6px}
+.week-agenda .workout-item:last-child {margin-bottom:0}
+.week-agenda .workout-item h3 {flex:0 1 auto;min-width:0;grid-column:auto;font-family:var(--font-body);font-size:1rem}
+.week-agenda .workout-metadata {flex:1 1 auto;grid-column:auto;margin:0;gap:4px 8px;font-size:.8125rem}
+.week-agenda .workout-item .item-actions {margin-left:auto;grid-column:auto;grid-row:auto;align-self:center;gap:6px}
+.week-agenda .day-section .empty {min-height:44px;margin:0;padding:10px 12px;text-align:left;font-size:.8125rem;border:1px dashed var(--border)}
+@container day (min-width:30rem) {
+  .week-agenda .day-section h2 {float:left;width:4.875rem}
+  .week-agenda .workout-list {margin-left:calc(4.875rem + 12px)}
 }
 @media (min-width:1600px) {
-  .schedule-grid {grid-template-columns:repeat(3,minmax(0,1fr))}
+  @container day (min-width:30rem) {
+    .week-agenda .day-section h2 {width:6rem}
+    .week-agenda .workout-list {margin-left:calc(6rem + 12px)}
+  }
 }
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
   .workout-item .workout-action {width:32px;height:32px;min-width:32px;min-height:32px;flex-basis:32px}
