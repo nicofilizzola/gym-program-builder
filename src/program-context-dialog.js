@@ -40,15 +40,15 @@ export function mountProgramContextDialog({anchor,getContext,onChange,onBeforeOp
  function finishClose(){clearTimeout(timer);timer=null;if(opened||destroyed)return;if(exit.matches(':popover-open'))exit.hidePopover();exit.classList.remove('is-open');closing=false;}
  function close({restoreFocus=true}={}){
   if(!opened||destroyed)return;opened=false;closing=true;anchor.setAttribute('aria-expanded','false');
-  const rect=dialog.getBoundingClientRect();dialog.close();exit.append(content);Object.assign(exit.style,{inset:'auto',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',maxHeight:rect.height+'px',margin:'0'});
-  exit.inert=true;exit.setAttribute('aria-hidden','true');exit.classList.add('is-open');exit.showPopover();exit.getBoundingClientRect();
+  const rect=dialog.getBoundingClientRect(),scrollTop=dialog.scrollTop;dialog.close();exit.append(content);Object.assign(exit.style,{inset:'auto',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',maxHeight:rect.height+'px',margin:'0'});
+  exit.inert=true;exit.setAttribute('aria-hidden','true');exit.classList.add('is-open');exit.showPopover();exit.scrollTop=scrollTop;exit.getBoundingClientRect();
   if(restoreFocus&&anchor.isConnected)anchor.focus({preventScroll:true});exit.classList.remove('is-open');
   clearTimeout(timer);if(reduced.matches)finishClose();else timer=setTimeout(finishClose,180);
  }
  function open(){
   if(destroyed||opened)return;onBeforeOpen();clearTimeout(timer);timer=null;
   if(exit.matches(':popover-open'))exit.hidePopover();exit.classList.remove('is-open');dialog.append(content);closing=false;
-  refresh();opened=true;anchor.setAttribute('aria-expanded','true');dialog.classList.remove('is-open');dialog.showModal();dialog.getBoundingClientRect();dialog.classList.add('is-open');inputs.get(PROGRAM_CONTEXT_FIELDS[0]).focus({preventScroll:true});
+  refresh();opened=true;anchor.setAttribute('aria-expanded','true');dialog.classList.remove('is-open');dialog.showModal();dialog.scrollTop=0;dialog.getBoundingClientRect();dialog.classList.add('is-open');inputs.get(PROGRAM_CONTEXT_FIELDS[0]).focus({preventScroll:true});
  }
  anchor.addEventListener('click',open,options);done.addEventListener('click',()=>close(),options);
  dialog.addEventListener('cancel',event=>{event.preventDefault();close();},options);

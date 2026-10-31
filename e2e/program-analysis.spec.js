@@ -36,6 +36,23 @@ test('disabled analysis still allows saved program context',async({page})=>{
  await page.getByRole('button',{name:'Program context',exact:true}).click();await page.getByLabel('Constraints and preferences',{exact:true}).fill('45 minutes');await page.keyboard.press('Escape');await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.reload();await page.getByRole('button',{name:'Program context',exact:true}).click();await expect(page.getByLabel('Constraints and preferences',{exact:true})).toHaveValue('45 minutes');
 });
+test('shared template refresh preserves genuinely unsaved context before any acknowledgement settles',async({page})=>{
+ let calls=0;await page.route('**/api/analysis/program',route=>{calls++;return route.fulfill({contentType:'text/event-stream',body:frames(report)});});const {program,template}=await programFixture(page);
+ await page.getByRole('button',{name:'Analyze program',exact:true}).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
+ await page.evaluate(()=>window.originalReport=document.querySelector('.analysis-report'));
+ await page.getByRole('button',{name:'Program context',exact:true}).click();let failed=false;
+ await page.route('**/api/documents/'+program.id,route=>{if(route.request().method()==='PUT'&&!failed){failed=true;return route.fulfill({status:503,json:{error:{code:'UNAVAILABLE',message:'Temporary save failure'}}});}return route.continue();});
+ const field=page.getByLabel('Goals and priorities',{exact:true});await field.fill('Unsaved context during refresh');await field.evaluate(el=>{window.originalContextField=el;el.setSelectionRange(7,7);});
+ await expect(page.getByTestId('save-status')).toHaveText('Couldn’t save');
+ expect((await (await page.request.get('/api/documents/'+program.id)).json()).record.document.context.goalsAndPriorities).toBe('Build muscle');
+ await page.evaluate(async template=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().update({id:template.id,revision:template.revision,document:{...template.document,name:'Updated while unsaved'}});},template);
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('.workout-item h3')).toHaveText(['Updated while unsaved','Updated while unsaved']);
+ expect(await field.evaluate(el=>el===window.originalContextField&&el.selectionStart===7)).toBe(true);await expect(field).toBeFocused();await expect(field).toHaveValue('Unsaved context during refresh');
+ expect(await page.evaluate(()=>window.originalReport===document.querySelector('.analysis-report'))).toBe(true);expect(await page.locator('.analysis-stale').evaluate(el=>!el.hidden)).toBe(true);expect(calls).toBe(1);
+ await expect(page.getByTestId('save-status')).toHaveText('Couldn’t save');expect((await (await page.request.get('/api/documents/'+program.id)).json()).record.document.context.goalsAndPriorities).toBe('Build muscle');
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ expect((await (await page.request.get('/api/documents/'+program.id)).json()).record.document.context.goalsAndPriorities).toBe('Unsaved context during refresh');
+});
 test('populated program analysis and context fit desktop, tablet, mobile and enlarged text',async({page})=>{
  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));const {program,template}=await programFixture(page);
  await page.evaluate(async({program,template})=>{

@@ -1,6 +1,6 @@
 # Program hypertrophy analysis v1
 
-Status: written specification approved by the user on 2026-10-31; implementation planning authorized. This document describes future implementation, not shipped behavior.
+Status: written specification approved by the user on 2026-10-31; implementation and local verification complete. The independent review fix pass is complete. Preview/production deployment remains pending; see [the verification record](../verification/2026-10-31-program-analysis.md).
 
 ## Intent and agreed scope
 

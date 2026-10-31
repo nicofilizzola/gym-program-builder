@@ -33,3 +33,17 @@ test('context dialog stays reachable with long notes, mobile width and enlarged 
  await page.evaluate(()=>document.documentElement.style.fontSize='200%');await page.getByRole('button',{name:'Done',exact:true}).scrollIntoViewIfNeeded();await expect(page.getByRole('button',{name:'Done',exact:true})).toBeInViewport();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.keyboard.press('Escape');await expect(page.locator('#context-trigger')).toBeFocused();
 });
+test('closing a scrolled context editor preserves its exit picture and rapid reopening resets to the first field',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await fixture(page);await page.setViewportSize({width:390,height:660});await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+ await page.locator('#context-trigger').click();await expect(page.getByRole('dialog',{name:'Program context',exact:true})).toHaveCSS('opacity','1');
+ const geometry=await page.evaluate(()=>{
+  const dialog=document.querySelector('dialog.program-context-surface');dialog.scrollTop=dialog.scrollHeight;
+  const input=dialog.querySelector('textarea'),before={scrollTop:dialog.scrollTop,top:input.getBoundingClientRect().top};
+  window.contextDialog.close();
+  const exit=document.querySelector('.program-context-exit');
+  return {before,after:{scrollTop:exit.scrollTop,top:input.getBoundingClientRect().top},inert:exit.inert};
+ });
+ expect(geometry.before.scrollTop).toBeGreaterThan(100);expect(geometry.after.scrollTop).toBe(geometry.before.scrollTop);expect(Math.abs(geometry.after.top-geometry.before.top)).toBeLessThan(2);expect(geometry.inert).toBe(true);
+ await page.locator('#context-trigger').click();await expect(page.getByLabel('Goals and priorities',{exact:true})).toBeFocused();await expect(page.getByLabel('Goals and priorities',{exact:true})).toBeInViewport();
+ await page.waitForTimeout(230);await expect(page.getByRole('dialog',{name:'Program context',exact:true})).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('.program-context-exit:visible')).toHaveCount(0);
+});

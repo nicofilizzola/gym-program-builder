@@ -10,7 +10,7 @@ An initial full browser run found one regression: preserving the mounted overvie
 
 Final unit suite: `npm.cmd test`, 230 tests passed, zero failures. Unit assertions verify program generation's bounded/excluded reasoning and unchanged session settings. Fake reasoning frames are not forwarded to the client. `npm.cmd run build` passed; the output allowlist contained 58 files, only index.html, style.css and browser src JavaScript.
 
-Browser release runs: an earlier complete run passed all 247 tests. The next complete run passed 246 and timed out in `populated disclosure layouts preserve names targets and body figures` during its initial `page.goto('/')` waiting for load, before application assertions. That existing test subsequently passed three isolated repeats (4.5s, 3.5s, 3.5s). No product or test timeout change was made to conceal the transient load failure. A final no-paid-evaluations-concurrent stability run was started; its result is recorded in the final review addendum.
+Browser release runs: an earlier complete run passed all 247 tests. The next complete run passed 246 and timed out in `populated disclosure layouts preserve names targets and body figures` during its initial `page.goto('/')` waiting for load, before application assertions. That existing test subsequently passed three isolated repeats (4.5s, 3.5s, 3.5s). No product or test timeout change was made to conceal the transient load failure. The no-paid-evaluations-concurrent stability run then passed all 247 tests in 6.1 minutes. The review fix pass adds two browser regressions; its final result is recorded in the final review addendum.
 
 ## Browser interaction and layout evidence
 
@@ -80,6 +80,20 @@ Full synthetic reports, usage, comparison probes and selected rejected earlier o
 Residual prose limits observed in the final samples: occasional broad praise about separate muscle content, redundant statements of unknowns, and a time-budget unit restated imprecisely in a secondary sentence. The main supplied totals and prioritized findings in the selected sample were retained, but these samples do not establish universal factual reliability or individualized training effectiveness. Preview review should check the report against its captured program rather than treating it as a feasibility proof.
 
 Layout artifacts: [desktop report](2026-10-31-program-analysis/program-analysis-1366.png), [desktop context](2026-10-31-program-analysis/program-context-1440.png), [mobile context](2026-10-31-program-analysis/program-context-390.png), [200% text](2026-10-31-program-analysis/program-context-200text.png), [real-provider report](2026-10-31-program-analysis/live-program-analysis.png).
+
+## Final independent review and fix pass
+
+One fresh reviewer inspected `9aabebc..8ea0605`, ran 25 focused Node tests successfully, and found no critical correctness or security defect. The review resumed after a usage interruption without a new review seat. Its verdict was ready to merge with fixes:
+
+1. **Important: context-only replacement coverage was masked by a numerical goal.** The helper was corrected to create no workouts, no goals and no sequence. Explicit fixture preconditions failed before that correction. Cancellation and invalid import now verify all saved context remains intact; acceptance replaces it.
+2. **Important: refresh coverage waited for notes to save.** A separate regression now makes the context save fail, proves the database still contains the old notes, changes the shared template, and revalidates dependencies while notes remain dirty. It verifies the same textarea/report nodes, local text, caret, focus, updated template names and stale-report state. A later Retry saves the retained notes. Production preservation already worked; this closes the coverage gap.
+3. **Motion defect regraded from Minor to Important: scrolled editor exit jumped to the top.** The new regression observed scrollTop 1,067 becoming 0 before the fix. Closing now transfers the dialog scroll offset onto its exit surface before painting; rapid reopening starts at the first field as specified. The regression verifies equal scroll positions, less than 2px content-position movement, inert exit state, visible/focused first field after reopening and no stale close callback.
+
+The focused 15-test program/context run passed after the fix pass. The full unit suite passed all 230 tests and the build passed again. The final full browser run including the two new regressions passed all **249 tests in 5.6 minutes**. No failed or skipped tests remain in these final runs.
+
+No second independent review was requested: the execution workflow uses one fresh whole-branch review followed by the author's regression-tested fix pass. No minor findings remain deferred after the motion issue was regraded and fixed.
+
+The reviewer set aside preview/production environment behavior and the explicitly deferred future features. Those remain outside this local implementation: remote routing/buffering/accounting need operator verification, and strength/general-fitness, history, chat and automatic editing remain unavailable in v1.
 
 ## Release boundary
 

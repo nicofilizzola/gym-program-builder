@@ -5,9 +5,12 @@ const bundle=context=>({version:3,kind:'program',templates:[],program:{name:'Imp
 const file=data=>({name:'program.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
 test('context-only program imports confirm replacement and reject malformed context atomically',async({page})=>{
  const {program}=await programFixture(page,{contextOnly:true});
+ expect(program.document.workouts).toEqual([]);expect(program.document.goals).toEqual({});expect(program.document.sequence??[]).toEqual([]);
  await answerNextConfirmation(page,false);await page.locator('[data-file]').setInputFiles(file(bundle({goalsAndPriorities:'Replace me'})));await expect(page.getByRole('dialog',{name:'Replace program?',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Program context',exact:true}).click();await expect(page.getByLabel('Goals and priorities',{exact:true})).toHaveValue('Build muscle');await page.keyboard.press('Escape');
+ expect((await (await page.request.get('/api/documents/'+program.id)).json()).record.document.context).toEqual(program.document.context);
  await page.locator('[data-file]').setInputFiles(file(bundle({goalsAndPriorities:5})));await expect(page.locator('[data-program-error]')).toContainText('context');
+ expect((await (await page.request.get('/api/documents/'+program.id)).json()).record.document.context).toEqual(program.document.context);
  await answerNextConfirmation(page,true);await page.locator('[data-file]').setInputFiles(file(bundle({goalsAndPriorities:'Replace me'})));await expect(page.getByLabel('Program name')).toHaveValue('Imported context');
  await page.getByRole('button',{name:'Program context',exact:true}).click();await expect(page.getByLabel('Goals and priorities',{exact:true})).toHaveValue('Replace me');
  const saved=(await (await page.request.get('/api/documents/'+program.id)).json()).record;expect(saved.document.context.goalsAndPriorities).toBe('Replace me');
