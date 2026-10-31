@@ -1,5 +1,9 @@
 import {confirmAction} from './confirm-dialog.js';
 import {hasProgramContext} from './program-context.js';
+import {mountProgramContextDialog} from './program-context-dialog.js';
+import {mountAnalysisPanel} from './analysis-panel.js';
+import {prepareProgramAnalysisSnapshot} from './program-analysis-input.js';
+import {streamProgramAnalysis} from './analysis-client.js';
 import {createViewTransition} from './view-transition.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {mountSortable} from './sortable.js';
@@ -17,7 +21,7 @@ import {durationLabel} from './duration.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest}={}) {
   let confirmationController=new AbortController();
   const weekHelpId='program-reorder-hint';
   const viewTransition=createViewTransition(root);
@@ -30,10 +34,10 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     const generation=++transitionGeneration;root.inert=true;
     return viewTransition.swap(commit,{focus:()=>{root.inert=false;focus?.();}}).finally(()=>{if(generation===transitionGeneration)root.inert=false;});
   }
-  let value=structuredClone(program),panel,editor,tooltips,disposed=false,viewGeneration=0,selectedMuscle=null,sortable;
+  let value=structuredClone(program),panel,editor,tooltips,disposed=false,viewGeneration=0,selectedMuscle=null,sortable,analysisPanel,contextDialog;
   const reorderMenu=mountReorderMenu();
-  function cleanup(){confirmationController.abort();confirmationController=new AbortController();reorderMenu.close();cancelLayoutTransition();layoutTransition?.destroy();layoutTransition=null;tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;}
-  function emit(){onChange(structuredClone(value));updateVolume();}
+  function cleanup(){confirmationController.abort();confirmationController=new AbortController();reorderMenu.close();cancelLayoutTransition();layoutTransition?.destroy();layoutTransition=null;tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;analysisPanel?.destroy();contextDialog?.destroy();analysisPanel=contextDialog=null;}
+  function emit(){onChange(structuredClone(value));updateVolume();analysisPanel?.refresh();contextDialog?.refresh();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
   function updateWorkoutHighlights(){
     const workouts=new Map(value.workouts.map(workout=>[workout.id,workout]));
@@ -47,6 +51,13 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     });
   }
   function showError(error){const el=root.querySelector('[data-program-error]');if(el)el.textContent=error.message||error;}
+  function showAnalysisError(error){
+    showError(error);const workout=value.workouts[error.occurrenceIndex],el=root.querySelector('[data-program-error]');
+    if(!workout||!el||!workoutHref)return;
+    const link=document.createElement('a');link.href=workoutHref(workout.id);link.textContent=`Open session ${error.occurrenceIndex+1}: ${workout.name?.trim()||'Untitled session'}`;
+    link.onclick=event=>{if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();run(()=>openWorkout(workout.id))();};
+    el.append(' ',link);link.focus({preventScroll:true});
+  }
   function run(fn){return async()=>{try{await fn();}catch(error){if(!disposed)showError(error);}};}
   async function focusError(){
     if(!value.name.trim()){root.querySelector('[data-program-name]')?.focus();return;}
@@ -214,6 +225,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
           <label><input type="radio" name="program-layout" value="simple"><span>Sequence</span></label>
         </fieldset>
         <div class="program-file-actions">
+          <button type="button" class="secondary-btn analysis-trigger" data-program-analyze><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17V7m5 13V4m5 12V8m5 11V5"/></svg><span data-analysis-label>Analyze program</span></button>
+          <button type="button" class="secondary-btn" data-program-context>Program context</button>
           <button type="button" class="secondary-btn" data-import><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>Import program</button>
           <button type="button" class="secondary-btn" data-export>${actionIcon('export')}Export program</button>
           <input type="file" accept=".json,application/json" hidden data-file>
@@ -224,6 +237,11 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
     layoutTransition=createViewTransition(root.querySelector('[data-workouts]'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
+    analysisPanel=mountAnalysisPanel({anchor:root.querySelector('[data-program-analyze]'),scope:'program',getSnapshot:()=>prepareProgramAnalysisSnapshot(value),request:analysisRequest??streamProgramAnalysis,enabled:analysisEnabled,onValidationError:showAnalysisError});
+    contextDialog=mountProgramContextDialog({anchor:root.querySelector('[data-program-context]'),getContext:()=>value.context,onBeforeOpen:()=>analysisPanel.close({restoreFocus:false}),onChange:context=>{
+      if(hasProgramContext({context}))value.context=context;else delete value.context;
+      emit();
+    }});
     root.querySelectorAll('[name="program-layout"]').forEach(input=>{input.checked=input.value===value.mode;input.onchange=run(()=>{if(input.checked)return switchLayout(input.value);});});
     const picker=root.querySelector('[data-template]');
     const addTemplate=root.querySelector('[data-add-template]');
@@ -238,5 +256,15 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     file.onchange=run(async()=>{const chosen=file.files[0],generation=viewGeneration;file.value='';if(!chosen)return;if(onImportFile){await onImportFile(chosen);return;}if(chosen.size>1048576)throw Error('File must be at most 1 MiB.');const text=await chosen.text();if(disposed||generation!==viewGeneration)return;const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);if(parsed.kind!=='program')throw Error('Import session template files from Session templates.');const before=JSON.stringify(value);if((getSequence(value).length||Object.keys(value.goals).length||hasProgramContext(value))&&!await confirmAction({title:'Replace program?',message:'Replace this program and all of its workouts?',confirmLabel:'Replace program',destructive:true,signal:confirmationController.signal}))return;if(disposed||generation!==viewGeneration||before!==JSON.stringify(value))return;value=parsed.document;emit();await renderOverview();});
     panel=mountVolumePanel(root.querySelector('[data-weekly-panel]'),{scope:'week',onGoalsChange:goals=>{value.goals=goals;emit();},onMuscleSelect:muscle=>{selectedMuscle=muscle;updateWorkoutHighlights();}});updateVolume();renderWorkouts();
   }
-  buildOverview();return {syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else {renderWorkouts();updateVolume();}},update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);buildOverview();},focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();reorderMenu.destroy();root.replaceChildren();}};
+  function patchOverview(){
+    const name=root.querySelector('[data-program-name]');if(name&&name.value!==value.name)name.value=value.name;
+    root.querySelectorAll('[name="program-layout"]').forEach(input=>input.checked=input.value===value.mode);
+    renderWorkouts();updateVolume();analysisPanel?.refresh();contextDialog?.refresh();
+  }
+  buildOverview();return {
+    setAnalysisEnabled(next){analysisEnabled=next;analysisPanel?.setEnabled(next);},
+    syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else patchOverview();},
+    update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else patchOverview();},
+    focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();reorderMenu.destroy();root.replaceChildren();}
+  };
 }
