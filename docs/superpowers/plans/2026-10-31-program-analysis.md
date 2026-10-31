@@ -66,7 +66,7 @@ Use local `analysisError` metadata `{occurrenceIndex,exerciseIndex?,field?}` wit
 
 **Interfaces:** Export `PROGRAM_CONTEXT_FIELDS` (the three approved property names in visible order), `PROGRAM_CONTEXT_MAX_LENGTH=2000`, `normalizeProgramContext(value=undefined) -> Context` and `hasProgramContext(program) -> boolean`. Normalization always returns all three string fields, rejects null/nonobjects/arrays/nonstring present fields, and preserves meaningful whitespace. Document validation persists normalized context only when at least one field is nonempty; missing context remains absent on old documents.
 
-- [ ] **Step 1:** Add failing tests for missing/partial/empty context, LF normalization before length validation, 2,000/2,001 boundaries including surrogate pairs, invalid types, and nonmutation. Pin the core assertions:
+- [x] **Step 1:** Add failing tests for missing/partial/empty context, LF normalization before length validation, 2,000/2,001 boundaries including surrogate pairs, invalid types, and nonmutation. Pin the core assertions:
 
   ```js
   assert.equal(normalizeProgramContext({goalsAndPriorities:'a\r\nb'}).goalsAndPriorities,'a\nb');
@@ -75,10 +75,10 @@ Use local `analysisError` metadata `{occurrenceIndex,exerciseIndex?,field?}` wit
   assert.equal(hasProgramContext({context:{goalsAndPriorities:' \n '}}),false);
   ```
 
-- [ ] **Step 2:** Add persistence/portability assertions: draft and strict validators retain context; repository create/update/read and create-and-attach retain it; stale saves reject without altering it; duplication mutations do not affect the original; program bundles round-trip context and sharing; malformed context rejects an atomic import without new records; template exports contain no program context; missing-context v1/v2/v3 files still import. Run `node --test test/program-context.test.js test/document-validation.test.js test/document-bundle.test.js test/document-import.test.js test/program.test.js test/shared-session-repository.test.js`; expect failures from the missing helper and stripped context.
-- [ ] **Step 3:** Implement the helper and program validation retention. Reuse existing document/copy/import paths rather than changing their architecture. Keep the 1 MiB document/file limit. Normal reads do not add a revision or issue a write for empty defaults.
-- [ ] **Step 4:** In `src/app.js`'s `importFile` nonempty calculation and the legacy fallback in `src/program-view.js`, include `hasProgramContext(...)`. Preserve the existing confirmation generation/revision guards. Do not add a second confirmation flow.
-- [ ] **Step 5:** Rerun Step 2's command; expect zero failures. Add a repository assertion that reading an old context-free document leaves its revision unchanged. Commit the task files with `feat: persist portable program context`.
+- [x] **Step 2:** Add persistence/portability assertions: draft and strict validators retain context; repository create/update/read and create-and-attach retain it; stale saves reject without altering it; duplication mutations do not affect the original; program bundles round-trip context and sharing; malformed context rejects an atomic import without new records; template exports contain no program context; missing-context v1/v2/v3 files still import. Run `node --test test/program-context.test.js test/document-validation.test.js test/document-bundle.test.js test/document-import.test.js test/program.test.js test/shared-session-repository.test.js`; expect failures from the missing helper and stripped context.
+- [x] **Step 3:** Implement the helper and program validation retention. Reuse existing document/copy/import paths rather than changing their architecture. Keep the 1 MiB document/file limit. Normal reads do not add a revision or issue a write for empty defaults.
+- [x] **Step 4:** In `src/app.js`'s `importFile` nonempty calculation and the legacy fallback in `src/program-view.js`, include `hasProgramContext(...)`. Preserve the existing confirmation generation/revision guards. Do not add a second confirmation flow.
+- [x] **Step 5:** Rerun Step 2's command; expect zero failures. Add a repository assertion that reading an old context-free document leaves its revision unchanged. Commit the task files with `feat: persist portable program context`.
 
 ### Task 2: Define canonical program analysis inputs, facts and prompt
 

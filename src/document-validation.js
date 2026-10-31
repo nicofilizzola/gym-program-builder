@@ -2,6 +2,7 @@ import { MUSCLE_GROUPS } from './muscles.js';
 import { LIMITS, validateExercise, validateGoalFor, timingError } from './validate.js';
 import { normalizeWorkoutTiming } from './duration.js';
 import {EQUIPMENT} from './catalog.js';
+import {normalizeProgramContext,hasProgramContext} from './program-context.js';
 
 const object = value => value !== null && typeof value==='object' && !Array.isArray(value);
 const fail = message => { throw new Error(message); };
@@ -79,6 +80,10 @@ function validate(kind,value,{draft=false,embedded=false}={}) {
       } catch(error) {fail(`Workout ${i+1}: ${error.message}`);}
     });
     const document={name:title,mode:value.mode,workouts,goals:goals(value.goals,LIMITS.weeklyGoal)};
+    if(Object.hasOwn(value,'context')){
+      const context=normalizeProgramContext(value.context);
+      if(hasProgramContext({context}))document.context=context;
+    }
     if(Object.hasOwn(value,'sequence')) {
       if(!Array.isArray(value.sequence))fail('Invalid program sequence.');
       const used=new Set(ids),references=[];

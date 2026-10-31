@@ -1,5 +1,6 @@
 import {confirmAction,cancelActiveConfirmation} from './confirm-dialog.js';
 import {duplicateName} from './duplicate-name.js';
+import {hasProgramContext} from './program-context.js';
 import {mountBreadcrumbs} from './breadcrumbs.js';
 import {resolveProgram,programArrangement} from './program-links.js';
 import {createSharedSessionController} from './shared-session-controller.js';
@@ -172,7 +173,7 @@ async function importFile(kind,file,version,{replace=false}={}){
  if(file.size>1048576)throw Error('File must be at most 1 MiB.');const text=await file.text();if(version!==mountedVersion)return;
  const parsed=parseDocumentBundle(text);if(parsed.error)throw Error(parsed.error);if(parsed.bundle.kind!==kind)throw Error(`Import this file from ${parsed.bundle.kind==='program'?'Programs':'Session templates'}.`);
  if(replace){
-  const hasContent=kind==='program'?(active.document.workouts.length||active.document.sequence?.length||Object.keys(active.document.goals).length):(active.document.exercises.length||Object.keys(active.document.goals).length);
+  const hasContent=kind==='program'?(active.document.workouts.length||active.document.sequence?.length||Object.keys(active.document.goals).length||hasProgramContext(active.document)):(active.document.exercises.length||Object.keys(active.document.goals).length);
   if(hasContent&&!await confirmCurrent({title:kind==='program'?'Replace program?':'Replace shared template?',message:kind==='program'?'Replace this program and all of its workouts?':'Replace this shared session template everywhere it is used?',confirmLabel:kind==='program'?'Replace program':'Replace shared template',destructive:true}))return;
   const owned=queue;await owned.flush();if(version!==mountedVersion||owned!==queue)return;
  }
