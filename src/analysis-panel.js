@@ -3,7 +3,8 @@ import {mountAnalysisReport} from './analysis-report.js';
 import {mountActionTooltips} from './action-controls.js';
 
 let sequence=0;
-export function mountAnalysisPanel({anchor,getWorkout,onValidationError=()=>{},request,enabled=true}){
+export function mountAnalysisPanel({anchor,getWorkout,getSnapshot,scope='session',onValidationError=()=>{},request,enabled=true}){
+ const programScope=scope==='program',subject=programScope?'Program':'Session';
  const id=`analysis-${++sequence}`,mobile=matchMedia('(max-width: 760px)'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
  const desktop=document.createElement('section');desktop.className='analysis-panel';desktop.popover='manual';desktop.setAttribute('role','region');
  const dialog=document.createElement('dialog');dialog.className='analysis-panel analysis-modal';
@@ -13,6 +14,7 @@ export function mountAnalysisPanel({anchor,getWorkout,onValidationError=()=>{},r
  desktop.id=id;dialog.id=`${id}-mobile`;
  const title=content.querySelector('.analysis-title'),scroll=content.querySelector('.analysis-scroll'),report=content.querySelector('.analysis-report'),status=content.querySelector('.analysis-status'),stale=content.querySelector('.analysis-stale'),snapshot=content.querySelector('.analysis-snapshot'),run=content.querySelector('.analysis-run'),stop=content.querySelector('.analysis-stop'),jump=content.querySelector('.analysis-jump'),closeButton=content.querySelector('.analysis-close');
  const renderer=mountAnalysisReport(report),tooltips=mountActionTooltips(content);
+ if(programScope){title.textContent='Program analysis · Hypertrophy';closeButton.setAttribute('aria-label','Close program analysis');closeButton.dataset.actionTooltip='Close program analysis';stale.textContent='Program changed';}
  let host=mobile.matches?dialog:desktop,opened=false,destroyed=false,closing=false,closeTimer=null,raf=null,follow=true,lastText='',latest=null,lastPhase='',available=enabled;
  const explanation=document.createElement('p');explanation.className='analysis-unavailable';explanation.id=`${id}-unavailable`;explanation.hidden=true;explanation.textContent='Session analysis is not configured yet.';anchor.after(explanation);
  anchor.setAttribute('aria-describedby',explanation.id);anchor.setAttribute('aria-expanded','false');
@@ -24,21 +26,21 @@ export function mountAnalysisPanel({anchor,getWorkout,onValidationError=()=>{},r
   if(follow)scroll.scrollTop=scroll.scrollHeight;setJump();position();
  }
  function update(state){latest=state;const busy=['connecting','streaming'].includes(state.phase);
-  anchor.querySelector('[data-analysis-label]').textContent=busy?'Analyzing':state.phase==='idle'?'Analyze':'View analysis';anchor.classList.toggle('is-analyzing',busy);
-  const messages={idle:'',connecting:'Preparing analysis',streaming:'Analyzing session',complete:'Analysis complete',stopped:'Stopped · Partial report is incomplete',error:state.error?.message||'Analysis interrupted'};
+  anchor.querySelector('[data-analysis-label]').textContent=busy?'Analyzing':state.phase==='idle'?(programScope?'Analyze program':'Analyze'):'View analysis';anchor.classList.toggle('is-analyzing',busy);
+  const messages={idle:'',connecting:'Preparing analysis',streaming:programScope?'Analyzing program':'Analyzing session',complete:'Analysis complete',stopped:'Stopped · Partial report is incomplete',error:state.error?.message||'Analysis interrupted'};
   if(state.phase!==lastPhase||state.phase==='error')status.textContent=messages[state.phase];lastPhase=state.phase;
   status.classList.toggle('is-working',busy);snapshot.textContent=state.snapshotName;stale.hidden=!state.stale;report.setAttribute('aria-busy',String(busy));run.textContent=state.phase==='error'?'Retry':'Analyze again';
   const replacement=busy?stop:run,retiring=busy?run:stop;replacement.hidden=false;if(document.activeElement===retiring)replacement.focus({preventScroll:true});retiring.hidden=true;
   if(state.text!==lastText&&raf===null)raf=requestAnimationFrame(paint);
   if(state.phase==='error'&&state.error?.code==='INVALID'){close();onValidationError(state.error);}
  }
- const controller=createAnalysisController({getWorkout,request,onState:update});latest=controller.getState();update(latest);
+ const controller=createAnalysisController({getWorkout,getSnapshot,request,onState:update});latest=controller.getState();update(latest);
  function visible(){return host===desktop?desktop.matches(':popover-open'):dialog.open;}
  function finishClose(){clearTimeout(closeTimer);closeTimer=null;if(opened)return;if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();desktop.classList.remove('is-open');dialog.classList.remove('is-open');closing=false;}
- function close(){if(!opened&&!closing)return;opened=false;closing=true;anchor.setAttribute('aria-expanded','false');
+ function close({restoreFocus=true}={}){if(!opened&&!closing)return;opened=false;closing=true;anchor.setAttribute('aria-expanded','false');
   // Release a modal's focus containment before restoring focus, but keep it painted for exit.
   if(dialog.open){dialog.close();desktop.append(content);host=desktop;desktop.classList.add('is-mobile-exit','is-open');desktop.showPopover();desktop.getBoundingClientRect();}
-  anchor.focus({preventScroll:true});
+  if(restoreFocus)anchor.focus({preventScroll:true});
   host.inert=true;host.setAttribute('aria-hidden','true');host.classList.remove('is-open');tooltips.hide?.();
   clearTimeout(closeTimer);if(reduced.matches)finishClose();else closeTimer=setTimeout(finishClose,180);
  }
@@ -59,8 +61,8 @@ export function mountAnalysisPanel({anchor,getWorkout,onValidationError=()=>{},r
  function onWindowScroll(event){if(!content.contains(event.target))position();}
  anchor.addEventListener('click',onAnchor);closeButton.addEventListener('click',close);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.addEventListener('keydown',onKey);mobile.addEventListener('change',adapt);window.addEventListener('resize',position);window.addEventListener('scroll',onWindowScroll,true);scroll.addEventListener('scroll',onScroll);
  run.addEventListener('click',()=>{follow=true;controller.start();});stop.addEventListener('click',()=>controller.stop());jump.addEventListener('click',()=>{follow=true;scroll.scrollTop=scroll.scrollHeight;setJump();scroll.focus({preventScroll:true});});
- function setEnabled(value){available=value;anchor.setAttribute('aria-disabled',String(!value));explanation.textContent=value===null?'Checking analysis availability…':'Session analysis is not configured yet.';if(value){explanation.hidden=true;anchor.removeAttribute('aria-describedby');}else anchor.setAttribute('aria-describedby',explanation.id);}
+ function setEnabled(value){available=value;anchor.setAttribute('aria-disabled',String(!value));explanation.textContent=value===null?'Checking analysis availability…':subject+' analysis is not configured yet.';if(value){explanation.hidden=true;anchor.removeAttribute('aria-describedby');}else anchor.setAttribute('aria-describedby',explanation.id);}
  const sizeObserver=new ResizeObserver(position);sizeObserver.observe(desktop);sizeObserver.observe(anchor);
  setEnabled(enabled);
- return {refresh:controller.refresh,setEnabled,destroy(){destroyed=true;sizeObserver.disconnect();controller.destroy();clearTimeout(closeTimer);cancelAnimationFrame(raf);renderer.destroy();tooltips.destroy();anchor.removeEventListener('click',onAnchor);document.removeEventListener('keydown',onKey);mobile.removeEventListener('change',adapt);window.removeEventListener('resize',position);window.removeEventListener('scroll',onWindowScroll,true);if(dialog.open)dialog.close();desktop.remove();dialog.remove();explanation.remove();}};
+ return {refresh:controller.refresh,setEnabled,close,destroy(){destroyed=true;sizeObserver.disconnect();controller.destroy();clearTimeout(closeTimer);cancelAnimationFrame(raf);renderer.destroy();tooltips.destroy();anchor.removeEventListener('click',onAnchor);document.removeEventListener('keydown',onKey);mobile.removeEventListener('change',adapt);window.removeEventListener('resize',position);window.removeEventListener('scroll',onWindowScroll,true);if(dialog.open)dialog.close();desktop.remove();dialog.remove();explanation.remove();}};
 }
