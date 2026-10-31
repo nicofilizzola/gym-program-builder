@@ -1,8 +1,14 @@
 import {readSse} from './sse.js';
 import {analysisError} from './analysis-input.js';
-export async function streamAnalysis(snapshot,{signal,onEvent=()=>{},fetch:request=globalThis.fetch}={}){
- const response=await request('/api/analysis',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json',accept:'text/event-stream'},body:JSON.stringify({workout:snapshot}),signal});
- if(!response.ok){let data;try{data=await response.json();}catch{}throw analysisError(data?.error?.message||'Analysis request failed.',data?.error?.code||'NETWORK',response.status);}
+export const streamAnalysis=(snapshot,options)=>stream('/api/analysis',{workout:snapshot},options);
+export const streamProgramAnalysis=(snapshot,options)=>stream('/api/analysis/program',{snapshot},options);
+async function stream(url,value,{signal,onEvent=()=>{},fetch:request=globalThis.fetch}={}){
+ const response=await request(url,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json',accept:'text/event-stream'},body:JSON.stringify(value),signal});
+ if(!response.ok){let data;try{data=await response.json();}catch{}
+  const details={};for(const key of ['occurrenceIndex','exerciseIndex'])if(Number.isInteger(data?.error?.details?.[key])&&data.error.details[key]>=0)details[key]=data.error.details[key];
+  if(['name','sets','repRange','muscles','restSeconds','equipment'].includes(data?.error?.details?.field))details.field=data.error.details.field;
+  throw analysisError(data?.error?.message||'Analysis request failed.',data?.error?.code||'NETWORK',response.status,details);
+ }
  if(!response.headers.get('content-type')?.includes('text/event-stream')){await response.body?.cancel();throw analysisError('Invalid analysis response.','PROTOCOL',502);}
  let started=false,complete=false,bytes=0;
  for await(const frame of readSse(response.body,{signal,maxFrameBytes:131072})){

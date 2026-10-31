@@ -1,0 +1,46 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {createApi} from '../server/api.js';
+import {createAnalysisService} from '../server/analysis-service.js';
+import {streamProgramAnalysis} from '../src/analysis-client.js';
+import {prepareProgramAnalysisSnapshot} from '../src/program-analysis-input.js';
+import {programAnalysisFixtures} from './fixtures/analysis-programs.js';
+import {readSse} from '../src/sse.js';
+const snapshot=prepareProgramAnalysisSnapshot(programAnalysisFixtures['repeated-template']),origin='http://localhost';
+const frames='event: start\ndata: {"requestId":"p","promptVersion":"program-v1"}\n\nevent: delta\ndata: {"text":"A program review"}\n\nevent: complete\ndata: {}\n\n';
+const response=()=>new Response(frames,{headers:{'content-type':'text/event-stream'}});
+test('program route enforces auth, methods, origin, wire validation and safe scope dispatch',async()=>{
+ let auth=true,calls=0,received;
+ const api=createApi({origin,auth:{session:async()=>auth},analysis:{enabled:true,analyze:async(s,o)=>{calls++;received={s,o};return response();}}});
+ const request=(body={snapshot},method='POST',headers={})=>new Request(origin+'/api/analysis/program',{method,headers:{origin,'content-type':'application/json',...headers},...(['GET','HEAD'].includes(method)?{}:{body:typeof body==='string'?body:JSON.stringify(body)})});
+ auth=false;assert.equal((await api(request())).status,401);auth=true;
+ assert.equal((await api(request(undefined,'POST',{origin:'http://evil'}))).status,403);
+ assert.equal((await api(request(undefined,'GET'))).status,405);
+ assert.equal((await api(request({snapshot:{...snapshot,workouts:[]}}))).status,400);assert.equal(calls,0);
+ assert.equal((await api(request({snapshot,scope:'session'}))).status,200);assert.equal(calls,1);assert.equal(received.o.scope,'program');assert.deepEqual(received.s,snapshot);
+ const disabled=createApi({origin,auth:{session:async()=>true}});assert.equal((await disabled(request())).status,503);
+});
+test('program route counts raw streamed UTF-8 bytes independently of Content-Length',async()=>{
+ let calls=0;
+ const api=createApi({origin,auth:{session:async()=>true},analysis:{enabled:true,analyze:async()=>{calls++;return response();}}});
+ const base=JSON.stringify({snapshot});
+ const request=body=>new Request(origin+'/api/analysis/program',{method:'POST',headers:{origin,'content-type':'application/json','content-length':'1'},body});
+ assert.equal((await api(request(base+' '.repeat(262144-base.length)))).status,200);
+ const bytes=new TextEncoder().encode(base+' '.repeat(262145-base.length));let cancelled=false;
+ const body=new ReadableStream({start(c){c.enqueue(bytes.slice(0,60000));c.enqueue(bytes.slice(60000));},cancel(){cancelled=true;}});
+ const req=new Request(origin+'/api/analysis/program',{method:'POST',headers:{origin,'content-type':'application/json','content-length':'1'},body,duplex:'half'});
+ const result=await api(req);assert.equal(result.status,413);assert.match((await result.json()).error.message,/256 KiB/);assert.equal(cancelled,true);assert.equal(calls,1);
+});
+test('program service selects its prompt and the client keeps the normalized streaming protocol',async()=>{
+ let calls=0;
+ const service=createAnalysisService({apiKey:'private',fetch:async(_,init)=>{
+  calls++;const body=JSON.parse(init.body),data=JSON.parse(body.messages[1].content);
+  assert.equal(data.program.focus,'hypertrophy');assert.equal(data.facts.volume.Chest.total,6);assert.equal(body.max_tokens,1500);
+  return new Response('data: '+JSON.stringify({choices:[{delta:{content:'Review'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
+ }});
+ const stream=await service.analyze(snapshot,{scope:'program'}),events=[];
+ for await(const frame of readSse(stream.body))events.push({type:frame.event,...JSON.parse(frame.data)});
+ assert.match(events[0].promptVersion,/^program-hypertrophy-/);assert.equal(events.at(-1).type,'complete');assert.equal(calls,1);
+ const received=[];await streamProgramAnalysis(snapshot,{fetch:async(url,init)=>{assert.equal(url,'/api/analysis/program');assert.deepEqual(JSON.parse(init.body),{snapshot});assert.equal(init.credentials,'same-origin');return response();},onEvent:e=>received.push(e)});
+ assert.deepEqual(received.map(e=>e.type),['start','delta','complete']);
+ await assert.rejects(service.analyze(snapshot,{scope:'evil'}),e=>e.code==='INVALID');assert.equal(calls,1);
+});
