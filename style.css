@@ -1802,6 +1802,20 @@ button:disabled {opacity:.5;cursor:default}
 
 /* Session analysis: a distinct editorial overlay, sharing the app's palette and controls. */
 .analysis-trigger { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+.program-context-surface {box-sizing:border-box;position:fixed;inset:0;margin:auto;width:min(640px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;opacity:0;transform:translateY(4px);transition:opacity 180ms ease-out,transform 180ms ease-out;overflow-y:auto;overflow-wrap:anywhere}
+.program-context-surface.is-open {opacity:1;transform:translateY(0)}
+.program-context-surface::backdrop {background:#0009;transition:opacity 180ms ease-out}
+@starting-style {.program-context-surface::backdrop {opacity:0}}
+.program-context-exit {box-shadow:0 0 0 100vmax #0009}
+.program-context-content {display:grid;gap:12px;min-width:0;padding:16px}
+.program-context-content h2 {font-size:1.25rem}
+.program-context-content p {margin:0}
+.program-context-content .field {min-width:0}
+.program-context-surface textarea {min-height:0;line-height:1.4}
+.program-context-intro,.program-context-help {font-size:.875rem;line-height:1.4;color:var(--muted)}
+.program-context-actions {position:sticky;bottom:-16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface);padding:12px 0 16px;margin-bottom:-16px}
+.program-context-content .error:empty {display:none}
+@media (prefers-reduced-motion:reduce) {.program-context-surface,.program-context-surface::backdrop {transition:none}}
 .analysis-trigger[aria-disabled="true"] { opacity: .65; }
 .analysis-trigger.is-analyzing svg { animation: analysis-breathe 1.4s ease-in-out infinite; }
 .analysis-unavailable { flex-basis: 100%; margin: 0; color: var(--muted); font-size: .8125rem; }

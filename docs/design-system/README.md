@@ -134,7 +134,13 @@ Nested views now use a semantic Breadcrumb navigation above the existing heading
 
 ### Inputs
 32px minimum height on fine-pointer desktop (?1100px), 44px elsewhere, `--surface-2` background, `--border` border. Focus: `--accent` border plus a 3px `--accent-soft` halo. Labels always visible above the field (never placeholder-only). Errors sit directly under the field they belong to.
-Numbers (sets, rep range, goals) are never typed: they use sliders (below). Text fields remain only for names.
+Numbers (sets, rep range, goals) are never typed: they use sliders (below). Names use text inputs; optional program context uses qualitative multiline notes, not new numeric settings.
+
+### Program context editor
+
+The labeled Program context toolbar action opens a native modal at most 640px wide with 16px viewport clearance. Three optional, visibly labeled three-row textareas use the existing dark field treatment, Barlow and 12px field gaps. Short example guidance sits below each; no extra cards or required questionnaire. Notes apply live through the program autosave flow. Done stays reachable in a sticky footer with export helper text. Long prose wraps; short viewports/enlarged text scroll within the bounded dialog. Controls retain 32px fine-only desktop / 44px touch sizing.
+
+Opening focuses Goals and priorities; Done, Escape and backdrop dismiss without reverting and restore the toolbar trigger. Entry/exit use 180ms ease-out opacity and a 4px translation. A noninteractive top-layer exit surface preserves the closing picture after native containment ends; stale callbacks cannot hide a rapidly reopened editor. Reduced motion settles immediately, including a changed preference mid-exit. Initial rendering and live input/acknowledgements do not animate. Refresh preserves the same textarea nodes, unchanged values, focus, selection and composition.
 
 ### Sliders
 Native `<input type="range">` with no library, in a `.slider` wrapper (`src/session-editor.js` builds them; limits come from `LIMITS` in `src/validate.js`).
