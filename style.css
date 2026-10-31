@@ -1367,6 +1367,7 @@ button:disabled {opacity:.5;cursor:default}
 .app-header nav a:active {background:rgba(249,115,22,.18)}
 .action-button {display:inline-grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 .action-button:hover,.action-button:focus-visible {color:var(--text);background:var(--surface-2);border-color:var(--muted)}
+.card-head .exercise-info,.card-head .exercise-info:hover,.card-head .exercise-info:focus-visible {border-color:transparent}
 .action-button:active {background:rgba(249,115,22,.15)}
 .action-button--delete:hover,.action-button--delete:focus-visible {color:var(--error);background:rgba(239,68,68,.12);border-color:var(--error)}
 .action-button svg {width:20px;height:20px}

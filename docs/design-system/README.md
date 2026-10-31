@@ -303,6 +303,8 @@ The visible helper reads: "Drag a card to reorder. On touch, press and hold. Use
 
 Exercise cards have no separate disclosure icon. The full heading row toggles the card, with a native keyboard-focusable heading action and an expanded-only 150ms ease-out hover/focus surface plus Expand/Collapse exercise tooltip. Reorder, About and Remove remain independent controls. Heading dragging retains the existing mouse/touch thresholds and suppresses release clicks after dragging. The Reorder icon uses the neutral Delete control geometry and a shared tooltip; movement options and arrow-key support remain unchanged. Collapsed metadata and prescription summaries share their left edge without the old disclosure gutter. Existing 200ms disclosure motion and reduced-motion behavior remain authoritative.
 
+The session-template About question-mark button has a transparent border in its resting, hover and focus states, matching its neighboring header actions while retaining the shared action-button size, surface treatment, focus ring and tooltip.
+
 ### Slider movement and catalog filters
 
 All native range inputs preserve their 44px hit areas, keyboard behavior, steps and immediate data/readout updates. Pointer-transparent visual knobs and fill endpoints interpolate together for 80ms ease-out on user input; rapid changes retarget from the current visual position. Native controls remain the input source. Initial construction, imports and ordinary data refreshes settle immediately. Reduced motion disables interpolation, including when the preference changes during movement; teardown cancels pending frames.
