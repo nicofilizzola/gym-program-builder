@@ -234,10 +234,11 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       </div>
       </header><p class="error" role="alert" data-program-error></p>
       <div class="program-grid"><div><div class="template-picker"><label class="field">Session template<select data-template aria-label="Session template"><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div class="sequence-toolbar"><button type="button" class="secondary-btn" data-add-rest>${actionIcon('plus')}Add rest day</button></div><p class="reorder-hint" id="${weekHelpId}" data-week-help>Drag a card to reorder. On touch, press and hold. Use Reorder for movement options. In Week, Up/Down reorders and Alt+Up/Down changes day.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
+    const reviewDock=root.appendChild(Object.assign(document.createElement('aside'),{className:'review-dock'}));
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
     layoutTransition=createViewTransition(root.querySelector('[data-workouts]'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
-    analysisPanel=mountAnalysisPanel({anchor:root.querySelector('[data-program-analyze]'),scope:'program',getSnapshot:()=>prepareProgramAnalysisSnapshot(value),request:analysisRequest??streamProgramAnalysis,enabled:analysisEnabled,onValidationError:showAnalysisError});
+    analysisPanel=mountAnalysisPanel({anchor:root.querySelector('[data-program-analyze]'),scope:'program',dock:reviewDock,getSnapshot:()=>prepareProgramAnalysisSnapshot(value),request:analysisRequest??streamProgramAnalysis,enabled:analysisEnabled,onValidationError:showAnalysisError});
     contextDialog=mountProgramContextDialog({anchor:root.querySelector('[data-program-context]'),getContext:()=>value.context,onBeforeOpen:()=>analysisPanel.close({restoreFocus:false}),onChange:context=>{
       if(hasProgramContext({context}))value.context=context;else delete value.context;
       emit();

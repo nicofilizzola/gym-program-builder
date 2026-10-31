@@ -1,6 +1,7 @@
 
 :root {
   --catalog-overlay-width: 520px;
+  --review-width: 340px;
   --bg: #0e131a;
   --surface: #171e28;
   --surface-2: #1f2834;
@@ -1475,7 +1476,7 @@ button:disabled {opacity:.5;cursor:default}
   .program-grid>[data-weekly-panel] {align-self:stretch;min-width:0}
 }
 @media (min-width: 1600px) {
-  :root {--panel-width:520px;--figure-height:200px}
+  :root {--panel-width:520px;--figure-height:200px;--review-width:360px}
 }
 @media (min-width: 1100px) and (pointer: fine) and (not (any-pointer: coarse)) {
   body {font-size:.875rem;line-height:1.4}
@@ -1866,8 +1867,33 @@ button:disabled {opacity:.5;cursor:default}
  .analysis-content { height: 100%; max-height: 100%; }
  .analysis-scroll { min-height: 0; }
 }
+/* Program AI review: a docked column at 1280px+, otherwise a full-screen modal. */
+.review-dock { box-sizing: border-box; min-width: 0; overflow: hidden; visibility: hidden; transition: visibility 0s 180ms; }
+.review-dock.is-open { visibility: visible; transition-delay: 0s; }
+.review-dock > .analysis-content { box-sizing: border-box; width: var(--review-width); height: 100%; max-height: none; background: var(--surface); border-left: 1px solid var(--border); border-radius: 0; box-shadow: none; opacity: 0; transform: translateX(12px); transition: opacity 180ms ease-out, transform 180ms ease-out; }
+.review-dock.is-open > .analysis-content { opacity: 1; transform: none; }
+.review-dock .analysis-head { flex: none; border-bottom: 1px solid var(--border); padding: 12px 12px 8px; }
+.review-dock .analysis-snapshot, .review-dock .analysis-context { flex: none; padding-inline: 12px; }
+.review-dock .analysis-snapshot { padding-top: 8px; }
+.review-dock .analysis-scroll { min-height: 0; padding: 0 12px 12px; }
+.review-dock .analysis-footer { flex: none; border-top: 1px solid var(--border); background: var(--surface); padding: 12px; }
+.analysis-content--review .analysis-title { font: 600 1rem/1.4 var(--font-body); }
+.analysis-content--review .analysis-report { font: 400 .875rem/1.45 var(--font-body); }
+.analysis-content--review .analysis-report h3 { margin: 16px 0 6px; }
+.analysis-content--review .analysis-report h3:first-child { margin-top: 0; }
+.analysis-content--review .analysis-report h3:first-child + p { font-size: inherit; line-height: inherit; }
+.analysis-content--review .analysis-report p { margin: 0 0 8px; }
+@media (min-width:1280px) {
+ .review-dock { position: sticky; top: 0; height: calc(100dvh - var(--review-dock-top, 0px)); align-self: start; }
+}
+@media (max-width:1279px) {
+ .review-dock { display: none; }
+ .analysis-panel--review.analysis-modal, .analysis-panel--review.is-mobile-exit { inset: 0; width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+ .analysis-panel--review .analysis-content { height: 100%; max-height: 100%; }
+ .analysis-panel--review .analysis-scroll { min-height: 0; }
+}
 @media (prefers-reduced-motion:reduce) {
- .analysis-panel, .analysis-jump { transition: none; }
+ .analysis-panel, .analysis-jump, .review-dock, .review-dock > .analysis-content { transition: none; }
  .analysis-trigger.is-analyzing svg, .analysis-status.is-working::before { animation: none; }
 }
 
