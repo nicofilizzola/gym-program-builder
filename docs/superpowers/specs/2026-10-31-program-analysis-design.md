@@ -1,6 +1,6 @@
 # Program hypertrophy analysis v1
 
-Status: product direction approved in conversation; written specification awaiting user review. This document describes future implementation, not shipped behavior.
+Status: written specification approved by the user on 2026-10-31; implementation planning authorized. This document describes future implementation, not shipped behavior.
 
 ## Intent and agreed scope
 
@@ -17,7 +17,7 @@ The user approved:
 
 Success means the report connects sessions, interprets the user's priorities correctly, identifies choices worth preserving, and offers concrete suggestions grounded in the supplied program. A sound program can receive no improvement suggestions. A list of unrelated session reviews or a recap of the volume panel does not meet this goal.
 
-The persistence, validation, interaction and testing details below are proposed implementation decisions for review. No implementation plan or product changes are authorized by this document alone.
+The persistence, validation, interaction and testing details below define the approved scope for the implementation plan. Product implementation follows review of that plan.
 
 ## Product context
 
