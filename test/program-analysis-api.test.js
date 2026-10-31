@@ -34,12 +34,13 @@ test('program service selects its prompt and the client keeps the normalized str
  let calls=0;
  const service=createAnalysisService({apiKey:'private',fetch:async(_,init)=>{
   calls++;const body=JSON.parse(init.body),data=JSON.parse(body.messages[1].content);
-  assert.equal(data.program.focus,'hypertrophy');assert.equal(data.facts.volume.Chest.total,6);assert.equal(body.max_tokens,1500);
-  return new Response('data: '+JSON.stringify({choices:[{delta:{content:'Review'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
+  assert.equal(data.program.focus,'hypertrophy');assert.equal(data.facts.volume.Chest.total,6);assert.equal(body.max_tokens,2500);
+  assert.deepEqual(body.reasoning,{enabled:true,max_tokens:1024,exclude:true});assert.equal(body.temperature,undefined);
+  return new Response('data: '+JSON.stringify({choices:[{delta:{reasoning:'private reasoning'}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{content:'Review'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
  }});
  const stream=await service.analyze(snapshot,{scope:'program'}),events=[];
  for await(const frame of readSse(stream.body))events.push({type:frame.event,...JSON.parse(frame.data)});
- assert.match(events[0].promptVersion,/^program-hypertrophy-/);assert.equal(events.at(-1).type,'complete');assert.equal(calls,1);
+ assert.match(events[0].promptVersion,/^program-hypertrophy-/);assert.equal(events.at(-1).type,'complete');assert.equal(calls,1);assert.equal(JSON.stringify(events).includes('private reasoning'),false);
  const received=[];await streamProgramAnalysis(snapshot,{fetch:async(url,init)=>{assert.equal(url,'/api/analysis/program');assert.deepEqual(JSON.parse(init.body),{snapshot});assert.equal(init.credentials,'same-origin');return response();},onEvent:e=>received.push(e)});
  assert.deepEqual(received.map(e=>e.type),['start','delta','complete']);
  await assert.rejects(service.analyze(snapshot,{scope:'evil'}),e=>e.code==='INVALID');assert.equal(calls,1);

@@ -36,3 +36,28 @@ test('disabled analysis still allows saved program context',async({page})=>{
  await page.getByRole('button',{name:'Program context',exact:true}).click();await page.getByLabel('Constraints and preferences',{exact:true}).fill('45 minutes');await page.keyboard.press('Escape');await expect(page.getByTestId('save-status')).toHaveText('Saved');
  await page.reload();await page.getByRole('button',{name:'Program context',exact:true}).click();await expect(page.getByLabel('Constraints and preferences',{exact:true})).toHaveValue('45 minutes');
 });
+test('populated program analysis and context fit desktop, tablet, mobile and enlarged text',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));const {program,template}=await programFixture(page);
+ await page.evaluate(async({program,template})=>{
+  const {createApiClient}=await import('/src/api-client.js'),api=createApiClient();
+  const muscles=['Chest','Lats','Side delts','Glutes','Hamstrings','Calves'];
+  await api.update({id:template.id,revision:template.revision,document:{...template.document,name:'Full body — deliberate hypertrophy emphasis with shared sessions',exercises:muscles.map((m,i)=>({name:['Bench press','Chest-supported row','Cable lateral raise','Hip thrust','Seated leg curl','Standing calf raise'][i],sets:3,repRange:{min:8,max:12},restSeconds:i<2?180:90,primaryMuscles:[m],secondaryMuscles:i===0?['Triceps']:i===1?['Biceps']:[]}))}});
+  await api.update({id:program.id,revision:program.revision,document:{...program.document,goals:{Chest:18,Lats:18,Glutes:18},workouts:[0,1,3,4,6,null].map((day,i)=>({id:'pop-'+i,templateId:template.id,day}))}});
+ },{program,template});await page.reload();await expect(page.locator('.workout-item')).toHaveCount(6);
+ for(const [width,height]of [[1366,768],[1440,900],[1920,1080],[768,1024],[390,844]]){
+  await page.setViewportSize({width,height});await page.getByRole('button',{name:/^(Analyze program|View analysis)$/}).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
+  const box=await page.locator('.analysis-panel:visible').boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width+1);expect(box.y+box.height).toBeLessThanOrEqual(height+1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  if(width>=1100)for(const figure of await page.locator('.body-map svg').all())expect((await figure.boundingBox()).height).toBeGreaterThanOrEqual(180);
+  await page.screenshot({path:`.superpowers/sdd/2026-10-31-program-analysis/program-analysis-${width}.png`});await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Program context',exact:true}).click();await expect(page.getByRole('button',{name:'Done',exact:true})).toBeInViewport();await page.screenshot({path:`.superpowers/sdd/2026-10-31-program-analysis/program-context-${width}.png`});await page.keyboard.press('Escape');
+ }
+ await page.setViewportSize({width:1366,height:768});await page.evaluate(()=>document.documentElement.style.fontSize='200%');await page.getByRole('button',{name:'Program context',exact:true}).click();await page.getByLabel('Goals and priorities',{exact:true}).fill('A long priority statement '.repeat(60));await page.getByRole('button',{name:'Done',exact:true}).scrollIntoViewIfNeeded();await expect(page.getByRole('button',{name:'Done',exact:true})).toBeInViewport();await page.screenshot({path:'.superpowers/sdd/2026-10-31-program-analysis/program-context-200text.png'});await page.keyboard.press('Escape');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+test.describe('hybrid program input',()=>{
+ test.use({hasTouch:true,viewport:{width:1366,height:768}});
+ test('program actions and context editor retain touch targets',async({page})=>{
+  await programFixture(page);for(const name of ['Analyze program','Program context']){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+  await page.getByRole('button',{name:'Program context',exact:true}).tap();const done=await page.getByRole('button',{name:'Done',exact:true}).boundingBox();expect(done.height).toBeGreaterThanOrEqual(44);
+ });
+});

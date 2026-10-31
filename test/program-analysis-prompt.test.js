@@ -23,3 +23,33 @@ test('program prompt has grounded review boundaries and supplies context separat
  assert.equal(JSON.parse(messages[1].content).program.context.goalsAndPriorities,s.context.goalsAndPriorities);
  for(const phrase of ['untrusted','Assessment','Strengths','Improvements','Limits','550','smallest','shared','Sequence','Sunday','self-report'])assert.ok(messages[0].content.includes(phrase),phrase);
 });
+test('Sequence provider messages withhold inactive calendar metadata that could imply spacing',()=>{
+ const snapshot=prepareProgramAnalysisSnapshot(fixtures['sequence-unknown-cadence']);
+ const data=JSON.parse(buildProgramAnalysisMessages(snapshot)[1].content);
+ assert.equal(Object.hasOwn(data.facts,'scheduledDays'),false);
+ assert.equal(Object.hasOwn(data.facts,'unscheduledCount'),false);
+ assert.equal(Object.hasOwn(data.program.workouts[0],'day'),false);
+ assert.equal(Object.hasOwn(data.facts.sessions[0],'day'),false);
+ assert.deepEqual(snapshot.workouts.map(w=>w.day),[0,4,null]);
+});
+test('provider projection uses readable occurrence sharing and computed goal/day facts',()=>{
+ const p=structuredClone(fixtures['repeated-template']);p.workouts[1].day=0;
+ const data=JSON.parse(buildProgramAnalysisMessages(prepareProgramAnalysisSnapshot(p))[1].content);
+ assert.deepEqual(data.program.templates[0].occurrences,[1,2]);
+ assert.equal(JSON.stringify(data).includes('template-1'),false);assert.equal(JSON.stringify(data).includes('workout-1'),false);
+ assert.equal(data.facts.volume.Chest.goalStatus,'under');assert.equal(data.facts.volume.Chest.goal,8);
+ assert.deepEqual(data.facts.scheduledDayDurations,[{day:0,occurrences:[1,2],totalSeconds:1848,displayMinutes:31}]);
+});
+test('Week provider messages withhold inactive Sequence/rest metadata',()=>{
+ const p=structuredClone(fixtures.unscheduled);p.sequence=[{type:'workout',workoutId:'occ-a'},{type:'rest',id:'hidden'},{type:'workout',workoutId:'occ-b'},{type:'workout',workoutId:'occ-c'}];
+ const data=JSON.parse(buildProgramAnalysisMessages(prepareProgramAnalysisSnapshot(p))[1].content);
+ assert.equal(data.program.layout,'Week');assert.equal(Object.hasOwn(data.program,'sequence'),false);
+ assert.equal(data.facts.unscheduledCount,3);
+});
+test('Week muscle calendar gaps wrap Friday to Monday as three days and stay absent in Sequence',()=>{
+ const week=JSON.parse(buildProgramAnalysisMessages(prepareProgramAnalysisSnapshot(fixtures['repeated-template']))[1].content);
+ assert.deepEqual(week.facts.scheduledMuscleSpacing.Chest,{days:[0,4],cyclicGaps:[{from:0,to:4,days:4},{from:4,to:0,days:3}],hasUnscheduled:false});
+ assert.equal(week.facts.scheduledMuscleSpacing.Glutes.hasUnscheduled,true);
+ const sequence=JSON.parse(buildProgramAnalysisMessages(prepareProgramAnalysisSnapshot(fixtures['sequence-unknown-cadence']))[1].content);
+ assert.equal(Object.hasOwn(sequence.facts,'scheduledMuscleSpacing'),false);
+});

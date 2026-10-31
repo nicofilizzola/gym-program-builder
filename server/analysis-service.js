@@ -10,6 +10,7 @@ export function createAnalysisService({apiKey,model='anthropic/claude-sonnet-4.6
   if(!['session','program'].includes(scope))throw analysisError('Invalid analysis scope.');
   const messages=scope==='program'?buildProgramAnalysisMessages(snapshot):buildAnalysisMessages(snapshot);
   const promptVersion=scope==='program'?PROGRAM_ANALYSIS_PROMPT_VERSION:ANALYSIS_PROMPT_VERSION;
+  const generation=scope==='program'?{max_tokens:2500,reasoning:{enabled:true,max_tokens:1024,exclude:true}}:{max_tokens:1500,temperature:0.2,reasoning:{enabled:false}};
   if(!enabled)throw analysisError('Session analysis is not configured.','CONFIGURATION',503);
   const abort=new AbortController();let timedOut=false;
   const forward=()=>abort.abort(signal.reason);if(signal?.aborted)forward();else signal?.addEventListener('abort',forward,{once:true});
@@ -18,7 +19,7 @@ export function createAnalysisService({apiKey,model='anthropic/claude-sonnet-4.6
   let upstream;
   const timeoutError=()=>analysisError('Analysis timed out. Please retry.','TIMEOUT',504);
   try{
-   upstream=await request('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:abort.signal,body:JSON.stringify({model,messages,stream:true,max_tokens:1500,temperature:0.2,reasoning:{enabled:false},provider:{only:[provider],allow_fallbacks:false}})});
+   upstream=await request('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:abort.signal,body:JSON.stringify({model,messages,stream:true,...generation,provider:{only:[provider],allow_fallbacks:false}})});
    if(!upstream.ok){await upstream.body?.cancel();const errors={401:['Analysis provider credentials need updating.','CONFIGURATION',503],402:['Analysis credit limit reached.','CREDITS',402],429:['Analysis is busy. Please retry shortly.','RATE_LIMIT',429]};throw analysisError(...(errors[upstream.status]||['Analysis provider is unavailable. Please retry.','PROVIDER',502]));}
    if(!upstream.headers.get('content-type')?.includes('text/event-stream'))throw analysisError('Analysis provider returned an invalid response.','PROVIDER',502);
   }catch(error){cleanup();abort.abort();if(timedOut)throw timeoutError();if(signal?.aborted)throw signal.reason;if(error.code)throw error;throw analysisError('Analysis provider is unavailable. Please retry.','PROVIDER',502);}

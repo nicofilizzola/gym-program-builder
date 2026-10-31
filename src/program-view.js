@@ -264,7 +264,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   buildOverview();return {
     setAnalysisEnabled(next){analysisEnabled=next;analysisPanel?.setEnabled(next);},
     syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else patchOverview();},
-    update(next){viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else patchOverview();},
+    update(next){confirmationController.abort();confirmationController=new AbortController();viewGeneration++;viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else patchOverview();},
     focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();reorderMenu.destroy();root.replaceChildren();}
   };
 }

@@ -108,3 +108,23 @@ Verify reference creation without a variant, nested catalog/picker search, paren
 Run `npm run db:migrate` explicitly before starting this version against an existing environment. Migration 004 adds a nullable exercise_type column to reference groups; legacy custom references remain unclassified with a two-minute fallback until edited. Then run `npm run db:seed` explicitly: seed version 2 classifies known unchanged active starter references once. It preserves chosen types, renamed references, archived references/variants and saved workout rest. Never run either command during builds or requests; repeat separately for preview and production with their own database credentials.
 
 New reference creation requires Compound or Isolation. Type edits affect future initial selections only. Verify a compound selection starts at 3 minutes, an isolation selection at 1 minute 30 seconds, and existing rest overrides survive classification edits, moves and reloads. Duration inputs use document JSON; version-2 exports add rest/extra/buffer fields while old files import with defaults. Older app builds can discard timing on re-export; retain current-format exports and a tested database backup before rollback.
+
+## Program hypertrophy analysis update
+
+This release uses the existing server-side OpenRouter configuration and capability endpoint. Program analysis posts a self-contained snapshot to `/api/analysis/program`; standalone session analysis retains `/api/analysis`. No new database migration, seed, table or environment variable is required. The Vercel rewrite already forwards the nested route and the existing 75-second function limit covers the 60-second generation timeout. Keep development, preview and production keys/databases separate.
+
+Program generation reserves 1,024 reasoning tokens inside a 2,500-token total cap, with reasoning excluded from the response. It omits temperature for this reasoning-enabled request. Session generation retains its existing 1,500-token/no-reasoning/0.2-temperature settings. Live comparison selected the program budget after arithmetic/cadence errors persisted without reasoning; expect some additional latency and spend. The existing generation timeout, output-byte limit, provider routing and spending caps still apply.
+
+Program context is optional JSON metadata under the existing program revision. v3 program exports include these notes, while reports remain temporary and disappear on navigation. Existing v1/v2/v3 files without context still import. An older app version may discard this new metadata on save/re-export, so preserve current v3 exports and a tested database backup before rolling back to one.
+
+Explicit synthetic evaluation command (one fixture and one provider request):
+
+```powershell
+node --env-file-if-exists=.env.local scripts/evaluate-program-analysis.js --live --fixture sound-program
+```
+
+Omitting `--live`, using an unknown fixture or supplying multiple fixtures exits before provider access. Automated tests/builds never run paid evaluations. Use the configured development key with its spending cap and inspect the recorded provider usage; Stop cannot guarantee that no additional provider charge occurs.
+
+Before enabling a preview/production deployment, verify the nested endpoint on that actual environment: sign in, add context, analyze a populated program, observe text before completion, Stop a generation, reopen without an automatic new request, retry explicitly, and confirm context survives reload and v3 export/import. Exercise an empty session, an unavailable provider and a shared-template refresh while context has focus. Confirm usage/cancellation behavior in the provider dashboard. Local smoke evidence does not verify remote routing, proxy buffering or accounting.
+
+Actual local results and pending operator release checks are recorded in [the verification record](superpowers/verification/2026-10-31-program-analysis.md). No preview or production deployment is implied by local verification.

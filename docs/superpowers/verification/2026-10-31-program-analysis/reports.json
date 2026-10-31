@@ -1,0 +1,312 @@
+{
+  "model": "anthropic/claude-sonnet-4.6",
+  "syntheticOnly": true,
+  "finalEvaluationConfiguration": {
+    "reasoningTokens": 1024,
+    "totalGenerationTokens": 2500,
+    "reasoningExcluded": true
+  },
+  "reports": [
+    {
+      "exitCode": 0,
+      "fixture": "repeated-template",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program's three sessions are minimal in scope: two shared Push occurrences (Monday and Friday) each containing only Bench, and an Unscheduled Lower containing only Hip thrust. The sole stated priority is building muscle with a 60-minute per-session budget. Each session is estimated at 16 minutes, leaving substantial unused time relative to that budget. The one recorded goal — 8 sets of Chest direct volume — is not met at 6 direct sets.\n\nStrengths\n- Both Push occurrences are well within the 60-minute session budget at 16 minutes each, leaving meaningful room to add work without approaching the constraint.\n- Monday and Friday placement spaces the two Push sessions across the week, which may allow recovery between identical Bench exposures, though actual recovery is not observed.\n\nImprovements\n1. The Chest goal is unmet. The program records 6 direct Chest sets against a target of 8. Because the Push template is shared between occurrences 1 and 2, adding one set to Bench — bringing it from 3 to 4 sets — would increase direct Chest volume across both occurrences and also increase indirect Triceps work in both. The trade-off is that the app must verify the updated duration estimate; the current 16-minute figure per session would rise, though both sessions start well below 60 minutes. This is the smallest meaningful adjustment: a single set added once to the shared template resolves the gap across both occurrences without changing the split or adding sessions.\n\nNo clear changes are warranted beyond the above from this program alone.\n\nLimits\nThe training background field is empty, so there is no basis to evaluate whether the current exercise selection, set counts, or session frequency are appropriate for the user's experience level; that context would materially sharpen any volume recommendation.",
+      "usage": {
+        "inputTokens": 3764,
+        "outputTokens": 424,
+        "cost": 0.017652
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "same-name-independent",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program's three sessions deliver focused Chest and Glutes work with well within the 60-minute per-session constraint, but the only stated goal — 8 Chest sets — is not met: the program totals 6 direct Chest sets across the two Push occurrences (positions 1 and 2), leaving it 2 sets short. The Monday-to-Friday Push spacing is reasonable for distributing that Chest work across the week.\n\nStrengths\n- Each session is estimated at 16 minutes, well inside the 60-minute per-session limit, leaving meaningful room to add work without approaching the constraint.\n- Separating the two Push sessions across Monday (position 1) and Friday (position 2) distributes Chest stimulus across the week rather than concentrating it.\n- The Unscheduled Lower session (position 3) keeps Glutes work structurally isolated from the Push sessions, avoiding any template-level overlap between those muscle groups.\n\nImprovements\n1. The program records 6 direct Chest sets against an 8-set goal, so the goal is not met. Because Push occurrences 1 and 2 use independent templates, a set increase can be applied to one or both without affecting the other. Adding one set of Bench to each occurrence (bringing each to 4 sets) would increase direct Chest volume in both sessions and also add indirect Triceps volume in each. Each session is currently 16 minutes with headroom to spare, so the app should verify the new estimate remains within 60 minutes after the edit. The trade-off is slightly more per-session time and accumulated Triceps indirect load across the week.\n\nLimits\nTraining background is not provided, so whether the current or adjusted volume is appropriate to the user's experience level cannot be assessed from this program alone.",
+      "usage": {
+        "inputTokens": 3855,
+        "outputTokens": 428,
+        "cost": 0.017985
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "sequence-unknown-cadence",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program is a minimal three-session Sequence built around two Push occurrences and one Lower session. Each session is estimated at 16 minutes, well within the 60-minute per-session limit, but the single stated goal — 8 direct Chest sets — is not met: the two Push occurrences (sharing one template, 3 sets of Bench each) produce 6 direct Chest sets in total.\n\nStrengths\n- Both Push occurrences use the same single-exercise structure, keeping each session concise and well inside the 60-minute budget.\n- The Lower session isolates Glutes via Hip thrust without overlapping the push muscles, keeping the two blocks cleanly separated.\n\nImprovements\n1. The Chest direct total is 6 sets against a goal of 8. Each Push occurrence contributes 3 sets of Bench because they share the same template. Adding one set to Bench — making it 4 sets per occurrence — would raise the direct Chest total across both occurrences and also increase Triceps indirect volume across both. Because the template is shared, this change affects Push occurrence 1 and Push occurrence 2 simultaneously; a change intended for only one occurrence would require an independent template. The trade-off is a modest increase in session duration for both Push sessions — the app should be checked to confirm the new estimate still fits the 60-minute budget, though both are currently at 16 minutes with substantial headroom.\n\nNo clear changes are warranted beyond this single adjustment.\n\nLimits\nNo training background or approach is supplied, so whether the current exercise selection and volume distribution within each session is appropriate for the individual's experience level cannot be assessed.",
+      "usage": {
+        "inputTokens": 3700,
+        "outputTokens": 388,
+        "cost": 0.01692
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "priority-delts",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v12",
+      "report": "Assessment\nThe program's most significant issue is that its top stated priority — side delts — receives zero direct or indirect sets across all three sessions, making it entirely unaddressed. Chest, the stated maintenance target, falls short of its 8-set goal at 6 direct sets, while the session time budget of 60 minutes is comfortably met, with each session estimated at 16 minutes.\n\nStrengths\n- Both Push sessions (occurrences 1 and 2, Monday and Friday) are separated by four calendar days in one direction and three in the other, giving Chest and Triceps a reasonable scheduling rhythm relative to the maintenance intent.\n- Each session's 16-minute estimate sits well within the 60-minute per-session constraint, leaving substantial room to add work without approaching the limit.\n\nImprovements\n1. Side delts receive no sets anywhere in the program, directly contradicting the stated specialization priority. Adding a side-delt exercise — for example, a lateral raise for 3 sets — to the Push template would insert side-delt direct volume into both occurrences (Push 1 on Monday and Push 2 on Friday). Because the Push template is shared, this edit affects both sessions simultaneously. The trade-off is a modest increase to both sessions' estimated durations, which the app should verify, though the current 16-minute baseline leaves ample room.\n\n2. Chest direct volume totals 6 sets against a stated goal of 8, meaning the maintenance target is not met. Adding one set to Bench in the Push template — bringing it from 3 to 4 sets — would increase Chest direct and Triceps indirect volume in both Push occurrences, moving the program closer to the 8-set goal. Again, the app should verify the revised session duration estimates. The trade-off is the same template constraint: any change applies to both Push sessions, so both sessions grow equally. If that is acceptable, this is a straightforward adjustment.\n\nLimits\nThe training background field is empty, so the adequacy of current exercise selection and set counts for the user's actual experience level cannot be assessed, and the Lower session's timing is unknown, meaning its Glutes contribution cannot be placed in any recovery context relative to the scheduled sessions.",
+      "usage": {
+        "inputTokens": 4251,
+        "outputTokens": 513,
+        "cost": 0.020448
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "priority-maintenance",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program fits the \"short workouts\" constraint well, with each session estimated at 16 minutes against a 60-minute limit. However, the single stated goal — 8 sets of Chest — is not met: the program delivers 6 direct Chest sets, leaving it under target. The maintenance priority for everything else is broadly reflected by the minimal, focused structure.\n\nStrengths\n- Both Push sessions (occurrences 1 and 2, Monday and Friday) are each estimated at 16 minutes, well within the 60-minute per-session preference, leaving substantial headroom.\n- The Lower session (occurrence 3, Unscheduled) keeps Glutes work entirely separate from the Push template, avoiding any overlap between those muscles across sessions.\n\nImprovements\n1. Chest direct volume falls short of the 8-set goal. The program accumulates 6 direct Chest sets across both Push occurrences against a user target of 8. Because both Push sessions share one template, adding one set to Bench — from 3 to 4 sets — would raise direct Chest sets in both occurrences simultaneously, closing the gap to the 8-set goal. The trade-off is that this also increases indirect Triceps volume in both sessions and will add to the estimated duration of both Push occurrences; the app should be used to verify the new estimate, though the current 16-minute baseline leaves substantial room within the 60-minute limit.\n\nLimits\nThe training background field is empty, so it is unknown whether the current exercise selection, set counts, or frequency are appropriate relative to the user's actual training history and recovery capacity.",
+      "usage": {
+        "inputTokens": 3771,
+        "outputTokens": 388,
+        "cost": 0.017133
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "time-mismatch",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe primary finding is a direct conflict between the strict 15-minute session constraint and the estimated duration of every session in this program. All three sessions — Push 1 (Monday), Push 2 (Friday) and the Unscheduled Lower — are each estimated at 39 minutes, well above the stated limit. Separately, the Chest total of 20 direct sets exceeds the 8-set goal, which is itself a product of 10 Bench sets appearing in both Push occurrences.\n\nStrengths\n- Push 1 is placed on Monday and Push 2 on Friday, providing meaningful calendar spacing between the two identical sessions within the repeating week.\n- The program cleanly separates push-pattern and lower-pattern work into distinct sessions, with no overlap between the Chest/Triceps work in Push and the Glutes work in Lower.\n\nImprovements\n1. Every session exceeds the 15-minute limit by a large margin. Each session's 39-minute estimate reflects 10 sets at 120-second rest plus extra time and a buffer. Because Push is a shared template, reducing Bench sets affects both Push 1 (Monday) and Push 2 (Friday). Reducing Bench sets on the Push template — for example from 10 to 3 — would substantially shorten both scheduled occurrences; the app must verify whether the new estimate falls within 15 minutes. The trade-off is a large reduction in Chest direct volume and Triceps indirect volume across both Push sessions.\n\n2. With 10 sets per Push session across two occurrences, Chest direct volume totals 20 sets against an 8-set goal. The same set reduction described above would move Chest volume closer to the stated goal. If Bench were reduced to 3 sets per session on the shared template, the combined Chest total from both Push sessions would still need to be checked against the goal by the app; note that the Lower session contributes no Chest volume. The trade-off of any reduction is the same as noted above: less total Chest and Triceps work per week.\n\n   The Unscheduled Lower session is also estimated at 39 minutes for the same structural reasons (10 sets of Hip thrust at 120-second rest). Reducing Hip thrust sets on that template would bring its estimate toward the 15-minute limit; the app must verify the result.\n\nLimits\nNo training background is provided, so how much volume reduction is appropriate relative to the user's current capacity cannot be assessed from this program alone.",
+      "usage": {
+        "inputTokens": 3769,
+        "outputTokens": 1338,
+        "cost": 0.031377
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "structural-mismatch",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nAll three sessions are assigned to Monday, producing a combined estimated duration of 47 minutes against a stated 30-minute total constraint — a significant overage that is the dominant issue in this program. The Chest goal (6 of 8 target direct sets) is also unmet, but resolving that gap and the time overrun pull in opposite directions, creating a structural tension that a single small adjustment cannot resolve.\n\nStrengths\n- Concentrating all volume on the one available training day is consistent with a Monday-only constraint, and the Push template cleanly isolates Chest as the primary driver of the stated Chest goal.\n- Separating Glutes work into a dedicated Lower session keeps Hip thrust out of the Push sessions, avoiding any set-count inflation in the Chest-focused blocks.\n\nImprovements\n1. The combined Monday estimate of 47 minutes exceeds the 30-minute total. The most direct reduction is removing Lower (occurrence 3) from Monday entirely; the app would recalculate the combined estimate, and the trade-off is losing all 3 recorded Glutes direct sets with no remaining Glutes work in the program. Alternatively, reducing Bench from 3 sets to 2 sets in the shared Push template cuts time in both occurrences 1 and 2, but further lowers Chest direct volume below the already-unmet goal of 8.\n\n2. Chest direct volume sits at 6 sets against an 8-set target. Adding one set to Bench in the Push template would raise Chest direct volume in both occurrences 1 and 2, but would also extend each session's estimate and increase the already-over-budget Monday combined total further. These two findings conflict directly: closing the Chest gap and fitting the time budget cannot both be achieved by adjusting sets within the current three-session structure without one priority yielding to the other. A structural decision — such as accepting the under-goal Chest total within budget, or reconsidering the session count — is needed before a reliable prescription edit can be made.\n\nLimits\nThe most material unknown is whether the 30-minute figure applies to each individual session or to the combined Monday total; if it is a per-session limit, each session's 16-minute estimate fits, but the Chest gap and multi-session same-day scheduling remain open questions without a daily-total cap to evaluate against.",
+      "usage": {
+        "inputTokens": 3754,
+        "outputTokens": 1343,
+        "cost": 0.031407
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "fixed-constraints",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program meets the fixed constraints — three sessions kept, bench press retained, no extra days added — but the Chest direct volume sits at 6 sets against an 8-set goal, leaving that target unmet. The two Push sessions on Monday and Friday each deliver 3 direct Chest sets via Bench, and the Unscheduled Lower session contributes only Glutes work, so the gap is entirely within the Push template.\n\nStrengths\n- Both Push occurrences use Bench with a hypertrophy rep range and adequate rest, directly serving the stated Chest priority across two sessions per week.\n- The Lower session cleanly isolates Glutes without introducing overlap with the push muscles, keeping the session purposes distinct.\n\nImprovements\n1. The Chest goal of 8 direct sets is not met; the program records 6. Both Push occurrences share a single template, so adding one set of Bench to that template — raising it from 3 to 4 sets — would increase direct Chest volume across both Push occurrences (positions 1 and 2) and also increase indirect Triceps work in both. This is the smallest change that closes the gap without adding a session or exercise. The trade-off is that both occurrences grow in duration; the app should be checked for the updated estimate to confirm it remains comfortable. Note that a prescription change applied to only one occurrence would require that occurrence to have its own independent template.\n\nLimits\nNo time budget or session duration preference is stated, so it is unknown whether adding a set to both Push sessions would conflict with any unstated time constraint; the current displayed estimate for each is 16 minutes.",
+      "usage": {
+        "inputTokens": 3774,
+        "outputTokens": 383,
+        "cost": 0.017067
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "sound-program",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThis is a deliberately minimal program built around the stated priority of maintaining pressing and glutes with low-volume focused sessions. The Chest goal of 6 direct sets is met across the two Push occurrences (positions 1 and 2, Monday and Friday), and both the Push and Lower sessions each estimate 16 minutes, well within the 60-minute per-session constraint.\n\nStrengths\n- Both Push occurrences use a single focused exercise (Bench, 3 sets each) that directly serves the stated pressing-maintenance priority without unnecessary volume accumulation.\n- The Lower session isolates Hip Thrust for 3 direct Glutes sets, matching the explicit glutes-maintenance aim with equal economy.\n- All three sessions sit comfortably within the 60-minute limit at 16 minutes each, leaving room to add work if priorities shift without breaching the constraint.\n\nImprovements\nNo clear changes are warranted from this program alone.\n\nLimits\nNo training background, current ability level, or cadence for the Unscheduled Lower session is supplied, so it is unknown how frequently Glutes receive stimulus relative to the twice-weekly Push sessions; that frequency gap may or may not align with the maintenance intent but cannot be assessed here.",
+      "usage": {
+        "inputTokens": 3775,
+        "outputTokens": 298,
+        "cost": 0.015795
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "absent-context",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program's only stated goal is an 8-set Chest target, which is not met: 6 direct sets are recorded across both Push occurrences, leaving it 2 sets short. Otherwise the structure is minimal and internally consistent, with Push work concentrated on two days and isolated Glutes work in an Unscheduled Lower session.\n\nStrengths\n- Both Push sessions are brief and identical at 16 minutes each, keeping sessions compact and manageable.\n- Placing Push on day 0 and day 4 provides a gap of four days between the two occurrences within the weekly repeat, which offers a spacing opportunity between Chest exposures.\n- The Lower session targets Glutes directly without overlap with the Push content, keeping the two session types cleanly separated by muscle.\n\nImprovements\n1. The program's one stated goal — 8 sets of Chest — is not met. The shared Push template contains 3 sets of Bench per occurrence, producing 6 direct Chest sets across two occurrences. To close that gap, increasing Bench from 3 to 4 sets within the shared Push template would raise Chest direct sets and also increase Triceps indirect sets in both Push occurrence 1 (Monday) and Push occurrence 2 (Friday). The trade-off is that both sessions will run slightly longer than their current 16-minute estimate; the app must verify the new duration after any edit. Alternatively, adding a second Chest exercise to the template would have the same volume effect with the same caveat about both occurrences and session length.\n\nLimits\nNo goals, constraints, preferences or training background are supplied, so it is unknown whether the Chest target is a specialization priority, whether the Lower session's Unscheduled timing creates any meaningful conflict with the Push days, or whether any time-per-session limit applies.",
+      "usage": {
+        "inputTokens": 3759,
+        "outputTokens": 428,
+        "cost": 0.017697
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "conflicting-context",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program's constraints directly contradict each other: the notes state a two-training-day maximum yet also require keeping all three existing sessions (Push on Monday, Lower on Wednesday, Push on Friday). This conflict is the primary finding and must be resolved before any structural recommendation is reliable. The Chest direct total of 6 falls short of the goal of 8, but the explicit instruction not to change chest work means that gap cannot be addressed through the program as stated.\n\nStrengths\n- The two Push occurrences (Monday and Friday) concentrate all Chest direct work in the prioritized muscle, consistent with the stated chest priority.\n- Placing Lower on Wednesday keeps it between the two Push sessions, which at minimum separates the Chest-focused days across the week.\n\nImprovements\n1. The \"two training days maximum\" and \"keep all three existing days\" constraints are irreconcilable as written. Three scheduled sessions on Monday, Wednesday and Friday cannot simultaneously satisfy a two-day cap. One of these rules must take precedence before any split or session-count change can be reliably recommended. No adjustment can satisfy both; the user needs to clarify which constraint governs.\n\nLimits\nThe contradiction in the constraints is the binding unknown here: without knowing which rule the user intends to enforce, it is not possible to assess whether the session count, the Chest goal gap, or the day arrangement require any further change.",
+      "usage": {
+        "inputTokens": 3807,
+        "outputTokens": 602,
+        "cost": 0.020451
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "unknown-exercise",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program's two Push sessions (occurrences 1 and 2) and one Unscheduled Lower session are minimal in content, and the sole stated priority is building muscle. The Chest goal of 8 direct sets is not met: the program records 6 direct Chest sets against that target of 8, with both Push sessions sharing the same single-exercise template (Bench, 3 sets each). All three sessions estimate 16 minutes, well inside the 60-minute per-session constraint.\n\nStrengths\n- Both Push sessions fit comfortably within the 60-minute per-session limit at 16 minutes each, leaving substantial room to add volume without approaching the constraint.\n- Scheduling Push occurrences on Monday (day 0) and Friday (day 4) places them at opposite ends of the week, offering spacing between the two identical sessions.\n\nImprovements\n1. The program records 6 direct Chest sets against a stated goal of 8, so the goal is not currently met. Both Push sessions use the shared Push template, so adding sets to Bench — for example increasing from 3 to 4 sets — would apply to both occurrences 1 and 2, raising direct Chest volume in each session and increasing indirect Triceps work in both as well. Given the 16-minute current estimate per session and the 60-minute limit, there is meaningful headroom for this addition; the app should verify the updated estimate after any edit. Alternatively, a second Chest exercise could be added to the shared template, which would similarly affect both occurrences. The trade-off is that any template change affects both Push sessions simultaneously; a different prescription for only one occurrence would require making it an independent template.\n\nLimits\nThe Unscheduled Lower session's timing relative to the two Push days is unknown, so whether its Glutes work and the Push sessions cluster or spread across the week cannot be assessed; the \"60 minutes\" constraint unit is stated per-session based on context, but if it were intended as a combined daily limit, the two scheduled days each already sit at 16 minutes and would remain well under either interpretation.",
+      "usage": {
+        "inputTokens": 3766,
+        "outputTokens": 498,
+        "cost": 0.018768
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "unscheduled",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v12",
+      "report": "Assessment\nThe program's sole stated priority is building muscle, and the only numerical goal supplied is 8 sets of Chest. The three Unscheduled sessions each estimate 16 minutes, well within the 60-minute per-session constraint, but the program currently records 6 direct Chest sets against that 8-set target, leaving it unmet. All sessions lack assigned days, so no scheduling or spacing analysis is possible.\n\nStrengths\n- Both Push occurrences are lean and well within the 60-minute per-session limit at 16 minutes each, leaving substantial room to add work without approaching the constraint.\n- The Lower session cleanly isolates Glutes via Hip thrust with no interference from the push-focused work, which aligns with a simple, focused split.\n\nImprovements\n1. The program records 6 direct Chest sets (3 per Push occurrence) against the stated goal of 8. Because both Push sessions share the same template, adding one set of Bench in that template — raising it from 3 to 4 sets — would apply to both occurrences (Push #1 and Push #2), increasing direct Chest volume in each session and also increasing indirect Triceps volume in each. The trade-off is a small increase in session duration for both Push sessions; the app should verify the new estimate after the edit. Alternatively, a second Chest exercise added to the shared template would achieve the same gap closure with more exercise variety, at the cost of a larger duration increase across both occurrences.\n\nLimits\nAll three sessions are Unscheduled, so inter-session spacing for Chest and Triceps across both Push occurrences is entirely unknown, making it impossible to assess whether recovery between exposures is adequate for the stated hypertrophy goal.",
+      "usage": {
+        "inputTokens": 4126,
+        "outputTokens": 415,
+        "cost": 0.018603
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "malicious-text",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program's three sessions — Push (occurrence 1, Monday), Push (occurrence 2, Friday), and Lower (Unscheduled) — deliver 6 direct Chest sets against an 8-set goal, and all three estimated durations sit at 16 minutes, well within the 60-minute per-session constraint. The primary gap is the Chest volume shortfall, and the program is otherwise very sparse.\n\nStrengths\n- Both Push sessions share a single template and each fits comfortably within the 60-minute per-session limit at an estimated 16 minutes, leaving substantial room to add work without approaching the constraint.\n- Separating Monday and Friday Push sessions provides meaningful calendar spacing between the two Chest-primary sessions, which is a reasonable structural choice for a hypertrophy focus on that muscle.\n\nImprovements\n1. Chest direct volume is 6 sets against the stated 8-set goal. The shortfall is two sets. Because both Push occurrences share one template, adding one set to Bench (from 3 to 4 sets) would raise Chest direct volume in both occurrences simultaneously, also increasing Triceps indirect work across both sessions. This is a concrete route toward the goal using existing structure. The trade-off is that this template change affects both Push occurrences together — a prescription change applying to only one occurrence would require detaching it into an independent template, which is a separate editorial decision. The app should verify the new duration estimate after any edit.\n\nNo clear further changes are warranted from this program alone beyond that volume gap.\n\nLimits\nThe Lower session is Unscheduled, so its placement relative to the two Push sessions is unknown; whether it creates any density concern within a given week cannot be determined. More broadly, the program covers only Chest, Triceps, and Glutes — all other mapped muscles show zero volume — but no additional muscle priorities are stated, so the scope of this review is confined to what is supplied.",
+      "usage": {
+        "inputTokens": 3793,
+        "outputTokens": 460,
+        "cost": 0.018279
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "long-program",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v11",
+      "report": "Assessment\nThe program schedules 50 Push occurrences sharing one template across all seven weekdays, producing combined daily estimates of 108–124 minutes well above the stated 60-minute-per-training-day limit. The sole stated priority is building muscle (Chest goal: 8 sets), which is numerically exceeded at 150 direct Chest sets program-total, but the session-stacking arrangement makes the program structurally incompatible with the time constraint as supplied.\n\nStrengths\n- Each individual Push session is estimated at 16 minutes, leaving the 60-minute per-session budget largely unused and confirming the session template itself is compact.\n- The Chest goal is exceeded in total program volume, reflecting consistent inclusion of Bench across all 50 occurrences.\n\nImprovements\n1. The core problem is that multiple Push occurrences are assigned to the same weekday, and the combined daily estimates (124 minutes on Monday, 108 minutes on every other day) substantially exceed the stated 60-minute-per-training-day limit. This applies to every day of the week. Monday alone stacks occurrences 1, 8, 15, 22, 29, 36, 43, and 50; Tuesday through Sunday each stack seven occurrences. The constraint says 60 minutes per training day, and the combined daily estimates are roughly double that on most days and more than double on Monday. The smallest meaningful correction is to reduce the number of Push occurrences assigned per weekday so that each day's combined estimate falls at or below 60 minutes. Given each occurrence is estimated at 16 minutes, a single occurrence per day would sit well within the limit; the app must verify any revised daily estimate after reassignment. The trade-off is a large reduction in total program Chest volume from its current 150 direct sets, which would require revisiting how the Chest goal of 8 sets is distributed.\n\nLimits\nNo training background or approach is provided, so it is unknown whether the 50-occurrence layout reflects intentional periodization, a data-entry error, or an experiment with the scheduling tool; that context would materially change the relevance of any structural recommendation.",
+      "usage": {
+        "inputTokens": 18243,
+        "outputTokens": 501,
+        "cost": 0.062244
+      }
+    }
+  ],
+  "comparisonProbes": [
+    {
+      "exitCode": 0,
+      "fixture": "time-mismatch",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v10",
+      "report": "Assessment\nEvery session is estimated at 39 minutes, far exceeding the strict 15-minute constraint, and Chest direct volume (20 sets) is well over the stated goal of 8. These two mismatches share a common cause—set counts—and are the dominant fit problems for this program.\n\nStrengths\n- Push occurrence 1 (Monday) and Push occurrence 2 (Friday) are separated by four days, providing clear calendar spacing between the two Bench-heavy sessions.\n- The Lower session isolates Glutes work with no overlap with the Push template muscles, keeping the two training focuses distinct.\n\nImprovements\n1. The shared Push template's 10-set Bench prescription drives both the duration problem and the Chest overshoot simultaneously. Both Push occurrences (1, Monday and 2, Friday) show 39-minute estimates against a strict 15-minute limit, and 20 direct Chest sets against a goal of 8. Because the template is shared, reducing Bench sets affects both occurrences together. For example, changing Bench from 10 sets to 4 sets would bring total Chest direct work in line with the 8-set goal and meaningfully shorten each session; the app must verify whether the resulting estimate falls within 15 minutes. The trade-off is that Triceps indirect volume across both occurrences also decreases proportionally.\n\n2. The Lower session (occurrence 3, Unscheduled) carries the same 10-set, 120-second-rest structure as Push and is likewise estimated at 39 minutes. Reducing Hip thrust sets in the Lower template would address this independently of the Push change. Again, the app must verify the new duration estimate. The trade-off is reduced Glutes direct volume for that session.\n\nLimits\nTraining background and approach are not supplied, and the Lower session is Unscheduled, so its placement relative to the two Monday/Friday Push sessions cannot be assessed.",
+      "usage": {
+        "inputTokens": 3726,
+        "outputTokens": 1386,
+        "cost": 0.031968
+      },
+      "probe": {
+        "reasoningTokens": 1024,
+        "totalTokens": 2500
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "long-program",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v10",
+      "report": "Assessment\nThe program places 50 identical Push occurrences across all seven weekdays using a single shared template, stacking 7–8 sessions onto every day of the repeating weekly arrangement. Every day's combined estimated duration is 108–124 minutes, well above the stated 60-minute constraint, and total Chest direct volume is 150 sets against a goal of 8 — vastly over target. This structure does not fit either stated priority.\n\nStrengths\n- Each individual Push session is estimated at 16 minutes, so the session-level content is compact and well within the time limit on its own.\n- Bench is correctly mapped as primary Chest and secondary Triceps, producing clean volume accounting.\n\nImprovements\n1. The root issue is the number of occurrences. With 50 Push sessions all sharing one template and distributed across every weekday, each day accumulates multiple back-to-back sessions and a combined daily estimate far exceeding 60 minutes. The Chest total of 150 direct sets against a goal of 8 is a direct consequence of this stacking. To bring the program in line with both constraints, the number of Push occurrences needs to be reduced substantially — for example, retaining 3 occurrences on 3 separate days (e.g., Monday, Wednesday, Friday) would produce 9 direct Chest sets per week, just above the 8-set goal, with each individual session remaining at its current 16-minute estimate. Because all 50 occurrences share the same Push template, removing occurrences does not require any template edits; only the session count and day assignments need to change. The trade-off is that reducing to roughly 3 sessions also reduces Triceps indirect volume proportionally, and any day that currently holds multiple stacked occurrences would need all but one removed or reassigned.\n\nLimits\nNo training background or frequency preference is supplied, so it is unknown whether this stacking resulted from a data-entry error or a deliberate (if unconventional) intent, which affects how aggressively the session count should be reduced.",
+      "usage": {
+        "inputTokens": 18195,
+        "outputTokens": 836,
+        "cost": 0.067125
+      },
+      "probe": {
+        "reasoningTokens": 1024,
+        "totalTokens": 2500
+      }
+    }
+  ],
+  "rejectedExamples": [
+    {
+      "exitCode": 0,
+      "fixture": "sound-program",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v1",
+      "report": "Assessment\nThis is a minimal maintenance program built around two stated priorities — pressing (Chest) and Glutes — and it largely delivers on both. The two Push sessions (Monday, occurrence 1 and Friday, occurrence 2, sharing template-1) provide 6 direct Chest sets across the week against a goal of 8, leaving a small gap; the Unscheduled Lower session (template-2) covers Glutes with 3 direct sets. The 60-minute constraint is comfortably met, with each session estimated at 16 minutes.\n\nStrengths\n- The Monday/Friday Push split gives a clean 4-day gap between Chest sessions, supporting recovery within a maintenance context.\n- Session design is deliberately lean: one exercise per session, well within the time constraint, consistent with the low-volume focused intent stated in priorities.\n- Keeping Glutes in a separate Unscheduled Lower session avoids any scheduling conflict with the pressing days and keeps each session purpose-clear.\n\nImprovements\n1. Chest volume sits at 6 direct sets against the stated goal of 8. The gap is modest but real. Because both Push sessions share template-1, adding one set of Bench there would bring each session to 4 sets (8 total direct), closing the gap without adding an exercise or a session. The trade-off is a small increase in session duration (estimated roughly 2–3 minutes per occurrence) and the change would affect both Push occurrences simultaneously since the template is shared.\n\nNo further changes are warranted from this program alone.\n\nLimits\nThe Unscheduled Lower session has no assigned day, so its placement relative to the Push sessions and actual weekly Glutes frequency cannot be assessed.",
+      "usage": {
+        "inputTokens": 2701,
+        "outputTokens": 384,
+        "cost": 0.013863
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "sequence-unknown-cadence",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v2",
+      "report": "Assessment\nThis is a minimal program with two scheduled Push sessions (Monday and Friday in the sequence) sharing the Bench template, plus one Unscheduled Lower session. The sole stated priority is building muscle with a Chest goal of 8 sets; the program accumulates 6 direct Chest sets across the two Push occurrences, leaving a gap of 2 sets against that target.\n\nStrengths\n- Splitting push and lower work into separate sessions is a reasonable structural choice that keeps each session short and well within the 60-minute constraint (each estimated at 16 minutes).\n- The two Push sessions are separated by a rest entry in the sequence, which provides at least one intervening session before the second Chest exposure.\n\nImprovements\n1. The Chest goal is 8 direct sets; the program delivers 6. Both Push sessions share the same template (Bench, 3 sets), so adding one set to that template would raise each occurrence to 4 sets, bringing the program total to 8 and closing the gap. The trade-off is that this change affects both Push occurrences simultaneously — there is no way to add a set to only one without creating an independent template — and it would modestly extend each session's estimated duration beyond the current 16 minutes, though both would remain far inside the 60-minute constraint.\n\nLimits\nNo training background is provided, so it is unknown whether this volume and exercise selection represent a starting point, a deload, or a deliberate minimalist approach, which materially affects how the gap to the Chest goal should be weighted.",
+      "usage": {
+        "inputTokens": 2852,
+        "outputTokens": 349,
+        "cost": 0.013791
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "priority-maintenance",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v4",
+      "report": "Assessment\nThe program is a minimal, short-duration design that aligns well with the stated priority of maintaining current muscle through brief sessions. The Chest goal is set at 8 direct sets, but the program delivers 6 direct sets across the two Push occurrences (Monday and Friday), leaving a gap of 2 sets against that user-defined target.\n\nStrengths\n- Both Push sessions are estimated at 16 minutes each, comfortably within the 60-minute constraint, leaving room for the gap to be addressed without time pressure.\n- Splitting Chest work across two scheduled days (Monday and Friday) spreads the stimulus across the week, consistent with a maintenance approach.\n\nImprovements\n1. The Chest direct volume totals 6 sets against a user goal of 8. The two Push sessions share the same template (one Bench exercise, 3 sets each), so both occurrences are affected by any template change. Adding one set of Bench to the Push template would bring Chest to 8 direct sets across the two occurrences, matching the stated goal. The trade-off is that this also adds one indirect Triceps set per occurrence (2 indirect sets total), and each Push session's estimated duration would increase modestly from the current 16 minutes, though both would remain well within the 60-minute limit.\n\nLimits\nThe Lower session is Unscheduled (day is null), so its placement relative to the two Push sessions is unknown; no assessment of overall weekly distribution or recovery spacing can be made for that session.",
+      "usage": {
+        "inputTokens": 3028,
+        "outputTokens": 342,
+        "cost": 0.014214
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "time-mismatch",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v8",
+      "report": "Assessment\nThe program's central problem is a hard mismatch between the strict 15-minute session constraint and the estimated duration of every session. All three sessions — Push (occurrence 1, Monday), Push (occurrence 2, Friday), and Lower (Unscheduled) — are each estimated at 39 minutes, well over twice the stated limit. The single stated priority is building muscle, and the Chest goal of 8 sets is exceeded (20 direct sets recorded), but neither point matters much if sessions cannot realistically be completed within the time available.\n\nStrengths\n- Separating Chest/Triceps push work across two sessions (Monday and Friday) distributes that volume across the week rather than concentrating it in one long session, which aligns with the muscle-building focus.\n- The Glutes-only Lower session keeps lower-body work isolated and avoids overlap with the push muscles, which fits a simple, focused structure.\n\nImprovements\n1. The 10-set Bench prescription in the shared Push template is the direct cause of the 39-minute estimate for both Push occurrences (Monday and Friday). At 120-second rest after every set plus execution and buffer time, 10 sets alone far exceeds 15 minutes. Reducing Bench to 3 sets in the Push template would bring both occurrences closer to the time limit; this affects both occurrence 1 and occurrence 2 since they share the same template. The trade-off is that Chest direct volume drops substantially from its current 20 sets — though it would still meet the stated goal of 8 — and Triceps indirect volume falls proportionally.\n\n2. The same 10-set, 120-second-rest structure applies to Hip thrust in the Lower template, producing the same 39-minute estimate for the Unscheduled Lower session. Reducing Hip thrust to 3 sets would bring that session's estimate in line with the constraint. The trade-off is a significant reduction in Glutes direct volume from 10 sets, though no Glutes goal is set.\n\nLimits\nNo training background or approach is provided, so it is unknown whether the current 10-set prescriptions reflect a deliberate progressive or testing context, which would affect how aggressively the set counts should be trimmed.",
+      "usage": {
+        "inputTokens": 3436,
+        "outputTokens": 507,
+        "cost": 0.017913
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "long-program",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v8",
+      "report": "Assessment\nThe program schedules 50 identical Push sessions (all sharing one template: 3 sets of Bench, 8–12 reps, 2-minute rest) across every day of the week for multiple weeks, producing a program total of 150 direct Chest sets and 75 indirect Triceps sets. The sole stated priority is building muscle with a 60-minute session limit, and while the Chest volume goal of 8 sets is exceeded in program totals, every individual day stacks 7–8 occurrences of the same session, producing combined daily estimates of 108–124 minutes—well over the 60-minute constraint on every scheduled day.\n\nStrengths\n- The Push template's 8–12 rep range and 2-minute rest prescription are consistent with a hypertrophy-focused approach for Chest.\n- Each individual session is estimated at 16 minutes, comfortably within the 60-minute limit on its own, showing the per-session design is appropriately scoped.\n\nImprovements\n1. The core structural problem is that multiple occurrences of Push are stacked on every weekday. Monday (day 0) alone accumulates occurrences 1, 8, 15, 22, 29, 36, 43, and 50—a combined estimate of 124 minutes—against the 60-minute constraint. The same pattern repeats on all other days (108 minutes each). Because all 50 occurrences share the single Push template, the most direct fix is to reduce the total number of scheduled occurrences so that no day holds more than the number of sessions that fit within 60 minutes (i.e., no more than 3 per day given the 16-minute estimate, though actual session count per day is a scheduling decision). Removing the excess occurrences would bring daily combined estimates in line with the stated constraint. The trade-off is a substantial reduction in program total Chest volume, which would require evaluating whether the remaining occurrences still serve the muscle-building goal over the intended program duration.\n\nLimits\nThe training background field is empty, so there is no information about the user's current session frequency tolerance or how many weeks this program is intended to span, both of which are material to judging whether the session count and distribution are intentional or a configuration error.",
+      "usage": {
+        "inputTokens": 18328,
+        "outputTokens": 520,
+        "cost": 0.062784
+      }
+    },
+    {
+      "exitCode": 0,
+      "fixture": "unscheduled",
+      "model": "anthropic/claude-sonnet-4.6",
+      "promptVersion": "program-hypertrophy-v8",
+      "report": "Assessment\nAll three sessions are Unscheduled, so their sequencing relative to each other and any recovery between them is unknown. The program's single stated priority is building muscle, and the only recorded goal is a Chest target of 8 sets; at 6 direct sets across Push occurrences 1 and 2, that goal is currently not met.\n\nStrengths\n- Bench as the sole Push exercise concentrates all available session time on the one muscle with an explicit goal, which is consistent with a Chest-focused hypertrophy priority.\n- Separating the Glutes-focused Lower session from the two Push sessions avoids any overlap between those muscle groups, which suits the stated build-muscle focus.\n\nImprovements\n1. Chest direct volume falls short of the stated goal. The program records 6 direct Chest sets against a goal of 8. Because Push occurrences 1 and 2 share the same template, adding one set of Bench (from 3 to 4 sets) would increase direct Chest volume in both occurrences and also increase indirect Triceps volume in both. The trade-off is a modest increase in estimated session duration for both Push sessions; the 16-minute current estimate per session leaves substantial room within the 60-minute constraint, so this is unlikely to be a practical problem. Note that any change to the Push template affects both occurrences simultaneously.\n\nNo further clear changes are warranted from this program alone.\n\nLimits\nWith no weekday assignments and all three sessions Unscheduled in a Sequence of unknown repeat interval, it is impossible to assess whether the two consecutive Push sessions have adequate time between them, which is the most material unknown for this program's hypertrophy purpose.",
+      "usage": {
+        "inputTokens": 3378,
+        "outputTokens": 386,
+        "cost": 0.015924
+      }
+    }
+  ],
+  "liveSmoke": {
+    "stoppedBeforeComplete": true,
+    "stopReachedUpstream": true,
+    "streamedBeforeComplete": true,
+    "firstTextBeforeCompletionMs": 7980,
+    "providerRequests": 2,
+    "promptVersion": "program-hypertrophy-v11",
+    "completedUsage": {
+      "inputTokens": 3775,
+      "outputTokens": 318,
+      "cost": 0.016095
+    }
+  }
+}

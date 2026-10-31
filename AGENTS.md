@@ -1,5 +1,17 @@
 # Gym Program Builder
 
+## Program hypertrophy analysis (2026-10-31)
+
+Design: docs/superpowers/specs/2026-10-31-program-analysis-design.md; plan: docs/superpowers/plans/2026-10-31-program-analysis.md.
+
+- Programs own optional plain-text context: Goals and priorities, Constraints and preferences, Training background and approach. Each allows 2,000 UTF-16 code units. Preserve context across revisioned saves/recovery, independent program copies and portable v3 bundles; legacy files without it still import. Context alone counts as content for replacement confirmation. No migration/backfill is required.
+- Analyze program is a read-only hypertrophy review of the current resolved snapshot, including unsaved edits and every repeated/Unscheduled occurrence. Strength/general fitness, saved reports, chat and automatic changes remain deferred. Context saving works without AI configuration.
+- Server facts own volume, goal comparison and duration arithmetic. Sequence order/rests do not establish a calendar cadence; inactive retained weekdays stay in the snapshot but are withheld from the provider projection. Describe sharing through human occurrence numbers. Suggested template edits may affect other occurrences/programs.
+- Reuse session streaming, cancellation and safe text rendering. Program requests use POST /api/analysis/program, at most 256 KiB, 50 occurrences, 40 exercises per distinct template and 400 expanded exercise instances. Session analysis keeps its existing route/limits. Paid synthetic evaluations are explicit CLI runs only.
+- Program generation uses a bounded 1,024-token reasoning budget inside a 2,500-token total cap, excludes reasoning from output, and omits temperature. This was selected after live arithmetic/cadence comparison; session generation retains 1,500 tokens, reasoning disabled and temperature 0.2. Preserve the 60-second timeout and existing provider routing.
+- Routine program updates retain context/report DOM, focus and caret while canceling pending destructive confirmations and invalidating obsolete actions. Relevant edits mark reports stale; revision-only acknowledgements do not. Close retains generation/report; route navigation discards it. Preserve 180ms overlay motion, rapid reversal and reduced motion.
+- Follow docs/superpowers/verification/2026-10-31-program-analysis.md for actual verification and outstanding preview/production release checks. Never claim a pending deployment was verified.
+
 ## Reference metadata, tags and breadcrumbs (2026-10-29)
 
 Design: docs/superpowers/specs/2026-10-29-linked-sessions-catalog-design.md; plan: docs/superpowers/plans/2026-10-29-catalog-metadata-navigation.md. These approved requirements supersede older variant-owned equipment and independent program-copy rules.
