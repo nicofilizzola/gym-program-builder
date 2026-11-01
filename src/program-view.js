@@ -143,7 +143,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
             const remaining=getSequence(value),next=remaining[index]??remaining[index-1];
             if(next)focusHandle(next.workoutId??next.id);else root.querySelector('[data-add-rest]').focus();
           };
-          card.append(handle,title,remove);groupList.append(card);
+          const actions=document.createElement('div');actions.className='item-actions';actions.append(handle,remove);card.append(title,actions);groupList.append(card);
         }
       }
     }

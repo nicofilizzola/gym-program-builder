@@ -194,3 +194,15 @@ test('rest Reorder menu moves mixed entries and preserves accessible controls ac
   await page.screenshot({path:`.superpowers/sdd/2026-10-27-program-merge/sequence-${width}.png`,fullPage:true});
  }
 });
+
+test('rest actions sit at the right edge aligned with workout actions',async({page})=>{
+ await mountProgram(page,{sequence:[{type:'workout',workoutId:'a'},{type:'rest',id:'r'},{type:'workout',workoutId:'b'}]});
+ const rest=page.locator('[data-rest="r"]');
+ await expect(rest.locator('.item-actions button')).toHaveCount(2);
+ expect(await rest.locator('.item-actions button').evaluateAll(els=>els.map(el=>el.getAttribute('aria-label')))).toEqual(['Reorder rest day','Remove rest day']);
+ const title=await rest.locator('h3').boundingBox(),reorder=await rest.locator('.reorder-action').boundingBox();
+ const restRemove=await rest.getByRole('button',{name:'Remove rest day',exact:true}).boundingBox();
+ const workoutRemove=await page.locator('[data-workout="a"] [data-action=Remove]').boundingBox();
+ expect(reorder.x).toBeGreaterThan(title.x+title.width-1);
+ expect(Math.abs(restRemove.x+restRemove.width-(workoutRemove.x+workoutRemove.width))).toBeLessThan(1);
+});
