@@ -61,6 +61,18 @@ test('a short program keeps its header under the breadcrumbs with the dock close
  await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await check();
  await page.getByRole('button',{name:'Close AI review',exact:true}).click();await expect(page.locator('.review-dock')).not.toHaveClass(/is-open/);await check();
 });
+test('crossing 1280px while open keeps the report scroll position and focus',async({page})=>{
+ const long=report+'\n'+Array.from({length:40},(_,i)=>'Detail '+(i+1)+': the shared template affects several occurrences.').join('\n');
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(long)}));
+ await page.setViewportSize({width:1440,height:900});await programFixture(page);
+ await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
+ const scroll=page.locator('.analysis-scroll');await scroll.evaluate(el=>{el.scrollTop=200;});await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBe(200);
+ await page.waitForTimeout(50);const again=page.getByRole('button',{name:'Analyze again',exact:true});await again.focus();
+ await page.setViewportSize({width:1279,height:900});await expect(page.locator('dialog.analysis-modal')).toBeVisible();
+ await expect(again).toBeFocused();expect(Math.abs(await scroll.evaluate(el=>el.scrollTop)-200)).toBeLessThanOrEqual(1);
+ await page.setViewportSize({width:1440,height:900});await expect(page.locator('.review-dock')).toHaveClass(/is-open/);
+ await expect(again).toBeFocused();expect(Math.abs(await scroll.evaluate(el=>el.scrollTop)-200)).toBeLessThanOrEqual(1);await expect(page.locator('.analysis-report')).toContainText('Detail 40');
+});
 test('program context opens over the open dock without closing it',async({page})=>{
  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
  await page.setViewportSize({width:1440,height:900});await programFixture(page);
