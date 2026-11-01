@@ -225,7 +225,7 @@ test('program header keeps file actions together and the selector beside the nam
   return {input,name,layout,head,b,gaps:b.slice(1).map((x,i)=>x.left-b[i].right)};
  };
  const check=async(openDock)=>{
-  const m=await measure();
+  await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(150);const m=await measure();
   const gap=m.layout.left-m.name.right;
   if(Math.abs(m.layout.top+m.layout.height/2-(m.name.top+m.name.height/2))<2||m.layout.top>m.name.bottom){/* same row or wrapped */}
   if(m.layout.top<m.name.bottom-1){expect(gap).toBeGreaterThanOrEqual(8);expect(gap).toBeLessThanOrEqual(16);expect(Math.abs((m.layout.top+m.layout.height/2)-(m.input.top+m.input.height/2))).toBeLessThan(2);}
@@ -247,4 +247,14 @@ test('program header keeps file actions together and the selector beside the nam
  }
   await page.setViewportSize({width:390,height:844});await page.reload();await expect(page.locator('.program-file-actions')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
+});
+test('program header actions wrap without clipping at 200% text',async({page})=>{
+ await programFixture(page);
+ for(const [w,h] of [[800,900],[1024,768],[1280,800]]){
+  await page.setViewportSize({width:w,height:h});await page.reload();await expect(page.locator('.program-file-actions')).toBeVisible();
+  await page.evaluate(()=>document.documentElement.style.fontSize='200%');
+  const r=await page.evaluate(()=>{const g=document.querySelector('.program-file-actions').getBoundingClientRect(),hd=document.querySelector('.program-heading'),s=getComputedStyle(hd),h=hd.getBoundingClientRect();
+   return {gRight:g.right,hRight:h.right-parseFloat(s.paddingRight),clipped:[...document.querySelectorAll('.program-file-actions button')].filter(b=>b.scrollWidth>b.clientWidth).length};});
+  expect(r.clipped).toBe(0);expect(r.gRight).toBeLessThanOrEqual(r.hRight+1);
+ }
 });
