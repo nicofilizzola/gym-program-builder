@@ -1380,7 +1380,7 @@ button:disabled {opacity:.5;cursor:default}
 @media (hover:hover) and (pointer:fine) {.review-toggle:hover::before {animation:ai-light-sweep 450ms ease-out 1}}
 @keyframes ai-light-sweep {0%{transform:translateX(-150%) skewX(-18deg);opacity:0}20%{opacity:1}80%{opacity:1}100%{transform:translateX(360%) skewX(-18deg);opacity:0}}
 @keyframes ai-sparkle-breathe {0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.92)}}
-@media(prefers-reduced-motion:reduce) {.review-toggle{transition:none}.review-toggle::before,.review-toggle.is-generating > svg{animation:none!important;transform:none;opacity:1}.review-toggle::before{display:none}}
+@media(prefers-reduced-motion:reduce) {.secondary-btn.review-toggle{transition:none}.review-toggle::before,.review-toggle.is-generating > svg{animation:none!important;transform:none;opacity:1}.review-toggle::before{display:none}}
 .program-page>[data-program-error]:not(:empty) {margin:-8px 0 24px}
 @media(max-width:800px){.program-grid{grid-template-columns:minmax(0,1fr)}.program-grid>[data-weekly-panel]{grid-row:1}.program-context{padding:16px 16px 0}}
 @media(max-width:600px){.app-header,.library,.program-page{padding:16px}.login-card{margin:10vh 16px}.library-item{padding:16px}.save-controls{font-size:.875rem}.weekly-goal{grid-template-columns:80px minmax(0,1fr) 50px}}

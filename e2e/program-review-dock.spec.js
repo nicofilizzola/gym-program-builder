@@ -107,6 +107,7 @@ test.describe('motion',()=>{
   const svg=prop=>page.locator('[data-program-review] > svg').evaluate((el,p)=>getComputedStyle(el)[p],prop);
   const closed=await style('backgroundImage');expect(closed).toContain('linear-gradient');
   expect(await svg('animationName')).toBe('none');expect(await style('animationName','::before')).toBe('none');
+  await expect.poll(()=>page.locator('[data-export]').evaluate(el=>!el.closest('[inert]'))).toBe(true);
   await page.mouse.move(0,0);await page.locator('.program-file-actions button').nth(-2).focus();await page.keyboard.press('Tab');await expect(toggle(page)).toBeFocused();
   expect(await style('outlineStyle')).toBe('solid');expect(await style('animationName','::before')).toBe('none');
   await page.evaluate(()=>document.activeElement.blur());
@@ -126,7 +127,7 @@ test('AI review motion is disabled with reduced motion',async({page})=>{
  await page.setViewportSize({width:1440,height:900});await programFixture(page);
  const style=(prop,pseudo)=>toggle(page).evaluate((el,[p,ps])=>getComputedStyle(el,ps||null)[p],[prop,pseudo]);
  const svg=prop=>page.locator('[data-program-review] > svg').evaluate((el,p)=>getComputedStyle(el)[p],prop);
- expect(await style('backgroundImage')).toContain('linear-gradient');
+ expect(await style('backgroundImage')).toContain('linear-gradient');expect(await style('transitionDuration')).toBe('0s');
  await toggle(page).hover();expect(await style('animationName','::before')).toBe('none');
  await toggle(page).click();await expect(toggle(page)).toHaveClass(/is-generating/);
  expect(await svg('animationName')).toBe('none');expect(await style('backgroundImage')).toContain('linear-gradient');
