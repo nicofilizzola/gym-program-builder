@@ -321,3 +321,37 @@ test('Reorder menus stay usable on mobile, tablet and enlarged text',async({brow
  await context.close();
 });
 
+
+// The drag copy is detached from its day/list ancestry; it must still lay out like its source card.
+async function layoutOf(card,selectors) {
+ return card.evaluate((el,selectors)=>{
+  const base=el.getBoundingClientRect(),out={width:base.width,height:base.height};
+  for(const s of selectors){const t=el.querySelector(s);if(!t){out[s]=null;continue;}const r=t.getBoundingClientRect();out[s]=[r.left-base.left,r.top-base.top,r.width,r.height];}
+  return out;
+ },selectors);
+}
+function expectSameLayout(copy,source,selectors) {
+ expect(Math.abs(copy.width-source.width)).toBeLessThanOrEqual(1);expect(Math.abs(copy.height-source.height)).toBeLessThanOrEqual(1);
+ for(const s of selectors){expect(source[s],s).not.toBeNull();expect(copy[s],s).not.toBeNull();source[s].forEach((v,i)=>expect(Math.abs(copy[s][i]-v),`${s}[${i}]`).toBeLessThanOrEqual(1));}
+}
+for(const [label,mode,width]of [['Week wide','schedule',1440],['Week narrow','schedule',1100],['Sequence','simple',1280]])test(`drag copy matches its source card layout (${label})`,async({page})=>{
+ await programFixture(page,mode);await page.setViewportSize({width,height:mode==='schedule'?2400:1200});
+ const selectors=['h3','.item-actions','[data-workout-duration]'],card=page.locator('[data-workout="a"]');
+ const source=await layoutOf(card,selectors);
+ const box=await page.locator('[data-workout="a"] .workout-metadata p:first-child').boundingBox();
+ await page.mouse.move(box.x+5,box.y+5);await page.mouse.down();await page.mouse.move(box.x+25,box.y+25);
+ const copy=page.locator('.sort-drag-copy');await expect(copy).toBeVisible();
+ await expect(copy).toHaveAttribute('inert','');await expect(copy).toHaveAttribute('aria-hidden','true');
+ expectSameLayout(await layoutOf(copy,selectors),source,selectors);
+ await page.mouse.up();await expect(page.locator('.sort-drag-copy,.sort-drag-host,.sort-placeholder')).toHaveCount(0);
+});
+test('drag copy matches its source card layout (session editor)',async({page})=>{
+ await exerciseFixture(page);
+ const selectors=['.card-controls','.card-identity'],card=page.locator('.exercise').first();
+ const source=await layoutOf(card,selectors);await startExerciseDrag(page);
+ const copy=page.locator('.sort-drag-copy');await expect(copy).toBeVisible();
+ await expect(copy).toHaveAttribute('inert','');await expect(copy).toHaveAttribute('aria-hidden','true');
+ expectSameLayout(await layoutOf(copy,selectors),source,selectors);
+ await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(page.locator('.sort-drag-copy,.sort-drag-host,.sort-placeholder')).toHaveCount(0);
+});

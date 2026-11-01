@@ -26,7 +26,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
  function preview(){
   if(!drag?.copy)return;
   const d=drag;
-  d.copy.style.transform=`translate(${d.x-d.offsetX}px, ${d.y-d.offsetY}px)`;
+  d.host.style.transform=`translate(${d.x-d.offsetX}px, ${d.y-d.offsetY}px)`;
   const target=targetAt(d.x,d.y);d.target=target;
   d.copy.classList.toggle('is-invalid-drop',!target);
   if(!target)return;
@@ -48,6 +48,21 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
   if(amount){window.scrollBy(0,amount);preview();}
   frame=requestAnimationFrame(tick);
  }
+ // Recreate the item's ancestor chain (class only) so descendant and container-query styles still apply to the copy.
+ function dragHost(item,root){
+  const chain=[];
+  for(let el=item.parentElement;el;el=el.parentElement){chain.unshift(el);if(el===root)break;}
+  let host=null,slot=null;
+  for(const el of chain){
+   const node=document.createElement(el.tagName);node.className=el.className;
+   node.style.cssText=`width:${el.getBoundingClientRect().width}px;margin:0;padding:0;border:0;min-height:0;box-sizing:border-box`;
+   if(slot)slot.append(node);else host=node;
+   slot=node;
+  }
+  if(!host)host=slot=document.createElement('div');
+  host.classList.add('sort-drag-host');
+  return {host,slot};
+ }
  function begin(){
   const d=drag,r=d.item.getBoundingClientRect();
   if(d.pointerId!==undefined)d.item.setPointerCapture(d.pointerId);
@@ -55,7 +70,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
   for(const el of [d.copy,...d.copy.querySelectorAll('*')]){el.removeAttribute('id');el.removeAttribute('aria-controls');el.removeAttribute('aria-describedby');}
   d.copy.inert=true;d.copy.setAttribute('aria-hidden','true');
   Object.assign(d.copy.style,{width:`${r.width}px`,height:`${r.height}px`});
-  document.body.append(d.copy);
+  const {host,slot}=dragHost(d.item,root);d.host=host;slot.append(d.copy);document.body.append(host);
   d.placeholder=document.createElement('div');d.placeholder.className='sort-placeholder';d.placeholder.setAttribute('aria-hidden','true');d.placeholder.style.height=`${r.height}px`;
   d.placeholder.style.margin=getComputedStyle(d.item).margin;
   d.item.before(d.placeholder);d.savedStyle=d.item.getAttribute('style');d.item.classList.add('sort-source');
@@ -67,7 +82,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
   const d=drag;if(!d)return;
   const result=commit&&d.copy&&d.target?{key:getKey(d.item),groupKey:d.target.group.key,beforeKey:d.target.before?getKey(d.target.before):null}:null;
   drag=null;clearTimeout(holdTimer);cancelAnimationFrame(frame);stopAnimations();
-  d.copy?.remove();d.placeholder?.remove();d.item.classList.remove('sort-source','is-hold-armed');
+  d.copy?.remove();d.host?.remove();d.placeholder?.remove();d.item.classList.remove('sort-source','is-hold-armed');
   if(d.savedStyle!==undefined){if(d.savedStyle===null)d.item.removeAttribute('style');else d.item.setAttribute('style',d.savedStyle);}
   document.documentElement.classList.remove('is-sorting');
   if(d.pointerId!==undefined&&d.item.hasPointerCapture(d.pointerId))d.item.releasePointerCapture(d.pointerId);
