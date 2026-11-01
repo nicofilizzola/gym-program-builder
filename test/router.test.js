@@ -8,3 +8,7 @@ test('nested routes preserve stable program catalog and tag context',()=>{
  assert.deepEqual(parseRoute('#/catalog/tags?kind=focus&q=upper+chest'),{view:'catalog-tags',kind:'focus',query:'upper chest'});
  for(const value of ['#/catalog/references/%ZZ','#/catalog/references/','#/catalog/tags?kind=unknown'])assert.equal(parseRoute(value).view,'not-found');
 });
+test('profile route parses without an id',()=>{
+ assert.deepEqual(parseRoute('#/profile'),{view:'profile'});
+ assert.equal(parseRoute('#/profile/x').view,'not-found');
+});

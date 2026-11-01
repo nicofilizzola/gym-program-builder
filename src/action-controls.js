@@ -16,7 +16,8 @@ const paths={
  'move-down':'<path d="M12 4v16m-6-6 6 6 6-6"/>',
  delete:'<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
  context:'<rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 11h6M9 15h4"/>',
- logout:'<path d="M9 4H4v16h5m6-13 5 5-5 5M8 12h12"/>'
+ logout:'<path d="M9 4H4v16h5m6-13 5 5-5 5M8 12h12"/>',
+ profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'
 };
 export function actionIcon(name){
  return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;

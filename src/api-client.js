@@ -12,6 +12,8 @@ export function createApiClient({fetch:request=globalThis.fetch}={}) {
     createAndAttach:request=>call('document-commands/attach','POST',request),
     importDocument:request=>call('document-commands/import','POST',request),
     analysisCapability:()=>call('analysis'),
+    getProfile:()=>call('profile'),
+    updateProfile:({revision,profile})=>call('profile','PUT',{revision,profile}),
     catalog:()=>call('catalog'),
     listTags:async()=>(await call('catalog/tags')).tags,
     createTag:async value=>(await call('catalog/tags','POST',value)).tag,

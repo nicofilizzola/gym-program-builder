@@ -15,6 +15,7 @@ import {parseRoute} from './router.js';
 import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
+import {mountProfileView} from './profile-view.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -41,6 +42,7 @@ function idle(version){if(version!==routeVersion)return;clearTimeout(loadingTime
 function focusHeading(){const heading=app.querySelector('h1');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});}}
 
 document.querySelector('#logout').innerHTML=actionIcon('logout');
+const profileButton=document.querySelector('#profile');profileButton.innerHTML=actionIcon('profile');
 const shellTooltips=mountActionTooltips(document.querySelector('.app-header'));
 const uid=()=>crypto.randomUUID();
 const programReturn=new Map();
@@ -58,7 +60,9 @@ async function transition(work){
   if(document.activeElement===document.body&&invoker?.isConnected&&!invoker.closest('[inert]'))invoker.focus({preventScroll:true});
  }
 }
-function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t save','Sign in to save'].includes(text);reloadSaved.hidden=copySaved.hidden=text!=='Conflict';if(text==='Sign in to save')showLogin(true);}
+function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t save','Sign in to save'].includes(text);reloadSaved.hidden=text!=='Conflict';copySaved.hidden=text!=='Conflict'||active?.id==='profile';if(text==='Sign in to save')showLogin(true);}
+// The profile is not a document: it has one fixed id, its own endpoint and no Save as copy.
+const profileRecord=({profile,revision})=>({id:'profile',kind:'profile',revision,document:profile});
 function track(record,{project=value=>value}={}){
  templateController?.dispose();templateController=null;queue?.dispose();active=structuredClone(record);saveStatus('Saved');
  let copyRequest;
@@ -67,7 +71,8 @@ function track(record,{project=value=>value}={}){
  let owned;
  if(record.kind==='template'){
   templateController=createSharedSessionController({api,onStatus,onTemplate:onRecord,onConflict:error=>{message.textContent=error.message+' Save as copy creates a new template; existing programs keep their original template.';}});owned=templateController.load(record);
- }else owned=createAutosave({record,save:args=>api.update(args),createCopy:document=>{copyRequest??={id:uid(),kind:record.kind,copyOf:record.id,document:structuredClone(document)};return api.create(copyRequest);},onStatus,onRecord});
+ }else if(record.kind==='profile')owned=createAutosave({record,save:({revision,document})=>api.updateProfile({revision,profile:document}).then(profileRecord),onStatus,onRecord,onConflict:error=>{message.textContent=error.message+' Reload saved version to continue.';}});
+ else owned=createAutosave({record,save:args=>api.update(args),createCopy:document=>{copyRequest??={id:uid(),kind:record.kind,copyOf:record.id,document:structuredClone(document)};return api.create(copyRequest);},onStatus,onRecord});
  queue=owned;
  return document=>{if(queue!==owned||active?.id!==record.id)return;active.document=document;updateCurrentBreadcrumb(document);owned.change(document);};
 }
@@ -102,9 +107,8 @@ function showLogin(resuming=false){
   try{
    await api.login(form.elements.password.value);authenticated=true;authHost.hidden=true;shell.hidden=false;
    if(resuming&&active&&queue?.isDirty()){
-    const remote=await api.get(active.id);
     // Retrying the exact envelope safely recovers a lost acknowledgement or yields a real 409.
-    if(remote.kind!==active.kind)throw Error('The saved document kind changed.');
+    if(active.kind!=='profile'){const remote=await api.get(active.id);if(remote.kind!==active.kind)throw Error('The saved document kind changed.');}
     await queue.retry();return;
    }
    await renderRoute();
@@ -113,8 +117,9 @@ function showLogin(resuming=false){
  form.elements.password.focus();
 }
 document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
+profileButton.addEventListener('click',action(()=>navigate('#/profile')));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
-reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
+reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
 copySaved.addEventListener('click',action(()=>transition(async()=>{if(!queue)return;const record=await queue.saveAsCopy();queue=null;active=null;history.pushState(null,'',`#/${record.kind==='program'?'programs':'templates'}/${record.id}`);await renderRoute();})));
 function download(kind,document,templates=[]){const text=serializeDocumentBundle({record:{kind,document},templates}),url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=documentElement('a');a.href=url;a.download=documentFileName(kind);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function externalConflict(owned){
@@ -142,6 +147,12 @@ async function refreshActive(){
  if(templateController){const owned=queue,revision=active.revision;await templateController.refresh();if(queue===owned&&active.revision!==revision&&!owned.isDirty())mounted?.setWorkout?.(active.document,{silent:true});return;}
  const owned=queue,id=active.id,revision=active.revision,version=routeVersion;
  refreshing=true;
+ if(active.kind==='profile')try{
+  const remote=await api.getProfile();
+  if(queue!==owned||routeVersion!==version||active?.revision!==revision||owned.isSaving()||remote.revision===revision)return;
+  if(owned.isDirty())owned.conflict(Object.assign(Error('Profile changed on another device.'),{status:409,code:'CONFLICT'}));else owned.reload(profileRecord(remote));
+  return;
+ }finally{refreshing=false;}
  try {
   const bundle=active.kind==='program'?await api.programBundle(id):null;
   const remote=bundle?bundle.record:await api.get(id);
@@ -219,6 +230,7 @@ async function renderRoute(version=++routeVersion){
   await viewTransition.swap(()=>{
    clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
    document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',route.view.startsWith(a.dataset.nav.slice(0,-1))?'page':'false'));
+   if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,0);
   },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-workout-title="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
  }catch(error){
@@ -244,6 +256,7 @@ async function prepareRoute(route,version){
   if(data&&reference&&(!route.variantId||variant)){commit.canonicalHash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');commit.focus=()=>mounted?.focusTarget?.();}
   return commit;
  }
+ if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved));mounted=mountProfileView(createViewHost(),{profile:active.document,onChange});};}
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='program-workout'){const bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence});}
  if(route.id)return prepareRecord(await api.get(route.id));

@@ -138,6 +138,10 @@ The labeled Program context toolbar action opens a native modal at most 640px wi
 
 Opening focuses Goals and priorities at the top of the editor; Done, Escape and backdrop dismiss without reverting and restore the toolbar trigger. Entry/exit use 180ms ease-out opacity and a 4px translation. A noninteractive top-layer exit surface preserves the closing picture and scroll position after native containment ends; stale callbacks cannot hide a rapidly reopened editor. Reduced motion settles immediately, including a changed preference mid-exit. Initial rendering and live input/acknowledgements do not animate. Refresh preserves the same textarea nodes, unchanged values, focus, selection and composition.
 
+### Profile page
+
+The app header holds a person-icon Profile action button (`#profile`, accessible name and shared tooltip `Profile`) immediately before Log out, with the same 32px fine-pointer desktop / 44px touch and hybrid sizing as other action buttons. On `#/profile` it carries `aria-current="page"` and the main-nav current treatment (accent icon, 10% accent tint, accent border). The `.profile-page` route shares the `.program-page` gutters and max width (`--canvas-gutter` from 1100px, 16px at ≤600px), a compact 1.5rem desktop `h1` Profile, and one visibly labeled five-row textarea, Training background and approach (2,000 UTF-16 code units), in the program-context field treatment, capped at 720px for readable line length. The example guidance and the note "Used by AI program reviews. Not included in program exports." use `.program-context-help` below it; no cards or extra sections. Typing autosaves through the header save status with Retry on failure; a conflict offers Reload saved version only (Save as copy stays hidden). Route entry and exit use the existing view transition and focus the heading; typing and save acknowledgements are immediate and never move the caret.
+
 ### Program review dock and Week agenda
 
 Design: [program review dock spec](../superpowers/specs/2026-10-31-program-review-dock-design.md).

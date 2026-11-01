@@ -1314,7 +1314,7 @@ svg {
 .app-header a {color:var(--muted);text-decoration:none;padding:10px 0}
 .app-header a[aria-current=page] {color:var(--accent)}
 .app-message {max-width:1072px;margin:8px auto;padding:0 12px}
-.library,.program-page {max-width:1120px;margin:auto;padding:32px 24px}
+.library,.program-page,.profile-page {max-width:1120px;margin:auto;padding:32px 24px}
 .library-item {border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:20px;margin:16px 0}
 .library-item {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .library-item h2 {font-size:1.5rem;margin:0;overflow-wrap:anywhere}
@@ -1385,7 +1385,7 @@ button:disabled {opacity:.5;cursor:default}
 @media(prefers-reduced-motion:reduce) {.secondary-btn.review-toggle{transition:none}.review-toggle::before,.review-toggle.is-generating > svg{animation:none!important;transform:none;opacity:1}.review-toggle::before{display:none}}
 .program-page>[data-program-error]:not(:empty) {margin:-8px 0 24px}
 @media(max-width:800px){.program-grid{grid-template-columns:minmax(0,1fr)}.program-grid>[data-weekly-panel]{grid-row:1}.program-context{padding:16px 16px 0}}
-@media(max-width:600px){.app-header,.library,.program-page{padding:16px}.login-card{margin:10vh 16px}.library-item{padding:16px}.save-controls{font-size:.875rem}.weekly-goal{grid-template-columns:80px minmax(0,1fr) 50px}}
+@media(max-width:600px){.app-header,.library,.program-page,.profile-page{padding:16px}.login-card{margin:10vh 16px}.library-item{padding:16px}.save-controls{font-size:.875rem}.weekly-goal{grid-template-columns:80px minmax(0,1fr) 50px}}
 
 /* Navigation and library action controls */
 .app-header nav {gap:8px}
@@ -1443,7 +1443,7 @@ button:disabled {opacity:.5;cursor:default}
 
 /* Moderate density: keep text and interaction targets comfortable. */
 .layout {padding-top:24px;padding-bottom:24px;gap:24px}
-.library,.program-page {padding-top:24px;padding-bottom:24px}
+.library,.program-page,.profile-page {padding-top:24px;padding-bottom:24px}
 .library-item {padding:16px;margin:12px 0}
 .exercise {--exercise-padding:16px;padding:var(--exercise-padding)}
 .exercises {gap:12px;margin-top:16px}
@@ -1463,7 +1463,7 @@ button:disabled {opacity:.5;cursor:default}
 .workout-badge-space>span {grid-area:1/1}
 .workout-muscle-match {align-self:start;justify-self:start;visibility:hidden;opacity:0;transition:opacity 150ms ease-out}
 .workout-muscle-match.is-visible {visibility:visible;opacity:1}
-@media(max-width:600px){.layout,.library,.program-page{padding:16px}.template-picker label{flex-basis:100%}.workout-metadata{gap:8px}.template-picker button{white-space:normal;max-width:100%}}
+@media(max-width:600px){.layout,.library,.program-page,.profile-page{padding:16px}.template-picker label{flex-basis:100%}.workout-metadata{gap:8px}.template-picker button{white-space:normal;max-width:100%}}
 @media(prefers-reduced-motion:reduce){.workout-item,.workout-muscle-match{transition:none}}
 
 .navigation-status {position:fixed;right:16px;bottom:16px;z-index:1100;margin:0;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--muted);font-size:.875rem;box-shadow:0 4px 16px #0004;pointer-events:none}
@@ -1476,16 +1476,16 @@ button:disabled {opacity:.5;cursor:default}
 /* Desktop workspace: fluid columns, compact chrome, comfortable input targets.
    1366 = 24 + 842 + 16 + 460 + 24; 1920 = 24 + 1336 + 16 + 520 + 24. */
 @media (min-width: 1100px) {
-  .app-header,.layout,.library,.program-page,.program-context,.app-message {max-width:none;margin-inline:0;padding-inline:var(--canvas-gutter)}
+  .app-header,.layout,.library,.program-page,.profile-page,.program-context,.app-message {max-width:none;margin-inline:0;padding-inline:var(--canvas-gutter)}
   .app-header {min-height:56px;padding-block:10px;justify-content:flex-start;gap:24px}
   .app-brand {display:block}
   .save-controls {margin-left:auto}
   .app-message:empty,.app-message:has(>button[hidden]):not(:has(>button:not([hidden]))) {display:none}
   .layout,.program-grid {grid-template-columns:minmax(0,1fr) var(--panel-width);gap:var(--layout-gap)}
-  .layout,.library,.program-page {padding-block:16px}
+  .layout,.library,.program-page,.profile-page {padding-block:16px}
   .program-context {padding-top:12px}
   .editor-heading {display:flex;align-items:center;flex-wrap:wrap;gap:12px 24px;margin-bottom:12px}
-  .editor-heading h1,.library-heading h1,.program-heading h1 {font-size:1.5rem;margin:0}
+  .editor-heading h1,.library-heading h1,.program-heading h1,.profile-page h1 {font-size:1.5rem;margin:0}
   .editor-heading .template-name {flex:1 1 240px;max-width:560px;margin:0}
   .library-heading {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px}
   .program-heading {display:flex;align-items:center;flex-wrap:wrap;gap:12px 24px;margin-bottom:16px}
@@ -1683,8 +1683,8 @@ button:disabled {opacity:.5;cursor:default}
 .equipment-pills svg {flex:0 0 20px}
 .equipment-pills .chip input:checked+span,.variant-tag-fields .chip input:checked+span {background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
 .reference-main-fields {display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,.7fr);gap:12px}
-.catalog-dialog textarea {box-sizing:border-box;width:100%;min-height:88px;resize:vertical;padding:8px 10px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;font:inherit}
-.catalog-dialog textarea:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+.catalog-dialog textarea,.profile-page textarea {box-sizing:border-box;width:100%;min-height:88px;resize:vertical;padding:8px 10px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;font:inherit}
+.catalog-dialog textarea:focus-visible,.profile-page textarea:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
 .catalog-disclosure {min-width:0}
 .disclosure-toggle {display:inline-flex;align-items:center;gap:6px}
 .disclosure-toggle svg {flex:0 0 18px;transition:none}
@@ -1866,6 +1866,14 @@ button:disabled {opacity:.5;cursor:default}
 .program-context-actions .add-btn {width:auto;min-width:80px;margin-left:auto}
 .program-context-content .error:empty {display:none}
 @media (prefers-reduced-motion:reduce) {.program-context-surface,.program-context-surface::backdrop {transition:none}}
+/* Profile page: one readable prose field inside the program-page gutters; the header entry marks its route like main nav. */
+.profile-page h1 {margin:0 0 12px;overflow-wrap:anywhere}
+.profile-page>.field,.profile-page>p {max-width:720px;min-width:0}
+.profile-page>.field p,.profile-page>p {margin:0}
+.profile-page>p {margin-top:8px}
+.profile-page textarea {line-height:1.4}
+.profile-page .error:empty {display:none}
+.app-header .action-button[aria-current=page] {color:var(--accent);background:rgba(249,115,22,.1);border-color:var(--accent)}
 .analysis-unavailable { flex-basis: 100%; margin: 0; color: var(--muted); font-size: .8125rem; }
 .analysis-panel { box-sizing: border-box; position: fixed; inset: auto; margin: 0; padding: 0; width: min(480px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 12px; background: var(--surface-2); color: var(--text); box-shadow: 0 16px 60px #0008; opacity: 0; transform: translateY(4px); transition: opacity 180ms ease-out, transform 180ms ease-out; overflow: hidden; }
 .analysis-panel.is-open { opacity: 1; transform: translateY(0); }

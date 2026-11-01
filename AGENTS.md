@@ -1,5 +1,17 @@
 # Gym Program Builder
 
+## Program follow-ups (2026-11-01)
+
+Design: docs/superpowers/specs/2026-11-01-program-follow-ups-design.md; plan: docs/superpowers/plans/2026-11-01-program-follow-ups.md. These approved requirements supersede conflicting rules in the sections below.
+
+- Sequence rest cards keep Reorder then Remove in one action group at the right end, aligned with workout cards' actions, on every viewport.
+- Drag previews render exactly like their source card (size; title, metadata and action positions within 1px) for Week/Sequence workout cards, rest cards and exercise cards, with the review dock open or closed, while staying fixed, inert, `aria-hidden` and noninteractive.
+- Program header: title, Program name, then the Week/Sequence selector as one identity group; Program context, Import, Export and AI review form one file-action group that never wraps internally at ≥761px (right-aligned, moving to its own row when needed) and may wrap at ≤760px.
+- The review docks from 1024px (340px, 360px at ≥1600px); below it stays the full-screen modal. From 1024px to 1279px an open dock stacks the weekly panel above the sessions as an instant reflow; body figures stay ≥180px.
+- Training background and approach lives in a single-user, revisioned server-side profile (`GET/PUT /api/profile`) edited at `#/profile` via the header Profile button before Log out. It autosaves through the header save status (Retry; conflicts offer Reload saved version only), is injected server-side into program reviews and is never exported. Migration 007 creates the profile and backs up/removes legacy per-program background; run it explicitly per environment.
+- Session-template AI analysis is removed; the program review modules and `GET /api/analysis` remain.
+- Verification: docs/superpowers/verification/2026-11-01-program-follow-ups.md. Never claim a pending deployment was verified.
+
 ## Program review dock and Week agenda (2026-11-01)
 
 Design: docs/superpowers/specs/2026-10-31-program-review-dock-design.md; plan: docs/superpowers/plans/2026-11-01-program-review-dock.md. These approved requirements supersede the program analysis section's anchored popup, "Analyze program" trigger and context-dismisses-report rules where they conflict.
