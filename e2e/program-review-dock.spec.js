@@ -53,6 +53,14 @@ test('dock stays within the viewport while the page scrolls',async({page})=>{
  await page.evaluate(()=>scrollTo(0,0));await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  const header=await box(page,'.app-header');expect((await box(page,'.review-dock')).top).toBeGreaterThanOrEqual(header.bottom-1);expect((await box(page,'.review-dock .analysis-footer')).bottom).toBeLessThanOrEqual(769);
 });
+test('a short program keeps its header under the breadcrumbs with the dock closed, open and closed again',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
+ await page.setViewportSize({width:1920,height:1080});await programFixture(page);
+ const check=async()=>{const crumbs=await box(page,'.breadcrumbs'),program=await box(page,'.program-page');expect(program.top-crumbs.bottom).toBeLessThanOrEqual(1);expect(crumbs.height).toBeLessThan(60);expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);};
+ await check();
+ await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await check();
+ await page.getByRole('button',{name:'Close AI review',exact:true}).click();await expect(page.locator('.review-dock')).not.toHaveClass(/is-open/);await check();
+});
 test('program context opens over the open dock without closing it',async({page})=>{
  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
  await page.setViewportSize({width:1440,height:900});await programFixture(page);

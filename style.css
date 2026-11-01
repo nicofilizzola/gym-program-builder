@@ -1907,8 +1907,9 @@ button:disabled {opacity:.5;cursor:default}
 .analysis-content--review .analysis-report h3:first-child + p { font-size: inherit; line-height: inherit; }
 .analysis-content--review .analysis-report p { margin: 0 0 8px; }
 @media (min-width:1280px) {
- .review-dock { position: sticky; top: 0; height: calc(100dvh - var(--review-dock-top, 0px)); align-self: start; }
- .program-route { display: grid; grid-template-columns: minmax(0, 1fr) 0px; transition: grid-template-columns 180ms ease-out; }
+ .review-dock { position: sticky; top: 0; height: 0; align-self: start; transition: visibility 0s 180ms, height 0s 180ms; }
+ .review-dock.is-open { height: calc(100dvh - var(--review-dock-top, 0px)); transition-delay: 0s; }
+ .program-route { display: grid; grid-template-columns: minmax(0, 1fr) 0px; grid-template-rows: auto 1fr; transition: grid-template-columns 180ms ease-out; }
  .program-route:has(> .review-dock.is-open) { grid-template-columns: minmax(0, 1fr) var(--review-width); }
  .program-route > :not(.review-dock) { grid-column: 1; }
  .program-route > .review-dock { grid-column: 2; grid-row: 1 / span 2; }
