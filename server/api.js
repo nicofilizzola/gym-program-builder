@@ -1,11 +1,10 @@
 import {MAX_DOCUMENT_BYTES} from '../src/document-file.js';
 import {domainError} from './repository.js';
-import {prepareAnalysisSnapshot} from '../src/analysis-input.js';
 import {validateProgramAnalysisSnapshot,PROGRAM_ANALYSIS_MAX_BYTES} from '../src/program-analysis-input.js';
 const statuses={INVALID:400,UNAUTHORIZED:401,FORBIDDEN:403,NOT_FOUND:404,METHOD:405,CONFLICT:409,IN_USE:409,TOO_LARGE:413,RATE_LIMIT:429};
 async function body(request,limit=MAX_DOCUMENT_BYTES) {
   if(!request.headers.get('content-type')?.startsWith('application/json'))throw domainError('INVALID','Expected JSON.');
-  const sizeMessage=limit===65536?'Analysis request must be at most 64 KiB.':limit===PROGRAM_ANALYSIS_MAX_BYTES?'Program analysis request must be at most 256 KiB.':'Request must be at most 1 MiB.';
+  const sizeMessage=limit===PROGRAM_ANALYSIS_MAX_BYTES?'Program analysis request must be at most 256 KiB.':'Request must be at most 1 MiB.';
   if(Number(request.headers.get('content-length'))>limit)throw domainError('TOO_LARGE',sizeMessage);
   let size=0;const chunks=[];
   if(request.body) {const reader=request.body.getReader();try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw domainError('TOO_LARGE',sizeMessage);}chunks.push(value);}}finally{reader.releaseLock();}}
@@ -25,18 +24,16 @@ export function createApi({repository,commands,catalog,auth,origin,analysis,clie
         throw domainError('METHOD','Method not allowed.');
       }
       if(!await auth.session(request.headers.get('cookie')))throw domainError('UNAUTHORIZED','Sign in to continue.');
-      if(path[0]==='analysis'&&(path.length===1||(path.length===2&&path[1]==='program'))){
-        const scope=path.length===2?'program':'session';
-        if(method==='GET'&&scope==='session')return respond({enabled:Boolean(analysis?.enabled)});
-        if(method!=='POST')throw domainError('METHOD','Method not allowed.');
+      if(path[0]==='analysis'){
+        if(path.length===1&&method==='GET')return respond({enabled:Boolean(analysis?.enabled)});
+        if(path.length!==2||path[1]!=='program'||method!=='POST')throw domainError('METHOD','Method not allowed.');
         try{
-          if(!analysis?.enabled)return respond({error:{code:'CONFIGURATION',message:(scope==='program'?'Program':'Session')+' analysis is not configured.'}},503);
-          const data=await body(request,scope==='program'?PROGRAM_ANALYSIS_MAX_BYTES:65536);
-          const snapshot=scope==='program'?validateProgramAnalysisSnapshot(data.snapshot):prepareAnalysisSnapshot(data.workout);
-          return await analysis.analyze(snapshot,{signal:request.signal,scope});
+          if(!analysis?.enabled)return respond({error:{code:'CONFIGURATION',message:'Program analysis is not configured.'}},503);
+          const data=await body(request,PROGRAM_ANALYSIS_MAX_BYTES);
+          return await analysis.analyze(validateProgramAnalysisSnapshot(data.snapshot),{signal:request.signal});
         }catch(error){
           const allowed={INVALID:400,TOO_LARGE:413,CONFIGURATION:503,CREDITS:402,RATE_LIMIT:429,PROVIDER:502,TIMEOUT:504},status=allowed[error.code]||502,details={};
-          if(scope==='program'&&error.code==='INVALID'){
+          if(error.code==='INVALID'){
             for(const key of ['occurrenceIndex','exerciseIndex'])if(Number.isInteger(error[key])&&error[key]>=0)details[key]=error[key];
             if(['name','sets','repRange','muscles','restSeconds','equipment'].includes(error.field))details.field=error.field;
           }

@@ -13,7 +13,7 @@ export async function runProgramEvaluation({args=process.argv.slice(2),env=proce
  try{
   const snapshot=prepareProgramAnalysisSnapshot(programAnalysisFixtures[fixture]);
   const service=createAnalysisService({apiKey:env.OPENROUTER_API_KEY,model,fetch,onUsage:value=>usage=value});
-  const response=await service.analyze(snapshot,{scope:'program'});let complete=false;
+  const response=await service.analyze(snapshot);let complete=false;
   for await(const frame of readSse(response.body)){
    const data=JSON.parse(frame.data);
    if(frame.event==='delta')report+=data.text;

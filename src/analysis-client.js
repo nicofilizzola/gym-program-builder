@@ -1,6 +1,5 @@
 import {readSse} from './sse.js';
 import {analysisError} from './analysis-input.js';
-export const streamAnalysis=(snapshot,options)=>stream('/api/analysis',{workout:snapshot},options);
 export const streamProgramAnalysis=(snapshot,options)=>stream('/api/analysis/program',{snapshot},options);
 async function stream(url,value,{signal,onEvent=()=>{},fetch:request=globalThis.fetch}={}){
  const response=await request(url,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json',accept:'text/event-stream'},body:JSON.stringify(value),signal});

@@ -1,17 +1,14 @@
 import {readSse} from '../src/sse.js';
 import {analysisError} from '../src/analysis-input.js';
-import {ANALYSIS_PROMPT_VERSION,buildAnalysisMessages} from './analysis-prompt.js';
 import {PROGRAM_ANALYSIS_PROMPT_VERSION,buildProgramAnalysisMessages} from './program-analysis-prompt.js';
 const encoder=new TextEncoder();
 export const encodeAnalysisEvent=({type,...data})=>encoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
 export function createAnalysisService({apiKey,model='anthropic/claude-sonnet-4.6',fetch:request=globalThis.fetch,timeoutMs=60000,provider='anthropic',onUsage=()=>{}}={}){
  const enabled=Boolean(apiKey?.trim());
- return {enabled,async analyze(snapshot,{signal,scope='session'}={}){
-  if(!['session','program'].includes(scope))throw analysisError('Invalid analysis scope.');
-  const messages=scope==='program'?buildProgramAnalysisMessages(snapshot):buildAnalysisMessages(snapshot);
-  const promptVersion=scope==='program'?PROGRAM_ANALYSIS_PROMPT_VERSION:ANALYSIS_PROMPT_VERSION;
-  const generation=scope==='program'?{max_tokens:2500,reasoning:{enabled:true,max_tokens:1024,exclude:true}}:{max_tokens:1500,temperature:0.2,reasoning:{enabled:false}};
-  if(!enabled)throw analysisError('Session analysis is not configured.','CONFIGURATION',503);
+ return {enabled,async analyze(snapshot,{signal}={}){
+  const messages=buildProgramAnalysisMessages(snapshot),promptVersion=PROGRAM_ANALYSIS_PROMPT_VERSION;
+  const generation={max_tokens:2500,reasoning:{enabled:true,max_tokens:1024,exclude:true}};
+  if(!enabled)throw analysisError('Program analysis is not configured.','CONFIGURATION',503);
   const abort=new AbortController();let timedOut=false;
   const forward=()=>abort.abort(signal.reason);if(signal?.aborted)forward();else signal?.addEventListener('abort',forward,{once:true});
   const timer=setTimeout(()=>{timedOut=true;abort.abort(new Error('Analysis timed out.'));},timeoutMs);

@@ -237,7 +237,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
     layoutTransition=createViewTransition(root.querySelector('[data-workouts]'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
-    analysisPanel=mountAnalysisPanel({anchor:root.querySelector('[data-program-review]'),scope:'program',dock,getSnapshot:()=>prepareProgramAnalysisSnapshot(value),request:analysisRequest??streamProgramAnalysis,enabled:analysisEnabled,onValidationError:showAnalysisError});
+    analysisPanel=mountAnalysisPanel({anchor:root.querySelector('[data-program-review]'),dock,getSnapshot:()=>prepareProgramAnalysisSnapshot(value),request:analysisRequest??streamProgramAnalysis,enabled:analysisEnabled,onValidationError:showAnalysisError});
     contextDialog=mountProgramContextDialog({anchor:root.querySelector('[data-program-context]'),getContext:()=>value.context,onBeforeOpen:()=>analysisPanel.dismissModal(),onChange:context=>{
       if(hasProgramContext({context}))value.context=context;else delete value.context;
       emit();

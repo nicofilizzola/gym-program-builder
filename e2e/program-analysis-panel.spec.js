@@ -6,7 +6,7 @@ async function fixture(page,{width=1440,height=900}={}){
   document.body.innerHTML='<div class="program-route"><div><button class="secondary-btn review-toggle" data-review><span>AI review</span></button><p class="after" tabindex="-1">x</p></div><aside class="review-dock"></aside></div>';
   window.program={name:'Program',mode:'schedule',goals:{},context:{goalsAndPriorities:'Grow'},workouts:[{id:'o',templateId:'t',day:0,name:'Push',goals:{},exercises:[{name:'Bench',sets:3,repRange:{min:8,max:12},restSeconds:120,primaryMuscles:['Chest'],secondaryMuscles:[]}]}]};
   window.requests=[];window.validation=null;
-  window.panel=mountAnalysisPanel({anchor:document.querySelector('[data-review]'),scope:'program',dock:document.querySelector('.review-dock'),getSnapshot:()=>prepareProgramAnalysisSnapshot(window.program),onValidationError:e=>window.validation={occurrenceIndex:e.occurrenceIndex,exerciseIndex:e.exerciseIndex},request:(snapshot,options)=>new Promise(resolve=>window.requests.push({snapshot,...options,resolve}))});
+  window.panel=mountAnalysisPanel({anchor:document.querySelector('[data-review]'),dock:document.querySelector('.review-dock'),getSnapshot:()=>prepareProgramAnalysisSnapshot(window.program),onValidationError:e=>window.validation={occurrenceIndex:e.occurrenceIndex,exerciseIndex:e.exerciseIndex},request:(snapshot,options)=>new Promise(resolve=>window.requests.push({snapshot,...options,resolve}))});
  });
 }
 const longReport='Assessment\n'+Array(80).fill('A detailed observation.').join('\n');

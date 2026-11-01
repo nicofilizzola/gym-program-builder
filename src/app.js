@@ -193,9 +193,8 @@ async function prepareRecord(record,context){
   breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
   if(record.kind==='template'){
    const editorHost=contentHost;
-   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),analysisEnabled:null,onExport:action(()=>exportActive('template'))});
+   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
    if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
-   const editor=mounted;api.analysisCapability().then(result=>{if(mounted===editor)editor.setAnalysisEnabled(result.enabled);}).catch(()=>{if(mounted===editor)editor.setAnalysisEnabled(false);});
   }else{
    let attachRequest;
    host.classList.add('program-route');const reviewDock=document.createElement('aside');reviewDock.className='review-dock';host.append(reviewDock);

@@ -127,3 +127,15 @@ test('disclosure reverses smoothly and bulk collapse restores focus before hidin
  await page.getByRole('button',{name:'Export',exact:true}).click();await expect(toggle).toHaveAttribute('aria-expanded','true');await expect(page.getByLabel('Exercise name',{exact:true})).toBeFocused();
 });
 
+
+test('session template has no Analyze action',async({page})=>{
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  const {mountSessionEditor}=await import('/src/session-editor.js');
+  document.body.innerHTML='<div id="fixture"></div>';
+  window.editor=mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Upper',goals:{},exercises:[]}});
+ });
+ await expect(page.locator('#import-session')).toBeVisible();
+ await expect(page.locator('[data-analyze]')).toHaveCount(0);
+ await expect(page.locator('.analysis-panel')).toHaveCount(0);
+});

@@ -1,6 +1,5 @@
-import {prepareAnalysisSnapshot,analysisFingerprint} from './analysis-input.js';
-import {streamAnalysis} from './analysis-client.js';
-export function createAnalysisController({getWorkout,getSnapshot=()=>prepareAnalysisSnapshot(getWorkout()),request=streamAnalysis,onState=()=>{}}){
+import {analysisFingerprint} from './analysis-input.js';
+export function createAnalysisController({getSnapshot,request,onState=()=>{}}){
  let state={phase:'idle',text:'',snapshotName:'',stale:false,error:null},fingerprint=null,abort=null,generation=0,destroyed=false;
  const notify=()=>{if(!destroyed)onState({...state});};
  const refresh=()=>{if(!fingerprint||destroyed)return;let next;try{next=analysisFingerprint(getSnapshot());}catch{}const stale=next!==fingerprint;if(stale!==state.stale){state={...state,stale};notify();}};

@@ -2,7 +2,6 @@ import {confirmAction} from './confirm-dialog.js';
 import {mountSliderPresentation} from './slider-presentation.js';
 import {renderVariantMetadata,mountExerciseInfo} from './catalog-metadata.js';
 import {mountReorderMenu} from './reorder-menu.js';
-import {mountAnalysisPanel} from './analysis-panel.js';
 import { mountSortable } from './sortable.js';
 import { actionIcon, mountActionTooltips } from './action-controls.js';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
@@ -21,13 +20,12 @@ import {snapshotExercise} from './catalog.js';
 import {getCatalogStore} from './catalog-store.js';
 
 
-export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,analysisEnabled=false}={}) {
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api}={}) {
 root.innerHTML=SESSION_MARKUP;
 const sliderPresentation=mountSliderPresentation(root);
 const disclosureTooltips=mountActionTooltips(root,{selector:'.card-head [data-action-tooltip]'});
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
 let destroyed=false;
-let analysisPanel=null;
 if(api)getCatalogStore(api).load(true).catch(()=>{});
 /**
  * The only domain state. Volume, goal status and errors are derived from it in refresh().
@@ -352,7 +350,6 @@ function hitFor(ex) {
 /** Update everything derived from state without recreating inputs. */
 function refresh() {
   queueMicrotask(()=>sliderPresentation.sync());
-  analysisPanel?.refresh();
   durationControls.update(session);
   const fingerprint=JSON.stringify(session);
   if(fingerprint!==lastDocument){lastDocument=fingerprint;onChange(structuredClone(session));}
@@ -636,12 +633,6 @@ function focusExerciseError(index,key,message){
   const card=list.children[index],field=card.querySelector('[role="combobox"]')||card.querySelector(ERROR_FIELDS[key]||ERROR_FIELDS.name);
   if(field){field.focus({preventScroll:true});revealWhenOpen(card.querySelector('[data-collapse="body"]'),field);}
 }
-function setAnalysisEnabled(value){
- const anchor=root.querySelector('[data-analyze]');anchor.hidden=false;
- if(!analysisPanel)analysisPanel=mountAnalysisPanel({anchor,enabled:value,getWorkout:()=>session,onValidationError:error=>{
-  if(error.exerciseIndex!==undefined)focusExerciseError(error.exerciseIndex,error.field,error.message);else{fileMessage.textContent=error.message;anchor.focus({preventScroll:true});}
- }});else analysisPanel.setEnabled(value);
-}
 root.querySelector('#export-session').addEventListener('click',()=>{
   if(focusFirstError())return;
   if(onExport){onExport(session);return;}
@@ -802,9 +793,7 @@ renderExercises();
 refresh();
 
 const panelLayout=mountPanelLayout(panel);
-if(analysisEnabled!==false)setAnalysisEnabled(analysisEnabled);
-return {setWorkout,syncSaved,focusFirstError,setAnalysisEnabled,destroy(){
-  analysisPanel?.destroy();
+return {setWorkout,syncSaved,focusFirstError,destroy(){
   confirmationController.abort();destroyed=true;sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
