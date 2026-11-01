@@ -21,7 +21,7 @@ import {durationLabel} from './duration.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest,reviewDock}={}) {
   let confirmationController=new AbortController();
   const weekHelpId='program-reorder-hint';
   const viewTransition=createViewTransition(root);
@@ -225,21 +225,21 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
           <label><input type="radio" name="program-layout" value="simple"><span>Sequence</span></label>
         </fieldset>
         <div class="program-file-actions">
-          <button type="button" class="secondary-btn analysis-trigger" data-program-analyze><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17V7m5 13V4m5 12V8m5 11V5"/></svg><span data-analysis-label>Analyze program</span></button>
           <button type="button" class="secondary-btn" data-program-context>Program context</button>
           <button type="button" class="secondary-btn" data-import><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>Import program</button>
           <button type="button" class="secondary-btn" data-export>${actionIcon('export')}Export program</button>
           <input type="file" accept=".json,application/json" hidden data-file>
+          <button type="button" class="secondary-btn review-toggle" data-program-review><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="m10 3 2.1 6.9L19 12l-6.9 2.1L10 21l-2.1-6.9L1 12l6.9-2.1L10 3Z"/><path d="m19 2 .9 3.1L23 6l-3.1.9L19 10l-.9-3.1L15 6l3.1-.9L19 2Z"/></svg><span>AI review</span></button>
         </div>
       </div>
       </header><p class="error" role="alert" data-program-error></p>
       <div class="program-grid"><div><div class="template-picker"><label class="field">Session template<select data-template aria-label="Session template"><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div class="sequence-toolbar"><button type="button" class="secondary-btn" data-add-rest>${actionIcon('plus')}Add rest day</button></div><p class="reorder-hint" id="${weekHelpId}" data-week-help>Drag a card to reorder. On touch, press and hold. Use Reorder for movement options. In Week, Up/Down reorders and Alt+Up/Down changes day.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
-    const reviewDock=root.appendChild(Object.assign(document.createElement('aside'),{className:'review-dock'}));
+    const dock=reviewDock??root.appendChild(Object.assign(document.createElement('aside'),{className:'review-dock'}));
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
     layoutTransition=createViewTransition(root.querySelector('[data-workouts]'));
     const name=root.querySelector('[data-program-name]');name.value=value.name;name.oninput=()=>{value.name=name.value;emit();};
-    analysisPanel=mountAnalysisPanel({anchor:root.querySelector('[data-program-analyze]'),scope:'program',dock:reviewDock,getSnapshot:()=>prepareProgramAnalysisSnapshot(value),request:analysisRequest??streamProgramAnalysis,enabled:analysisEnabled,onValidationError:showAnalysisError});
-    contextDialog=mountProgramContextDialog({anchor:root.querySelector('[data-program-context]'),getContext:()=>value.context,onBeforeOpen:()=>analysisPanel.close({restoreFocus:false}),onChange:context=>{
+    analysisPanel=mountAnalysisPanel({anchor:root.querySelector('[data-program-review]'),scope:'program',dock,getSnapshot:()=>prepareProgramAnalysisSnapshot(value),request:analysisRequest??streamProgramAnalysis,enabled:analysisEnabled,onValidationError:showAnalysisError});
+    contextDialog=mountProgramContextDialog({anchor:root.querySelector('[data-program-context]'),getContext:()=>value.context,onBeforeOpen:()=>analysisPanel.dismissModal(),onChange:context=>{
       if(hasProgramContext({context}))value.context=context;else delete value.context;
       emit();
     }});

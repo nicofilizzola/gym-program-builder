@@ -9,5 +9,5 @@ export async function programFixture(page,{contextOnly=false,emptySession=false}
   const program=await api.create({id:crypto.randomUUID(),kind:'program',document:{name:'AI program '+crypto.randomUUID(),mode:'schedule',goals:contextOnly?{}:{Chest:8},context:{goalsAndPriorities:'Build muscle',constraintsAndPreferences:'60 minutes'},workouts:contextOnly?[]:[{id:'first',templateId:template.id,day:0},{id:'repeat',templateId:template.id,day:4}]}});
   return {program,template};
  },{contextOnly,emptySession});
- await page.goto('/#/programs/'+result.program.id);await expect(page.getByLabel('Program name')).toHaveValue(result.program.document.name);return result;
+ await page.goto('/#/programs/'+result.program.id);await expect(page.getByLabel('Program name',{exact:true})).toHaveValue(result.program.document.name);return result;
 }
