@@ -94,8 +94,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       if(!workouts.length&&!(group.day===undefined&&getSequence(value).length)){const empty=document.createElement('p');empty.className='empty';empty.textContent=group.day===undefined?'No sessions yet. Add a session template, empty workout or rest day.':group.day===null?'No unscheduled workouts.':'Rest day';groupList.append(empty);}
       for(const workout of workouts){
         const card=document.createElement('article');card.className='workout-item';card.dataset.workout=workout.id;card.dataset.sequenceKey=workout.id;
-        const handle=document.createElement('button');handle.type='button';handle.className='secondary-btn reorder-action';handle.setAttribute('aria-expanded','false');handle.setAttribute('aria-describedby','program-reorder-hint');handle.setAttribute('aria-label',`Reorder ${workout.name.trim()||'Untitled workout'}`);
-        handle.textContent='Reorder';
+        const handle=document.createElement('button');handle.type='button';handle.className='action-button reorder-action';handle.setAttribute('aria-expanded','false');handle.setAttribute('aria-describedby','program-reorder-hint');handle.setAttribute('aria-label',`Reorder ${workout.name.trim()||'Untitled workout'}`);
+        handle.innerHTML=actionIcon('reorder');handle.dataset.actionTooltip='Reorder';
         handle.onkeydown=event=>reorderKey(event,workout.id);
         const title=document.createElement('h3'),open=document.createElement(workoutHref?'a':'button');
         open.className='workout-title';open.textContent=workout.name.trim()||'Untitled workout';open.dataset.workoutTitle=workout.id;open.dataset.action='Open';
@@ -118,9 +118,8 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
           ['Duplicate',()=>{const copy={...structuredClone(workout),id:id(),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Open');},false],
           ['Remove',run(async()=>{const before=JSON.stringify(value);if(!await confirmAction({title:'Remove session?',message:`Remove ${name} from this program? The shared template remains in Session templates.`,confirmLabel:'Remove session',destructive:true,signal:confirmationController.signal,returnFocus:()=>root.querySelector(`[data-workout="${CSS.escape(workout.id)}"] [data-action=Remove]`)||root.querySelector('[data-add-empty]')}))return;if(disposed||before!==JSON.stringify(value))return;value=reconcileSequence({...value,workouts:value.workouts.filter(w=>w.id!==workout.id)});emit();renderWorkouts();root.querySelector('[data-add-empty]').focus();}),false]
         ]){
-          const button=document.createElement('button');button.className='secondary-btn';button.type='button';button.textContent=label;button.setAttribute('aria-label',`${label} ${name}`);button.disabled=disabled;button.dataset.action=label;if(label==='Open')button.dataset.edit=workout.id;button.onclick=callback;actions.append(button);
+          const button=document.createElement('button');button.className='action-button workout-action';button.type='button';button.textContent=label;button.setAttribute('aria-label',`${label} ${name}`);button.disabled=disabled;button.dataset.action=label;if(label==='Open')button.dataset.edit=workout.id;button.onclick=callback;actions.append(button);
           {
-            button.classList.add('workout-action');
             if(label==='Remove')button.classList.add('action-button--delete');
             const icon={Edit:'edit',Duplicate:'duplicate',Remove:'delete'}[label];
             button.innerHTML=actionIcon(icon);button.dataset.actionTooltip=label;
@@ -133,11 +132,11 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         for(const entry of getSequence(value)) {
           if(entry.type==='workout'){groupList.append(cards.get(entry.workoutId));continue;}
           const card=document.createElement('article');card.className='sequence-rest-item';card.dataset.rest=entry.id;card.dataset.sequenceKey=entry.id;
-          const handle=document.createElement('button');handle.type='button';handle.className='secondary-btn reorder-action';handle.setAttribute('aria-label','Reorder rest day');
-          handle.textContent='Reorder';handle.setAttribute('aria-expanded','false');handle.setAttribute('aria-describedby',weekHelpId);
+          const handle=document.createElement('button');handle.type='button';handle.className='action-button reorder-action';handle.setAttribute('aria-label','Reorder rest day');
+          handle.innerHTML=actionIcon('reorder');handle.dataset.actionTooltip='Reorder rest day';handle.setAttribute('aria-expanded','false');handle.setAttribute('aria-describedby',weekHelpId);
           handle.onkeydown=event=>reorderKey(event,entry.id);wireReorder(handle,entry.id);
           const title=document.createElement('h3');title.textContent='Rest day';
-          const remove=document.createElement('button');remove.type='button';remove.className='secondary-btn workout-action action-button--delete';remove.setAttribute('aria-label','Remove rest day');remove.dataset.actionTooltip='Remove rest day';remove.innerHTML=actionIcon('delete');
+          const remove=document.createElement('button');remove.type='button';remove.className='action-button workout-action action-button--delete';remove.setAttribute('aria-label','Remove rest day');remove.dataset.actionTooltip='Remove rest day';remove.innerHTML=actionIcon('delete');
           remove.onclick=()=>{
             const entries=getSequence(value),index=entries.findIndex(e=>e.id===entry.id);
             value=removeRestDay(value,entry.id);emit();renderWorkouts();
@@ -225,7 +224,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
           <label><input type="radio" name="program-layout" value="simple"><span>Sequence</span></label>
         </fieldset>
         <div class="program-file-actions">
-          <button type="button" class="secondary-btn" data-program-context>Program context</button>
+          <button type="button" class="secondary-btn" data-program-context>${actionIcon('context')}Program context</button>
           <button type="button" class="secondary-btn" data-import><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>Import program</button>
           <button type="button" class="secondary-btn" data-export>${actionIcon('export')}Export program</button>
           <input type="file" accept=".json,application/json" hidden data-file>

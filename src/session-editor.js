@@ -108,10 +108,8 @@ const CARD_HTML = `
     <span class="hit-tag" data-hit-tag></span>
     <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
     <div class="card-controls">
-    <button type="button" class="icon-btn reorder-action" data-action-tooltip="Reorder exercise" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">${actionIcon('reorder')}</button>
-    <button type="button" class="icon-btn" data-action="remove" aria-label="Remove exercise">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
-    </button>
+    <button type="button" class="action-button reorder-action" data-action-tooltip="Reorder exercise" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">${actionIcon('reorder')}</button>
+    <button type="button" class="action-button action-button--delete" data-action="remove" data-action-tooltip="Remove exercise" aria-label="Remove exercise">${actionIcon('delete')}</button>
     </div>
   </div>
   <div data-variant-metadata hidden></div>

@@ -255,7 +255,7 @@ test('Reorder actions replace dotted handles and expose accessible options',asyn
 test('program Reorder moves into empty days and Unscheduled with announcements',async({page})=>{
  await programFixture(page,'schedule');
  for(const [label,day]of [['Tuesday',1],['Sunday',6],['Unscheduled',null]]){
-  const button=page.getByRole('button',{name:'Reorder Press',exact:true});await expect(button).toHaveText('Reorder');await button.click();
+  const button=page.getByRole('button',{name:'Reorder Press',exact:true});await expect(button).toHaveAttribute('data-action-tooltip','Reorder');await button.click();
   const choice=page.getByRole('button',{name:`Move to ${label}`,exact:true});await expect(choice).toBeVisible();
   const b=await page.locator('.reorder-menu').boundingBox();expect(b.x).toBeGreaterThanOrEqual(8);expect(b.y).toBeGreaterThanOrEqual(8);
   await choice.click();await expect(page.getByRole('button',{name:'Reorder Press',exact:true})).toBeFocused();

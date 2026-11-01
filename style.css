@@ -1342,9 +1342,6 @@ button:disabled {opacity:.5;cursor:default}
 .week-help {color:var(--muted);font-size:.875rem;margin:0 0 12px}
 .sequence-rest-item {display:flex;align-items:center;gap:12px;margin:12px 0;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-width:0}
 .sequence-rest-item h3 {flex:1;min-width:0;margin:0;font-family:var(--font-body);font-size:1rem;font-weight:500;color:var(--muted);overflow-wrap:anywhere}
-.sequence-rest-item>.reorder-action {flex-shrink:0;margin:0}
-.workout-action {display:inline-grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;flex:0 0 44px}
-.workout-action svg {width:20px;height:20px}
 .program-toolbar {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px}
 .program-layout {display:flex;flex-wrap:wrap;min-width:0;margin:0;padding:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
 .program-layout label {position:relative;display:flex;flex:1 1 auto;min-height:44px;align-items:center;justify-content:center;border:1px solid transparent;border-radius:6px;color:var(--muted);cursor:pointer}
@@ -1394,7 +1391,6 @@ button:disabled {opacity:.5;cursor:default}
 .app-header nav a:active {background:rgba(249,115,22,.18)}
 .action-button {display:inline-grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 .action-button:hover,.action-button:focus-visible {color:var(--text);background:var(--surface-2);border-color:var(--muted)}
-.card-head .exercise-info,.card-head .exercise-info:hover,.card-head .exercise-info:focus-visible {border-color:transparent}
 .action-button:active {background:rgba(249,115,22,.15)}
 .action-button--delete:hover,.action-button--delete:focus-visible {color:var(--error);background:rgba(239,68,68,.12);border-color:var(--error)}
 .action-button svg {width:20px;height:20px}
@@ -1429,7 +1425,6 @@ button:disabled {opacity:.5;cursor:default}
 .reorder-menu {position:fixed;inset:auto;margin:0;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;padding:8px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px #0005}
 .reorder-menu:popover-open {display:flex;flex-direction:column;gap:6px}
 .reorder-menu button {text-align:left}
-.reorder-action {flex:0 0 auto;white-space:nowrap}
 .reorder-hint {color:var(--muted);font-size:.8125rem;margin:8px 0 12px}
 .exercise,.workout-item,.sequence-rest-item {cursor:grab}
 :is(.exercise,.workout-item,.sequence-rest-item) :is(button,input,select,textarea,a,label,[contenteditable],[role],[tabindex]) {cursor:auto}
@@ -1592,7 +1587,6 @@ button:disabled {opacity:.5;cursor:default}
   .workout-metadata {grid-column:1;gap:8px;margin:0;font-size:.8125rem}
   .workout-item .item-actions {grid-column:2;grid-row:1/span 2;align-self:center;gap:6px}
   .workout-action-label {display:none}
-  .workout-item .workout-action {display:inline-grid;place-items:center;width:44px;height:44px;min-width:44px;padding:0;flex:0 0 44px}
 }
 /* Week agenda: one compact row per weekday, label left of its sessions. */
 .week-agenda {display:block}
@@ -1640,9 +1634,7 @@ button:disabled {opacity:.5;cursor:default}
   }
 }
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
-  .workout-item .workout-action {width:32px;height:32px;min-width:32px;min-height:32px;flex-basis:32px}
   .sequence-rest-item {padding:8px 12px;margin:0 0 8px;gap:8px}
-  .sequence-rest-item .workout-action {width:32px;height:32px;min-width:32px;min-height:32px;flex-basis:32px}
 }
 
 /* Duration shares the heading row; its details expand in normal document flow. */
@@ -1961,7 +1953,6 @@ button:disabled {opacity:.5;cursor:default}
 .card-head .card-controls,.card-head .exercise-info {position:relative;z-index:1}
 .card-head .hit-tag,.card-head .fix-tag {pointer-events:none}
 .heading-toggle .card-index,.heading-toggle .card-name {position:relative;z-index:1;pointer-events:none}
-.icon-btn.reorder-action:hover {color:var(--text);background:var(--surface-2)}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.heading-toggle {min-height:32px}}
 @media (prefers-reduced-motion:reduce) {.heading-toggle::after {transition:none}}
 

@@ -1,0 +1,39 @@
+# Follow-ups needing design, plan and verification (2026-11-01)
+
+Raised alongside the 2026-11-01 cosmetic bundle (bordered card icon actions, program Reorder icon, centered rest-day delete icon, Program context icon). Each item below changes approved requirements, data or interaction behavior, so it goes through the usual spec → plan → verification flow before implementation.
+
+## 1. Review dock breakpoint on laptops
+
+The AI review fills the whole screen on laptop-sized desktops (1366/1440 widths) instead of docking. Today the spec docks at ≥1280px (340px dock) and uses a full-screen modal below. Decide the laptop behavior (e.g. a lower dock breakpoint, a narrower dock, or an overlay drawer) without shrinking the body figures below 180px or the volume panel's required sizes.
+
+- Touches: AGENTS.md "Program review dock and Week agenda", docs/superpowers/specs/2026-10-31-program-review-dock-design.md, `--review-width` and breakpoint CSS, analysis-panel dock/modal transfer.
+- Verify at 1280, 1366, 1440, 1920, plus mobile/tablet, 200% text and touch/hybrid input; open/close, breakpoint crossing while open, focus restore, reduced motion.
+
+## 2. Program toolbar layout when the review dock opens
+
+On monitor widths, opening the dock narrows the main column and the file actions (Program context, Import, Export, AI review) wrap and rearrange awkwardly. The Week/Sequence selector also sits in the same row as the file actions, although it belongs to the sessions column; it should align with the program name input instead.
+
+- Decide the toolbar structure: layout selector with the name/sessions column, file actions in a stable row that does not reflow when the dock column animates.
+- Touches: program heading markup in src/program-view.js, `.program-toolbar` / `.program-file-actions` CSS, design system "Program context editor" and dock sections.
+- Same verification as item 1; best designed together with it.
+
+## 3. Drag-and-drop preview looks wrong while dragging
+
+The dragged session card renders oddly during a drag. Investigate first (drag copy sizing in the single-column agenda, placeholder, card styles at the dock width). If the cause is only styling, it can return to the cosmetic track.
+
+- Touches: src/sortable.js drag copy/placeholder, Week agenda and Sequence card CSS.
+- Verify mouse and touch drag in Week and Sequence, across days and Unscheduled, rest days, reduced motion, with the dock open and closed; keep the drag-reorder and program-sequence e2e suites passing.
+
+## 4. Training background at user level
+
+Move "Training background and approach" out of per-program context into a single-user profile (new profile menu/screen). It must still feed the program AI analysis the same way. The app stays single-user.
+
+- Decide: storage (new profile record + migration), what happens to background text already saved on programs (migrate one, choose, or discard), whether v3 bundles keep carrying it, and replacement confirmation rules (context alone currently counts as content).
+- Touches: AGENTS.md "Program hypertrophy analysis", program context model/validation/dialog, analysis input projection and prompt, document bundles, revisions/autosave, navigation.
+
+## 5. Remove AI analysis from session templates
+
+Remove the Analyze action and standalone session analysis (anchored popup, ≤760px modal, session route) for now; it will come back later by reusing the program review modules.
+
+- Decide whether the server route `POST` session analysis and its tests are removed or only unreachable from the UI, and keep shared modules (streaming, cancellation, safe rendering, dock) intact for the program review.
+- Touches: AGENTS.md (currently requires standalone session analysis), src/session-markup.js, session-editor wiring, analysis-panel session scope, server route and tests, design system "Session analysis overlay".

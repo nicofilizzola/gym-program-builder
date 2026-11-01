@@ -168,11 +168,12 @@ test('week agenda preserves actions and cross-day drag order',async({page})=>{
   expect(await page.evaluate(()=>window.changes.at(-1).workouts)).toEqual(saved);
 });
 
-test('wide day cards show two icon actions without a day selector',async({page})=>{
+test('wide day cards show three icon actions without a day selector',async({page})=>{
   await page.setViewportSize(sizes[2]);await fixture(page,'program');
   const card=page.locator('[data-workout="w0"]');
   await expect(card.locator('.day-field')).toHaveCount(0);
-  await expect(card.locator('.item-actions button svg')).toHaveCount(2);
+  await expect(card.locator('.item-actions button svg')).toHaveCount(3);
+  expect(await card.locator('.item-actions .action-button').evaluateAll(buttons=>buttons.map(b=>b.dataset.actionTooltip))).toEqual(['Reorder','Duplicate','Remove']);
 });
 
 test('short and enlarged panels release sticky without shrinking the bodies',async({page})=>{
