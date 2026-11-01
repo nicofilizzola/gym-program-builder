@@ -12,6 +12,8 @@ export function createProfileRepository(db,{now=()=>new Date().toISOString()}={}
   get:read,
   async update({revision,profile}={}){
    if(!Number.isInteger(revision)||revision<0)throw domainError('INVALID','Invalid revision.');
+   // A missing or non-object profile is malformed, never an instruction to clear the background.
+   if(!profile||typeof profile!=='object'||Array.isArray(profile))throw domainError('INVALID','Invalid profile.');
    const next=clean(profile);
    const json=JSON.stringify(next),stamp=now();
    const result=revision===0

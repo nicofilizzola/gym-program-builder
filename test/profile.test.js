@@ -46,6 +46,11 @@ test('profile HTTP API requires auth and round trips with revision conflicts',as
  response=await call('PUT',{revision:0,profile:{trainingBackgroundAndApproach:'Stale'}});assert.equal(response.status,409);
  assert.equal((await response.json()).error.message,'Profile changed on another device.');
  assert.equal((await call('PUT',{revision:1,profile:{trainingBackgroundAndApproach:'x'.repeat(2001)}})).status,400);
+ for(const body of [{revision:1},{revision:1,profile:null},{revision:1,profile:'text'},{revision:1,profile:[]},{revision:1,profile:3}]){
+  response=await call('PUT',body);assert.equal(response.status,400,JSON.stringify(body));
+  assert.deepEqual((await response.json()).error,{code:'INVALID',message:'Invalid profile.'});
+ }
+ assert.deepEqual(await (await call()).json(),{profile:{trainingBackgroundAndApproach:'Five years'},revision:1},'a missing or malformed profile never clears the background');
  assert.equal((await call('PUT',{revision:1,profile:{}},{origin:'http://evil'})).status,403);
  assert.equal((await call('DELETE',{})).status,405);
  assert.equal((await api(new Request(origin+'/api/profile/extra',{headers:{origin}}))).status,404);
