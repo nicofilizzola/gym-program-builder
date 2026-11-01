@@ -27,6 +27,33 @@ test('unavailable AI review explains itself',async({page})=>{
  await page.route('**/api/analysis',route=>route.fulfill({json:{enabled:false}}));await programFixture(page);
  await expect(toggle(page)).toHaveAttribute('aria-disabled','true');await toggle(page).dispatchEvent('click');
  await expect(page.locator('.analysis-unavailable')).toHaveText('AI review is not configured yet.');
+ expect(await toggle(page).evaluate(el=>getComputedStyle(el).opacity)).toBe('0.65');
+ await page.emulateMedia({reducedMotion:'no-preference'});await toggle(page).hover();
+ expect(await toggle(page).evaluate(el=>getComputedStyle(el,'::before').animationName)).toBe('none');
+});
+const longReport=report+'\n'+Array.from({length:80},(_,i)=>'Detail '+(i+1)+': the shared template affects several occurrences.').join('\n');
+const reportScroll=page=>page.locator('.analysis-scroll').evaluate(el=>el.scrollTop);
+test('the full-screen review keeps its reading position when closed and reopened',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(longReport)}));
+ await page.setViewportSize({width:1000,height:700});await programFixture(page);
+ await toggle(page).click();await expect(page.locator('dialog.analysis-modal')).toBeVisible();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
+ await page.locator('.analysis-scroll').evaluate(el=>{el.scrollTop=300;});await expect.poll(()=>reportScroll(page)).toBe(300);await page.waitForTimeout(50);
+ await page.keyboard.press('Escape');await expect(page.locator('dialog.analysis-modal')).toBeHidden();await expect(toggle(page)).toBeFocused();
+ await toggle(page).click();await expect(page.locator('dialog.analysis-modal')).toBeVisible();
+ await expect.poll(async()=>Math.abs(await reportScroll(page)-300)).toBeLessThanOrEqual(1);
+});
+test('a review closed in the dock reopens full screen at the same reading position',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(longReport)}));
+ await page.setViewportSize({width:1440,height:900});await programFixture(page);
+ await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
+ await page.locator('.analysis-scroll').evaluate(el=>{el.scrollTop=300;});await expect.poll(()=>reportScroll(page)).toBe(300);await page.waitForTimeout(50);
+ await toggle(page).click();await expect(page.locator('.review-dock')).not.toHaveClass(/is-open/);
+ await page.setViewportSize({width:1000,height:700});await expect(toggle(page)).toHaveAttribute('aria-controls',await page.locator('dialog.analysis-modal').getAttribute('id'));
+ await toggle(page).click();await expect(page.locator('dialog.analysis-modal')).toBeVisible();
+ await expect.poll(async()=>Math.abs(await reportScroll(page)-300)).toBeLessThanOrEqual(1);
+ await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:900});
+ await expect(toggle(page)).toHaveAttribute('aria-controls',await page.locator('.review-dock').getAttribute('id'));
+ await expect(page.locator('.review-dock')).toHaveAttribute('aria-labelledby',await page.locator('.analysis-title').getAttribute('id'));
 });
 test('dock opens beside the program at desktop sizes',async({page})=>{
  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));await populated(page);

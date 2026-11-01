@@ -5,7 +5,7 @@ import {mountActionTooltips} from './action-controls.js';
 let sequence=0;
 export function mountAnalysisPanel({anchor,getWorkout,getSnapshot,scope='session',onValidationError=()=>{},request,enabled=true,dock=null}){
  const programScope=scope==='program',subject=programScope?'Program':'Session';
- const id=`analysis-${++sequence}`,fullscreen=matchMedia(dock?'(max-width: 1279px)':'(max-width: 760px)'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
+ const id=`analysis-${++sequence}`,fullscreen=matchMedia(dock?'(max-width: 1279.98px)':'(max-width: 760px)'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
  const desktop=document.createElement('section');desktop.className='analysis-panel';desktop.popover='manual';desktop.setAttribute('role','region');
  const dialog=document.createElement('dialog');dialog.className='analysis-panel analysis-modal';const wide=dock??desktop;if(dock){desktop.classList.add('analysis-panel--review');dialog.classList.add('analysis-panel--review');}
  const content=document.createElement('div');content.className='analysis-content';
@@ -14,15 +14,17 @@ export function mountAnalysisPanel({anchor,getWorkout,getSnapshot,scope='session
  desktop.id=id;dialog.id=`${id}-mobile`;
  const title=content.querySelector('.analysis-title'),scroll=content.querySelector('.analysis-scroll'),report=content.querySelector('.analysis-report'),status=content.querySelector('.analysis-status'),stale=content.querySelector('.analysis-stale'),snapshot=content.querySelector('.analysis-snapshot'),run=content.querySelector('.analysis-run'),stop=content.querySelector('.analysis-stop'),jump=content.querySelector('.analysis-jump'),closeButton=content.querySelector('.analysis-close');
  const renderer=mountAnalysisReport(report),tooltips=mountActionTooltips(content);
- if(dock){content.classList.add('analysis-content--review');title.textContent='AI review';content.querySelector('.analysis-caption').textContent='Hypertrophy · AI-generated';closeButton.setAttribute('aria-label','Close AI review');closeButton.dataset.actionTooltip='Close AI review';stale.textContent='Program changed';if(!dock.id)dock.id=`${id}-dock`;dock.inert=true;dock.setAttribute('aria-hidden','true');scroll.prepend(snapshot,content.querySelector('.analysis-context'));}
+ if(dock){content.classList.add('analysis-content--review');title.textContent='AI review';content.querySelector('.analysis-caption').textContent='Hypertrophy · AI-generated';closeButton.setAttribute('aria-label','Close AI review');closeButton.dataset.actionTooltip='Close AI review';stale.textContent='Program changed';if(!dock.id)dock.id=`${id}-dock`;dock.setAttribute('aria-labelledby',`${id}-title`);dock.inert=true;dock.setAttribute('aria-hidden','true');scroll.prepend(snapshot,content.querySelector('.analysis-context'));}
  let host=fullscreen.matches?dialog:wide,topRaf=null,opened=false,destroyed=false,closing=false,closeTimer=null,raf=null,follow=true,lastScroll=0,lastFocus=null,lastText='',latest=null,lastPhase='',available=enabled;
  const explanation=document.createElement('p');explanation.className='analysis-unavailable';explanation.id=`${id}-unavailable`;explanation.hidden=true;explanation.textContent='Session analysis is not configured yet.';anchor.after(explanation);
  anchor.setAttribute('aria-describedby',explanation.id);anchor.setAttribute('aria-expanded','false');if(dock)anchor.setAttribute('aria-controls',dock.id);
  host.append(content);
  function position(){if(dock||host!==desktop||!desktop.matches(':popover-open'))return;desktop.style.left='16px';desktop.style.top='16px';const box=anchor.getBoundingClientRect(),rect=desktop.getBoundingClientRect();const below=box.bottom+8,top=below+rect.height<=innerHeight-16?below:Math.max(16,box.top-rect.height-8);desktop.style.left=`${Math.max(16,Math.min(box.left,innerWidth-rect.width-16))}px`;desktop.style.top=`${Math.max(16,Math.min(top,innerHeight-rect.height-16))}px`;}
   function setDockTop(){topRaf=null;if(dock?.parentElement)dock.style.setProperty('--review-dock-top',`${Math.max(0,dock.parentElement.getBoundingClientRect().top)}px`);}
- function onDockScroll(){if(topRaf===null)topRaf=requestAnimationFrame(setDockTop);}
- function onDockResize(){setDockTop();}
+ function onDockScroll(){if(opened&&topRaf===null)topRaf=requestAnimationFrame(setDockTop);}
+ function onDockResize(){if(opened)setDockTop();}
+ // Re-parenting or hiding the report resets its scroll; return to the reader's position.
+ function restoreScroll(){scroll.scrollTop=follow?scroll.scrollHeight:lastScroll;}
  function setJump(){const show=!follow&&Boolean(latest?.text);jump.classList.toggle('is-visible',show);jump.inert=!show;jump.setAttribute('aria-hidden',String(!show));}
  function paint(){raf=null;if(destroyed||!latest)return;
   renderer.update(latest.text);lastText=latest.text;
@@ -42,26 +44,27 @@ export function mountAnalysisPanel({anchor,getWorkout,getSnapshot,scope='session
  function finishClose(){clearTimeout(closeTimer);closeTimer=null;if(opened)return;if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();desktop.classList.remove('is-open');dialog.classList.remove('is-open');closing=false;}
  function close({restoreFocus=true}={}){if(!opened&&!closing)return;opened=false;closing=true;anchor.setAttribute('aria-expanded','false');
   // Release a modal's focus containment before restoring focus, but keep it painted for exit.
-  if(dialog.open){dialog.close();desktop.append(content);host=desktop;desktop.classList.add('is-mobile-exit','is-open');desktop.showPopover();desktop.getBoundingClientRect();}
+  if(dialog.open){dialog.close();desktop.append(content);host=desktop;desktop.classList.add('is-mobile-exit','is-open');desktop.showPopover();desktop.getBoundingClientRect();restoreScroll();}
   if(restoreFocus)anchor.focus({preventScroll:true});
   host.inert=true;host.setAttribute('aria-hidden','true');host.classList.remove('is-open');tooltips.hide?.();
   clearTimeout(closeTimer);if(reduced.matches||host===dock)finishClose();else closeTimer=setTimeout(finishClose,180);
+  anchor.setAttribute('aria-controls',(fullscreen.matches?dialog:wide).id);
  }
  function open(){if(!available){explanation.hidden=false;return;}clearTimeout(closeTimer);closeTimer=null;opened=true;closing=false;desktop.classList.remove('is-mobile-exit');
   const target=fullscreen.matches?dialog:wide;
   if(host!==target){if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();target.append(content);host=target;}
   host.inert=false;host.removeAttribute('aria-hidden');anchor.setAttribute('aria-controls',host.id);anchor.setAttribute('aria-expanded','true');
   if(!visible()){host.classList.remove('is-open');if(host===dialog)dialog.showModal();else if(host===desktop)desktop.showPopover();}
-  if(host===dock)setDockTop();position();host.getBoundingClientRect();host.classList.add('is-open');title.focus({preventScroll:true});
+  if(host===dock)setDockTop();position();host.getBoundingClientRect();host.classList.add('is-open');restoreScroll();title.focus({preventScroll:true});
   if(controller.getState().phase==='idle')controller.start();else paint();
  }
- function adapt(){if(!opened){if(closing)finishClose();return;}// Leaving the dock hides it before this runs, dropping its focus and scroll; use the last known values.
+ function adapt(){if(!opened){if(closing)finishClose();if(anchor.hasAttribute('aria-controls'))anchor.setAttribute('aria-controls',(fullscreen.matches?dialog:wide).id);return;}// Leaving the dock hides it before this runs, dropping its focus and scroll; use the last known values.
   const current=document.activeElement,active=current===document.body&&content.contains(lastFocus)?lastFocus:current,oldScroll=scroll.getClientRects().length?scroll.scrollTop:lastScroll;const target=fullscreen.matches?dialog:wide;if(host===target){position();return;}
   if(desktop.matches(':popover-open'))desktop.hidePopover();if(dialog.open)dialog.close();host.classList.remove('is-open');if(host===dock){dock.inert=true;dock.setAttribute('aria-hidden','true');}target.append(content);host=target;host.inert=false;host.removeAttribute('aria-hidden');anchor.setAttribute('aria-controls',host.id);if(host===dialog)dialog.showModal();else if(host===desktop)desktop.showPopover();else setDockTop();host.classList.add('is-open');scroll.scrollTop=oldScroll;position();if(content.contains(active))active.focus({preventScroll:true});else if(host===dialog)title.focus({preventScroll:true});
  }
  function onAnchor(){if(opened)close();else open();}
  function onKey(event){if(event.key!=='Escape'||!opened||event.defaultPrevented)return;const otherModal=[...document.querySelectorAll('dialog[open]')].some(node=>node!==dialog);if(otherModal)return;if(host===dock&&!content.contains(document.activeElement))return;event.preventDefault();close();}
- function onScroll(){lastScroll=scroll.scrollTop;follow=scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop<=48;setJump();}
+ function onScroll(){if(!scroll.getClientRects().length)return;lastScroll=scroll.scrollTop;follow=scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop<=48;setJump();}
  function onWindowScroll(event){if(!content.contains(event.target))position();}
  anchor.addEventListener('click',onAnchor);closeButton.addEventListener('click',close);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.addEventListener('keydown',onKey);fullscreen.addEventListener('change',adapt);if(dock){window.addEventListener('scroll',onDockScroll,{passive:true});window.addEventListener('resize',onDockResize);}window.addEventListener('resize',position);window.addEventListener('scroll',onWindowScroll,true);scroll.addEventListener('scroll',onScroll);content.addEventListener('focusin',event=>{lastFocus=event.target;});content.addEventListener('focusout',event=>{if(event.relatedTarget&&!content.contains(event.relatedTarget))lastFocus=null;});
  run.addEventListener('click',()=>{follow=true;controller.start();});stop.addEventListener('click',()=>controller.stop());jump.addEventListener('click',()=>{follow=true;scroll.scrollTop=scroll.scrollHeight;setJump();scroll.focus({preventScroll:true});});
@@ -69,5 +72,5 @@ export function mountAnalysisPanel({anchor,getWorkout,getSnapshot,scope='session
  const sizeObserver=new ResizeObserver(position);sizeObserver.observe(desktop);sizeObserver.observe(anchor);
  setEnabled(enabled);
  function dismissModal(){if(host===dialog)close({restoreFocus:false});}
- return {refresh:controller.refresh,setEnabled,close,dismissModal,destroy(){destroyed=true;sizeObserver.disconnect();controller.destroy();clearTimeout(closeTimer);cancelAnimationFrame(raf);renderer.destroy();tooltips.destroy();anchor.removeEventListener('click',onAnchor);document.removeEventListener('keydown',onKey);fullscreen.removeEventListener('change',adapt);cancelAnimationFrame(topRaf);if(dock){window.removeEventListener('scroll',onDockScroll);window.removeEventListener('resize',onDockResize);dock.replaceChildren();dock.classList.remove('is-open');dock.inert=false;dock.removeAttribute('aria-hidden');dock.style.removeProperty('--review-dock-top');}window.removeEventListener('resize',position);window.removeEventListener('scroll',onWindowScroll,true);if(dialog.open)dialog.close();desktop.remove();dialog.remove();explanation.remove();}};
+ return {refresh:controller.refresh,setEnabled,close,dismissModal,destroy(){destroyed=true;sizeObserver.disconnect();controller.destroy();clearTimeout(closeTimer);cancelAnimationFrame(raf);renderer.destroy();tooltips.destroy();anchor.removeEventListener('click',onAnchor);document.removeEventListener('keydown',onKey);fullscreen.removeEventListener('change',adapt);cancelAnimationFrame(topRaf);if(dock){window.removeEventListener('scroll',onDockScroll);window.removeEventListener('resize',onDockResize);dock.replaceChildren();dock.classList.remove('is-open');dock.inert=false;dock.removeAttribute('aria-hidden');dock.removeAttribute('aria-labelledby');dock.style.removeProperty('--review-dock-top');}window.removeEventListener('resize',position);window.removeEventListener('scroll',onWindowScroll,true);if(dialog.open)dialog.close();desktop.remove();dialog.remove();explanation.remove();}};
 }
