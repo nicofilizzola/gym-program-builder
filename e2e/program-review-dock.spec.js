@@ -238,13 +238,15 @@ test('program header keeps file actions together and the selector beside the nam
  const measure=async()=>{
   const name=await box(page,'.program-identity .field'),input=await box(page,'.program-identity .field input'),layout=await box(page,'fieldset.program-layout'),head=await box(page,'.program-heading');
   const b=[];for(const s of sels)b.push(await box(page,'.program-file-actions '+s));
-  return {input,name,layout,head,b,gaps:b.slice(1).map((x,i)=>x.left-b[i].right)};
+  const labels=await page.locator('fieldset.program-layout label').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().top));
+  return {input,name,layout,head,b,labels,gaps:b.slice(1).map((x,i)=>x.left-b[i].right)};
  };
  const check=async(openDock)=>{
   await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(150);const m=await measure();
-  const gap=m.layout.left-m.name.right;
+  const gap=m.layout.left-m.name.right,where=`${page.viewportSize().width}px dock ${openDock?'open':'closed'}`;
+  expect(m.labels).toHaveLength(2);expect(Math.abs(m.labels[1]-m.labels[0]),`${where}: selector labels on one line`).toBeLessThanOrEqual(1);
   if(Math.abs(m.layout.top+m.layout.height/2-(m.name.top+m.name.height/2))<2||m.layout.top>m.name.bottom){/* same row or wrapped */}
-  if(m.layout.top<m.name.bottom-1){expect(gap).toBeGreaterThanOrEqual(8);expect(gap).toBeLessThanOrEqual(16);expect(Math.abs((m.layout.top+m.layout.height/2)-(m.input.top+m.input.height/2))).toBeLessThan(2);}
+  if(m.layout.top<m.name.bottom-1){expect(gap).toBeGreaterThanOrEqual(8);expect(gap).toBeLessThanOrEqual(16);expect(Math.abs((m.layout.top+m.layout.height/2)-(m.input.top+m.input.height/2)),`${where}: selector centered on the name input`).toBeLessThan(2);}
   for(const x of m.b)expect(Math.abs(x.top-m.b[0].top)).toBeLessThanOrEqual(1);
   for(let i=1;i<4;i++)expect(m.b[i].left).toBeGreaterThan(m.b[i-1].left);
   expect(Math.abs(m.gaps[2]-16)).toBeLessThanOrEqual(1);
@@ -253,7 +255,7 @@ test('program header keeps file actions together and the selector beside the nam
   return m.gaps;
  };
  await programFixture(page);
- for(const [width,height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]){
+ for(const [width,height] of [[1024,768],[1136,800],[1152,864],[1159,864],[1280,800],[1440,900],[1472,900],[1488,900],[1503,900],[1920,1080]]){
   await page.setViewportSize({width,height});await page.reload();await expect(page.locator('.program-file-actions')).toBeVisible();
   const closed=await check(false);
   await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await page.waitForTimeout(400);

@@ -1340,13 +1340,13 @@ button:disabled {opacity:.5;cursor:default}
 .sequence-toolbar {display:flex;justify-content:flex-end;margin:0 0 12px}
 .sequence-toolbar:has([hidden]) {display:none}
 .week-help {color:var(--muted);font-size:.875rem;margin:0 0 12px}
-.sequence-rest-item {display:flex;align-items:center;gap:12px;margin:12px 0;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-width:0}
+.sequence-rest-item {display:flex;align-items:center;gap:12px;margin:12px 0;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-width:0}
 .sequence-rest-item h3 {flex:1;min-width:0;margin:0;font-family:var(--font-body);font-size:1rem;font-weight:500;color:var(--muted);overflow-wrap:anywhere}
 .sequence-rest-item .item-actions {margin-left:auto;flex-wrap:nowrap;gap:6px}
 .program-heading {display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;margin-bottom:24px}
 .program-identity {display:flex;align-items:flex-end;gap:12px;flex:1 1 360px;min-width:0}
 .program-identity>.field {flex:1 1 240px;max-width:480px;min-width:0}
-.program-layout {display:flex;flex-wrap:wrap;min-width:0;margin:0 0 -5px;padding:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.program-layout {display:flex;flex:none;flex-wrap:nowrap;min-width:0;margin:0;padding:4px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
 .program-layout label {position:relative;display:flex;flex:1 1 auto;min-height:44px;align-items:center;justify-content:center;border:1px solid transparent;border-radius:6px;color:var(--muted);cursor:pointer}
 .program-layout input {position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .program-layout span {padding:10px 14px;font-size:.875rem;font-weight:500}
@@ -1354,7 +1354,19 @@ button:disabled {opacity:.5;cursor:default}
 .program-layout label:has(input:checked) {color:var(--accent);background:var(--accent-soft);border-color:var(--accent)}
 .program-layout label:has(input:focus-visible) {outline:2px solid var(--accent);outline-offset:2px}
 .program-file-actions {display:flex;flex-wrap:wrap;gap:8px;margin-left:auto;min-width:0;max-width:100%}
-@media (max-width:760px) {.program-file-actions {flex-wrap:wrap;margin-left:0}}
+/* From 761px the identity is a grid: the name field (min 12rem) spans the label and input rows as a
+   subgrid and the selector stays on one line, centered on the input row. When the row is too narrow
+   the whole file-action group (max-content as a flex item) moves to its own row instead. */
+@media (min-width:761px) {
+ .program-identity {display:grid;grid-template-columns:minmax(12rem,480px) max-content;grid-template-rows:auto auto;justify-content:start;align-items:center;gap:6px 12px;min-width:auto}
+ .program-identity>.field {grid-row:1/span 2;grid-column:1;display:grid;grid-template-rows:subgrid;max-width:none}
+ .program-identity>.field>input {align-self:center}
+ .program-identity>.program-layout {grid-row:2;grid-column:2}
+}
+@media (max-width:760px) {
+ .program-layout {flex:0 1 auto;flex-wrap:wrap;margin-bottom:-5px}
+ .program-file-actions {margin-left:0}
+}
 .program-heading+.analysis-unavailable {flex-basis:auto;text-align:right;margin:-12px 0 12px}
 .program-page [data-program-error] a {color:var(--accent);overflow-wrap:anywhere}
 .program-file-actions .secondary-btn {min-height:44px}
@@ -1509,7 +1521,8 @@ button:disabled {opacity:.5;cursor:default}
   .field,.slider-head,.chips legend {font-size:.8125rem;gap:4px}
   .action-button,.icon-btn {width:var(--control-compact);height:var(--control-compact);min-height:var(--control-compact);flex-basis:var(--control-compact)}
   .collapsible > .card-summary {padding-left:4px}
-  .program-layout {padding:2px;margin-bottom:-3px}
+  .program-identity {row-gap:4px}
+  .program-layout {padding:2px}
   .program-layout label {min-height:var(--control-compact)}
   .program-layout span {padding:6px 10px;font-size:.8125rem}
   .add-alternative {min-height:var(--control-compact)}

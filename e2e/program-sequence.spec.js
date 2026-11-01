@@ -200,9 +200,15 @@ test('rest actions sit at the right edge aligned with workout actions',async({pa
  const rest=page.locator('[data-rest="r"]');
  await expect(rest.locator('.item-actions button')).toHaveCount(2);
  expect(await rest.locator('.item-actions button').evaluateAll(els=>els.map(el=>el.getAttribute('aria-label')))).toEqual(['Reorder rest day','Remove rest day']);
- const title=await rest.locator('h3').boundingBox(),reorder=await rest.locator('.reorder-action').boundingBox();
- const restRemove=await rest.getByRole('button',{name:'Remove rest day',exact:true}).boundingBox();
- const workoutRemove=await page.locator('[data-workout="a"] [data-action=Remove]').boundingBox();
- expect(reorder.x).toBeGreaterThan(title.x+title.width-1);
- expect(Math.abs(restRemove.x+restRemove.width-(workoutRemove.x+workoutRemove.width))).toBeLessThan(1);
+ for(const [width,height] of [[1440,1100],[1024,768],[390,844]]){
+  await page.setViewportSize({width,height});
+  const title=await rest.locator('h3').boundingBox(),reorder=await rest.locator('.reorder-action').boundingBox();
+  // Below 1100px workout actions sit in their own full-width row; compare action-group right edges.
+  const restRemove=await rest.getByRole('button',{name:'Remove rest day',exact:true}).boundingBox();
+  const workoutRemove=await page.locator('[data-workout="a"] .item-actions').boundingBox();
+  const pad=sel=>page.locator(sel).evaluate(el=>{const s=getComputedStyle(el);return parseFloat(s.paddingRight)+parseFloat(s.borderRightWidth);});
+  expect(reorder.x,`${width}px`).toBeGreaterThan(title.x+title.width-1);
+  expect(Math.abs(restRemove.x+restRemove.width-(workoutRemove.x+workoutRemove.width)),`${width}px right edge`).toBeLessThan(1);
+  expect(await pad('[data-rest="r"]'),`${width}px inline padding`).toBe(await pad('[data-workout="a"]'));
+ }
 });

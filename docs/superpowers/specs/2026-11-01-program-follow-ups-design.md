@@ -17,7 +17,8 @@ Approach: the copy is placed inside a body-level, fixed-position host that recre
 ## 3. Program header
 
 - Row content: `PROGRAM` title, Program name field, then the Week/Sequence selector immediately after the name field. The selector belongs to the identity group, not the file actions.
-- File actions (Program context, Import program, Export program, AI review, with AI review 16px from Export) form one group that never wraps internally on desktop (≥761px). It sits right-aligned on the same row when there is room; otherwise the whole group moves to its own row, still right-aligned. Opening or closing the review dock never reorders the buttons or splits the group.
+- File actions (Program context, Import program, Export program, AI review, with AI review 16px from Export) form one group that never wraps internally at default text size on desktop (≥761px). It sits right-aligned on the same row when there is room; otherwise the whole group moves to its own row, still right-aligned. It may wrap internally only when even a full row cannot hold it (enlarged text, for example 200%).
+- At ≥761px the Week/Sequence selector never wraps its two options and is vertically centered on the Program name input (layout alignment, not offset margins). The Program name field keeps at least 12rem, so a narrow row moves the file-action group to its own row instead of squeezing the identity group. (Amended 2026-11-01 after the final review.) Opening or closing the review dock never reorders the buttons or splits the group.
 - ≤760px: the group may wrap internally (existing mobile behavior).
 - No new motion: the group's row change happens during the existing 180ms dock column animation as normal reflow.
 
