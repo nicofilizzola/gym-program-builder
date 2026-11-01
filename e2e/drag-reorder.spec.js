@@ -126,7 +126,7 @@ async function programFixture(page,mode='simple') {
  },mode);await page.evaluate(()=>document.fonts.ready);
 }
 async function dragWorkout(page,id,target) {
- const box=await page.locator(`[data-workout="${id}"] .workout-metadata`).boundingBox();await page.mouse.move(box.x+5,box.y+5);await page.mouse.down();
+ const box=await page.locator(`[data-workout="${id}"] .workout-metadata p:first-child`).boundingBox();await page.mouse.move(box.x+5,box.y+5);await page.mouse.down();
  await page.mouse.move(box.x+15,box.y+15);
  // The agenda reflows while the placeholder moves, so read the target after the drag has begun and jump to it.
  const end=await target.boundingBox();await page.mouse.move(end.x+60,end.y+end.height-12);

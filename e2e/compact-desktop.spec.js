@@ -143,7 +143,7 @@ test('week uses a single-column day agenda',async({page})=>{
 
 test('week agenda cards keep name, metadata and actions on one row',async({page})=>{
   await page.setViewportSize({width:1440,height:900});await fixture(page,'program');
-  const m=await page.locator('.workout-item').first().evaluate(el=>{const c=r=>r.y+r.height/2,q=s=>el.querySelector(s).getBoundingClientRect();return {h3:c(q('h3')),meta:c(q('.workout-metadata')),actions:c(q('.item-actions')),height:el.getBoundingClientRect().height};});
+  const m=await page.locator('.workout-item').first().evaluate(el=>{const c=r=>r.y+r.height/2,q=s=>el.querySelector(s).getBoundingClientRect();return {h3:c(q('h3')),meta:c(q('.workout-metadata p')),actions:c(q('.item-actions')),height:el.getBoundingClientRect().height};});
   expect(Math.abs(m.h3-m.meta)).toBeLessThan(8);expect(Math.abs(m.h3-m.actions)).toBeLessThan(8);expect(Math.abs(m.meta-m.actions)).toBeLessThan(8);
   expect(m.height).toBeLessThanOrEqual(64);
 });
@@ -156,7 +156,7 @@ test('week agenda preserves actions and cross-day drag order',async({page})=>{
   await expect(duplicate.locator('svg')).toHaveCount(1);
   await duplicate.click();await expect(page.locator('.workout-item')).toHaveCount(10);
   await expect(page.locator('.workout-title').filter({hasText:'Upper A'}).nth(1)).toBeFocused();
-  const source=await first.locator('.workout-metadata').boundingBox();
+  const source=await first.locator('.workout-metadata p:first-child').boundingBox();
   await page.mouse.move(source.x+source.width/2,source.y+source.height/2);await page.mouse.down();
   const target=await page.locator('[data-sort-group="1"]').boundingBox();
   await page.mouse.move(target.x+60,target.y+30,{steps:8});await expect(page.locator('.sort-drag-copy')).toBeVisible();await page.mouse.up();

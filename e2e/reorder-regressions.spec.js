@@ -33,7 +33,7 @@ test('queued scroll notifications do not dismiss a newly positioned Reorder popu
 
 test('pending touch hold is cancelled when the program view rerenders',async({browser})=>{
  const context=await browser.newContext({hasTouch:true}),page=await context.newPage();await programFixture(page);
- const b=await page.locator('[data-workout="0"] .workout-metadata').boundingBox(),client=await context.newCDPSession(page);
+ const b=await page.locator('[data-workout="0"] .workout-metadata p:first-child').boundingBox(),client=await context.newCDPSession(page);
  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:b.x+5,y:b.y+5}]});
  await page.evaluate(()=>window.view.update(window.programData));
  await page.waitForTimeout(400); // The old 350ms hold must never arm after teardown.
@@ -44,7 +44,7 @@ test('pending touch hold is cancelled when the program view rerenders',async({br
 
 test('an independent touch action works immediately after a touch drop',async({browser})=>{
  const context=await browser.newContext({hasTouch:true}),page=await context.newPage();await programFixture(page);
- const b=await page.locator('[data-workout="0"] .workout-metadata').boundingBox(),client=await context.newCDPSession(page);
+ const b=await page.locator('[data-workout="0"] .workout-metadata p:first-child').boundingBox(),client=await context.newCDPSession(page);
  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:b.x+5,y:b.y+5}]});
  await expect(page.locator('[data-workout="0"]')).toHaveClass(/is-hold-armed/);
  const target=await page.locator('[data-workout="2"]').boundingBox();

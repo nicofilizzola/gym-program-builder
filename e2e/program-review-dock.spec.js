@@ -44,6 +44,33 @@ test('dock opens beside the program at desktop sizes',async({page})=>{
   await toggle(page).click();await expect.poll(async()=>(await box(page,'.panel')).right).toBeCloseTo(w-24,0);
  }
 });
+const cardRows=page=>page.locator('.week-agenda .workout-item').evaluateAll(cards=>cards.map(card=>{const t=card.querySelector('h3').getBoundingClientRect(),a=card.querySelector('.item-actions').getBoundingClientRect();return {height:card.getBoundingClientRect().height,offset:Math.abs((t.top+t.height/2)-(a.top+a.height/2))};}));
+test('week agenda cards keep actions beside the title with the dock open and closed',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
+ await page.setViewportSize({width:1366,height:768});await populated(page,{name:'Upper A'});
+ await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await expect.poll(async()=>(await box(page,'.review-dock')).width).toBe(340);
+ for(const card of await cardRows(page)){expect(card.offset).toBeLessThanOrEqual(8);expect(card.height).toBeLessThanOrEqual(64);}
+ await toggle(page).click();await page.setViewportSize({width:1440,height:900});await expect.poll(async()=>(await box(page,'.review-dock')).width).toBe(0);
+ for(const card of await cardRows(page)){expect(card.offset).toBeLessThanOrEqual(8);expect(card.height).toBeLessThanOrEqual(64);}
+});
+test('week agenda day labels fit their column at default and 200% text',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await populated(page,{name:'Upper A'});
+ const labels=()=>page.locator('.week-agenda .day-section').evaluateAll(days=>days.map(day=>{const h=day.querySelector('h2'),list=day.querySelector('.workout-list');return {text:h.textContent.trim(),floated:getComputedStyle(h).float==='left',scroll:h.scrollWidth,client:h.clientWidth,gap:list.getBoundingClientRect().left-h.getBoundingClientRect().right};}));
+ for(const [w,h,big] of [[1366,768,false],[1440,900,false],[1920,1080,false],[1920,1080,true]]){
+  await page.setViewportSize({width:w,height:h});if(big)await page.addStyleTag({content:'html{font-size:200%!important}'});
+  const all=await labels();expect(all.map(l=>l.text)).toContain('Unscheduled');
+  for(const label of all){expect(label.floated,`${label.text} at ${w}${big?' 200%':''}`).toBe(true);expect(label.scroll).toBeLessThanOrEqual(label.client);expect(label.gap).toBeGreaterThanOrEqual(8);}
+ }
+});
+test('review snapshot and status scroll with the report in the dock and full screen',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
+ await page.setViewportSize({width:1440,height:900});await programFixture(page);
+ await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
+ for(const selector of ['.analysis-snapshot','.analysis-status','.analysis-stale'])await expect(page.locator(`.review-dock .analysis-scroll ${selector}`)).toHaveCount(1);
+ await expect(page.locator('.review-dock .analysis-scroll .analysis-status')).toHaveAttribute('role','status');
+ await page.setViewportSize({width:1279,height:900});await expect(page.locator('dialog.analysis-modal')).toBeVisible();
+ for(const selector of ['.analysis-snapshot','.analysis-status'])await expect(page.locator(`dialog.analysis-modal .analysis-scroll ${selector}`)).toHaveCount(1);
+});
 test('dock stays within the viewport while the page scrolls',async({page})=>{
  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
  await page.setViewportSize({width:1366,height:768});await populated(page,{extra:6});

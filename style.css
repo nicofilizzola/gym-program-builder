@@ -1597,13 +1597,36 @@ button:disabled {opacity:.5;cursor:default}
 .week-agenda {display:block}
 .week-agenda .day-section {container:day / inline-size;min-width:0;display:flow-root;border-top:1px solid var(--border);padding:4px 0}
 .week-agenda .day-section--unscheduled {margin-top:8px}
-.week-agenda .day-section h2 {display:flex;align-items:center;min-height:44px;margin:0;font-family:var(--font-body);font-weight:500;font-size:.8125rem;color:var(--muted)}
+.week-agenda .day-section h2 {display:flex;align-items:center;min-height:44px;margin:0;font-family:var(--font-body);font-weight:500;font-size:.8125rem;letter-spacing:0;text-transform:none;overflow-wrap:anywhere;color:var(--muted)}
 .week-agenda .workout-list {min-height:44px}
 .week-agenda .workout-item {display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:6px 10px;margin:0 0 6px}
 .week-agenda .workout-item:last-child {margin-bottom:0}
 .week-agenda .workout-item h3 {flex:0 1 auto;min-width:0;grid-column:auto;font-family:var(--font-body);font-size:1rem}
 .week-agenda .workout-metadata {flex:1 1 auto;grid-column:auto;margin:0;gap:4px 8px;font-size:.8125rem}
 .week-agenda .workout-item .item-actions {margin-left:auto;grid-column:auto;grid-row:auto;align-self:center;gap:6px}
+.week-agenda .workout-metadata p {line-height:1.25}
+.week-agenda .workout-muscle-slot .hit-tag {padding:1px 8px;line-height:1.2;white-space:nowrap;overflow-wrap:normal}
+.week-agenda .workout-muscle-match {max-width:100%;overflow:hidden;text-overflow:ellipsis}
+/* Cards with room keep the title and actions on the first row and the metadata on the
+   second; the muscle badge takes the rest of that row. Wide cards use a single row. */
+@container day (min-width:22rem) {
+  .week-agenda .workout-item {row-gap:0;padding-block:5px}
+  .week-agenda .workout-metadata {display:contents}
+  .week-agenda .workout-item h3 {order:1;flex:1 1 0}
+  .week-agenda .workout-item .item-actions {order:2}
+  .week-agenda .workout-item::after {content:'';order:3;flex-basis:100%}
+  .week-agenda .workout-metadata p {order:4}
+  .week-agenda .workout-muscle-slot {order:5;flex:1 1 0;min-width:0;overflow:hidden}
+}
+@container day (min-width:52rem) {
+  .week-agenda .workout-item {display:grid;grid-template-columns:auto auto auto minmax(0,1fr) auto;align-items:center}
+  .week-agenda .workout-item::after {content:none}
+  .week-agenda .workout-item h3 {grid-area:1/1}
+  .week-agenda .workout-metadata p {grid-area:1/2}
+  .week-agenda .workout-metadata [data-workout-duration] {grid-area:1/3}
+  .week-agenda .workout-muscle-slot {grid-area:1/4}
+  .week-agenda .workout-item .item-actions {grid-area:1/5}
+}
 .week-agenda .day-section .empty {min-height:44px;margin:0;padding:10px 12px;text-align:left;font-size:.8125rem;border:1px dashed var(--border)}
 @container day (min-width:30rem) {
   .week-agenda .day-section h2 {float:left;width:4.875rem}
@@ -1896,8 +1919,9 @@ button:disabled {opacity:.5;cursor:default}
 .review-dock > .analysis-content { box-sizing: border-box; width: var(--review-width); height: 100%; max-height: none; background: var(--surface); border-left: 1px solid var(--border); border-radius: 0; box-shadow: none; opacity: 0; transform: translateX(12px); transition: opacity 180ms ease-out, transform 180ms ease-out; }
 .review-dock.is-open > .analysis-content { opacity: 1; transform: none; }
 .review-dock .analysis-head { flex: none; border-bottom: 1px solid var(--border); padding: 12px 12px 8px; }
-.review-dock .analysis-snapshot, .review-dock .analysis-context { flex: none; padding-inline: 12px; }
-.review-dock .analysis-snapshot { padding-top: 8px; }
+/* Review mode: the snapshot scope, status and staleness scroll with the report. */
+.analysis-content--review .analysis-snapshot { padding: 8px 0 0; }
+.analysis-content--review .analysis-context { padding: 8px 0 12px; }
 .review-dock .analysis-scroll { min-height: 0; padding: 0 12px 12px; }
 .review-dock .analysis-footer { flex: none; border-top: 1px solid var(--border); background: var(--surface); padding: 12px; }
 .analysis-content--review .analysis-title { font: 600 1rem/1.4 var(--font-body); }
