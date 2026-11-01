@@ -1,6 +1,6 @@
 # Program review dock and compact week agenda
 
-Status: design approved by the user on 2026-10-31 through an interactive mockup review; written specification approved on 2026-10-31. No implementation is approved yet. The next step is an implementation plan (writing-plans), then plan review.
+Status: implementation and local verification complete; deployment pending. Design approved by the user on 2026-10-31 through an interactive mockup review; written specification approved on 2026-10-31.
 
 This builds on [Program hypertrophy analysis v1](2026-10-31-program-analysis-design.md). It changes only where and how the program report is presented, the Week layout and the review trigger. Analysis behavior, input, prompts, limits and the report contract are unchanged.
 

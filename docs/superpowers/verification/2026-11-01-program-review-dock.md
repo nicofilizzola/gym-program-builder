@@ -1,0 +1,67 @@
+# Program review dock and Week agenda verification
+
+Implementation: branch `feat/program-review-dock`, based on `78f89fb`. Design and plan: [spec](../specs/2026-10-31-program-review-dock-design.md), [plan](../plans/2026-11-01-program-review-dock.md). This is local verification; no preview or production deployment has been performed.
+
+## Automated evidence
+
+Final runs on the branch after all fixes below (`4843f5c` plus this documentation change):
+
+- `npm.cmd test`: **230 passed, 0 failed**. In five repeated runs during this task, one run failed `SQLite records persist, enforce revisions and safely retry lost acknowledgements` (test/repository.test.js:30) with `EBUSY: resource busy or locked, unlink ...\gym-*\test.db` after 67s; the other four passed all 230. This is a Windows temp-file lock in an unchanged repository test, not related to this branch.
+- `npm.cmd run test:e2e`: **267 passed, 0 failed in 6.0 minutes** (265 earlier tests plus the two new regressions). An earlier full run in this task (before the two layout/focus fixes) passed **265 of 265 in 5.9 minutes**.
+- `npm.cmd run build`: passed ("Built public assets.").
+
+Previously noted full-suite flakes, rechecked in the full runs above: `e2e/slider-motion.spec.js` lines 11 and 24 (failed in the original baseline before this branch), `e2e/reference-exercises.spec.js:16` and `e2e/session-analysis.spec.js:61` all passed in both full runs. No test was skipped or retried.
+
+Flake found and fixed while running the dock spec: `AI review has a warm identity, a hover sweep and a generating breath` failed 2 of 4 repeats. With motion enabled, the route entry transition leaves the app shell `inert` for a moment after the program name appears, so `focus()` on Export silently did nothing. The test now waits for the shell to leave `inert` before the keyboard check; 8 of 8 repeats then passed. No product change.
+
+## Fixes made during verification
+
+1. **Closed dock stretched the program header (Important).** At 1920×1080 a populated six-occurrence program showed about 190px of empty space between the breadcrumbs and the program header, with the dock closed or open, plus a 56px spurious page scroll while closed. Cause: the sticky dock spans both route grid rows with a viewport height, so the grid stretched the breadcrumb row whenever the program was shorter than the viewport. The dock now has zero height once closed (switched after the 180ms exit, so the closing picture is unchanged) and the route rows are `auto 1fr`. Regression: `a short program keeps its header under the breadcrumbs with the dock closed, open and closed again` failed first (breadcrumb row 241px) and passes after the fix.
+2. **Dock to full-screen lost focus and report scroll (Important).** Shrinking the window below 1280px with the review open moved focus from the focused review control (for example Analyze again) to the review title and reset the report scroll. The dock is `display: none` below 1280px before the breakpoint handler runs, so the focused control and scroll offset were already gone. The panel now remembers the last report scroll and focused review control and restores them in the modal. Regression: `crossing 1280px while open keeps the report scroll position and focus` failed first and passes 5 of 5 repeats after the fix; the existing session and program breakpoint tests still pass.
+3. **Reduced-motion rule for the toggle.** The rule `.review-toggle{transition:none}` was outranked by `.secondary-btn.review-toggle{transition:…}`; it now uses the same selector, and the reduced-motion test asserts a `0s` transition. The global `* {transition: none !important}` reduced-motion rule already made the toggle instant, so no motion was observable before the change; the assertion passes either way and guards the rule.
+4. Test hygiene: `e2e/program-context.spec.js` now uses exact `Program name` labels.
+
+## Browser interaction and layout evidence
+
+Real Chromium (Playwright 1.64, headless) driven by throwaway scripts against `node scripts/dev-server.js --test` with the fake analysis stream replaced by a long synthetic report. The populated program has six occurrences of three shared templates (one with a long name), two sessions on Monday, an Unscheduled occurrence, empty weekdays, a long program name and five weekly goals.
+
+Layout, dock closed and open (document overflow, dock box, grid columns, body figures, footer reachability):
+
+| Viewport | Result |
+| --- | --- |
+| 1366×768 | Open: grid `1026px 340px`, dock 340×712 below the 56px navigation, footer visible; figures 180px; no horizontal overflow. The program header actions wrap and AI review takes a second row (8px indent from its left margin). Week needs page scrolling to reach Unscheduled, as the spec accepts. After scrolling to the bottom the dock is 0–768 and Analyze again stays visible. |
+| 1440×900 | Open: `1100px 340px`, figures 180px, no overflow. Closed: page fits the viewport. |
+| 1920×1080 | Open: `1560px 360px`, figures 200px, page fits; closed: page exactly fits (after fix 1). |
+| 1280×800 | Dock at 340px; sessions column 416px, so day rows are below 30rem and labels stack above their sessions; no overflow. |
+| 1279×800 | Full-screen modal, focus on the title, no dock column. |
+| 768×1024, 390×844 | Full-screen modal with fixed header/footer and scrolling report; toggle 44px. |
+| 200% text (1100, 1366, 1440) | Toggle stays after Export with a 16px gap (8px margin plus gap) and wraps with its row; no horizontal overflow; dock opens at 1366/1440, modal at 1100. |
+| Hybrid (1366, `hasTouch`) | `(hover:hover) and (pointer:fine)` false, `any-pointer:coarse` true; toggle and Close are 44px; no sweep after a tap. |
+
+Interaction:
+
+- **Open/close motion (motion enabled).** Sampled every frame: the dock column grows 0→340px, content opacity 0→1 and translate 12→0px with ease-out deceleration, settling at about 177ms; closing reverses symmetrically and reaches 0 at about 195ms. Nothing animates on first render. Reduced motion: the column reaches 340px immediately and `document.getAnimations()` is empty.
+- **Rapid toggles.** Five clicks 40ms apart end open with `aria-expanded="true"`, not inert, column 340px and opacity 1. Four more clicks 60ms apart end open. No stale close callback was observed.
+- **Escape.** With focus in the Program name field, Escape leaves the dock open. With focus on Analyze again, Escape closes it, focuses the AI review toggle and makes the dock inert.
+- **Breakpoint while open.** 1440→1279→1440 with Analyze again focused: report text survives, focus stays on Analyze again in both directions (after fix 2), no dock column remains when closed in the modal and then widened (`1440px 0px`, dock height 0). At 1275px the long report fits without scrolling, so its scroll offset correctly clamps to 0 in the modal.
+- **Editing while open.** Dragging Lower A from Tuesday to the empty Wednesday with the mouse while the dock is open moves it and shows "Program changed" in the dock; the report remains.
+- **Program context over the dock.** At 1440 the context dialog opens over the page with the dock still open behind its backdrop; Escape closes the dialog, the dock stays open and focus returns to Program context.
+- **Hover sweep and generating breath.** Fine-pointer hover sets `ai-light-sweep` on the toggle's `::before` (once, 0.45s) and clears it after leaving; while the request is held open the sparkle runs `ai-sparkle-breathe` (1.6s) and stops on completion. Reduced motion: no sweep, no breath, `0s` transition, colours unchanged.
+- **Cross-day drag in the agenda.** A 24-step mouse drag from Tuesday into Wednesday, with the dock open and closed, moved the placeholder exactly once (when the pointer reached Wednesday). The rows below shifted once by the placeholder height (about 40px) and nothing moved back and forth over the remaining steps. I saw no oscillation, but headless sampling cannot judge how smooth the drag feels to a person; a manual check is still worthwhile.
+
+Compared with the spec screenshots: dock structure, widths, borders, typography and footer match. Differences are listed under Gaps.
+
+Screenshots (`2026-11-01-program-review-dock/`): [1366 open](2026-11-01-program-review-dock/1366-open.png), [1366 open scrolled](2026-11-01-program-review-dock/1366-open-scrolled.png), [1440 closed](2026-11-01-program-review-dock/1440-closed.png), [1440 open](2026-11-01-program-review-dock/1440-open.png), [1920 closed](2026-11-01-program-review-dock/1920-closed.png), [1920 open](2026-11-01-program-review-dock/1920-open.png), [1280 open](2026-11-01-program-review-dock/1280-open.png), [1279 open](2026-11-01-program-review-dock/1279-open.png), [768 open](2026-11-01-program-review-dock/768-open.png), [390 open](2026-11-01-program-review-dock/390-open.png), [200% text open](2026-11-01-program-review-dock/text200-1366-open.png), [200% text actions](2026-11-01-program-review-dock/text200-1366-actions.png), [hybrid](2026-11-01-program-review-dock/hybrid-1366-open.png), [context over dock](2026-11-01-program-review-dock/context-over-dock-1440.png), [drag in progress](2026-11-01-program-review-dock/drag-mid-open.png), [after drag, stale](2026-11-01-program-review-dock/drag-after-open-stale.png).
+
+## Gaps and open findings
+
+- **Motion was not judged by eye.** No interactive browser was available. Motion evidence is frame sampling of computed styles plus screenshots; the feel of the 180ms glide, the 450ms sweep, the 1600ms breath and the agenda drag reflow still needs a human check on real hardware.
+- **Week cards are taller than the mockup.** In the approved mockup, card actions sit at the right of the name/metadata. In the implementation, whenever name, metadata and actions do not fit on one line (most cards at 1366/1440 with the dock open, and every card at 1280), the actions wrap to their own right-aligned line, so cards are roughly 85–120px tall instead of about 50px. The spec says the actions "stay visible at the right of the card". Not changed here because it needs a card-layout decision.
+- **"Unscheduled" overflows its label column below 1600px.** The label renders 91px wide in the 4.875rem (78px) column and uses up the 12px gap, so it touches the card (see the 1366 scrolled screenshot). "Wednesday" fits with 2px to spare. Fixing it means changing the specified column value or how that label is handled, so it is left for a decision.
+- **Snapshot line is fixed, not scrolled.** The spec puts the snapshot scope and status inside the scrolling report region. The implementation keeps them fixed above it. At 200% text on 1366×768 this leaves about 190px for the report.
+- **Header differs from the mockup.** The real header keeps Week/Sequence beside the program name, so at 1366 and 1280 with the dock open the action row wraps and AI review takes its own line. Wrapping is allowed; noted for comparison.
+- No real-provider run is required: analysis input, route, prompt, provider settings and lifecycle are unchanged.
+
+## Release boundary
+
+Preview and production deployment remain unverified operator steps. No migration or seed is required. Follow the existing [deployment guidance](../../deployment.md).
