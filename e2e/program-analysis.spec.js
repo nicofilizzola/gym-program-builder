@@ -63,7 +63,7 @@ test('populated program analysis and context fit desktop, tablet, mobile and enl
  },{program,template});await page.reload();await expect(page.locator('.workout-item')).toHaveCount(6);
  for(const [width,height]of [[1366,768],[1440,900],[1920,1080],[768,1024],[390,844]]){
   await page.setViewportSize({width,height});await page.getByRole('button',{name:'AI review',exact:true}).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
-  const box=await page.locator(width>=1280?'.review-dock':'dialog.analysis-modal').boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width+1);expect(box.y+box.height).toBeLessThanOrEqual(height+1);
+  const box=await page.locator(width>=1024?'.review-dock':'dialog.analysis-modal').boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width+1);expect(box.y+box.height).toBeLessThanOrEqual(height+1);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   if(width>=1100)for(const figure of await page.locator('.body-map svg').all())expect((await figure.boundingBox()).height).toBeGreaterThanOrEqual(180);
   await page.screenshot({path:`.superpowers/sdd/2026-10-31-program-analysis/program-analysis-${width}.png`});await page.keyboard.press('Escape');

@@ -50,18 +50,18 @@ test('dock keeps report scroll and survives rapid reversal',async({page})=>{
  expect(await scroll.evaluate(e=>e.scrollTop)).toBe(200);
  await expect(page.getByRole('heading',{name:'AI review',exact:true})).toBeFocused();
 });
-test('below 1280px the program review is a full-screen modal and adapts across the breakpoint',async({page})=>{
- await fixture(page,{width:1279,height:800});const toggle=page.locator('[data-review]'),dialog=page.locator('dialog.analysis-modal'),dock=page.locator('.review-dock');
+test('below 1024px the program review is a full-screen modal and adapts across the breakpoint',async({page})=>{
+ await fixture(page,{width:1023,height:800});const toggle=page.locator('[data-review]'),dialog=page.locator('dialog.analysis-modal'),dock=page.locator('.review-dock');
  await toggle.click();await expect(dialog).toBeVisible();
- expect(await dialog.boundingBox()).toEqual({x:0,y:0,width:1279,height:800});
+ expect(await dialog.boundingBox()).toEqual({x:0,y:0,width:1023,height:800});
  await expect(toggle).toHaveAttribute('aria-controls',await dialog.getAttribute('id'));
  await page.evaluate(text=>window.requests[0].onEvent({type:'delta',text}),longReport+'\nLatest');
  await page.getByRole('button',{name:'Stop',exact:true}).focus();
- await page.setViewportSize({width:1440,height:900});
+ await page.setViewportSize({width:1024,height:800});
  await expect(dock.locator('.analysis-content')).toHaveCount(1);await expect(dock).toHaveClass(/is-open/);await expect(dialog).toBeHidden();
  await expect(page.getByRole('button',{name:'Stop',exact:true})).toBeFocused();await expect(page.locator('.analysis-report')).toContainText('Latest');
  await expect(toggle).toHaveAttribute('aria-controls',await dock.getAttribute('id'));
- await page.setViewportSize({width:1279,height:800});
+ await page.setViewportSize({width:1023,height:800});
  await expect(dialog).toBeVisible();await expect(dock).not.toHaveClass(/is-open/);expect(await dock.evaluate(e=>e.inert)).toBe(true);
 });
 test('dismissModal only closes the full-screen review',async({page})=>{

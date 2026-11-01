@@ -5,7 +5,7 @@ import {mountActionTooltips} from './action-controls.js';
 let sequence=0;
 export function mountAnalysisPanel({anchor,getWorkout,getSnapshot,scope='session',onValidationError=()=>{},request,enabled=true,dock=null}){
  const programScope=scope==='program',subject=programScope?'Program':'Session';
- const id=`analysis-${++sequence}`,fullscreen=matchMedia(dock?'(max-width: 1279.98px)':'(max-width: 760px)'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
+ const id=`analysis-${++sequence}`,fullscreen=matchMedia(dock?'(max-width: 1023.98px)':'(max-width: 760px)'),reduced=matchMedia('(prefers-reduced-motion: reduce)');
  const desktop=document.createElement('section');desktop.className='analysis-panel';desktop.popover='manual';desktop.setAttribute('role','region');
  const dialog=document.createElement('dialog');dialog.className='analysis-panel analysis-modal';const wide=dock??desktop;if(dock){desktop.classList.add('analysis-panel--review');dialog.classList.add('analysis-panel--review');}
  const content=document.createElement('div');content.className='analysis-content';

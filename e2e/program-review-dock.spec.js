@@ -95,8 +95,24 @@ test('review snapshot and status scroll with the report in the dock and full scr
  await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
  for(const selector of ['.analysis-snapshot','.analysis-status','.analysis-stale'])await expect(page.locator(`.review-dock .analysis-scroll ${selector}`)).toHaveCount(1);
  await expect(page.locator('.review-dock .analysis-scroll .analysis-status')).toHaveAttribute('role','status');
- await page.setViewportSize({width:1279,height:900});await expect(page.locator('dialog.analysis-modal')).toBeVisible();
+ await page.setViewportSize({width:1023,height:900});await expect(page.locator('dialog.analysis-modal')).toBeVisible();
  for(const selector of ['.analysis-snapshot','.analysis-status'])await expect(page.locator(`dialog.analysis-modal .analysis-scroll ${selector}`)).toHaveCount(1);
+});
+test('laptop widths dock the review and stack the weekly panel above sessions',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));await populated(page);
+ for(const [w,h] of [[1024,768],[1152,864],[1279,800]]){
+  await page.setViewportSize({width:w,height:h});await page.evaluate(()=>scrollTo(0,0));
+  if(await toggle(page).getAttribute('aria-expanded')!=='true')await toggle(page).click();
+  await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await page.waitForTimeout(400);
+  await expect(page.locator('.review-dock')).toBeVisible();await expect(page.locator('dialog.analysis-modal[open]')).toHaveCount(0);
+  const panel=await box(page,'[data-weekly-panel]'),sessions=await box(page,'.program-grid > div:first-child');
+  expect(panel.bottom).toBeLessThanOrEqual(sessions.top+1);
+  for(const figure of await page.locator('.body-map svg').all())expect((await figure.boundingBox()).height).toBeGreaterThanOrEqual(180);
+  expect(await noOverflow(page)).toBe(true);
+  await page.getByRole('button',{name:'Close AI review',exact:true}).click();await expect(page.locator('.review-dock')).not.toHaveClass(/is-open/);await page.waitForTimeout(400);
+  const after=await box(page,'[data-weekly-panel]'),sess=await box(page,'.program-grid > div:first-child');
+  expect(after.left).toBeGreaterThan(sess.right-1);expect(await noOverflow(page)).toBe(true);
+ }
 });
 test('dock stays within the viewport while the page scrolls',async({page})=>{
  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
@@ -115,16 +131,16 @@ test('a short program keeps its header under the breadcrumbs with the dock close
  await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await check();
  await page.getByRole('button',{name:'Close AI review',exact:true}).click();await expect(page.locator('.review-dock')).not.toHaveClass(/is-open/);await check();
 });
-test('crossing 1280px while open keeps the report scroll position and focus',async({page})=>{
+test('crossing 1024px while open keeps the report scroll position and focus',async({page})=>{
  const long=report+'\n'+Array.from({length:40},(_,i)=>'Detail '+(i+1)+': the shared template affects several occurrences.').join('\n');
  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(long)}));
  await page.setViewportSize({width:1440,height:900});await programFixture(page);
  await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
  const scroll=page.locator('.analysis-scroll');await scroll.evaluate(el=>{el.scrollTop=200;});await expect.poll(()=>scroll.evaluate(el=>el.scrollTop)).toBe(200);
  await page.waitForTimeout(50);const again=page.getByRole('button',{name:'Analyze again',exact:true});await again.focus();
- await page.setViewportSize({width:1279,height:900});await expect(page.locator('dialog.analysis-modal')).toBeVisible();
+ await page.setViewportSize({width:1023,height:900});await expect(page.locator('dialog.analysis-modal')).toBeVisible();
  await expect(again).toBeFocused();expect(Math.abs(await scroll.evaluate(el=>el.scrollTop)-200)).toBeLessThanOrEqual(1);
- await page.setViewportSize({width:1440,height:900});await expect(page.locator('.review-dock')).toHaveClass(/is-open/);
+ await page.setViewportSize({width:1024,height:900});await expect(page.locator('.review-dock')).toHaveClass(/is-open/);
  await expect(again).toBeFocused();expect(Math.abs(await scroll.evaluate(el=>el.scrollTop)-200)).toBeLessThanOrEqual(1);await expect(page.locator('.analysis-report')).toContainText('Detail 40');
 });
 test('program context opens over the open dock without closing it',async({page})=>{
@@ -240,7 +256,6 @@ test('program header keeps file actions together and the selector beside the nam
  for(const [width,height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]){
   await page.setViewportSize({width,height});await page.reload();await expect(page.locator('.program-file-actions')).toBeVisible();
   const closed=await check(false);
-  if(width<1280)continue;
   await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await page.waitForTimeout(400);
   const open=await check(true);
   open.forEach((g,i)=>expect(Math.abs(g-closed[i])).toBeLessThanOrEqual(1));
