@@ -99,6 +99,38 @@ test.describe('motion',()=>{
   await page.waitForTimeout(300);expect((await box(page,'.review-dock')).width).toBe(0);await expect(page.locator('.review-dock')).not.toHaveClass(/is-open/);
   expect(await page.locator('.review-dock').evaluate(el=>el.inert)).toBe(true);await expect(toggle(page)).toBeFocused();await expect(toggle(page)).toHaveAttribute('aria-expanded','false');
  });
+ test('AI review has a warm identity, a hover sweep and a generating breath',async({page})=>{
+  let release;const held=new Promise(resolve=>release=resolve);
+  await page.route('**/api/analysis/program',async route=>{await held;await route.fulfill({contentType:'text/event-stream',body:frames(report)});});
+  await page.setViewportSize({width:1440,height:900});await programFixture(page);
+  const style=(prop,pseudo)=>toggle(page).evaluate((el,[p,ps])=>getComputedStyle(el,ps||null)[p],[prop,pseudo]);
+  const svg=prop=>page.locator('[data-program-review] > svg').evaluate((el,p)=>getComputedStyle(el)[p],prop);
+  const closed=await style('backgroundImage');expect(closed).toContain('linear-gradient');
+  expect(await svg('animationName')).toBe('none');expect(await style('animationName','::before')).toBe('none');
+  await page.mouse.move(0,0);await page.locator('.program-file-actions button').nth(-2).focus();await page.keyboard.press('Tab');await expect(toggle(page)).toBeFocused();
+  expect(await style('outlineStyle')).toBe('solid');expect(await style('animationName','::before')).toBe('none');
+  await page.evaluate(()=>document.activeElement.blur());
+  await toggle(page).hover();
+  expect(await style('animationName','::before')).toBe('ai-light-sweep');expect(await style('animationIterationCount','::before')).toBe('1');expect(await style('animationDuration','::before')).toBe('0.45s');
+  await toggle(page).click();await expect(toggle(page)).toHaveAttribute('aria-expanded','true');
+  expect(await style('backgroundImage')).not.toBe(closed);
+  await expect(toggle(page)).toHaveClass(/is-generating/);
+  expect(await svg('animationName')).toBe('ai-sparkle-breathe');expect(await svg('animationDuration')).toBe('1.6s');
+  release();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
+  await expect(toggle(page)).not.toHaveClass(/is-generating/);expect(await svg('animationName')).toBe('none');
+ });
+});
+test('AI review motion is disabled with reduced motion',async({page})=>{
+ let release;const held=new Promise(resolve=>release=resolve);
+ await page.route('**/api/analysis/program',async route=>{await held;await route.fulfill({contentType:'text/event-stream',body:frames(report)});});
+ await page.setViewportSize({width:1440,height:900});await programFixture(page);
+ const style=(prop,pseudo)=>toggle(page).evaluate((el,[p,ps])=>getComputedStyle(el,ps||null)[p],[prop,pseudo]);
+ const svg=prop=>page.locator('[data-program-review] > svg').evaluate((el,p)=>getComputedStyle(el)[p],prop);
+ expect(await style('backgroundImage')).toContain('linear-gradient');
+ await toggle(page).hover();expect(await style('animationName','::before')).toBe('none');
+ await toggle(page).click();await expect(toggle(page)).toHaveClass(/is-generating/);
+ expect(await svg('animationName')).toBe('none');expect(await style('backgroundImage')).toContain('linear-gradient');
+ release();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');
 });
 test.describe('hybrid input',()=>{
  test.use({hasTouch:true,viewport:{width:1366,height:768}});
