@@ -24,9 +24,9 @@ Real Chromium (Playwright 1.64, headless; the Chrome extension was unavailable) 
 
 ### Drag preview geometry (spec section 2)
 
-For each case the source card's element rectangles (every non-empty descendant, relative to the card) were captured before the drag; then the pointer pressed on a non-control spot, moved 18px, and the floating copy's rectangles were captured and compared element by element. 68 card cases plus one exercise-card case at 390px touch.
+For each case the source card's element rectangles (every non-empty descendant, relative to the card) were captured before the drag; then the pointer pressed on a non-control spot, moved 18px, and the floating copy's rectangles were captured and compared element by element. 68 cases in total: 67 measured by the main drag script, plus the session-template exercise card at 390px touch, for which the main script found no safe press point and which a dedicated script measured separately (geometry only).
 
-- Result: **maximum deviation 0.0px (below 0.05px after rounding)** in every case; element counts matched. The copy host was `position: fixed`, the copy `inert`, `aria-hidden="true"` and `pointer-events: none` in all 67 cases that inspect those properties.
+- Result: **maximum deviation 0.0px (below 0.05px after rounding)** in every case; element counts matched. The copy host was `position: fixed`, the copy `inert`, `aria-hidden="true"` and `pointer-events: none` in all 67 main-script cases; the separate 390px exercise-card run did not inspect those properties. (Count reconciled against the saved drag results after the final review: 68 entries, 67 measured, 1 "no safe point".)
 - Cards: Week workout cards (Monday, long-name, Unscheduled), Sequence workout cards, Sequence rest cards, and session-template exercise cards.
 - Viewports and dock: 1440 closed, 1440 dock open, 1100 closed and open, 1024 closed and open, 1280 and 1920 dock open (mouse); 390 closed (touch, `isMobile`), 1440 closed and open (touch, `hasTouch`). Touch used CDP `Input.dispatchTouchEvent` with a 700ms hold. Day-row widths ranged 358px (390) and 416px (1280 dock open), the narrow cases, to 826px and 868px (1440 and 1920) for Week, and 358 to 976px for Sequence.
 - Card heights measured: Week 44px (wide, 1440 closed) to 124px (390); Sequence workout 85 to 192px; rest cards 50 to 70px; template exercise card 94px (1440) and a 136-element expanded card at 390.
@@ -59,7 +59,7 @@ Rest cards show `Reorder rest day` then `Remove rest day` at the right on the ti
 - Profile edit autosaves ("Saving…" then "Saved" within about 420ms), the server holds the text, and the text persists after reload. Typing is limited to 2,000 characters by `maxlength`. A remote change plus a local edit gives status **Conflict** with **Reload saved version** visible and Save as copy hidden; confirming Reload shows the remote text and "Saved".
 - Program review request: with a saved profile text, the browser's `POST /api/analysis/program` body contained neither the text nor the words `athlete` or `trainingBackground`; the server added `athlete.trainingBackgroundAndApproach` (the saved text) and the recorded provider messages carried it. `promptVersion` was `program-hypertrophy-v13`. This used the real API route and prompt builder with a recording stub in place of the provider; no real provider was called.
 - Program context dialog has exactly two fields (Goals and priorities, Constraints and preferences). A program export contained neither the profile text nor the key `trainingBackgroundAndApproach`.
-- Session template editor: no Analyze or AI review control (0 buttons; no "Analyze" text). `POST /api/analysis` returns **405** `Method not allowed.`; `GET /api/analysis` returns 200 `{"enabled":true}`.
+- Session template editor: no Analyze or AI review control (0 buttons; no "Analyze" text). `test/fixtures/analysis-sessions.js` was intentionally kept: `analysis-input`, `analysis-controller` and `analysis-api` unit tests still use it for the shared review modules. `POST /api/analysis` returns **405** `Method not allowed.`; `GET /api/analysis` returns 200 `{"enabled":true}`.
 - Method note: filling the profile field during the first roughly 100 to 250ms after route entry (while the shell is `inert` for the view transition) is discarded by a programmatic fill, and the field then shows the saved text. People cannot type into an inert region, so this is not a product defect; the checks wait for the shell to leave `inert`.
 
 ### 390×844 touch, 200% text, reduced motion
@@ -70,6 +70,8 @@ Rest cards show `Reorder rest day` then `Remove rest day` at the right on the ti
 - Reduced motion: dock open and close are instant with no running animations (see header section).
 
 ## Defects found (not fixed)
+
+Both were fixed after the final review; see [Final review fixes](#final-review-fixes-2026-11-01).
 
 1. **Week/Sequence selector wraps into two lines in two width bands (minor, cosmetic).** Reproduce: Week program, viewport 1136 to 1159px with the dock closed, or 1472 to 1503px with the dock open (sampled every 8px; also 1152×768 closed). The identity group is squeezed, the selector's "Week" and "Sequence" labels stack (fieldset 135.7px wide, 70.4px high), the Program name field and selector lose vertical alignment, and the header grows from 54 to 67px. The bands are also passed through transiently while the dock opens at 1440 (group y 106, 113, 162). No overflow, order or grouping is violated; the spec only requires the selector to follow the name field.
 2. **Rest-card action group is 4px right of workout cards' group at 44px target sizes (minor, cosmetic).** Reproduce: Sequence program with a rest between sessions, at 1024 (no touch) or 390 (touch): rest group right edge 623 vs 619px and 361 vs 357px for workout card `s0`; aligned (927 vs 927px) at 1440 with 32px targets. The spec says the group's right edge aligns with workout cards' group.
@@ -84,3 +86,32 @@ Rest cards show `Reorder rest day` then `Remove rest day` at the right on the ti
 - The profile and review-request checks used a recording stub, not a real provider.
 - The 4px alignment and wrapped-selector findings were measured, not compared against the previous branch; the 390px 41px select and 36px chips were not baselined.
 - The full e2e suite was not re-run; only the targeted specs listed above.
+
+## Final review fixes (2026-11-01)
+
+Local verification only (Windows, headless Playwright Chromium, `node scripts/dev-server.js --test`). **No preview or production deployment or migration was performed or verified.**
+
+Changes:
+
+- **Selector wrap (Defect 1).** From 761px `.program-identity` is a grid (`minmax(12rem, 480px) max-content`); the name field spans the label and input rows as a subgrid and the Week/Sequence selector (`flex: none; flex-wrap: nowrap`) sits in the input row, centered with `align-items: center`. The −5px/−3px offset margins are gone at ≥761px (≤760px keeps its previous layout). The identity's minimum is now its content, so a narrow row moves the file-action group to its own row. The redundant ≤760px `flex-wrap: wrap` on the file actions was removed; header geometry at 390, 600 and 760px was measured identical before and after.
+- **Rest-card actions (Defect 2).** Rest cards use `12px 16px` padding below 1100px, matching workout cards' 16px inline padding (≥1100px both stay 12px inline).
+- **Close squeeze.** On close the dock keeps `.is-closing` until the route's `grid-template-columns` transition ends (260ms fallback), and the 1024–1279px stack selects `.is-open, .is-closing`. Reopening cancels the hold; destroy cleans it up; reduced motion switches immediately. Spec section 4, AGENTS.md and the design system now say the switch happens at the start of opening and the end of closing.
+- `PUT /api/profile` without a profile object (missing, null, array or primitive) returns 400 INVALID instead of clearing the background.
+- Spec section 3 now says the file-action group never wraps internally at default text size on desktop and may wrap only when a full row cannot hold it; the design system's Program context text says two textareas.
+
+Measurements after the fixes:
+
+- Selector: sampled every 4px from 1120 to 1176px (dock closed, 15 widths) and 1456 to 1520px (dock open, 17 widths): both labels on one line at every width, selector center offset from the name input center 0px, header 60px (file actions on the same row) or 106px (file actions on their own row), no horizontal overflow. The header e2e also asserts one-line labels and centering at 1024, 1136, 1152, 1159, 1280, 1440, 1472, 1488, 1503 and 1920, dock closed and open.
+- Rest versus workout action-group right edge (Sequence): 927 vs 927px at 1440, 619 vs 619px at 1024, 357 vs 357px at 390 (delta 0).
+- Minimum sessions column width during the close (motion on, every animation frame for 600ms): **612px at 1024, 576px at 1100, 676px at 1200, 755px at 1279**, equal to the idle closed widths (stacked open widths 636, 712, 812, 891px). The hold released on `transitionend` at about 184ms with the dock column at 0px.
+
+Automated results on the final head:
+
+- `npm test`: 236 passed, 0 failed.
+- Full `npm run test:e2e`: **276 passed, 0 failed** (6.4 min), one run, no retries.
+- `npm run build`: "Built public assets."
+
+The earlier full-run failure (`exercise-actions.spec.js:59`, "program inline strip fits populated editor at 1920") timed out in `page.goto('/')` waiting for the `load` event, before the login form was used, so login and the `login_attempts` limiter were not involved (no e2e test submits a wrong password, and a successful login clears its bucket). `index.html` loads the Google Fonts stylesheet render-blocking from `fonts.googleapis.com`; a probe that left that request unanswered made `page.goto('/')` time out the same way. The most likely cause is a slow or stalled external font request; it did not recur. Fixing it would mean making e2e independent of the network (for example, serving cached font responses in tests or self-hosting the fonts), which was not done here.
+
+Not verified: motion was sampled, not judged by eye; the 200% text checks are the existing e2e (800, 1024 and 1280px) plus the before/after header measurements; no real touch hardware.
+
