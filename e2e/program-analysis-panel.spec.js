@@ -6,7 +6,7 @@ async function fixture(page,{width=1440,height=900}={}){
   document.body.innerHTML='<div class="program-route"><div><button class="secondary-btn review-toggle" data-review><span>AI review</span></button><p class="after" tabindex="-1">x</p></div><aside class="review-dock"></aside></div>';
   window.program={name:'Program',mode:'schedule',goals:{},context:{goalsAndPriorities:'Grow'},workouts:[{id:'o',templateId:'t',day:0,name:'Push',goals:{},exercises:[{name:'Bench',sets:3,repRange:{min:8,max:12},restSeconds:120,primaryMuscles:['Chest'],secondaryMuscles:[]}]}]};
   window.requests=[];window.validation=null;
-  window.panel=mountAnalysisPanel({anchor:document.querySelector('[data-review]'),dock:document.querySelector('.review-dock'),getSnapshot:()=>prepareProgramAnalysisSnapshot(window.program),onValidationError:e=>window.validation={occurrenceIndex:e.occurrenceIndex,exerciseIndex:e.exerciseIndex},request:(snapshot,options)=>new Promise(resolve=>window.requests.push({snapshot,...options,resolve}))});
+  window.panel=mountAnalysisPanel({anchor:document.querySelector('[data-review]'),dock:document.querySelector('.review-dock'),getSnapshot:()=>prepareProgramAnalysisSnapshot(window.program),onValidationError:e=>window.validation={occurrenceIndex:e.occurrenceIndex,exerciseIndex:e.exerciseIndex},request:(snapshot,options)=>new Promise((resolve,reject)=>window.requests.push({snapshot,...options,resolve,reject}))});
  });
 }
 const longReport='Assessment\n'+Array(80).fill('A detailed observation.').join('\n');
@@ -81,4 +81,44 @@ test('dock tracks its offset and destroy restores the empty dock',async({page})=
 test('program panel validates the whole program before a request',async({page})=>{
  await fixture(page);await page.evaluate(()=>window.program.workouts[0].exercises[0].sets=0);await page.locator('[data-review]').click();
  expect(await page.evaluate(()=>window.requests.length)).toBe(0);expect(await page.evaluate(()=>window.validation)).toEqual({occurrenceIndex:0,exerciseIndex:0});
+});
+test('stream follows the reader, offers Jump to latest and keeps scroll across the breakpoint',async({page})=>{
+ await fixture(page);await page.locator('[data-review]').click();
+ await page.evaluate(text=>window.requests[0].onEvent({type:'delta',text}),'Assessment\n'+Array(80).fill('A detailed exercise observation.').join('\n'));
+ const scroll=page.locator('.analysis-scroll');await expect.poll(()=>scroll.evaluate(e=>e.scrollTop)).toBeGreaterThan(100);
+ await scroll.evaluate(e=>{e.scrollTop=0;e.dispatchEvent(new Event('scroll'));});
+ await page.evaluate(()=>window.requests[0].onEvent({type:'delta',text:'\nMore details'}));
+ await expect(page.getByRole('button',{name:'Jump to latest'})).toBeVisible();expect(await scroll.evaluate(e=>e.scrollTop)).toBe(0);
+ await page.getByRole('button',{name:'Jump to latest'}).click();await expect.poll(()=>scroll.evaluate(e=>e.scrollTop)).toBeGreaterThan(100);
+ await page.getByRole('button',{name:'Stop',exact:true}).focus();
+ await page.setViewportSize({width:390,height:844});await expect(page.locator('dialog.analysis-panel')).toBeVisible();await expect(page.getByRole('button',{name:'Stop',exact:true})).toBeFocused();await expect(page.locator('.analysis-report')).toContainText('More details');
+ await page.setViewportSize({width:1440,height:900});await expect(page.locator('.review-dock')).toHaveClass(/is-open/);await expect(page.getByRole('button',{name:'Stop',exact:true})).toBeFocused();
+ await page.keyboard.press('Escape');await expect(page.locator('[data-review]')).toBeFocused();
+});
+test('generation control changes preserve keyboard focus through stop, retry and completion',async({page})=>{
+ await fixture(page);await page.locator('[data-review]').click();
+ await page.getByRole('button',{name:'Stop',exact:true}).click();await expect(page.getByRole('button',{name:'Analyze again',exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Analyze again',exact:true}).click();await expect(page.getByRole('button',{name:'Stop',exact:true})).toBeFocused();
+ await page.evaluate(()=>{window.requests[1].onEvent({type:'delta',text:'Report'});window.requests[1].onEvent({type:'complete'});});await expect(page.getByRole('button',{name:'Analyze again',exact:true})).toBeFocused();
+ await page.getByRole('button',{name:'Analyze again',exact:true}).click();await page.evaluate(()=>window.requests[2].reject(Error('Please retry')));
+ await expect(page.getByRole('button',{name:'Retry',exact:true})).toBeFocused();await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByRole('button',{name:'Stop',exact:true})).toBeFocused();
+});
+test('streaming survives close, Stop retains partial output and stale callbacks cannot replace retry',async({page})=>{
+ await fixture(page);const toggle=page.locator('[data-review]');await toggle.click();
+ await page.evaluate(()=>window.requests[0].onEvent({type:'delta',text:'Assessment\nFirst finding'}));await expect(page.locator('.analysis-report')).toContainText('First finding');
+ await page.getByRole('button',{name:'Close AI review'}).click();await expect(toggle).toHaveClass(/is-generating/);expect(await page.evaluate(()=>window.requests[0].signal.aborted)).toBe(false);
+ await toggle.click();expect(await page.evaluate(()=>window.requests.length)).toBe(1);
+ await page.getByRole('button',{name:'Stop',exact:true}).click();await expect(page.locator('.analysis-status')).toContainText('incomplete');expect(await page.evaluate(()=>window.requests[0].signal.aborted)).toBe(true);
+ await page.getByRole('button',{name:'Analyze again',exact:true}).click();
+ await page.evaluate(()=>{window.requests[0].onEvent({type:'delta',text:'STALE'});window.requests[1].onEvent({type:'delta',text:'Assessment\nNewest finding'});window.requests[1].onEvent({type:'complete'});});
+ await expect(page.locator('.analysis-report')).toHaveText('AssessmentNewest finding');
+ await page.evaluate(()=>{window.panel.destroy();window.requests[1].onEvent({type:'delta',text:'late'});});await expect(page.locator('.analysis-panel')).toHaveCount(0);
+});
+test('mobile reopening runs a new entry transition after every completed close',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await fixture(page,{width:390,height:844});
+ await page.locator('[data-review]').click();await page.getByRole('button',{name:'Close AI review'}).click();await expect(page.locator('.analysis-panel:visible')).toHaveCount(0);
+ for(let i=0;i<2;i++){
+  const opacity=await page.evaluate(()=>{document.querySelector('[data-review]').click();return Number(getComputedStyle(document.querySelector('dialog.analysis-panel')).opacity);});expect(opacity).toBeLessThan(1);
+  await page.getByRole('button',{name:'Close AI review'}).click();await expect(page.locator('.analysis-panel:visible')).toHaveCount(0);
+ }
 });
