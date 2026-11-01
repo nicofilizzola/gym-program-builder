@@ -216,3 +216,35 @@ test.describe('hybrid input',()=>{
   for(const name of ['Close AI review','Analyze again'])expect((await page.getByRole('button',{name,exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(44);
  });
 });
+test('program header keeps file actions together and the selector beside the name',async({page})=>{
+ await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
+ const sels=['[data-program-context]','[data-import]','[data-export]','[data-program-review]'];
+ const measure=async()=>{
+  const name=await box(page,'.program-identity .field'),input=await box(page,'.program-identity .field input'),layout=await box(page,'fieldset.program-layout'),head=await box(page,'.program-heading');
+  const b=[];for(const s of sels)b.push(await box(page,'.program-file-actions '+s));
+  return {input,name,layout,head,b,gaps:b.slice(1).map((x,i)=>x.left-b[i].right)};
+ };
+ const check=async(openDock)=>{
+  const m=await measure();
+  const gap=m.layout.left-m.name.right;
+  if(Math.abs(m.layout.top+m.layout.height/2-(m.name.top+m.name.height/2))<2||m.layout.top>m.name.bottom){/* same row or wrapped */}
+  if(m.layout.top<m.name.bottom-1){expect(gap).toBeGreaterThanOrEqual(8);expect(gap).toBeLessThanOrEqual(16);expect(Math.abs((m.layout.top+m.layout.height/2)-(m.input.top+m.input.height/2))).toBeLessThan(2);}
+  for(const x of m.b)expect(Math.abs(x.top-m.b[0].top)).toBeLessThanOrEqual(1);
+  for(let i=1;i<4;i++)expect(m.b[i].left).toBeGreaterThan(m.b[i-1].left);
+  expect(Math.abs(m.gaps[2]-16)).toBeLessThanOrEqual(1);
+  const content=await page.locator('.program-heading').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return r.right-parseFloat(s.paddingRight)-parseFloat(s.borderRightWidth);});
+  expect(Math.abs(m.b[3].right-content)).toBeLessThanOrEqual(1);
+  return m.gaps;
+ };
+ await programFixture(page);
+ for(const [width,height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]){
+  await page.setViewportSize({width,height});await page.reload();await expect(page.locator('.program-file-actions')).toBeVisible();
+  const closed=await check(false);
+  if(width<1280)continue;
+  await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await page.waitForTimeout(400);
+  const open=await check(true);
+  open.forEach((g,i)=>expect(Math.abs(g-closed[i])).toBeLessThanOrEqual(1));
+ }
+  await page.setViewportSize({width:390,height:844});await page.reload();await expect(page.locator('.program-file-actions')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
+});

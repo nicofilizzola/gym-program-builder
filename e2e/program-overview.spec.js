@@ -50,7 +50,7 @@ test('program toolbar groups file actions and switches layouts accessibly',async
     for(const error of [false,true]) {
       if(error)await page.locator('[data-file]').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{')});
       if(error)await expect(page.locator('[data-program-error]')).toContainText('not valid JSON');
-      const toolbar=await page.locator('.program-toolbar').boundingBox();
+      const toolbar=await page.locator('.program-heading').boundingBox();
       const grid=await page.locator('.program-grid').boundingBox();
       expect(grid.y-toolbar.y-toolbar.height).toBeGreaterThanOrEqual(16);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -246,7 +246,7 @@ for(const webFonts of [true,false])test(`program overview fits narrow, tablet, d
     await page.locator('[data-file]').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{')});
     await expect(page.locator('[data-program-error]')).toContainText('not valid JSON');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-    const toolbar=await page.locator('.program-toolbar').boundingBox(),grid=await page.locator('.program-grid').boundingBox();
+    const toolbar=await page.locator('.program-heading').boundingBox(),grid=await page.locator('.program-grid').boundingBox();
     expect(grid.y-toolbar.y-toolbar.height).toBeGreaterThanOrEqual(16);
     await expect(page.locator('#body-map')).toBeVisible();await expect(page.locator('#heat-key')).toBeVisible();
     expect((await page.getByRole('button',{name:'Set weekly goals',exact:true}).boundingBox()).height).toBeLessThanOrEqual(48);

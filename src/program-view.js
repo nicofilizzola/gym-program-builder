@@ -217,12 +217,13 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   function buildOverview(){
     selectedMuscle=null;
     cleanup();root.innerHTML=`<section class="program-page"><header class="program-heading"><h1>Program</h1>
-      <label class="field">Program name<input type="text" data-program-name></label>
-      <div class="program-toolbar">
+      <div class="program-identity">
+        <label class="field">Program name<input type="text" data-program-name></label>
         <fieldset class="program-layout"><legend class="visually-hidden">Program layout</legend>
           <label><input type="radio" name="program-layout" value="schedule"><span>Week</span></label>
           <label><input type="radio" name="program-layout" value="simple"><span>Sequence</span></label>
         </fieldset>
+      </div>
         <div class="program-file-actions">
           <button type="button" class="secondary-btn" data-program-context>${actionIcon('context')}Program context</button>
           <button type="button" class="secondary-btn" data-import><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>Import program</button>
@@ -230,7 +231,6 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
           <input type="file" accept=".json,application/json" hidden data-file>
           <button type="button" class="secondary-btn review-toggle" data-program-review><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="m10 3 2.1 6.9L19 12l-6.9 2.1L10 21l-2.1-6.9L1 12l6.9-2.1L10 3Z"/><path d="m19 2 .9 3.1L23 6l-3.1.9L19 10l-.9-3.1L15 6l3.1-.9L19 2Z"/></svg><span>AI review</span></button>
         </div>
-      </div>
       </header><p class="error" role="alert" data-program-error></p>
       <div class="program-grid"><div><div class="template-picker"><label class="field">Session template<select data-template aria-label="Session template"><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div class="sequence-toolbar"><button type="button" class="secondary-btn" data-add-rest>${actionIcon('plus')}Add rest day</button></div><p class="reorder-hint" id="${weekHelpId}" data-week-help>Drag a card to reorder. On touch, press and hold. Use Reorder for movement options. In Week, Up/Down reorders and Alt+Up/Down changes day.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
     const dock=reviewDock??root.appendChild(Object.assign(document.createElement('aside'),{className:'review-dock'}));
