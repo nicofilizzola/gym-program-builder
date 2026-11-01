@@ -1,6 +1,6 @@
 const exercise=(name,muscle,secondary=[])=>({name,sets:3,repRange:{min:8,max:12},restSeconds:120,primaryMuscles:[muscle],secondaryMuscles:secondary});
 const workout=(id,templateId,name,day,exercises)=>({id,templateId,name,day,exercises,goals:{},extraMinutes:5,bufferPercent:10});
-const repeated={name:'Hypertrophy week',mode:'schedule',goals:{Chest:8},context:{goalsAndPriorities:'Build muscle',constraintsAndPreferences:'60 minutes',trainingBackgroundAndApproach:''},workouts:[
+const repeated={name:'Hypertrophy week',mode:'schedule',goals:{Chest:8},context:{goalsAndPriorities:'Build muscle',constraintsAndPreferences:'60 minutes'},workouts:[
  workout('occ-a','shared','Push',0,[exercise('Bench','Chest',['Triceps'])]),
  workout('occ-b','shared','Push',4,[exercise('Bench','Chest',['Triceps'])]),
  workout('occ-c','lower','Lower',null,[exercise('Hip thrust','Glutes')]),
@@ -17,6 +17,7 @@ export const programAnalysisFixtures={
  'fixed-constraints':change(p=>{p.context.constraintsAndPreferences='Keep all three sessions and bench press. No extra training days.';}),
  'sound-program':change(p=>{p.context.goalsAndPriorities='Maintain pressing and glutes with low-volume focused sessions.';p.goals.Chest=6;}),
  'absent-context':change(p=>{delete p.context;}),
+ 'athlete-background':change(p=>{p.athlete={trainingBackgroundAndApproach:'Five years of consistent training. Usually leave 1–2 reps in reserve and add weight at the top of the rep range.'};}),
  'conflicting-context':change(p=>{p.context.goalsAndPriorities='Prioritize chest but do not change chest work.';p.context.constraintsAndPreferences='Two training days maximum; keep all three existing days.';p.workouts[2].day=2;}),
  'unknown-exercise':change(p=>{p.workouts[2].exercises[0].name='Custom XYZ';delete p.workouts[2].exercises[0].equipment;}),
  'unscheduled':change(p=>{p.workouts.forEach(w=>w.day=null);}),

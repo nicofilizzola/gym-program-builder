@@ -10,7 +10,9 @@ async function fixture(page){
 test('guided fields update immediately and Escape, Done and backdrop keep edits',async({page})=>{
  await fixture(page);const trigger=page.getByRole('button',{name:'Program context',exact:true});await trigger.click();
  const field=page.getByLabel('Goals and priorities',{exact:true});await expect(field).toBeFocused();await expect(field).toHaveAttribute('rows','3');await expect(field).toHaveAttribute('maxlength','2000');
- await expect(page.getByLabel('Constraints and preferences',{exact:true})).toBeVisible();await expect(page.getByLabel('Training background and approach',{exact:true})).toBeVisible();
+ await expect(page.getByLabel('Constraints and preferences',{exact:true})).toBeVisible();await expect(page.getByLabel('Training background and approach',{exact:true})).toHaveCount(0);
+ await expect(page.locator('dialog textarea')).toHaveCount(2);expect(await page.locator('dialog textarea').evaluateAll(els=>els.map(el=>el.labels[0].textContent))).toEqual(['Goals and priorities','Constraints and preferences']);
+ await expect(page.getByText('These notes are included in program exports.',{exact:true})).toBeVisible();
  await field.fill('Prioritize delts');expect(await page.evaluate(()=>window.context.goalsAndPriorities)).toBe('Prioritize delts');
  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();await trigger.click();await expect(field).toHaveValue('Prioritize delts');
  await page.getByRole('button',{name:'Done',exact:true}).click();await expect(trigger).toBeFocused();await trigger.click();await page.mouse.click(2,2);await expect(trigger).toBeFocused();

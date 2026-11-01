@@ -1,8 +1,8 @@
 import {PROGRAM_CONTEXT_FIELDS,PROGRAM_CONTEXT_MAX_LENGTH,normalizeProgramContext} from './program-context.js';
 
 let sequence=0;
-const labels=['Goals and priorities','Constraints and preferences','Training background and approach'];
-const examples=['Build muscle, prioritize side delts and upper chest, maintain legs.','Four training days, about an hour each. Keep weighted pull-ups. Football on Wednesday.','Two years of consistent training. Usually leave 1–2 reps in reserve and increase weight at the top of the rep range.'];
+const labels=['Goals and priorities','Constraints and preferences'];
+const examples=['Build muscle, prioritize side delts and upper chest, maintain legs.','Four training days, about an hour each. Keep weighted pull-ups. Football on Wednesday.'];
 
 /** Keeps prose controls alive across acknowledgements and shared-template refreshes. */
 export function mountProgramContextDialog({anchor,getContext,onChange,onBeforeOpen=()=>{}}){

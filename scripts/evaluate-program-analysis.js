@@ -11,7 +11,9 @@ export async function runProgramEvaluation({args=process.argv.slice(2),env=proce
  if(args.length!==3||!args.includes('--live')||index<0||!Object.hasOwn(programAnalysisFixtures,fixture)||args.filter(v=>v==='--fixture').length!==1)return {exitCode:2,message:'Usage: node scripts/evaluate-program-analysis.js --live --fixture <name>',fixtures:Object.keys(programAnalysisFixtures)};
  const model=env.OPENROUTER_MODEL||'anthropic/claude-sonnet-4.6';let usage=null,report='';
  try{
-  const snapshot=prepareProgramAnalysisSnapshot(programAnalysisFixtures[fixture]);
+  const source=programAnalysisFixtures[fixture];
+  // Mirrors the API: the athlete background is injected beside the validated snapshot, never read from it.
+  const snapshot={...prepareProgramAnalysisSnapshot(source),athlete:{trainingBackgroundAndApproach:source.athlete?.trainingBackgroundAndApproach||''}};
   const service=createAnalysisService({apiKey:env.OPENROUTER_API_KEY,model,fetch,onUsage:value=>usage=value});
   const response=await service.analyze(snapshot);let complete=false;
   for await(const frame of readSse(response.body)){

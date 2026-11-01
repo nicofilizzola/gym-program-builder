@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeProgramContext,hasProgramContext} from '../src/program-context.js';
+import {normalizeProgramContext,normalizeContextText,hasProgramContext,PROGRAM_CONTEXT_FIELDS} from '../src/program-context.js';
 import {validateDocument} from '../src/document-validation.js';
 import {serializeDocumentBundle,parseDocumentBundle} from '../src/document-bundle.js';
 import {duplicateProgram} from '../src/program.js';
@@ -8,7 +8,7 @@ import {createDb,migrate} from '../server/db.js';
 import {createRepository} from '../server/repository.js';
 import {createDocumentCommands} from '../server/document-commands.js';
 
-const empty={goalsAndPriorities:'',constraintsAndPreferences:'',trainingBackgroundAndApproach:''};
+const empty={goalsAndPriorities:'',constraintsAndPreferences:''};
 const context={...empty,goalsAndPriorities:'Grow delts',constraintsAndPreferences:'60 minutes'};
 const program={name:'Week',mode:'schedule',goals:{},workouts:[],context};
 
@@ -61,4 +61,21 @@ test('revisioned saves and atomic imports retain context without backfilling old
  assert.equal(Object.hasOwn((await repository.get('old')).document,'context'),false);
  const attached=await commands.createAndAttach({operationId:'attach',programId:'p',revision:2,templateId:'t',occurrenceId:'o',template:{name:'Empty',exercises:[],goals:{}}});
  assert.equal(attached.record.document.context.goalsAndPriorities,'Maintain');
+});
+
+test('training background is no longer program context: legacy values are dropped everywhere',async t=>{
+ assert.deepEqual(PROGRAM_CONTEXT_FIELDS,['goalsAndPriorities','constraintsAndPreferences']);
+ assert.equal(normalizeContextText(' a\r\n','goalsAndPriorities'),' a\n');assert.equal(normalizeContextText(' \n','goalsAndPriorities'),'');
+ assert.throws(()=>normalizeContextText(3,'goalsAndPriorities'),/^Error: Invalid program context goalsAndPriorities\.$/);
+ assert.throws(()=>normalizeContextText('x'.repeat(2001),'goalsAndPriorities'),/^Error: Program context fields must be at most 2,000 characters\.$/);
+ const legacy={trainingBackgroundAndApproach:'Five years'};
+ assert.deepEqual(normalizeProgramContext(legacy),empty);
+ assert.equal(hasProgramContext({context:legacy}),false);
+ assert.equal(Object.hasOwn(validateDocument('program',{...program,context:legacy}).document,'context'),false);
+ assert.deepEqual(validateDocument('program',{...program,context:{...context,trainingBackgroundAndApproach:'Five years'}}).document.context,context);
+ const bundle=JSON.parse(serializeDocumentBundle({record:{kind:'program',document:program}}));bundle.program.context=legacy;
+ const parsed=parseDocumentBundle(JSON.stringify(bundle));assert.equal(parsed.error,undefined);assert.equal(Object.hasOwn(parsed.bundle.program,'context'),false);
+ const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);
+ const imported=await createDocumentCommands(db).importDocument({operationId:'legacy',bundle});
+ assert.equal(Object.hasOwn(imported.record.document,'context'),false);assert.equal(JSON.stringify(imported.record.document).includes('Five years'),false);
 });

@@ -20,3 +20,12 @@ test('program evaluation returns one scoped report and usage, and labels incompl
   if(!complete)assert.match(result.error,/incomplete|interrupted/i);
  }
 });
+test('program evaluation passes the fixture athlete background as server-owned athlete data',async()=>{
+ for(const [fixture,expected] of [['athlete-background',programAnalysisFixtures['athlete-background'].athlete.trainingBackgroundAndApproach],['repeated-template','']]){
+  let athlete;const result=await runProgramEvaluation({args:['--live','--fixture',fixture],env:{OPENROUTER_API_KEY:'private'},fetch:async(_,init)=>{
+   athlete=JSON.parse(JSON.parse(init.body).messages[1].content).athlete;
+   return new Response('data: '+JSON.stringify({choices:[{delta:{content:'Program review'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
+  }});
+  assert.equal(result.exitCode,0);assert.deepEqual(athlete,{trainingBackgroundAndApproach:expected});
+ }
+});

@@ -10,7 +10,7 @@ async function body(request,limit=MAX_DOCUMENT_BYTES) {
   if(request.body) {const reader=request.body.getReader();try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw domainError('TOO_LARGE',sizeMessage);}chunks.push(value);}}finally{reader.releaseLock();}}
   try {const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}const data=JSON.parse(new TextDecoder().decode(bytes));if(!data||typeof data!=='object'||Array.isArray(data))throw Error();return data;}catch {throw domainError('INVALID','Request is not valid JSON.');}
 }
-export function createApi({repository,commands,catalog,auth,origin,analysis,clientIp=()=> 'local'}) {
+export function createApi({repository,commands,catalog,auth,origin,analysis,profile,clientIp=()=> 'local'}) {
   const respond=(value,status=200,headers={})=>new Response(status===204?null:JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store',...headers}});
   return async request=>{
     try {
@@ -30,7 +30,10 @@ export function createApi({repository,commands,catalog,auth,origin,analysis,clie
         try{
           if(!analysis?.enabled)return respond({error:{code:'CONFIGURATION',message:'Program analysis is not configured.'}},503);
           const data=await body(request,PROGRAM_ANALYSIS_MAX_BYTES);
-          return await analysis.analyze(validateProgramAnalysisSnapshot(data.snapshot),{signal:request.signal});
+          const snapshot=validateProgramAnalysisSnapshot(data.snapshot);
+          // The background is server-owned profile data; the validated snapshot never carries a client copy.
+          const athlete={trainingBackgroundAndApproach:profile?(await profile.get()).profile.trainingBackgroundAndApproach:''};
+          return await analysis.analyze({...snapshot,athlete},{signal:request.signal});
         }catch(error){
           const allowed={INVALID:400,TOO_LARGE:413,CONFIGURATION:503,CREDITS:402,RATE_LIMIT:429,PROVIDER:502,TIMEOUT:504},status=allowed[error.code]||502,details={};
           if(error.code==='INVALID'){
@@ -39,6 +42,12 @@ export function createApi({repository,commands,catalog,auth,origin,analysis,clie
           }
           return respond({error:{code:allowed[error.code]?error.code:'PROVIDER',message:allowed[error.code]?error.message:'Analysis is unavailable. Please retry.',...(Object.keys(details).length?{details}:{})}},status);
         }
+      }
+      if(path[0]==='profile'&&profile){
+        if(path.length!==1)throw domainError('NOT_FOUND','Endpoint not found.');
+        if(method==='GET')return respond(await profile.get());
+        if(method==='PUT')return respond(await profile.update(await body(request)));
+        throw domainError('METHOD','Method not allowed.');
       }
       if(path[0]==='catalog'&&catalog){
         if(path[1]==='tags'){

@@ -16,7 +16,7 @@ test('program route enforces auth, methods, origin, wire validation and safe sco
  assert.equal((await api(request(undefined,'POST',{origin:'http://evil'}))).status,403);
  assert.equal((await api(request(undefined,'GET'))).status,405);
  assert.equal((await api(request({snapshot:{...snapshot,workouts:[]}}))).status,400);assert.equal(calls,0);
- assert.equal((await api(request({snapshot,scope:'ignored'}))).status,200);assert.equal(calls,1);assert.equal(received.o.scope,undefined);assert.deepEqual(received.s,snapshot);
+ assert.equal((await api(request({snapshot,scope:'ignored'}))).status,200);assert.equal(calls,1);assert.equal(received.o.scope,undefined);assert.deepEqual(received.s,{...snapshot,athlete:{trainingBackgroundAndApproach:''}});
  const disabled=createApi({origin,auth:{session:async()=>true}});assert.equal((await disabled(request())).status,503);
 });
 test('program route counts raw streamed UTF-8 bytes independently of Content-Length',async()=>{
@@ -43,4 +43,19 @@ test('program service selects its prompt and the client keeps the normalized str
  assert.match(events[0].promptVersion,/^program-hypertrophy-/);assert.equal(events.at(-1).type,'complete');assert.equal(calls,1);assert.equal(JSON.stringify(events).includes('private reasoning'),false);
  const received=[];await streamProgramAnalysis(snapshot,{fetch:async(url,init)=>{assert.equal(url,'/api/analysis/program');assert.deepEqual(JSON.parse(init.body),{snapshot});assert.equal(init.credentials,'same-origin');return response();},onEvent:e=>received.push(e)});
  assert.deepEqual(received.map(e=>e.type),['start','delta','complete']);
+});
+test('program route injects the saved profile background as athlete and ignores client values',async()=>{
+ const received=[];let stored={trainingBackgroundAndApproach:'Five years'};
+ const profile={get:async()=>({profile:stored,revision:1}),update:async()=>assert.fail('read only')};
+ const api=createApi({origin,auth:{session:async()=>true},profile,analysis:{enabled:true,analyze:async s=>{received.push(s);return response();}}});
+ const request=body=>new Request(origin+'/api/analysis/program',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify(body)});
+ assert.equal((await api(request({snapshot}))).status,200);
+ assert.deepEqual(received[0],{...snapshot,athlete:{trainingBackgroundAndApproach:'Five years'}});
+ assert.equal((await api(request({snapshot:{...snapshot,athlete:{trainingBackgroundAndApproach:'spoof'}}}))).status,200);
+ assert.equal(received[1].athlete.trainingBackgroundAndApproach,'Five years');assert.equal(JSON.stringify(received[1]).includes('spoof'),false);
+ stored={trainingBackgroundAndApproach:''};assert.equal((await api(request({snapshot:{...snapshot,athlete:{trainingBackgroundAndApproach:'spoof'}}}))).status,200);
+ assert.deepEqual(received[2].athlete,{trainingBackgroundAndApproach:''});
+ const noProfile=createApi({origin,auth:{session:async()=>true},analysis:{enabled:true,analyze:async s=>{received.push(s);return response();}}});
+ assert.equal((await noProfile(request({snapshot:{...snapshot,athlete:{trainingBackgroundAndApproach:'spoof'}}}))).status,200);
+ assert.deepEqual(received[3].athlete,{trainingBackgroundAndApproach:''});
 });
