@@ -25,7 +25,7 @@ Approach: the copy is placed inside a body-level, fixed-position host that recre
 ## 4. Review dock from 1024px
 
 - The docked review applies at viewport widths ≥1024px (was 1280px). Below 1024px it stays the full-screen native modal. Dock widths unchanged: 340px, 360px at ≥1600px.
-- 1024–1279.98px with the dock open: the program grid becomes a single column with the weekly volume panel above the sessions (same order as ≤800px). Body figures keep ≥180px height; no horizontal overflow. Closing the dock restores the two-column grid. The column switch is an instant reflow at the start of the 180ms dock transition (a two-column to stacked reflow cannot be interpolated); the dock's own motion and reduced-motion rules are unchanged.
+- 1024–1279.98px with the dock open: the program grid becomes a single column with the weekly volume panel above the sessions (same order as ≤800px). Body figures keep ≥180px height; no horizontal overflow. Closing the dock restores the two-column grid. The column switch is an instant reflow (a two-column to stacked reflow cannot be interpolated) that happens at the start of opening and at the end of closing: the stack is held until the dock column finishes closing, so the sessions never squeeze into a narrow two-column layout mid-transition; with reduced motion it is immediate (amended 2026-11-01 after the final review); the dock's own motion and reduced-motion rules are unchanged.
 - Breakpoint crossings while open keep report, scroll and focus, now at 1024px.
 
 ## 5. Training background in a user profile

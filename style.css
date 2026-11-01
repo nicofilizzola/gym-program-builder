@@ -1952,10 +1952,11 @@ button:disabled {opacity:.5;cursor:default}
  .analysis-panel--review .analysis-content { height: 100%; max-height: 100%; }
  .analysis-panel--review .analysis-scroll { min-height: 0; }
 }
-/* Laptop widths: while the dock is open the weekly panel stacks above the sessions; the switch is instant. */
+/* Laptop widths: while the dock is open the weekly panel stacks above the sessions. The switch is instant,
+   at the start of opening and at the end of closing (.is-closing holds the stack until the column reaches 0). */
 @media (min-width:1024px) and (max-width:1279.98px) {
- .program-route:has(> .review-dock.is-open) .program-grid { grid-template-columns: minmax(0, 1fr); }
- .program-route:has(> .review-dock.is-open) .program-grid > [data-weekly-panel] { grid-row: 1; }
+ .program-route:has(> .review-dock:is(.is-open, .is-closing)) .program-grid { grid-template-columns: minmax(0, 1fr); }
+ .program-route:has(> .review-dock:is(.is-open, .is-closing)) .program-grid > [data-weekly-panel] { grid-row: 1; }
 }
 @media (prefers-reduced-motion:reduce) {
  .analysis-panel, .analysis-jump, .review-dock, .review-dock > .analysis-content, .program-route { transition: none; }

@@ -189,6 +189,33 @@ test.describe('motion',()=>{
   await page.waitForTimeout(300);expect((await box(page,'.review-dock')).width).toBe(0);await expect(page.locator('.review-dock')).not.toHaveClass(/is-open/);
   expect(await page.locator('.review-dock').evaluate(el=>el.inert)).toBe(true);await expect(toggle(page)).toBeFocused();await expect(toggle(page)).toHaveAttribute('aria-expanded','false');
  });
+ test('closing the dock at laptop widths holds the stacked layout until the column has closed',async({page})=>{
+  await page.route('**/api/analysis/program',route=>route.fulfill({contentType:'text/event-stream',body:frames(report)}));
+  await page.setViewportSize({width:1100,height:900});await populated(page);
+  const sessions='.program-grid > :not([data-weekly-panel])',dock=page.locator('.review-dock');
+  const sample=()=>page.evaluate(sel=>{window.samples=[];const el=document.querySelector(sel);const tick=()=>{window.samples.push(el.getBoundingClientRect().width);window.sampling=requestAnimationFrame(tick);};tick();},sessions);
+  const stop=()=>page.evaluate(()=>{cancelAnimationFrame(window.sampling);return window.samples;});
+  const widths={};
+  for(const [width,height] of [[1100,900],[1024,768],[1200,900],[1279,800]]){
+   await page.setViewportSize({width,height});
+   await toggle(page).click();await expect(page.locator('.analysis-status')).toHaveText('Analysis complete');await page.waitForTimeout(400);
+   const stacked=(await box(page,sessions)).width;
+   await sample();await page.getByRole('button',{name:'Close AI review',exact:true}).click();await page.waitForTimeout(600);const samples=await stop();
+   const closed=(await box(page,sessions)).width,min=Math.min(...samples);
+   widths[width]={stacked,closed,min,frames:samples.length};
+   expect(min,`${width}px: sessions never squeeze below the stacked or two-column layout`).toBeGreaterThanOrEqual(Math.min(stacked,closed)-1);
+   await expect(dock).not.toHaveClass(/is-open|is-closing/);
+  }
+  console.log('close-hold widths',JSON.stringify(widths));
+  await page.setViewportSize({width:1100,height:900});
+  await toggle(page).click();await toggle(page).click();await toggle(page).click();
+  await page.waitForTimeout(500);
+  await expect(dock).toHaveClass(/is-open/);await expect(dock).not.toHaveClass(/is-closing/);await expect(toggle(page)).toHaveAttribute('aria-expanded','true');
+  const panel=await box(page,'[data-weekly-panel]'),list=await box(page,sessions);expect(panel.bottom).toBeLessThanOrEqual(list.top+1);
+  await toggle(page).click();await toggle(page).click();await page.getByRole('button',{name:'Close AI review',exact:true}).click();await page.waitForTimeout(500);
+  await expect(dock).not.toHaveClass(/is-open|is-closing/);await expect(toggle(page)).toHaveAttribute('aria-expanded','false');
+  const after=await box(page,'[data-weekly-panel]'),sess=await box(page,sessions);expect(after.left).toBeGreaterThan(sess.right-1);
+ });
  test('AI review has a warm identity, a hover sweep and a generating breath',async({page})=>{
   let release;const held=new Promise(resolve=>release=resolve);
   await page.route('**/api/analysis/program',async route=>{await held;await route.fulfill({contentType:'text/event-stream',body:frames(report)});});
