@@ -1,6 +1,6 @@
 # Follow-ups needing design, plan and verification (2026-11-01)
 
-**Status (2026-11-01): items 1 to 5 shipped on branch `feat/program-follow-ups`.** Design: [spec](../specs/2026-11-01-program-follow-ups-design.md); plan: [plan](../plans/2026-11-01-program-follow-ups.md); verification: [verification](../verification/2026-11-01-program-follow-ups.md). Local verification only: migration 007 and deployment to preview/production are pending and unverified. Two minor cosmetic defects are recorded in the verification record and are not fixed.
+**Status (2026-11-01): items 1 to 5 shipped on branch `feat/program-follow-ups`.** Design: [spec](../specs/2026-11-01-program-follow-ups-design.md); plan: [plan](../plans/2026-11-01-program-follow-ups.md); verification: [verification](../verification/2026-11-01-program-follow-ups.md). Local verification only: migration 007 and deployment to preview/production are pending and unverified. The two cosmetic defects found during verification were fixed in the final review fixes (see the verification record).
 
 Raised alongside the 2026-11-01 cosmetic bundle (bordered card icon actions, program Reorder icon, centered rest-day delete icon, Program context icon). Each item below changes approved requirements, data or interaction behavior, so it goes through the usual spec → plan → verification flow before implementation.
 
@@ -15,7 +15,7 @@ The AI review fills the whole screen on laptop-sized desktops (1366/1440 widths)
 
 ## 2. Program toolbar layout when the review dock opens (shipped)
 
-**Shipped:** the layout selector joins the name field, and the file actions form one non-wrapping group (verification Defect 1 notes a cosmetic selector wrap in two width bands).
+**Shipped:** the layout selector joins the name field, and the file actions form one non-wrapping group (the selector wrap found in verification was fixed in the final review fixes).
 
 On monitor widths, opening the dock narrows the main column and the file actions (Program context, Import, Export, AI review) wrap and rearrange awkwardly. The Week/Sequence selector also sits in the same row as the file actions, although it belongs to the sessions column; it should align with the program name input instead.
 
@@ -25,7 +25,7 @@ On monitor widths, opening the dock narrows the main column and the file actions
 
 ## 3. Drag-and-drop preview looks wrong while dragging (shipped)
 
-**Shipped:** the drag copy now keeps the source card layout (0.0px measured deviation in 68 cases). Also moved rest-card actions to the right (verification Defect 2 notes a 4px offset at 44px targets).
+**Shipped:** the drag copy now keeps the source card layout (0.0px measured deviation in 68 cases). Also moved rest-card actions to the right (the 4px offset found in verification was fixed in the final review fixes).
 
 The dragged session card renders oddly during a drag. Investigate first (drag copy sizing in the single-column agenda, placeholder, card styles at the dock width). If the cause is only styling, it can return to the cosmetic track.
 
