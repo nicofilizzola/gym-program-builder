@@ -8,20 +8,20 @@ import {createDb,migrate} from '../server/db.js';
 import {createRepository} from '../server/repository.js';
 import {createDocumentCommands} from '../server/document-commands.js';
 
-const empty={goalsAndPriorities:'',constraintsAndPreferences:''};
-const context={...empty,goalsAndPriorities:'Grow delts',constraintsAndPreferences:'60 minutes'};
+const empty={goalsAndPriorities:''};
+const context={goalsAndPriorities:'Grow delts'};
 const program={name:'Week',mode:'schedule',goals:{},workouts:[],context};
 
 test('context normalizes missing fields and line endings without changing meaningful prose',()=>{
  assert.deepEqual(normalizeProgramContext(),empty);
- const source={goalsAndPriorities:'  a\r\nb\rc  ',constraintsAndPreferences:' \n '};
+ const source={goalsAndPriorities:'  a\r\nb\rc  ',constraintsAndPreferences:'60 minutes'};
  assert.deepEqual(normalizeProgramContext(source),{...empty,goalsAndPriorities:'  a\nb\nc  '});
  assert.equal(source.goalsAndPriorities,'  a\r\nb\rc  ');
  assert.equal(hasProgramContext({context:{goalsAndPriorities:' \n '}}),false);
  assert.equal(hasProgramContext(program),true);
 });
 test('context rejects invalid types and excessive UTF-16 length without truncation',()=>{
- for(const value of [null,[],3,'notes',{goalsAndPriorities:null},{constraintsAndPreferences:3}])assert.throws(()=>normalizeProgramContext(value));
+ for(const value of [null,[],3,'notes',{goalsAndPriorities:null},{goalsAndPriorities:3}])assert.throws(()=>normalizeProgramContext(value));
  assert.equal(normalizeProgramContext({goalsAndPriorities:'💪'.repeat(1000)}).goalsAndPriorities.length,2000);
  assert.throws(()=>normalizeProgramContext({goalsAndPriorities:'💪'.repeat(1001)}),/2,?000/);
  assert.equal(normalizeProgramContext({goalsAndPriorities:'\r\n'.repeat(1000)+'a'}).goalsAndPriorities.length,1001);
@@ -64,7 +64,7 @@ test('revisioned saves and atomic imports retain context without backfilling old
 });
 
 test('training background is no longer program context: legacy values are dropped everywhere',async t=>{
- assert.deepEqual(PROGRAM_CONTEXT_FIELDS,['goalsAndPriorities','constraintsAndPreferences']);
+ assert.deepEqual(PROGRAM_CONTEXT_FIELDS,['goalsAndPriorities']);
  assert.equal(normalizeContextText(' a\r\n','goalsAndPriorities'),' a\n');assert.equal(normalizeContextText(' \n','goalsAndPriorities'),'');
  assert.throws(()=>normalizeContextText(3,'goalsAndPriorities'),/^Error: Invalid program context goalsAndPriorities\.$/);
  assert.throws(()=>normalizeContextText('x'.repeat(2001),'goalsAndPriorities'),/^Error: Program context fields must be at most 2,000 characters\.$/);
@@ -78,4 +78,19 @@ test('training background is no longer program context: legacy values are droppe
  const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);
  const imported=await createDocumentCommands(db).importDocument({operationId:'legacy',bundle});
  assert.equal(Object.hasOwn(imported.record.document,'context'),false);assert.equal(JSON.stringify(imported.record.document).includes('Five years'),false);
+});
+
+test('constraints and preferences belong to the profile: legacy values are dropped on every program surface',async t=>{
+ assert.deepEqual(normalizeProgramContext({goalsAndPriorities:'Grow',constraintsAndPreferences:'60 min'}),{goalsAndPriorities:'Grow'});
+ const only={...program,context:{constraintsAndPreferences:'60 min'}};
+ assert.equal(hasProgramContext(only),false);
+ assert.equal(Object.hasOwn(validateDocument('program',only).document,'context'),false);
+ assert.deepEqual(validateDocument('program',{...program,context:{goalsAndPriorities:'Grow',constraintsAndPreferences:'60 min'}}).document.context,{goalsAndPriorities:'Grow'});
+ const bundle=JSON.parse(serializeDocumentBundle({record:{kind:'program',document:program}}));bundle.program.context={goalsAndPriorities:'Grow',constraintsAndPreferences:'60 min'};
+ const parsed=parseDocumentBundle(JSON.stringify(bundle));assert.equal(parsed.error,undefined);assert.deepEqual(parsed.bundle.program.context,{goalsAndPriorities:'Grow'});
+ bundle.program.context={constraintsAndPreferences:'60 min'};
+ const constraintsOnly=parseDocumentBundle(JSON.stringify(bundle));assert.equal(constraintsOnly.error,undefined);assert.equal(Object.hasOwn(constraintsOnly.bundle.program,'context'),false);
+ const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);
+ const imported=await createDocumentCommands(db).importDocument({operationId:'constraints',bundle});
+ assert.equal(Object.hasOwn(imported.record.document,'context'),false);assert.equal(JSON.stringify(imported.record.document).includes('60 min'),false);
 });

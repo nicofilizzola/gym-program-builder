@@ -33,8 +33,8 @@ test('template refresh and save acknowledgements preserve focused context and ex
 });
 test('disabled analysis still allows saved program context',async({page})=>{
  await page.route('**/api/analysis',route=>route.fulfill({json:{enabled:false}}));await programFixture(page);await expect(page.getByRole('button',{name:'AI review',exact:true})).toHaveAttribute('aria-disabled','true');
- await page.getByRole('button',{name:'Program context',exact:true}).click();await page.getByLabel('Constraints and preferences',{exact:true}).fill('45 minutes');await page.keyboard.press('Escape');await expect(page.getByTestId('save-status')).toHaveText('Saved');
- await page.reload();await page.getByRole('button',{name:'Program context',exact:true}).click();await expect(page.getByLabel('Constraints and preferences',{exact:true})).toHaveValue('45 minutes');
+ await page.getByRole('button',{name:'Program context',exact:true}).click();await page.getByLabel('Goals and priorities',{exact:true}).fill('45 minutes');await page.keyboard.press('Escape');await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ await page.reload();await page.getByRole('button',{name:'Program context',exact:true}).click();await expect(page.getByLabel('Goals and priorities',{exact:true})).toHaveValue('45 minutes');
 });
 test('shared template refresh preserves genuinely unsaved context before any acknowledgement settles',async({page})=>{
  let calls=0;await page.route('**/api/analysis/program',route=>{calls++;return route.fulfill({contentType:'text/event-stream',body:frames(report)});});const {program,template}=await programFixture(page);

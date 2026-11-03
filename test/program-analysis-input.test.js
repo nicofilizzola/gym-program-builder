@@ -14,7 +14,7 @@ test('program snapshot counts occurrences but preserves actual shared identities
 });
 test('fingerprints change on every sent field and return exactly after revert, excluding revisions',()=>{
  const p=source(),before=analysisFingerprint(prepare(p));
- const changes=[p=>p.name='New',p=>p.context.goalsAndPriorities='Delts',p=>p.context.constraintsAndPreferences='45 min',p=>p.mode='simple',p=>p.goals.Chest=9,p=>p.workouts[2].day=3,p=>p.workouts[2].exercises[0].restSeconds=90,p=>p.workouts[2].exercises[0].variantDescription='Slow',p=>p.workouts[2].exercises[0].focusTags=['Glutes'],p=>p.workouts[2].exercises[0].warmupSets=2,p=>p.workouts.reverse(),p=>p.sequence=[...p.workouts.map(w=>({type:'workout',workoutId:w.id})),{type:'rest',id:'r'}]];
+ const changes=[p=>p.name='New',p=>p.context.goalsAndPriorities='Delts',p=>p.mode='simple',p=>p.goals.Chest=9,p=>p.workouts[2].day=3,p=>p.workouts[2].exercises[0].restSeconds=90,p=>p.workouts[2].exercises[0].variantDescription='Slow',p=>p.workouts[2].exercises[0].focusTags=['Glutes'],p=>p.workouts[2].exercises[0].warmupSets=2,p=>p.workouts.reverse(),p=>p.sequence=[...p.workouts.map(w=>({type:'workout',workoutId:w.id})),{type:'rest',id:'r'}]];
  for(const edit of changes){const q=source();edit(q);assert.notEqual(analysisFingerprint(prepare(q)),before);}
  p.workouts.forEach(w=>w.templateRevision=99);assert.equal(analysisFingerprint(prepare(p)),before);
 });
@@ -59,7 +59,7 @@ test('analysis enforces Unicode name and exact UTF-8 envelope boundaries',()=>{
 });
 test('program snapshots never carry client athlete data or legacy context background',()=>{
  const p=source();p.athlete={trainingBackgroundAndApproach:'spoof'};p.context.trainingBackgroundAndApproach='Legacy';
- const s=prepare(p);assert.equal(Object.hasOwn(s,'athlete'),false);assert.deepEqual(Object.keys(s.context),['goalsAndPriorities','constraintsAndPreferences']);
+ const s=prepare(p);assert.equal(Object.hasOwn(s,'athlete'),false);assert.deepEqual(Object.keys(s.context),['goalsAndPriorities']);
  assert.equal(analysisFingerprint(s),analysisFingerprint(prepare(source())));
  const spoofed=validate({...s,athlete:{trainingBackgroundAndApproach:'spoof'}});assert.equal(Object.hasOwn(spoofed,'athlete'),false);assert.deepEqual(spoofed,s);
 });

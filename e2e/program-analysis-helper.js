@@ -6,7 +6,7 @@ export async function programFixture(page,{contextOnly=false,emptySession=false}
  const result=await page.evaluate(async({contextOnly,emptySession})=>{
   const {createApiClient}=await import('/src/api-client.js'),api=createApiClient();
   const template=await api.create({id:crypto.randomUUID(),kind:'template',document:{name:'Upper',goals:{},exercises:emptySession?[]:[{name:'Bench',sets:3,repRange:{min:8,max:12},restSeconds:120,primaryMuscles:['Chest'],secondaryMuscles:['Triceps']}]}});
-  const program=await api.create({id:crypto.randomUUID(),kind:'program',document:{name:'AI program '+crypto.randomUUID(),mode:'schedule',goals:contextOnly?{}:{Chest:8},context:{goalsAndPriorities:'Build muscle',constraintsAndPreferences:'60 minutes'},workouts:contextOnly?[]:[{id:'first',templateId:template.id,day:0},{id:'repeat',templateId:template.id,day:4}]}});
+  const program=await api.create({id:crypto.randomUUID(),kind:'program',document:{name:'AI program '+crypto.randomUUID(),mode:'schedule',goals:contextOnly?{}:{Chest:8},context:{goalsAndPriorities:'Build muscle'},workouts:contextOnly?[]:[{id:'first',templateId:template.id,day:0},{id:'repeat',templateId:template.id,day:4}]}});
   return {program,template};
  },{contextOnly,emptySession});
  await page.goto('/#/programs/'+result.program.id);await expect(page.getByLabel('Program name',{exact:true})).toHaveValue(result.program.document.name);return result;

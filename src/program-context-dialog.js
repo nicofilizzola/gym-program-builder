@@ -1,8 +1,8 @@
 import {PROGRAM_CONTEXT_FIELDS,PROGRAM_CONTEXT_MAX_LENGTH,normalizeProgramContext} from './program-context.js';
 
 let sequence=0;
-const labels=['Goals and priorities','Constraints and preferences'];
-const examples=['Build muscle, prioritize side delts and upper chest, maintain legs.','Four training days, about an hour each. Keep weighted pull-ups. Football on Wednesday.'];
+const labels=['Goals and priorities'];
+const examples=['Build muscle, prioritize side delts and upper chest, maintain legs.'];
 
 /** Keeps prose controls alive across acknowledgements and shared-template refreshes. */
 export function mountProgramContextDialog({anchor,getContext,onChange,onBeforeOpen=()=>{}}){

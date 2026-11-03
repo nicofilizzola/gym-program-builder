@@ -10,19 +10,19 @@ async function fixture(page){
 test('guided fields update immediately and Escape, Done and backdrop keep edits',async({page})=>{
  await fixture(page);const trigger=page.getByRole('button',{name:'Program context',exact:true});await trigger.click();
  const field=page.getByLabel('Goals and priorities',{exact:true});await expect(field).toBeFocused();await expect(field).toHaveAttribute('rows','3');await expect(field).toHaveAttribute('maxlength','2000');
- await expect(page.getByLabel('Constraints and preferences',{exact:true})).toBeVisible();await expect(page.getByLabel('Training background and approach',{exact:true})).toHaveCount(0);
- await expect(page.locator('dialog textarea')).toHaveCount(2);expect(await page.locator('dialog textarea').evaluateAll(els=>els.map(el=>el.labels[0].textContent))).toEqual(['Goals and priorities','Constraints and preferences']);
+ await expect(page.getByLabel('Constraints and preferences',{exact:true})).toHaveCount(0);await expect(page.getByLabel('Training background and approach',{exact:true})).toHaveCount(0);
+ await expect(page.locator('dialog textarea')).toHaveCount(1);expect(await page.locator('dialog textarea').evaluateAll(els=>els.map(el=>el.labels[0].textContent))).toEqual(['Goals and priorities']);
  await expect(page.getByText('These notes are included in program exports.',{exact:true})).toBeVisible();
  await field.fill('Prioritize delts');expect(await page.evaluate(()=>window.context.goalsAndPriorities)).toBe('Prioritize delts');
  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();await trigger.click();await expect(field).toHaveValue('Prioritize delts');
  await page.getByRole('button',{name:'Done',exact:true}).click();await expect(trigger).toBeFocused();await trigger.click();await page.mouse.click(2,2);await expect(trigger).toBeFocused();
 });
-test('context refresh preserves textarea identity, selection and composition while updating other fields',async({page})=>{
+test('context refresh preserves textarea identity, selection and composition until composition ends',async({page})=>{
  await fixture(page);await page.locator('#context-trigger').click();const field=page.getByLabel('Goals and priorities',{exact:true});await field.fill('Unsaved priorities');
  await field.evaluate(el=>{window.original=el;el.setSelectionRange(7,7);el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});
- await page.evaluate(()=>{window.context.constraintsAndPreferences='45 minutes';window.contextDialog.refresh();});
- await expect(field).toBeFocused();expect(await field.evaluate(el=>el===window.original&&el.selectionStart===7)).toBe(true);await expect(page.getByLabel('Constraints and preferences',{exact:true})).toHaveValue('45 minutes');
- await field.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));
+ await page.evaluate(()=>{window.context.goalsAndPriorities='Saved elsewhere';window.contextDialog.refresh();});
+ await expect(field).toBeFocused();expect(await field.evaluate(el=>el===window.original&&el.selectionStart===7)).toBe(true);await expect(field).toHaveValue('Unsaved priorities');
+ await field.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));await expect(field).toHaveValue('Saved elsewhere');expect(await field.evaluate(el=>el===window.original)).toBe(true);
 });
 test('context exit is noninteractive, rapidly reversible and immediately settles under reduced motion',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await fixture(page);await page.locator('#context-trigger').click();await page.getByRole('button',{name:'Done',exact:true}).click();
