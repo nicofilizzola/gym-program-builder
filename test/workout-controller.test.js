@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createWorkoutController,NO_SETS,OFFLINE_DISCARD,PENDING_FINISH,linkedVariantIds} from '../src/workout-controller.js';
+import {createWorkoutController,NO_SETS,OFFLINE_DISCARD,PENDING_FINISH,UNRECOVERED,linkedVariantIds} from '../src/workout-controller.js';
 import {readMirror,writeMirror} from '../src/workout-sync.js';
 
 const log=(over={})=>({id:'w1',logVersion:1,status:'active',name:'Push',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[],...over});
@@ -140,4 +140,36 @@ test('adopt takes over from a clean owned log but never from unsynced local chan
  assert.equal(controller.current.log.name,'Edited');
  assert.equal(controller.adopt({id:'x',revision:1,log:log({id:'x',status:'finished'})}),false);
  controller.current.sync.dispose();
+});
+
+test('a failed boot is retried and never lets start or adopt overwrite an unowned dirty mirror',async()=>{
+ const storage=memoryStorage();writeMirror(storage,{log:log({name:'Unsynced'}),baseRevision:2,dirty:true,lastTime:null});
+ let failing=true;
+ const api=fakeApi();const active=api.activeWorkout;
+ api.activeWorkout=async()=>{if(failing)throw httpError(401);return active();};
+ api.records.set('w1',{id:'w1',revision:2,log:log()});
+ const {controller,asked}=make({api,storage});
+ await assert.rejects(controller.boot(),{status:401});
+ // Not booted: adopting another active log or starting must leave the mirror alone.
+ assert.equal(controller.adopt({id:'other',revision:1,log:log({id:'other'})}),false);
+ await assert.rejects(controller.start({}),{status:401});
+ assert.equal(readMirror(storage).log.name,'Unsynced');assert.equal(readMirror(storage).dirty,true);
+ // After sign-in the boot runs again and recovers the mirror, so start asks about it.
+ failing=false;
+ await controller.boot();
+ assert.equal(controller.current.log.name,'Unsynced');
+ assert.equal(await controller.start({}),false);
+ assert.equal(asked.at(-1).title,'Workout in progress');
+ assert.equal(readMirror(storage).log.name,'Unsynced');
+ controller.current.sync.dispose();
+});
+
+test('start refuses while a dirty mirror is not owned after boot',async()=>{
+ const storage=memoryStorage(),api=fakeApi();
+ const {controller}=make({api,storage});
+ await controller.boot();
+ writeMirror(storage,{log:log({id:'stray',name:'Stray'}),baseRevision:0,dirty:true,lastTime:null});
+ await assert.rejects(controller.start({}),{message:UNRECOVERED});
+ assert.equal(controller.adopt({id:'other',revision:1,log:log({id:'other'})}),false);
+ assert.equal(readMirror(storage).log.id,'stray');
 });

@@ -152,14 +152,33 @@ test('active workout bar on other routes',async({page})=>{
  await expect(bar(page)).toBeVisible();
  await page.getByRole('link',{name:'Session templates',exact:true}).click();
  await page.getByRole('button',{name:`Start workout ${T}`,exact:true}).click();
+ // Record the bar's state at the moment it starts closing, while still on Session templates.
+ await page.evaluate(()=>{
+  const el=document.querySelector('.workout-bar');window.barClosing=[];
+  new MutationObserver(()=>{if(el.getAttribute('aria-hidden')==='true')window.barClosing.push({hash:location.hash,inert:el.inert,hidden:el.hidden,open:el.classList.contains('is-open')});}).observe(el,{attributes:true,attributeFilter:['aria-hidden']});
+ });
  await page.getByRole('dialog',{name:'Workout in progress'}).getByRole('button',{name:'Finish current'}).click();
  await page.getByRole('dialog',{name:'Finish workout?'}).getByRole('button',{name:'Finish workout'}).click();
  await expect(page).toHaveURL(/#\/workouts\/[\w-]+$/);
  expect(logId(page)).not.toBe(id);
+ // Closing started off the logger route: inert and aria-hidden at once, still displayed while it slides out.
+ expect(await page.evaluate(()=>window.barClosing[0])).toMatchObject({hash:'#/templates',inert:true,hidden:false,open:false});
  await expect.poll(async()=>(await serverRecord(page,id))?.log.status).toBe('finished');
  await expect(bar(page)).toBeHidden();
- await discardFromLogger(page);
+ // Finishing from the logger, then visiting other routes, leaves the bar hidden.
+ await page.getByRole('link',{name:'Programs',exact:true}).click();
+ await expect(bar(page)).toBeVisible();
+ await bar(page).getByRole('link',{name:'Resume'}).click();
+ const next=await page.locator('.log-exercise h2').first().textContent();
+ await page.getByRole('button',{name:`Mark set 1 done, ${next}`,exact:true}).click();
+ await page.getByRole('button',{name:'Finish',exact:true}).click();
+ await page.getByRole('dialog',{name:'Finish workout?'}).getByRole('button',{name:'Finish workout'}).click();
+ await expect(page).toHaveURL(/#\/workouts$/);
  await expect(bar(page)).toBeHidden();
+ await page.getByRole('link',{name:'Programs',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
+ await expect(bar(page)).toBeHidden();
+ await expect(bar(page)).toHaveAttribute('aria-hidden','true');
  // A log started on another device shows the bar after a reload.
  const other=crypto.randomUUID(),now=new Date();
  const log={id:other,logVersion:1,status:'active',name:'Legs',startedAt:now.toISOString().replace('Z','+00:00'),finishedAt:null,source:{kind:'blank'},exercises:[]};

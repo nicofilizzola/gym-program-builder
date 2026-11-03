@@ -59,6 +59,10 @@ const workoutBar=mountWorkoutBar(document.querySelector('#workout-bar-host'),{on
 const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
 let barRendered=false;
 const startWorkout=action(options=>workouts.start(options));
+// Set by Log out, cleared by a successful sign-in: offline startup never bypasses the password after a sign-out.
+const SIGNED_OUT_KEY='gpb.signedOut';
+function signedOut(){try{return localStorage.getItem(SIGNED_OUT_KEY)==='1';}catch{return false;}}
+function setSignedOut(value){try{if(value)localStorage.setItem(SIGNED_OUT_KEY,'1');else localStorage.removeItem(SIGNED_OUT_KEY);}catch{/* storage unavailable */}}
 function clearView(){cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
@@ -114,7 +118,7 @@ function showLogin(resuming=false){
  const form=authHost.querySelector('form');form.addEventListener('submit',async event=>{
   event.preventDefault();const button=form.querySelector('button');button.disabled=true;
   try{
-   await api.login(form.elements.password.value);authenticated=true;authHost.hidden=true;shell.hidden=false;
+   await api.login(form.elements.password.value);setSignedOut(false);authenticated=true;authHost.hidden=true;shell.hidden=false;
    // A workout sync paused by 401 continues; a first sign-in recovers the active workout.
    workouts.resume();await workouts.boot().catch(report);
    if(resuming&&active&&queue?.isDirty()){
@@ -127,7 +131,7 @@ function showLogin(resuming=false){
  });
  form.elements.password.focus();
 }
-document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
+document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();setSignedOut(true);queue?.dispose();queue=null;active=null;clearView();showLogin();})));
 profileButton.addEventListener('click',action(()=>navigate('#/profile')));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
 reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
@@ -253,6 +257,8 @@ async function renderRoute(version=++routeVersion){
  }finally{idle(version);}
 }
 async function prepareWorkout(route){
+ // Recovers this device's mirror first (retried after a failed boot), so a stray dirty log is never overwritten.
+ await workouts.boot();
  // The active (or unsynced finished) log lives in the controller; the logger only attaches to its sync.
  let record=null;
  if(!workouts.owns(route.id)){
@@ -263,7 +269,7 @@ async function prepareWorkout(route){
  }
  const local=workouts.owns(route.id)?workouts.snapshot():null,log=local?local.log:record.log,owned=local&&log.status==='active';
  // A finished log is read-only here until finished-log editing (Task 10).
- const lastTime=local?local.lastTime:await (linkedVariantIds(log).length?api.lastTime({variantIds:linkedVariantIds(log),exclude:route.id}).catch(()=>null):Promise.resolve({}));
+ const lastTime=local?local.lastTime:await (linkedVariantIds(log).length?api.lastTime({variantIds:linkedVariantIds(log),exclude:route.id}).catch(error=>{if(isNetworkError(error))return null;report(error);return {};}):Promise.resolve({}));
  const commit=()=>{
   let logger=null,binding=null;
   const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map)};
@@ -339,6 +345,8 @@ async function prepareRoute(route,version){
 async function start(){
  try{await api.passwordSession();}catch(error){
   if(error.status===401){showLogin();return;}
+  // After an explicit Log out the password gate always applies, even offline.
+  if(isNetworkError(error)&&signedOut()){showLogin();return;}
   // Offline with a workout saved on this device: keep logging from the mirror; sync resumes on reconnect.
   if(!(isNetworkError(error)&&readMirror(localStorage))){shell.hidden=false;report(error);app.innerHTML='<button type="button" class="secondary-btn" onclick="location.reload()">Retry connection</button>';return;}
  }

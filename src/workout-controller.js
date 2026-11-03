@@ -5,6 +5,7 @@ import {readMirror,clearMirror,createWorkoutSync,recoveryDecision,isNetworkError
 
 export const NO_SETS='Log at least one set, or discard the workout.';
 export const OFFLINE_DISCARD='Connect to discard this workout.';
+export const UNRECOVERED='A workout saved on this device could not be recovered yet. Reload or sign in, then try again.';
 export const PENDING_FINISH='Your finished workout has not synced yet. Connect to sync it before starting a new workout.';
 export const linkedVariantIds=log=>[...new Set(log.exercises.map(e=>e.variantId).filter(Boolean))];
 
@@ -14,9 +15,11 @@ export const linkedVariantIds=log=>[...new Set(log.exercises.map(e=>e.variantId)
  */
 export function createWorkoutController({api,storage=globalThis.localStorage,choose=chooseAction,confirm=confirmAction,navigate=async()=>{},bar=null,
  onError=()=>{},onSignIn=()=>{},now=()=>new Date(),makeId=()=>crypto.randomUUID(),timers=globalThis,events=globalThis}){
- let owned=null,view=null,booted=false,resolving=false,starting=false;
+ let owned=null,view=null,booted=false,booting=null,resolving=false,starting=false;
 
  const ownedId=()=>owned?.sync?.log.id??null;
+ /** A dirty mirror this controller does not own (a failed or pending boot): never overwrite it. */
+ const strayMirror=()=>{const mirror=readMirror(storage);return mirror?.dirty&&mirror.log.id!==ownedId()?mirror:null;};
  const isActive=()=>Boolean(owned?.sync)&&owned.sync.log.status==='active';
  function refreshBar({animate=true}={}){
   if(!bar)return;
@@ -138,6 +141,9 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   if(starting||resolving)return false;
   starting=true;
   try{
+   // Recover this device's unsynced log first; a failed boot stops the start instead of overwriting the mirror.
+   await boot();
+   if(strayMirror())throw Error(UNRECOVERED);
    if(!owned){
     // A log started on another device since boot: offer it instead of a server rejection later.
     try{const other=await api.activeWorkout();if(other&&!owned){own(other);refreshBar();}}
@@ -174,9 +180,13 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   }finally{starting=false;}
  }
 
- async function boot(){
-  if(booted)return;
-  booted=true;
+ /** Recovers the mirror and the server's active log. Idempotent after success; a failure is retried on the next call. */
+ function boot(){
+  if(booted)return Promise.resolve();
+  booting??=recover().then(()=>{booted=true;},error=>{booting=null;throw error;});
+  return booting;
+ }
+ async function recover(){
   const mirror=readMirror(storage);
   let reachable=true,active=null,server=null;
   try{active=await api.activeWorkout();}catch(error){if(!isNetworkError(error))throw error;reachable=false;}
@@ -232,7 +242,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   /** Adopts an active server log (from another device) unless unsynced local changes are owned; true when this log is owned. */
   adopt(record){
    if(ownedId()===record.id)return true;
-   if(record.log.status!=='active')return false;
+   if(!booted||record.log.status!=='active'||strayMirror())return false;
    if(owned){
     // The server holds one active log, so a clean owned log was finished or discarded elsewhere; local changes never are dropped.
     if(owned.conflict||owned.sync.isDirty()||owned.sync.revision===0)return false;

@@ -135,3 +135,23 @@ test('conflicts offer Keep this device’s version or Use saved version',async({
  expect((await activeRecord(page)).id).toBe(local);
  expect((await page.request.get(`/api/workouts/${other}`)).status()).toBe(404);
 });
+
+test('after Log out an offline reload still asks for the password',async({page})=>{
+ await start(page);
+ await page.getByRole('link',{name:'Programs',exact:true}).click();
+ await page.getByRole('button',{name:'Log out',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
+ // Log out keeps the mirrored workout.
+ expect(await page.evaluate(()=>localStorage.getItem('gpb.activeWorkout'))).not.toBeNull();
+ await blockApi(page);
+ await page.reload();
+ await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();
+ await expect(page.locator('#shell')).toBeHidden();
+ await expect(page.locator('.workout-logger')).toHaveCount(0);
+ // Signing in again clears the flag and recovers the workout.
+ await page.unroute('**/api/**');
+ await page.getByLabel('Password',{exact:true}).fill('test-password');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.locator('.workout-bar')).toContainText(`Workout in progress · ${T}`);
+ expect(await page.evaluate(()=>localStorage.getItem('gpb.signedOut'))).toBeNull();
+});
