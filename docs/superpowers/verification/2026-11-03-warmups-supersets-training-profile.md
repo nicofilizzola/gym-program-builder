@@ -67,3 +67,13 @@ Real Chromium (Playwright, headless) driven by a throwaway spec against `node sc
 ## Part B: structured training profile
 
 Pending (Task 16).
+
+
+## Follow-up: exercise field layout
+
+Fix for Phase A concerns 1 and 2. Visible slider track = slider width minus the 44px thumb. Container thresholds are in rem (>=48rem: one row; 36-48rem: name column + 2x2; below or enlarged text: name row + 2 columns) with subgrid rows for head/track alignment. Measured visible tracks (Sets, Warm-up, Reps, Rest; name input width), card height:
+- 1366x768: 75, 75, 143, 143 (name 170); in a superset frame 73, 73, 140 (name 167); card 307px (unchanged).
+- 1440x900: 86, 86, 160, 160 (name 186); frame 84, 84, 158; card 285px.
+- 1920x1080: 150, 150, 261, 261 (name 277); frame 148, 148, 258; card 251px.
+- 200% text (root font-size) 1366: 2 columns, tracks 359 each, heads/tracks aligned within 1px; 1440 frame 390.
+Baseline Reps/Rest before warm-up sets was about 131/148/241px. Regression tests: compact-desktop.spec.js (exercise sliders...). Headless Chromium only; no deployment verified.

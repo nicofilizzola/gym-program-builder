@@ -1,4 +1,4 @@
-
+﻿
 :root {
   --catalog-overlay-width: 520px;
   --review-width: 340px;
@@ -1556,9 +1556,18 @@ button:disabled {opacity:.5;cursor:default}
   .exercise-fields fieldset {margin:0}
   .exercise-fields .hint {font-size:.75rem}
   .exercise-fields>.error {margin:0}
+  /* Slider travel is the slider width minus the 44px thumb. One row at default text from 48rem (name, Sets, Warm-up, Reps, Rest, with Reps/Rest keeping their pre-warm-up track widths); rem thresholds wrap enlarged text to fewer columns. Each slider spans three subgrid rows (head, track, error) so heads and tracks align across a visual row. */
+  .exercise-main-fields {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .exercise-main-fields .slider-field {display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:2px}
+  @container (min-width:36rem) {
+    .exercise-main-fields {grid-template-columns:minmax(9.5rem,.8fr) repeat(2,minmax(194px,1fr))}
+    .exercise-name-field {grid-column:auto;grid-row:span 6}
+  }
+  @container (min-width:48rem) {
+    .exercise-main-fields {grid-template-columns:minmax(9rem,1fr) repeat(2,minmax(114px,.7fr)) repeat(2,minmax(168px,1.1fr))}
+    .exercise-name-field {grid-row:span 3}
+  }
   @container (min-width:700px) {
-    .exercise-main-fields {grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(100px,1fr)) repeat(2,minmax(130px,1fr))}
-    .exercise-name-field {grid-column:auto}
     .exercise-muscle-fields {grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}
   }
 }
