@@ -39,6 +39,14 @@ test('createWorkoutLog handles template and blank sources',()=>{
  assert.ok(validateWorkoutLog(blank).log);
 });
 
+test('createWorkoutLog normalizes the template name like setLogName',()=>{
+ const doc=name=>({id:'t1',document:{name,exercises:[]}});
+ const empty=createWorkoutLog({id:'a',now:new Date(),makeId:seq(),template:doc('   ')});
+ assert.equal(empty.name,'Workout');assert.ok(validateWorkoutLog(empty).log);
+ const long=createWorkoutLog({id:'b',now:new Date(),makeId:seq(),template:doc('x'.repeat(130))});
+ assert.equal(long.name,'x'.repeat(120));assert.ok(validateWorkoutLog(long).log);
+});
+
 test('logExerciseFromEntry snapshots a catalog entry with one empty set',()=>{
  const ex=logExerciseFromEntry({id:'v9',familyId:'r9',name:'Curl',equipment:'Dumbbell',primaryMuscles:['Biceps'],secondaryMuscles:[],extra:1},seq());
  assert.equal(ex.variantId,'v9');assert.equal(ex.referenceId,'r9');assert.equal(ex.target,null);assert.equal(ex.name,'Curl');

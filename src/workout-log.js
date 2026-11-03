@@ -14,8 +14,11 @@ export function toLocalIso(date){
 
 const emptySet=makeId=>({id:makeId(),weightKg:null,reps:null,rir:null,done:false});
 
+/** Trim, default to 'Workout' when empty, cap at the name limit. */
+export const normalizeLogName=text=>(String(text).trim()||'Workout').slice(0,WORKOUT_LIMITS.nameMax);
+
 export function createWorkoutLog({id,now,makeId,template,program,occurrenceId}){
- const name=template?template.document.name:'Workout';
+ const name=normalizeLogName(template?template.document.name:'');
  const source=!template?{kind:'blank'}
   :program?{kind:'program',programId:program.id,occurrenceId,templateId:template.id,programName:program.name,templateName:name}
   :{kind:'template',templateId:template.id,templateName:name};
