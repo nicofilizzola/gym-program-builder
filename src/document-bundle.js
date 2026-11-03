@@ -9,8 +9,8 @@ function portableTemplate(value){
  if(result.error)throw Error(result.error);return result.document;
 }
 export function validateDocumentBundle(data){
- if(data?.version!==3)throw Error('Unsupported file version.');
- if(data.kind==='template')return {version:3,kind:'template',template:portableTemplate(data.template)};
+ if(data?.version!==3&&data?.version!==4)throw Error('Unsupported file version.');
+ if(data.kind==='template')return {version:4,kind:'template',template:portableTemplate(data.template)};
  if(data.kind!=='program'||!Array.isArray(data.templates)||!data.program||!Array.isArray(data.program.workouts))throw Error('Invalid program bundle.');
  const keys=new Set(),templates=data.templates.map(item=>{
   if(!item||!key(item.key)||keys.has(item.key))throw Error('Missing or duplicate template key.');
@@ -33,24 +33,24 @@ export function validateDocumentBundle(data){
  const result=validateDocument('program',candidate);if(result.error)throw Error(result.error);
  const program={...result.document,workouts:workouts.map(w=>({key:w.id,templateKey:w.templateId,day:w.day}))};
  if(candidate.sequence)program.sequence=candidate.sequence.map(e=>e.type==='workout'?{type:'workout',workoutKey:e.workoutId}:{type:'rest',key:e.id});
- return {version:3,kind:'program',templates,program};
+ return {version:4,kind:'program',templates,program};
 }
 export function parseDocumentBundle(text){
  try{
   if(new TextEncoder().encode(text).length>MAX_DOCUMENT_BYTES)throw Error('File must be at most 1 MiB.');
   const data=JSON.parse(text);
-  if(data?.version===3)return {bundle:validateDocumentBundle(data)};
+  if((data?.version===3||data?.version===4))return {bundle:validateDocumentBundle(data)};
   const parsed=parseDocument(text);if(parsed.error)throw Error(parsed.error);
-  if(parsed.kind==='template')return {bundle:validateDocumentBundle({version:3,kind:'template',template:parsed.document})};
+  if(parsed.kind==='template')return {bundle:validateDocumentBundle({version:4,kind:'template',template:parsed.document})};
   const templates=parsed.document.workouts.map((w,i)=>{const {id,day,...template}=w;return {key:'template-'+i,template};});
   const program={...parsed.document,workouts:parsed.document.workouts.map((w,i)=>({key:w.id,templateKey:templates[i].key,day:w.day}))};
   if(program.sequence)program.sequence=program.sequence.map(e=>e.type==='workout'?{type:'workout',workoutKey:e.workoutId}:{type:'rest',key:e.id});
-  return {bundle:validateDocumentBundle({version:3,kind:'program',templates,program})};
+  return {bundle:validateDocumentBundle({version:4,kind:'program',templates,program})};
  }catch(error){return {error:error instanceof SyntaxError?'File is not valid JSON.':error.message};}
 }
 export function serializeDocumentBundle({record,templates=[]}){
  let data;
- if(record.kind==='template')data={version:3,kind:'template',template:record.document};
+ if(record.kind==='template')data={version:4,kind:'template',template:record.document};
  else{
   const used=new Map(),portableTemplates=[];
   for(const w of record.document.workouts)if(!used.has(w.templateId)){
@@ -60,7 +60,7 @@ export function serializeDocumentBundle({record,templates=[]}){
   const occurrences=new Map(record.document.workouts.map((w,i)=>[w.id,'workout-'+i]));
   const program={...record.document,workouts:record.document.workouts.map(w=>({key:occurrences.get(w.id),templateKey:used.get(w.templateId),day:w.day}))};
   if(program.sequence)program.sequence=program.sequence.map((e,i)=>e.type==='workout'?{type:'workout',workoutKey:occurrences.get(e.workoutId)}:{type:'rest',key:'rest-'+i});
-  data={version:3,kind:'program',templates:portableTemplates,program};
+  data={version:4,kind:'program',templates:portableTemplates,program};
  }
  const text=JSON.stringify(validateDocumentBundle(data),null,2);
  if(new TextEncoder().encode(text).length>MAX_DOCUMENT_BYTES)throw Error('File must be at most 1 MiB.');return text;
