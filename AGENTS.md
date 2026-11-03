@@ -1,5 +1,14 @@
 # Gym Program Builder
 
+## Workout tracker V1 (2026-11-03)
+
+Design: docs/superpowers/specs/2026-11-03-workout-tracker-design.md. For workout logging only, these approved requirements supersede the out-of-scope "workout logging" and "calendar dates/history" items, the "no browser persistence mirror"/"offline editing" rules (active workout only) and requirement 14's sliders (logging inputs only).
+
+- Mobile-first logging started from a program occurrence, a session template or blank. Logs are snapshots: never written back to templates/programs/catalog, never exported, not in program volume or AI review. kg only.
+- Sets log weight (0–999.75 by 0.25; blank/0 = bodyweight), reps (1–100) and optional RIR (0–5) with placeholders from last time and a done toggle. Swap/add use catalog variants only. Last time is keyed by variant ID.
+- One active log at a time (DB-enforced). The active log is mirrored synchronously to `localStorage` and syncs automatically with backoff; conflicts offer Keep this device's version or Use saved version. Finished logs are edited online through the existing autosave.
+- Migration 008 adds `workout_logs` and `workout_log_variants`; run it explicitly per environment.
+
 ## Program follow-ups (2026-11-01)
 
 Design: docs/superpowers/specs/2026-11-01-program-follow-ups-design.md; plan: docs/superpowers/plans/2026-11-01-program-follow-ups.md. These approved requirements supersede conflicting rules in the sections below.
