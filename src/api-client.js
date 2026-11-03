@@ -14,6 +14,15 @@ export function createApiClient({fetch:request=globalThis.fetch}={}) {
     analysisCapability:()=>call('analysis'),
     getProfile:()=>call('profile'),
     updateProfile:({revision,profile})=>call('profile','PUT',{revision,profile}),
+    listWorkouts:({before,beforeId}={})=>{
+      const query=new URLSearchParams();if(before!==undefined)query.set('before',before);if(beforeId!==undefined)query.set('beforeId',beforeId);
+      const text=query.toString();return call('workouts'+(text?'?'+text:''));
+    },
+    activeWorkout:async()=>(await call('workouts/active')).record,
+    getWorkout:async id=>(await call('workouts/'+encodeURIComponent(id))).record,
+    saveWorkout:async({id,revision,log})=>(await call('workouts/'+encodeURIComponent(id),'PUT',{revision,log})).record,
+    deleteWorkout:({id,revision})=>call('workouts/'+encodeURIComponent(id)+'?revision='+encodeURIComponent(revision),'DELETE'),
+    lastTime:async({variantIds,exclude})=>(await call('workouts/last?'+new URLSearchParams({variantIds:variantIds.join(','),...(exclude?{exclude}:{})}))).lastTime,
     catalog:()=>call('catalog'),
     listTags:async()=>(await call('catalog/tags')).tags,
     createTag:async value=>(await call('catalog/tags','POST',value)).tag,
