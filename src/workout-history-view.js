@@ -20,7 +20,7 @@ export function groupByLocalDate(summaries) {
 const sourceText=source=>source?.kind==='program'?`${source.programName} · ${source.templateName}`:source?.kind==='template'?source.templateName:'Blank';
 
 /** History of finished workouts, newest first, with an optional unsynced local workout on top. */
-export function mountWorkoutHistory(root,{records,hasMore,pending=null,onLoadMore,onStartBlank,onOpen,workoutHref}) {
+export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:initialError='',onLoadMore,onStartBlank,onOpen,workoutHref}) {
   const page=document.createElement('section');page.className='workout-history';
   page.innerHTML='<header class="library-heading"><h1>Workouts</h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-start>Start blank workout</button></div></header><div data-pending></div><div data-groups></div><p class="empty" data-empty hidden>No workouts yet. Start one from a program, a session template or here.</p><p class="error" role="alert" data-error></p><div class="workout-history-more"><button type="button" class="secondary-btn" data-more hidden>Load more</button></div>';
   const groupsHost=page.querySelector('[data-groups]'),pendingHost=page.querySelector('[data-pending]'),empty=page.querySelector('[data-empty]'),
@@ -54,7 +54,7 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,onLoadMor
       heading.className='workout-history-day';heading.textContent=group.label;list.className='workout-history-list';
       list.append(...group.items.map(item=>row(item)));section.append(heading,list);groupsHost.append(section);
     }
-    empty.hidden=Boolean(loaded.length||pending);more.hidden=!more_;
+    empty.hidden=Boolean(loaded.length||pending||initialError);more.hidden=!more_;
   }
 
   page.querySelector('[data-start]').addEventListener('click',()=>onStartBlank?.(),{signal});
@@ -70,6 +70,6 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,onLoadMor
     finally{loading=false;more.disabled=false;}
   },{signal});
 
-  render();root.append(page);
+  error.textContent=initialError;render();root.append(page);
   return {destroy(){destroyed=true;events.abort();page.remove();}};
 }

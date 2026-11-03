@@ -17,9 +17,10 @@ import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
-import {readMirror,clearMirror,createWorkoutSync,recoveryDecision,isNetworkError} from './workout-sync.js';
+import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
-import {workoutSummary} from './workout-log.js';
+import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
+import {mountWorkoutBar} from './workout-bar.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -54,6 +55,10 @@ const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
 function createViewHost(){return app.appendChild(document.createElement('div'));}
+const workoutBar=mountWorkoutBar(document.querySelector('#workout-bar-host'),{onResume:id=>action(()=>navigate('#/workouts/'+id))()});
+const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
+let barRendered=false;
+const startWorkout=action(options=>workouts.start(options));
 function clearView(){cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
@@ -110,6 +115,8 @@ function showLogin(resuming=false){
   event.preventDefault();const button=form.querySelector('button');button.disabled=true;
   try{
    await api.login(form.elements.password.value);authenticated=true;authHost.hidden=true;shell.hidden=false;
+   // A workout sync paused by 401 continues; a first sign-in recovers the active workout.
+   workouts.resume();await workouts.boot().catch(report);
    if(resuming&&active&&queue?.isDirty()){
     // Retrying the exact envelope safely recovers a lost acknowledgement or yields a real 409.
     if(active.kind!=='profile'){const remote=await api.get(active.id);if(remote.kind!==active.kind)throw Error('The saved document kind changed.');}
@@ -208,12 +215,13 @@ async function prepareRecord(record,context){
   breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
   if(record.kind==='template'){
    const editorHost=contentHost;
-   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
+   const programSource=context?{program:{id:context.program.id,name:context.program.document.name.trim()||'Untitled program'},occurrenceId:context.occurrence.id}:{};
+   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onStartWorkout:session=>startWorkout({template:{id:record.id,document:session},...programSource}),onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
    if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
   }else{
    let attachRequest;
    host.classList.add('program-route');const reviewDock=document.createElement('aside');reviewDock.className='review-dock';host.append(reviewDock);
-   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
+   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,onStartWorkout:workout=>startWorkout({template:{id:workout.templateId,document:workout},program:{id:record.id,name:active.document.name.trim()||'Untitled program'},occurrenceId:workout.id}),program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
     const owned=queue,version=mountedVersion;await owned.flush();if(owned!==queue)return;
     attachRequest??={operationId:uid(),programId:record.id,revision:active.revision,templateId:uid(),occurrenceId:uid(),template:{...createTemplate(),name:'Untitled workout'}};
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
@@ -236,6 +244,7 @@ async function renderRoute(version=++routeVersion){
    document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',route.view.startsWith(a.dataset.nav.slice(0,-1))?'page':'false'));
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,0);
+   workouts.refreshBar({animate:barRendered});barRendered=true;
   },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-workout-title="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
  }catch(error){
   if(version!==routeVersion)return;
@@ -243,41 +252,28 @@ async function renderRoute(version=++routeVersion){
   if(!mounted&&error.status!==401){app.textContent='This page could not be opened. Choose Programs or Session templates to retry.';}
  }finally{idle(version);}
 }
-// Temporary wiring until the workout controller (Task 9): one sync per mounted logger, flushed before the next one starts.
-let workoutSettled=Promise.resolve();
-const linkedIds=log=>[...new Set(log.exercises.map(e=>e.variantId).filter(Boolean))];
 async function prepareWorkout(route){
- await workoutSettled;
- const mirror=readMirror(localStorage),local=mirror?.log?.id===route.id?mirror:null;
- let server=null,reachable=true;
- try{server=await api.getWorkout(route.id);}catch(error){if(error.status===404)server=null;else if(local&&isNetworkError(error))reachable=false;else throw error;}
- const decision=local?recoveryDecision({mirror:local,server,reachable}).action:null;
- if(decision==='clear-mirror')clearMirror(localStorage);
- // Local data is never dropped here: a dirty mirror is mounted and syncs (a stale revision surfaces as Conflict).
- const fromMirror=decision==='resume-local'||decision==='conflict';
- const record=fromMirror?{id:route.id,revision:local.baseRevision,log:local.log}:server;
- if(!record)return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
- const syncing=fromMirror||record.log.status==='active';
- const fetchLast=ids=>ids.length?api.lastTime({variantIds:ids,exclude:route.id}):Promise.resolve({});
- let lastTime=fromMirror&&local.lastTime?local.lastTime:await fetchLast(linkedIds(record.log)).catch(()=>null);
+ // The active (or unsynced finished) log lives in the controller; the logger only attaches to its sync.
+ let record=null;
+ if(!workouts.owns(route.id)){
+  try{record=await api.getWorkout(route.id);}catch(error){if(error.status!==404)throw error;}
+  if(!record)return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
+  if(record.log.status==='active'&&!workouts.adopt(record))
+   return ()=>{const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='Resume or finish your current workout before opening another active workout.';createViewHost().append(p);};
+ }
+ const local=workouts.owns(route.id)?workouts.snapshot():null,log=local?local.log:record.log,owned=local&&log.status==='active';
+ // A finished log is read-only here until finished-log editing (Task 10).
+ const lastTime=local?local.lastTime:await (linkedVariantIds(log).length?api.lastTime({variantIds:linkedVariantIds(log),exclude:route.id}).catch(()=>null):Promise.resolve({}));
  const commit=()=>{
-  let status='',logger=null,sync=null;
-  if(syncing)sync=createWorkoutSync({api,storage:localStorage,record,lastTime,dirty:fromMirror&&local.dirty,onStatus:text=>{status=text;logger?.setStatus(text);}});
-  logger=mountWorkoutLogger(createViewHost(),{api,log:record.log,lastTime,mode:record.log.status==='active'?'active':'finished',
-   onChange:log=>sync?.change(log),
-   onFinish:async()=>{await sync.flush().catch(()=>{});await navigate('#/workouts');},
-   onDiscard:async()=>{
-    const owned=sync,offline=()=>Error('Connect to discard this workout.');
-    try{await owned.flush();}catch(error){if(owned.revision>0)throw isNetworkError(error)?offline():error;}
-    if(owned.revision>0)await api.deleteWorkout({id:route.id,revision:owned.revision}).catch(error=>{throw isNetworkError(error)?offline():error;});
-    sync=null;owned.dispose();clearMirror(localStorage);await navigate('#/workouts');
-   },
-   onLastTimeNeeded:async ids=>{
-    const result=await fetchLast(lastTime?ids:linkedIds(sync?sync.log:record.log));
-    lastTime={...lastTime,...result};sync?.setLastTime(lastTime);logger.setLastTime(lastTime);
-   }});
-  logger.setStatus(status);
-  mounted={destroy(){logger.destroy();const owned=sync;sync=null;if(owned)workoutSettled=owned.flush().catch(()=>{}).finally(()=>owned.dispose());}};
+  let logger=null,binding=null;
+  const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map)};
+  logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,mode:log.status==='active'?'active':'finished',
+   onChange:value=>binding?.onChange(value),
+   onFinish:()=>binding?.onFinish(),
+   onDiscard:()=>binding?.onDiscard(),
+   onLastTimeNeeded:ids=>binding?binding.onLastTimeNeeded(ids):Promise.resolve()});
+  if(owned)binding=workouts.attach(route.id,handlers);
+  mounted={destroy(){binding?.detach();logger.destroy();}};
  };
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;
@@ -301,12 +297,12 @@ async function prepareRoute(route,version){
  }
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved));mounted=mountProfileView(createViewHost(),{profile:active.document,onChange});};}
  if(route.view==='workouts'){
-  const page=await api.listWorkouts();
-  let pending=null;
-  try{const mirror=readMirror(localStorage);if(mirror?.dirty&&mirror.log.status==='finished')pending=workoutSummary(mirror.log);}catch{pending=null;}
-  return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,
+  let page,error='';
+  try{page=await api.listWorkouts();}catch(failure){if(!isNetworkError(failure))throw failure;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
+  const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
+  return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
    onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
-   onStartBlank:()=>{/* Task 9 starts the workout */},
+   onStartBlank:()=>startWorkout({}),
    onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});};
  }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
@@ -316,6 +312,7 @@ async function prepareRoute(route,version){
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
  return ()=>{mounted=mountLibrary(createViewHost(),{
   kind,records,recordHref:record=>`#/${route.view}/${record.id}`,
+  onStartWorkout:kind==='template'?action(async record=>{const template=await api.get(record.id);if(version!==mountedVersion)return;await startWorkout({template:{id:template.id,document:template.document}});}):undefined,
   onCreate:action(()=>create(kind,kind==='program'?createProgram():createTemplate())),
   onOpen:action(record=>navigate(`#/${route.view}/${record.id}`)),
   onDuplicate:action(async record=>{
@@ -339,4 +336,14 @@ async function prepareRoute(route,version){
   onImport:action(file=>importFile(kind,file,version))
  });};
 }
-try{await api.passwordSession();authenticated=true;shell.hidden=false;authHost.hidden=true;await renderRoute();}catch(error){if(error.status===401)showLogin();else {shell.hidden=false;report(error);app.innerHTML='<button type="button" class="secondary-btn" onclick="location.reload()">Retry connection</button>';}}
+async function start(){
+ try{await api.passwordSession();}catch(error){
+  if(error.status===401){showLogin();return;}
+  // Offline with a workout saved on this device: keep logging from the mirror; sync resumes on reconnect.
+  if(!(isNetworkError(error)&&readMirror(localStorage))){shell.hidden=false;report(error);app.innerHTML='<button type="button" class="secondary-btn" onclick="location.reload()">Retry connection</button>';return;}
+ }
+ authenticated=true;shell.hidden=false;authHost.hidden=true;
+ await workouts.boot().catch(report);
+ await renderRoute();
+}
+await start();

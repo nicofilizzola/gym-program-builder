@@ -20,11 +20,13 @@ import {snapshotExercise} from './catalog.js';
 import {getCatalogStore} from './catalog-store.js';
 
 
-export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api}={}) {
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,onStartWorkout}={}) {
 root.innerHTML=SESSION_MARKUP;
 const sliderPresentation=mountSliderPresentation(root);
 const disclosureTooltips=mountActionTooltips(root,{selector:'.card-head [data-action-tooltip]'});
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
+const startWorkout=root.querySelector('#start-workout');
+if(onStartWorkout){startWorkout.hidden=false;startWorkout.insertAdjacentHTML('afterbegin',actionIcon('start'));startWorkout.addEventListener('click',()=>onStartWorkout(structuredClone(session)));}
 let destroyed=false;
 if(api)getCatalogStore(api).load(true).catch(()=>{});
 /**

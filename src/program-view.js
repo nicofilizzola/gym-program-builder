@@ -21,7 +21,7 @@ import {durationLabel} from './duration.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest,reviewDock}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest,reviewDock,onStartWorkout}={}) {
   let confirmationController=new AbortController();
   const weekHelpId='program-reorder-hint';
   const viewTransition=createViewTransition(root);
@@ -111,9 +111,15 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         const count=document.createElement('p');count.textContent=`${workout.exercises.length} exercise${workout.exercises.length===1?'':'s'}`;
         const duration=document.createElement('p');duration.dataset.workoutDuration='';duration.textContent='Estimated duration '+durationLabel(workout);
         const metadata=document.createElement('div');metadata.className='workout-metadata';metadata.append(count,duration,badgeSlot);card.append(metadata);
-        const actions=document.createElement('div');actions.className='item-actions';card.append(actions);actions.append(handle);
-        wireReorder(handle,workout.id);handle.dataset.action='Reorder';
+        const actions=document.createElement('div');actions.className='item-actions';card.append(actions);
         const name=workout.name.trim()||'Untitled workout';
+        if(onStartWorkout){
+          const start=document.createElement('button');start.type='button';start.className='action-button workout-action';start.dataset.action='Start workout';
+          start.innerHTML=actionIcon('start');start.dataset.actionTooltip='Start workout';start.setAttribute('aria-label',`Start workout ${name}`);
+          start.onclick=()=>{const current=value.workouts.find(w=>w.id===workout.id);if(current)onStartWorkout(structuredClone(current));};actions.append(start);
+        }
+        actions.append(handle);
+        wireReorder(handle,workout.id);handle.dataset.action='Reorder';
         for(const [label,callback,disabled]of [
           ['Duplicate',()=>{const copy={...structuredClone(workout),id:id(),day:workout.day};const index=value.workouts.findIndex(w=>w.id===workout.id);value.workouts.splice(index+1,0,copy);value=reconcileSequence(value);emit();renderWorkouts(copy.id,'Open');},false],
           ['Remove',run(async()=>{const before=JSON.stringify(value);if(!await confirmAction({title:'Remove session?',message:`Remove ${name} from this program? The shared template remains in Session templates.`,confirmLabel:'Remove session',destructive:true,signal:confirmationController.signal,returnFocus:()=>root.querySelector(`[data-workout="${CSS.escape(workout.id)}"] [data-action=Remove]`)||root.querySelector('[data-add-empty]')}))return;if(disposed||before!==JSON.stringify(value))return;value=reconcileSequence({...value,workouts:value.workouts.filter(w=>w.id!==workout.id)});emit();renderWorkouts();root.querySelector('[data-add-empty]').focus();}),false]

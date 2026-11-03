@@ -156,7 +156,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   const action=button.dataset.cardAction;
   if(action==='swap')openSwap(card);
   else if(action==='remove')dropExercise(card.li.dataset.exerciseId);
-  else{const from=indexOf(button);moveMenu.toggle(button,[['Move up',-1],['Move down',1]].map(([label,step])=>({label,disabled:from+step<0||from+step>=log.exercises.length,run:()=>move(from,from+step)})));}
+  else{const from=indexOf(button);moveMenu.toggle(button,[['Move up',-1],['Move down',1]].map(([label,step])=>({label,disabled:from+step<0||from+step>=log.exercises.length,run:()=>{const current=indexOf(button);if(current>=0)move(current,current+step);}})));}
  },{signal});
  list.addEventListener('keydown',event=>{
   const step={ArrowUp:-1,ArrowDown:1}[event.key];
