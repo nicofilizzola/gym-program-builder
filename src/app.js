@@ -17,7 +17,8 @@ import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
-import {readMirror} from './workout-sync.js';
+import {readMirror,clearMirror,createWorkoutSync,recoveryDecision,isNetworkError} from './workout-sync.js';
+import {mountWorkoutLogger} from './workout-logger-view.js';
 import {workoutSummary} from './workout-log.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
@@ -242,6 +243,45 @@ async function renderRoute(version=++routeVersion){
   if(!mounted&&error.status!==401){app.textContent='This page could not be opened. Choose Programs or Session templates to retry.';}
  }finally{idle(version);}
 }
+// Temporary wiring until the workout controller (Task 9): one sync per mounted logger, flushed before the next one starts.
+let workoutSettled=Promise.resolve();
+const linkedIds=log=>[...new Set(log.exercises.map(e=>e.variantId).filter(Boolean))];
+async function prepareWorkout(route){
+ await workoutSettled;
+ const mirror=readMirror(localStorage),local=mirror?.log?.id===route.id?mirror:null;
+ let server=null,reachable=true;
+ try{server=await api.getWorkout(route.id);}catch(error){if(error.status===404)server=null;else if(local&&isNetworkError(error))reachable=false;else throw error;}
+ const decision=local?recoveryDecision({mirror:local,server,reachable}).action:null;
+ if(decision==='clear-mirror')clearMirror(localStorage);
+ // Local data is never dropped here: a dirty mirror is mounted and syncs (a stale revision surfaces as Conflict).
+ const fromMirror=decision==='resume-local'||decision==='conflict';
+ const record=fromMirror?{id:route.id,revision:local.baseRevision,log:local.log}:server;
+ if(!record)return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
+ const syncing=fromMirror||record.log.status==='active';
+ const fetchLast=ids=>ids.length?api.lastTime({variantIds:ids,exclude:route.id}):Promise.resolve({});
+ let lastTime=fromMirror&&local.lastTime?local.lastTime:await fetchLast(linkedIds(record.log)).catch(()=>null);
+ const commit=()=>{
+  let status='',logger=null,sync=null;
+  if(syncing)sync=createWorkoutSync({api,storage:localStorage,record,lastTime,dirty:fromMirror&&local.dirty,onStatus:text=>{status=text;logger?.setStatus(text);}});
+  logger=mountWorkoutLogger(createViewHost(),{api,log:record.log,lastTime,mode:record.log.status==='active'?'active':'finished',
+   onChange:log=>sync?.change(log),
+   onFinish:async()=>{await sync.flush().catch(()=>{});await navigate('#/workouts');},
+   onDiscard:async()=>{
+    const owned=sync,offline=()=>Error('Connect to discard this workout.');
+    try{await owned.flush();}catch(error){if(owned.revision>0)throw isNetworkError(error)?offline():error;}
+    if(owned.revision>0)await api.deleteWorkout({id:route.id,revision:owned.revision}).catch(error=>{throw isNetworkError(error)?offline():error;});
+    sync=null;owned.dispose();clearMirror(localStorage);await navigate('#/workouts');
+   },
+   onLastTimeNeeded:async ids=>{
+    const result=await fetchLast(lastTime?ids:linkedIds(sync?sync.log:record.log));
+    lastTime={...lastTime,...result};sync?.setLastTime(lastTime);logger.setLastTime(lastTime);
+   }});
+  logger.setStatus(status);
+  mounted={destroy(){logger.destroy();const owned=sync;sync=null;if(owned)workoutSettled=owned.flush().catch(()=>{}).finally(()=>owned.dispose());}};
+ };
+ commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
+ return commit;
+}
 async function prepareRoute(route,version){
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
@@ -270,6 +310,7 @@ async function prepareRoute(route,version){
    onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});};
  }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
+ if(route.view==='workout')return prepareWorkout(route);
  if(route.view==='program-workout'){const bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence});}
  if(route.id)return prepareRecord(await api.get(route.id));
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
