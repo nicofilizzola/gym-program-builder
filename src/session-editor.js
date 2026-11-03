@@ -125,6 +125,12 @@ const CARD_HTML = `
     <p class="error" data-error="sets"></p>
   </div>
   <div class="slider-field">
+    <div class="slider-head"><span>Warm-up sets</span><span class="slider-value" data-value="warmupSets" aria-hidden="true"></span></div>
+    <div class="slider"><span class="slider-fill"></span>
+      <input type="range" ${rangeAttrs(LIMITS.warmupSets)} data-field="warmupSets" aria-label="Warm-up sets"></div>
+    <p class="error" data-error="warmupSets"></p>
+  </div>
+  <div class="slider-field">
     <div class="slider-head"><span>Reps</span><span class="slider-value" data-value="reps" aria-hidden="true"></span></div>
     <div class="slider is-range"><span class="slider-fill"></span>
       <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="min" aria-label="Reps min">
@@ -380,6 +386,12 @@ function refresh() {
     restInput.setAttribute('aria-valuetext',formatDuration(ex.restSeconds));
     card.querySelector('[data-value="restSeconds"]').textContent=formatDuration(ex.restSeconds);
     setFill(restInput.parentElement,0,fraction(ex.restSeconds,DURATION_LIMITS.restSeconds));
+    const warmup=Number.isInteger(ex.warmupSets)?ex.warmupSets:0;
+    const warmupInput=card.querySelector('[data-field="warmupSets"]');
+    warmupInput.value=warmup;
+    warmupInput.setAttribute('aria-valuetext',warmup===0?'None':String(warmup));
+    card.querySelector('[data-value="warmupSets"]').textContent=warmup===0?'None':String(warmup);
+    setFill(warmupInput.parentElement,0,fraction(warmup,LIMITS.warmupSets));
     card.querySelector('[data-field="min"]').value = min;
     card.querySelector('[data-field="max"]').value = max;
     card.querySelector('[data-value="sets"]').textContent = String(ex.sets);
@@ -509,6 +521,7 @@ list.addEventListener('input', (event) => {
   const ex = session.exercises[indexOf(event.target)];
   if (field === 'name') ex.name = event.target.value;
   if (field === 'sets') ex.sets = event.target.valueAsNumber;
+  if (field === 'warmupSets') ex.warmupSets = event.target.valueAsNumber;
   if (field === 'restSeconds') ex.restSeconds = event.target.valueAsNumber;
   if (field === 'min' || field === 'max') {
     ex.repRange = setRepBound(ex.repRange, field, event.target.valueAsNumber);
@@ -614,6 +627,7 @@ root.querySelector('#collapse-all').addEventListener('click', () => {
 const ERROR_FIELDS = {
   name: '[data-field="name"]',
   sets: '[data-field="sets"]',
+  warmupSets: '[data-field="warmupSets"]',
   restSeconds: '[data-field="restSeconds"]',
   repRange: '[data-field="min"]',
   // When every muscle is secondary, all primary chips are disabled; fall back to the first secondary chip.

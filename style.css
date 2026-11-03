@@ -1553,7 +1553,7 @@ button:disabled {opacity:.5;cursor:default}
   .exercise-fields .hint {font-size:.75rem}
   .exercise-fields>.error {margin:0}
   @container (min-width:700px) {
-    .exercise-main-fields {grid-template-columns:minmax(0,1.5fr) minmax(100px,1fr) minmax(140px,1fr) minmax(140px,1fr)}
+    .exercise-main-fields {grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(100px,1fr)) repeat(2,minmax(130px,1fr))}
     .exercise-name-field {grid-column:auto}
     .exercise-muscle-fields {grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}
   }
