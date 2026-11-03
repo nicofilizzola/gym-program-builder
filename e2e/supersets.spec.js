@@ -157,3 +157,133 @@ test('imports and loads render pairs without animation and untitled names fall b
  await expect(page.locator('.superset')).toHaveCount(0);
  await expect(pairButton(page,'Untitled exercise')).toBeAttached();
 });
+
+// Block reordering: A, [B+C], D. A pair moves as one block and nothing can land between its members.
+async function blockFixture(page) {
+ await page.setViewportSize({width:1280,height:1000});
+ await fixture(page);
+ await page.evaluate(()=>{
+  const ex=(name,muscle,extra={})=>({name,sets:3,warmupSets:0,restSeconds:90,repRange:{min:8,max:12},primaryMuscles:[muscle],secondaryMuscles:[],...extra});
+  window.editor.setWorkout({name:'Upper',goals:{},extraMinutes:0,bufferPercent:0,exercises:[
+   ex('A','Chest'),ex('B','Lats',{superset:{restBetweenSeconds:30,restAfterRoundSeconds:90}}),ex('C','Biceps'),ex('D','Triceps')]});
+  window.supersetChanges=[];
+ });
+}
+const pairHandle=page=>page.getByRole('button',{name:'Reorder superset',exact:true});
+const singleHandle=(page,name)=>page.locator('#exercises > li.exercise').filter({has:page.locator('.card-name',{hasText:new RegExp(`^${name}$`)})}).getByRole('button',{name:'Reorder exercise',exact:true});
+async function expectOrder(page,order){
+ await expect(names(page)).toHaveText(order);
+ const doc=await lastChange(page);
+ expect(doc.exercises.map(ex=>ex.name)).toEqual(order);
+ const b=order.indexOf('B');
+ expect(doc.exercises[b].superset).toEqual({restBetweenSeconds:30,restAfterRoundSeconds:90});
+ expect(doc.exercises.filter(ex=>ex.superset)).toHaveLength(1);
+ await expect(page.locator('#exercises > li.superset .superset-members > li.exercise .card-name')).toHaveText(['B','C']);
+ await expect(page.locator('#exercises > li.superset')).toHaveAttribute('data-block-start',String(b));
+ await expectValidChanges(page);
+}
+
+test('dragging a superset above a single moves the whole pair',async({page})=>{
+ await blockFixture(page);
+ const head=await page.locator('.superset-title').boundingBox(),a=await page.locator('#exercises > li.exercise').first().boundingBox();
+ await page.mouse.move(head.x+5,head.y+5);await page.mouse.down();await page.mouse.move(head.x+15,head.y+15);
+ await expect(page.locator('.sort-drag-copy.superset')).toBeVisible();
+ await page.mouse.move(a.x+80,a.y+5);await page.mouse.up();
+ await expectOrder(page,['B','C','A','D']);
+ expect(await page.evaluate(()=>window.supersetChanges.length)).toBe(1);
+ await expect(pairHandle(page)).toBeFocused();
+});
+
+test('a single dropped on the gap inside a pair lands before or after the whole pair',async({page})=>{
+ await blockFixture(page);
+ const d=await page.locator('#exercises > li.exercise').last().locator('.card-index').boundingBox();
+ const members=page.locator('.superset-members > li.exercise');
+ const b=await members.first().boundingBox(),c=await members.last().boundingBox();
+ await page.mouse.move(d.x+5,d.y+5);await page.mouse.down();await page.mouse.move(d.x+15,d.y+15);
+ await expect(page.locator('.sort-drag-copy')).toBeVisible();
+ await page.mouse.move(b.x+80,(b.y+b.height+c.y)/2);await page.mouse.up();
+ const order=await names(page).allTextContents();
+ expect([['A','D','B','C'],['A','B','C','D']]).toContainEqual(order);
+ await expect(page.locator('.superset .card-name')).toHaveText(['B','C']);
+ if(order[1]==='D')await expectOrder(page,order);
+});
+
+test('keyboard moves a superset one block and keeps focus on its handle',async({page})=>{
+ await blockFixture(page);
+ await pairHandle(page).focus();await page.keyboard.press('ArrowUp');
+ await expectOrder(page,['B','C','A','D']);
+ await expect(pairHandle(page)).toBeFocused();
+ await expect(page.locator('#order-status')).toContainText('B and C');
+ await expect(page.locator('#order-status')).toContainText('1–2 of 4');
+ await page.keyboard.press('ArrowDown');await expectOrder(page,['A','B','C','D']);await expect(pairHandle(page)).toBeFocused();
+});
+
+test('single cards step over a pair as one block (regression: never slip inside and re-pair)',async({page})=>{
+ await blockFixture(page);
+ await singleHandle(page,'A').focus();await page.keyboard.press('ArrowDown');
+ await expectOrder(page,['B','C','A','D']);
+ await expect(singleHandle(page,'A')).toBeFocused();
+ await expect(page.locator('#order-status')).toContainText('Moved A to position 3 of 4');
+ // Regression: D moving up via its Reorder options also jumps over the pair instead of slipping inside it.
+ await page.keyboard.press('ArrowUp');await expectOrder(page,['A','B','C','D']);
+ await singleHandle(page,'D').click();await page.getByRole('button',{name:'Move up',exact:true}).click();
+ await expectOrder(page,['A','D','B','C']);
+ await expect(singleHandle(page,'D')).toBeFocused();
+ await singleHandle(page,'A').click();await page.getByRole('button',{name:'Move down',exact:true}).click();
+ await expectOrder(page,['D','A','B','C']);
+});
+
+test('the superset Reorder options step one block with disabled ends',async({page})=>{
+ await blockFixture(page);
+ const up=page.getByRole('button',{name:'Move up',exact:true}),down=page.getByRole('button',{name:'Move down',exact:true});
+ await pairHandle(page).click();
+ await expect(pairHandle(page)).toHaveAttribute('aria-expanded','true');
+ await expect(up).toBeEnabled();await expect(down).toBeEnabled();
+ await up.click();
+ await expectOrder(page,['B','C','A','D']);await expect(pairHandle(page)).toBeFocused();
+ await pairHandle(page).click();await expect(up).toBeDisabled();await expect(down).toBeEnabled();
+ await page.keyboard.press('Escape');await expect(pairHandle(page)).toBeFocused();
+ for(let i=0;i<2;i++){await pairHandle(page).click();await down.click();}
+ await expectOrder(page,['A','D','B','C']);
+ await pairHandle(page).click();await expect(up).toBeEnabled();await expect(down).toBeDisabled();
+ await page.keyboard.press('Escape');
+});
+
+test('touch press-and-hold drags a superset as one block',async({browser})=>{
+ const context=await browser.newContext({hasTouch:true,reducedMotion:'reduce'});const page=await context.newPage();
+ await blockFixture(page);
+ const head=await page.locator('.superset-title').boundingBox(),d=await page.locator('#exercises > li.exercise').last().boundingBox();
+ const client=await context.newCDPSession(page),x=head.x+5,y=head.y+5;
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ await expect(page.locator('#exercises > li.superset')).toHaveClass(/is-hold-armed/);
+ await expect(page.locator('.superset-members > li.exercise').first()).toHaveCSS('border-top-color','rgb(249, 115, 22)');
+ await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:d.y+d.height-5}]});
+ await expect(page.locator('.sort-drag-copy.superset')).toBeVisible();
+ await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expectOrder(page,['A','D','B','C']);
+ expect(await page.evaluate(()=>window.supersetChanges.length)).toBe(1);
+ await context.close();
+});
+
+test('the superset drag copy renders like its source frame',async({page})=>{
+ await blockFixture(page);
+ const frame=page.locator('#exercises > li.superset');
+ const selectors=['.superset-title','.superset-head .reorder-action','.superset-members > li:first-child .card-identity','.superset-members > li:last-child .card-controls'];
+ const layout=locator=>locator.evaluate((el,selectors)=>{
+  const base=el.getBoundingClientRect(),out={width:base.width,height:base.height};
+  for(const s of selectors){const r=el.querySelector(s).getBoundingClientRect();out[s]=[r.left-base.left,r.top-base.top,r.width,r.height];}
+  return out;
+ },selectors);
+ const source=await layout(frame);
+ const head=await page.locator('.superset-title').boundingBox();
+ await page.mouse.move(head.x+5,head.y+5);await page.mouse.down();await page.mouse.move(head.x+25,head.y+25);
+ const copy=page.locator('.sort-drag-copy');await expect(copy).toBeVisible();
+ await expect(copy).toHaveAttribute('inert','');await expect(copy).toHaveAttribute('aria-hidden','true');
+ const moved=await layout(copy);
+ expect(Math.abs(moved.width-source.width)).toBeLessThanOrEqual(1);expect(Math.abs(moved.height-source.height)).toBeLessThanOrEqual(1);
+ for(const s of selectors)source[s].forEach((v,i)=>expect(Math.abs(moved[s][i]-v),`${s}[${i}]`).toBeLessThanOrEqual(1));
+ await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(page.locator('.sort-drag-copy,.sort-drag-host,.sort-placeholder')).toHaveCount(0);
+ await expect(names(page)).toHaveText(['A','B','C','D']);
+ expect(await page.evaluate(()=>window.supersetChanges.length)).toBe(0);
+});

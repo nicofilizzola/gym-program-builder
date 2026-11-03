@@ -1436,6 +1436,10 @@ button:disabled {opacity:.5;cursor:default}
 .sort-drag-host {position:fixed;left:0;top:0;z-index:1000;pointer-events:none;will-change:transform}
 .sort-drag-copy {margin:0 !important;list-style:none;box-shadow:0 14px 38px #0007;border-color:var(--accent);opacity:.96}
 .sort-drag-copy.is-invalid-drop {opacity:.6}
+/* A superset frame has no surface of its own: its copy gets the page background so content behind it never shows
+   through the header row or member gaps, and the member cards take the lifted accent border like a single copy. */
+.superset.sort-drag-copy {background:var(--bg);border-radius:var(--radius);box-shadow:none}
+.superset.sort-drag-copy .exercise {border-color:var(--accent);box-shadow:0 14px 38px #0007}
 .sort-placeholder {box-sizing:border-box;border:1px dashed var(--accent);border-radius:var(--radius);background:var(--accent-soft);margin:12px 0;min-width:0;list-style:none}
 .is-sorting,.is-sorting * {cursor:grabbing !important;user-select:none !important}
 .card-head {position:relative;isolation:isolate}
@@ -1443,11 +1447,11 @@ button:disabled {opacity:.5;cursor:default}
 .reorder-menu:popover-open {display:flex;flex-direction:column;gap:6px}
 .reorder-menu button {text-align:left}
 .reorder-hint {color:var(--muted);font-size:.8125rem;margin:8px 0 12px}
-.exercise,.workout-item,.sequence-rest-item {cursor:grab}
-:is(.exercise,.workout-item,.sequence-rest-item) :is(button,input,select,textarea,a,label,[contenteditable],[role],[tabindex]) {cursor:auto}
-:is(.exercise,.workout-item,.sequence-rest-item) button {cursor:pointer}
-:is(.exercise,.workout-item,.sequence-rest-item) :is(input[type="text"],textarea,[contenteditable="true"]) {cursor:text}
-:is(.exercise,.workout-item,.sequence-rest-item) :is(button:disabled,[aria-disabled="true"]) {cursor:default}
+.exercise,.superset,.workout-item,.sequence-rest-item {cursor:grab}
+:is(.exercise,.superset,.workout-item,.sequence-rest-item) :is(button,input,select,textarea,a,label,[contenteditable],[role],[tabindex]) {cursor:auto}
+:is(.exercise,.superset,.workout-item,.sequence-rest-item) button {cursor:pointer}
+:is(.exercise,.superset,.workout-item,.sequence-rest-item) :is(input[type="text"],textarea,[contenteditable="true"]) {cursor:text}
+:is(.exercise,.superset,.workout-item,.sequence-rest-item) :is(button:disabled,[aria-disabled="true"]) {cursor:default}
 
 .workout-list {min-height:48px;display:flow-root}
 .workout-item {position:relative}
@@ -1861,7 +1865,8 @@ button:disabled {opacity:.5;cursor:default}
 }
 
 /* Touch holds keep native scrolling available until the sorter arms. */
-.exercise.is-hold-armed,.workout-item.is-hold-armed,.sequence-rest-item.is-hold-armed {border-color:var(--accent);user-select:none;-webkit-user-select:none}
+.exercise.is-hold-armed,.workout-item.is-hold-armed,.sequence-rest-item.is-hold-armed,.superset.is-hold-armed {border-color:var(--accent);user-select:none;-webkit-user-select:none}
+.superset.is-hold-armed .exercise {border-color:var(--accent)}
 
 /* AI review surfaces share the app's palette and controls. */
 .program-context-surface {box-sizing:border-box;position:fixed;inset:0;margin:auto;width:min(640px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;opacity:0;transform:translateY(4px);transition:opacity 180ms ease-out,transform 180ms ease-out;overflow-y:auto;overflow-wrap:anywhere}

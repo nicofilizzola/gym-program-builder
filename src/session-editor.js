@@ -7,7 +7,7 @@ import { actionIcon, mountActionTooltips } from './action-controls.js';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
 import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, heatLevel, visibleMuscles } from './volume.js';
 import { LIMITS, validateExercise } from './validate.js';
-import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
+import { createExercise, exerciseSummary, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 import { tooltipPosition } from './tooltip.js';
 import { parseDocument, serializeDocument, documentFileName } from './document-file.js';
@@ -18,7 +18,7 @@ import { mountDurationControls } from './duration-controls.js';
 import {mountExercisePicker} from './exercise-picker.js';
 import {snapshotExercise} from './catalog.js';
 import {getCatalogStore} from './catalog-store.js';
-import {canPairWithNext,pairRole,pairWithNext,removeExercise,supersetBlocks,swapPair,unpair} from './superset.js';
+import {canPairWithNext,moveBlockOrder,pairRole,pairWithNext,removeExercise,supersetBlocks,swapPair,unpair} from './superset.js';
 import {createSupersetFrame,syncSupersetFrame} from './superset-frame.js';
 
 
@@ -555,16 +555,36 @@ function indexOf(el) {
   return Number(el.closest('.exercise').dataset.index);
 }
 
-/** Commit a reorder to state, rebuild the list, and keep focus on the moved exercise's handle. */
-function commitMove(from, to) {
-  if (from === to) return;
-  session.exercises = moveExercise(session.exercises, from, to);
-  collapsed = moveExercise(collapsed, from, to);
+/** The block index (in supersetBlocks order) of the single card or superset frame containing el. */
+function blockOf(el) {
+  const frame = el.closest('.superset');
+  const start = Number(frame ? frame.dataset.blockStart : el.closest('.exercise').dataset.index);
+  return supersetBlocks(session.exercises).findIndex((block) => block.start === start);
+}
+
+/**
+ * Move one block (a single exercise or a whole superset) to another block position, so a pair never splits and a
+ * single never lands inside one. Applies the permutation to the exercises and the collapsed view state, rebuilds,
+ * keeps focus on the moved block's Reorder handle and announces its new exercise positions.
+ */
+function commitBlockMove(fromBlock, toBlock) {
+  const count = supersetBlocks(session.exercises).length;
+  if (fromBlock < 0 || fromBlock >= count || toBlock < 0 || toBlock >= count || fromBlock === toBlock) return;
+  const order = moveBlockOrder(session.exercises, fromBlock, toBlock);
+  session.exercises = order.map((i) => session.exercises[i]);
+  collapsed = order.map((i) => collapsed[i]);
   renderExercises();
   refresh();
-  cardAt(to).querySelector('.reorder-action').focus();
-  const name = session.exercises[to].name.trim() || 'exercise';
-  orderStatus.textContent = `Moved ${name} to position ${to + 1} of ${session.exercises.length}.`;
+  const { start, length } = supersetBlocks(session.exercises)[toBlock];
+  const name = (i) => session.exercises[i].name.trim() || 'Untitled exercise';
+  const total = session.exercises.length;
+  if (length === 2) {
+    frameAt(start).querySelector('.superset-head .reorder-action').focus();
+    orderStatus.textContent = `Moved superset ${name(start)} and ${name(start + 1)} to positions ${start + 1}–${start + 2} of ${total}.`;
+  } else {
+    cardAt(start).querySelector('.reorder-action').focus();
+    orderStatus.textContent = `Moved ${name(start)} to position ${start + 1} of ${total}.`;
+  }
 }
 
 list.addEventListener('input', (event) => {
@@ -710,10 +730,8 @@ list.addEventListener('keydown', (event) => {
   const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
   if (!step) return;
   event.preventDefault();
-  if (!event.target.closest('.exercise')) return; // the superset Reorder handle moves blocks (Task 7)
-  const from = indexOf(event.target);
-  const to = from + step;
-  if (to >= 0 && to < session.exercises.length) commitMove(from, to);
+  const from = blockOf(event.target);
+  commitBlockMove(from, from + step);
 });
 
 /** Put the last-touched thumb of a two-thumb slider on top, so it can be dragged where the thumbs overlap. */
@@ -726,19 +744,22 @@ list.addEventListener('pointerdown', raiseThumb);
 list.addEventListener('focusin', raiseThumb);
 
 sortable=mountSortable(list,{
-  itemSelector:'.exercise:not(.superset .exercise)',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'exercises'}],getKey:card=>card.dataset.index,
+  // Items are blocks: single cards and whole superset frames (members are never items, so nothing drops between them).
+  // Keys are block start indexes, mapped to block positions on drop.
+  itemSelector:'.exercise:not(.superset .exercise), .superset',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'exercises'}],
+  getKey:item=>item.matches('.superset')?item.dataset.blockStart:item.dataset.index,
   onCommit:({key,beforeKey})=>{
-    const from=Number(key),others=session.exercises.map((_,i)=>i).filter(i=>i!==from);
-    const to=beforeKey===null?others.length:others.indexOf(Number(beforeKey));
-    commitMove(from,to);
+    const blocks=supersetBlocks(session.exercises),from=blocks.findIndex(b=>b.start===Number(key));
+    const others=blocks.filter((_,i)=>i!==from);
+    const to=beforeKey===null?others.length:others.findIndex(b=>b.start===Number(beforeKey));
+    if(from>=0&&to>=0)commitBlockMove(from,to);
   }
 });
 list.addEventListener('click',event=>{
  const button=event.target.closest('.reorder-action');if(!button)return;
- if(!button.closest('.exercise'))return;
- const from=indexOf(button);
+ const from=blockOf(button),count=supersetBlocks(session.exercises).length;
  moveMenu.toggle(button,[['Move up',-1],['Move down',1]].map(([label,step])=>({
-  label,disabled:from+step<0||from+step>=session.exercises.length,run:()=>commitMove(from,from+step)
+  label,disabled:from+step<0||from+step>=count,run:()=>commitBlockMove(from,from+step)
  })));
 });
 
