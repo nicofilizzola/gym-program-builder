@@ -174,10 +174,15 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    await expect(dialog).toContainText('3 sets not completed — finish anyway? Uncompleted sets will be removed.');
    await dialog.getByRole('button',{name:'Cancel'}).click();
    await expect(page).toHaveURL(new RegExp(log.id));
+   // Exactly one open set uses the singular.
+   const second=(await page.locator('.log-exercise h2').nth(1).textContent());
+   await page.getByRole('button',{name:`Mark set 1 done, ${second}`,exact:true}).click();
+   await page.getByRole('button',{name:`Mark set 2 done, ${second}`,exact:true}).click();
    await page.getByRole('button',{name:'Finish',exact:true}).click();
+   await expect(dialog).toContainText('1 set not completed — finish anyway? Uncompleted sets will be removed.');
    await dialog.getByRole('button',{name:'Finish workout'}).click();
    await expect(page).toHaveURL(/#\/workouts$/);
-   await expect(page.locator('.workout-history-row').first()).toContainText('2 sets');
+   await expect(page.locator('.workout-history-row').first()).toContainText('4 sets');
    expect((await serverLog(page,log.id)).status).toBe('finished');
    // Nothing done: Finish is refused; Discard removes the log.
    const blank=await openLog(page,template);
@@ -196,6 +201,30 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
   });
  });
 }
+
+const rirBoxes=(page,name)=>page.getByRole('group',{name:`Set 1 RIR, ${name}`}).getByRole('button').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};}));
+for(const width of [360,390]){
+ test(`RIR options keep 44px touch targets at ${width}px`,async({browser})=>{
+  const context=await browser.newContext({viewport:{width,height:800},hasTouch:true,reducedMotion:'reduce'});
+  const page=await context.newPage();
+  const {names:[first]}=await setup(page,{history:false});
+  const boxes=await rirBoxes(page,first);
+  expect(boxes).toHaveLength(6);
+  for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+  for(const name of [`Mark set 1 done, ${first}`,`Remove set 1, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBe(0);
+  await context.close();
+ });
+}
+test('fine pointer keeps a one-line set row with 32px RIR options at 1366px',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});
+ const {names:[first]}=await setup(page,{history:false});
+ for(const box of await rirBoxes(page,first)){expect(box.width).toBeGreaterThanOrEqual(32);expect(box.height).toBeGreaterThanOrEqual(32);}
+ const row=page.locator('.log-set-row').first();
+ const rowBox=await row.boundingBox(),done=await page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true}).boundingBox();
+ expect(rowBox.height).toBeLessThan(48);
+ expect(done.height).toBeGreaterThanOrEqual(32);
+});
 
 test('logger touch targets and reduced motion',async({browser})=>{
  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});

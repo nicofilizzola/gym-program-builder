@@ -188,7 +188,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   say('');
   if(!log.exercises.some(e=>e.sets.some(s=>s.done))){say(NO_SETS);return;}
   const open=undoneSetCount(log);
-  if(open&&!await confirmAction({title:'Finish workout?',message:`${open} sets not completed — finish anyway? Uncompleted sets will be removed.`,confirmLabel:'Finish workout',signal:confirmations.signal}))return;
+  if(open&&!await confirmAction({title:'Finish workout?',message:`${open===1?'1 set':`${open} sets`} not completed — finish anyway? Uncompleted sets will be removed.`,confirmLabel:'Finish workout',signal:confirmations.signal}))return;
   if(destroyed)return;
   const result=finishWorkout(log,new Date());
   if(result.error){say(result.error);return;}

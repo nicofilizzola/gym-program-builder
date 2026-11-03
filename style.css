@@ -2069,10 +2069,12 @@ button:disabled {opacity:.5;cursor:default}
 .log-step:hover {color:var(--text)}
 .log-step:focus-visible {outline-offset:-2px}
 .log-step svg {width:18px;height:18px}
-.log-set-extra {grid-area:extra;display:flex;align-items:center;gap:6px;min-width:0}
+/* Line two wraps: RIR options keep full touch targets and the done/remove pair moves to its own line when the card is narrow. */
+.log-set-extra {grid-area:extra;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.log-set-actions {display:flex;gap:6px;margin-left:auto}
 .log-rir-label {color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em}
-.log-rir {display:flex;flex:1 1 auto;gap:2px;min-width:0}
-.log-rir-option {flex:1 1 0;min-width:24px;max-width:44px;min-height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.log-rir {display:flex;flex:none;gap:2px}
+.log-rir-option {flex:none;width:var(--control-touch);min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 .log-rir-option:hover:not(:disabled) {color:var(--text);border-color:var(--muted)}
 .log-rir-option.is-placeholder {border-style:dashed;color:var(--text)}
 .log-rir-option[aria-pressed="true"] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
@@ -2088,6 +2090,8 @@ button:disabled {opacity:.5;cursor:default}
 .log-add-set {margin-top:6px}
 .log-add-exercise {width:100%;justify-content:center}
 .workout-logger .log-empty {margin:0 0 12px;padding:16px}
+/* 360px phones: the RIR caption would wrap alone, so it is hidden; the group keeps its accessible name. */
+@container (max-width:19.5rem) {.log-rir-label {display:none}}
 /* Enlarged text: kg and reps stack so their inputs keep readable widths; units move inside the steppers. */
 @container (max-width:18rem) {
  .log-set-head {display:none}
@@ -2101,17 +2105,17 @@ button:disabled {opacity:.5;cursor:default}
  .logger-finish {min-height:var(--control-compact)}
  .logger-title .logger-name {min-height:36px}
  .log-stepper input[type="text"],.log-step,.log-rir-option {min-height:var(--control-compact)}
+ .log-rir-option {width:var(--control-compact)}
  .log-step {width:var(--control-compact)}
  .log-done {width:var(--control-compact);height:var(--control-compact)}
  .log-done svg {width:18px;height:18px}
  @container (min-width:34rem) {
-  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1fr) minmax(0,1fr) calc(6 * 28px + 5 * 2px) var(--control-compact) var(--control-compact)}
+  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
   .log-set-row {grid-template-areas:"num weight reps rir done remove"}
-  .log-set-extra {display:contents}
+  .log-set-extra,.log-set-actions {display:contents}
   .log-rir-label {display:none}
   .log-set-head-rir {display:block}
   .log-rir {grid-area:rir;flex:none}
-  .log-rir-option {flex:none;width:28px}
   .log-done {grid-area:done;margin:0}
   .log-remove-set {grid-area:remove}
  }
