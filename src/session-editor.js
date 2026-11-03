@@ -315,6 +315,9 @@ function renderExercises({entering=null}={}) {
   fileMessage.textContent = '';
   frameToken++;leavingFrame=null;
   const active=document.activeElement;
+  // Removing a focused control makes Chrome lay out the half-rebuilt list, which resets the page scroll (for example
+  // Swap or Unlink at the bottom of a long template jumped to the top). Blur it first; focus is restored below.
+  if(active&&list.contains(active))active.blur();
   for(const [ex,picker] of exercisePickers)if(!session.exercises.includes(ex)){picker.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);}
   for(const ex of exerciseCards.keys())if(!session.exercises.includes(ex))exerciseCards.delete(ex);
   for(const [ex,info]of exerciseInfos)if(!session.exercises.includes(ex)||!exerciseCards.has(ex)){info.controller.destroy();exerciseInfos.delete(ex);}

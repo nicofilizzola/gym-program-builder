@@ -99,6 +99,31 @@ test('swap keeps the frame; unlink restores individual rest; removing a member d
  await expectValidChanges(page);
 });
 
+test('swap, unlink and keyboard moves keep the page scroll position (regression: rebuilding jumped to the top)',async({page})=>{
+ await page.setViewportSize({width:1280,height:400});
+ await page.emulateMedia({reducedMotion:'reduce'});await fixture(page);
+ await page.evaluate(()=>{document.body.style.paddingTop='1200px';});
+ await pairButton(page,'Row').click();
+ const keep=async(action,expected)=>{
+  const before=await page.evaluate(()=>{window.scrollTo(0,document.documentElement.scrollHeight);return scrollY;});
+  expect(before).toBeGreaterThan(1000);
+  await action();
+  const after=await page.evaluate(()=>scrollY);
+  expect(after,`scroll ${before} -> ${after}`).toBeGreaterThanOrEqual(before-expected);
+ };
+ // Clicks run in the page so Playwright does not scroll anything into view itself.
+ await keep(()=>page.locator('[data-superset-action="swap"]').evaluate(b=>{b.focus({preventScroll:true});b.click();}),0);
+ await expect(page.getByRole('button',{name:'Swap exercises',exact:true})).toBeFocused();
+ await keep(async()=>{await page.locator('.superset-head .reorder-action').evaluate(b=>b.focus({preventScroll:true}));await page.keyboard.press('ArrowUp');},0);
+ await expect(names(page)).toHaveText(['Curl','Row','Bench']);
+ await expect(page.locator('.superset-head .reorder-action')).toBeFocused();
+ // Unlink removes the 40px frame header, so the page may only shrink by that much.
+ await keep(()=>page.locator('[data-superset-action="unlink"]').evaluate(b=>{b.focus({preventScroll:true});b.click();}),60);
+ await expect(page.locator('.superset')).toHaveCount(0);
+ await expect(pairButton(page,'Curl')).toBeFocused();
+ await expectValidChanges(page);
+});
+
 test('removing the first member also dissolves the pair and keeps collapsed state aligned',async({page})=>{
  await fixture(page);await pairButton(page,'Bench').click();
  await page.locator('#exercises .exercise').nth(2).getByRole('button',{name:/^Expand exercise: /}).click();
