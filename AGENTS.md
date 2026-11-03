@@ -1,5 +1,19 @@
 # Gym Program Builder
 
+## Warm-ups, supersets and training profile (2026-11-03)
+
+Design: docs/superpowers/specs/2026-11-03-warmups-supersets-training-profile-design.md; plan: docs/superpowers/plans/2026-11-03-warmups-supersets-training-profile.md. These approved requirements supersede the "Workout duration" estimation rules (and the original MVP domain model) where they conflict.
+
+- Template exercises own `warmupSets` (integer 0–5, default 0; missing normalizes to 0). Warm-up sets never count toward volume (direct, indirect, weekly, goals or heatmaps). The Warm-up sets native slider sits after Sets (value text `None` at 0); collapsed summaries append `+ N warm-up` (omitted at 0).
+- A superset is exactly two consecutive exercises: `superset {restBetweenSeconds 0–120 by 15, default 30; restAfterRoundSeconds 0–300 by 15, default max of both members' rest at pairing}` lives only on the first member. Any pair-invariant violation rejects an import/save as a whole (`Exercise N: Invalid superset.`). Members keep their own `restSeconds`, unused while paired. Limits live once in the shared duration limits; pure helpers live in `src/superset.js`.
+- Duration (60 s per warm-up or working set): straight exercise `W·60 + (W > 0 ? rest : 0) + n·(60 + rest)`; a pair runs both members' warm-ups back to back plus one round rest when there are any, then rounds of `60 + between + 60 + round rest` (a leftover set is `60 + round rest`). Rest after the final set/round still counts. Buffer applies to warm-up + execution + rest + extra; only the final total rounds up. Breakdowns show a Warm-up line before Execution.
+- Session editor (templates and program workouts): a link-icon pair action (`Superset <exercise> with next exercise`) appears only when this card and the next are unpaired. Pairs render in a `.superset` frame with an accent rail and one compact header (label, rest summary; Superset rest settings disclosure, Swap exercises, Reorder superset, Unlink superset). Members hide their own Reorder and show `Rest set by superset`; removing a member dissolves the pair.
+- A pair reorders as one block (pointer drag, touch hold, ↑/↓ on its handle, Reorder menu); nothing drops between members and single cards step over pairs. Pair/unpair and the settings disclosure use the 200ms ease-out collapse pattern, finish closing before nodes are removed and reverse safely; initial render, import, swap and reorder show the final state; reduced motion is instant.
+- Export bundles are version 4 (templates and programs) and always write `warmupSets`, plus `superset` when present; versions 1–3 still import with 0 warm-ups and no pairs. Catalog propagation, linking, moves and copies preserve both fields. No SQL migration (template JSON documents).
+- The program review input carries warm-ups and pairs (`supersetWith` partner positions plus both rests) under prompt `program-hypertrophy-v14`; server facts own duration and the model never recalculates it.
+- Training profile (Part B): pending — Task 16 adds these bullets and its superseding note for "Program hypertrophy analysis" and "Program follow-ups".
+- Verification: docs/superpowers/verification/2026-11-03-warmups-supersets-training-profile.md. Never claim a pending deployment was verified.
+
 ## Program follow-ups (2026-11-01)
 
 Design: docs/superpowers/specs/2026-11-01-program-follow-ups-design.md; plan: docs/superpowers/plans/2026-11-01-program-follow-ups.md. These approved requirements supersede conflicting rules in the sections below.
