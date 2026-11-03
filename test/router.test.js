@@ -12,3 +12,8 @@ test('profile route parses without an id',()=>{
  assert.deepEqual(parseRoute('#/profile'),{view:'profile'});
  assert.equal(parseRoute('#/profile/x').view,'not-found');
 });
+test('workouts routes parse history and detail',()=>{
+ assert.deepEqual(parseRoute('#/workouts'),{view:'workouts'});
+ assert.deepEqual(parseRoute('#/workouts/abc-1'),{view:'workout',id:'abc-1'});
+ for(const value of ['#/workouts/','#/workouts/a%20b','#/workouts/a/b','#/workouts/a.b'])assert.equal(parseRoute(value).view,'not-found',value);
+});

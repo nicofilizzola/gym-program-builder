@@ -16,6 +16,9 @@ import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
+import {mountWorkoutHistory} from './workout-history-view.js';
+import {readMirror} from './workout-sync.js';
+import {workoutSummary} from './workout-log.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -257,6 +260,15 @@ async function prepareRoute(route,version){
   return commit;
  }
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved));mounted=mountProfileView(createViewHost(),{profile:active.document,onChange});};}
+ if(route.view==='workouts'){
+  const page=await api.listWorkouts();
+  let pending=null;
+  try{const mirror=readMirror(localStorage);if(mirror?.dirty&&mirror.log.status==='finished')pending=workoutSummary(mirror.log);}catch{pending=null;}
+  return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,
+   onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
+   onStartBlank:()=>{/* Task 9 starts the workout */},
+   onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});};
+ }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='program-workout'){const bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence});}
  if(route.id)return prepareRecord(await api.get(route.id));
