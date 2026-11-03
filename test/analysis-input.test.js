@@ -28,3 +28,11 @@ test('analysis rejects coercible goal types and malformed exercises as indexed i
 test('null exercise is an indexed validation error before timing normalization',()=>{
  assert.throws(()=>prepareAnalysisSnapshot({...workedSession,exercises:[null]}),e=>e.code==='INVALID'&&e.exerciseIndex===0&&e.field==='name');
 });
+test('analysis keeps warm-ups and supersets and rejects broken pairs',()=>{
+ const base=structuredClone(workedSession),two=[{...base.exercises[0],warmupSets:2,superset:{restBetweenSeconds:30,restAfterRoundSeconds:120}},{...base.exercises[0]}];
+ const snap=prepareAnalysisSnapshot({...base,exercises:two});
+ assert.equal(snap.exercises[0].warmupSets,2);assert.deepEqual(snap.exercises[0].superset,{restBetweenSeconds:30,restAfterRoundSeconds:120});
+ assert.equal(snap.exercises[1].warmupSets,0);assert.equal(Object.hasOwn(snap.exercises[1],'superset'),false);
+ assert.throws(()=>prepareAnalysisSnapshot({...base,exercises:[two[0]]}),e=>e.message==='Exercise 1: Invalid superset.'&&e.exerciseIndex===0&&e.field==='sets');
+ assert.throws(()=>prepareAnalysisSnapshot({...base,exercises:[{...two[0],warmupSets:6},two[1]]}),e=>e.exerciseIndex===0&&e.field==='warmupSets');
+});

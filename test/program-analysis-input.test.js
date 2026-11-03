@@ -14,9 +14,15 @@ test('program snapshot counts occurrences but preserves actual shared identities
 });
 test('fingerprints change on every sent field and return exactly after revert, excluding revisions',()=>{
  const p=source(),before=analysisFingerprint(prepare(p));
- const changes=[p=>p.name='New',p=>p.context.goalsAndPriorities='Delts',p=>p.context.constraintsAndPreferences='45 min',p=>p.mode='simple',p=>p.goals.Chest=9,p=>p.workouts[2].day=3,p=>p.workouts[2].exercises[0].restSeconds=90,p=>p.workouts[2].exercises[0].variantDescription='Slow',p=>p.workouts[2].exercises[0].focusTags=['Glutes'],p=>p.workouts.reverse(),p=>p.sequence=[...p.workouts.map(w=>({type:'workout',workoutId:w.id})),{type:'rest',id:'r'}]];
+ const changes=[p=>p.name='New',p=>p.context.goalsAndPriorities='Delts',p=>p.context.constraintsAndPreferences='45 min',p=>p.mode='simple',p=>p.goals.Chest=9,p=>p.workouts[2].day=3,p=>p.workouts[2].exercises[0].restSeconds=90,p=>p.workouts[2].exercises[0].variantDescription='Slow',p=>p.workouts[2].exercises[0].focusTags=['Glutes'],p=>p.workouts[2].exercises[0].warmupSets=2,p=>p.workouts.reverse(),p=>p.sequence=[...p.workouts.map(w=>({type:'workout',workoutId:w.id})),{type:'rest',id:'r'}]];
  for(const edit of changes){const q=source();edit(q);assert.notEqual(analysisFingerprint(prepare(q)),before);}
  p.workouts.forEach(w=>w.templateRevision=99);assert.equal(analysisFingerprint(prepare(p)),before);
+});
+test('fingerprint tracks superset rests',()=>{
+ const pair=()=>{const p=source(),t=p.workouts[2];t.exercises=[{...t.exercises[0],superset:{restBetweenSeconds:30,restAfterRoundSeconds:120}},{...t.exercises[0],name:'Other'}];return p;};
+ const before=analysisFingerprint(prepare(pair()));
+ for(const edit of [p=>p.workouts[2].exercises[0].superset.restBetweenSeconds=45,p=>p.workouts[2].exercises[0].superset.restAfterRoundSeconds=150,p=>delete p.workouts[2].exercises[0].superset]){const q=pair();edit(q);assert.notEqual(analysisFingerprint(prepare(q)),before);}
+ const bad=pair();bad.workouts[2].exercises.splice(1,1);assert.throws(()=>prepare(bad),e=>/Invalid superset/.test(e.message)&&e.exerciseIndex===0&&e.field==='sets');
 });
 test('analysis rejects invalid and incomplete programs with indexed exercise errors',()=>{
  for(const edit of [p=>p.workouts=[],p=>p.workouts[2].exercises=[],p=>delete p.workouts[2].templateId,p=>p.workouts[2].id=p.workouts[0].id,p=>p.workouts[1].name='Inconsistent',p=>p.workouts[2].exercises=[null],p=>p.goals.Chest='4',p=>p.workouts[2].exercises[0].focusTags=[3],p=>p.workouts[2].day=7]){const p=source();edit(p);assert.throws(()=>prepare(p),e=>e.code==='INVALID');}
