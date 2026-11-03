@@ -25,6 +25,7 @@ test('save creates, updates and replays idempotently',async t=>{
  const next=mk({exercises:[exercise('e1','v1',[set('s1',82.5,8)])]});
  assert.equal((await repo.save({id:'a',revision:1,log:next})).revision,2);
  assert.deepEqual((await repo.get('a')).log,next);
+ assert.deepEqual(await repo.save({id:'a',revision:1,log:next}),{id:'a',revision:2,log:next},'update replay after a lost acknowledgement');
  await assert.rejects(repo.save({id:'a',revision:1,log}),{code:'CONFLICT',details:{reason:'revision_conflict'}});
  await assert.rejects(repo.save({id:'a',revision:2,log:{...next,name:''}}),{code:'INVALID'});
  await assert.rejects(repo.save({id:'a',revision:2,log:{...next,id:'b'}}),{code:'INVALID'});
@@ -43,6 +44,7 @@ test('only one active log exists',async t=>{
  assert.equal(await repo.active(),null);
  await repo.save({id:'b',revision:0,log:mk({id:'b'})});
  await assert.rejects(repo.save({id:'a',revision:2,log:mk()}),{code:'INVALID'});
+ await assert.rejects(repo.save({id:'a',revision:1,log:mk()}),{code:'CONFLICT',details:{reason:'revision_conflict'}},'stale active write after another device finished it');
 });
 
 test('variant index follows finish, edits and delete',async t=>{

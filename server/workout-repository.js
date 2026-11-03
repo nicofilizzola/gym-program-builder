@@ -50,7 +50,14 @@ export function createWorkoutRepository(db,{now=()=>new Date().toISOString()}={}
    const tx=await db.transaction('write');
    try{
     const stored=await find(tx,id);
+    // A retried save whose acknowledgement was lost is already applied; any other revision mismatch is stale.
+    if(stored&&stored.revision===revision+1&&stored.json===json)return {id,revision:stored.revision,log:stored.log};
+    if((stored?stored.revision:0)!==revision)throw revisionConflict();
     if(stored?.status==='finished'&&canonical.status==='active')throw domainError('INVALID','A finished workout cannot become active.');
+    if(canonical.status==='active'){
+     const other=await tx.execute({sql:"SELECT id FROM workout_logs WHERE status='active' AND id<>?",args:[id]});
+     if(other.rows.length)throw conflict('Another workout is already in progress.','active_exists');
+    }
     let applied;
     if(revision===0){
      if(stored)applied=false;
@@ -70,8 +77,6 @@ export function createWorkoutRepository(db,{now=()=>new Date().toISOString()}={}
      applied=result.rowsAffected>0;
     }
     if(!applied){
-     // A retried save whose acknowledgement was lost is already applied; anything else is stale.
-     if(stored&&stored.revision===revision+1&&stored.json===json)return {id,revision:stored.revision,log:stored.log};
      throw revisionConflict();
     }
     await tx.execute({sql:'DELETE FROM workout_log_variants WHERE log_id=?',args:[id]});
