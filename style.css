@@ -2004,3 +2004,21 @@ button:disabled {opacity:.5;cursor:default}
 .workout-title:focus-visible {outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.workout-title {min-height:32px}}
 @media (prefers-reduced-motion:reduce) {.workout-title {transition:none}}
+
+/* Superset frame: two member cards under one compact header, joined by a slim accent rail. Pairing opens the
+   header with the collapse pattern while the rail fades in and the cards ease 12px right; Unlink reverses it
+   before the list is rebuilt. The header's edges line up with the member cards' content and action column. */
+.superset {--exercise-padding:16px;position:relative;display:grid;padding-left:12px;transition:padding-left 200ms ease-out}
+.superset::before {content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px;background:var(--accent);transition:opacity 200ms ease-out}
+.superset.is-closed {padding-left:0}
+.superset.is-closed::before {opacity:0}
+.superset-frame-head > * {padding:0 4px 8px}
+.superset-head {display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;padding:0 calc(var(--exercise-padding) + 1px) 0 calc(var(--exercise-padding) + 4px)}
+.superset-title {flex:1 1 200px;min-width:0;margin:0;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
+.superset-label {margin-right:4px;color:var(--accent);font-family:var(--font-display);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.superset-actions {display:flex;align-items:center;gap:8px;margin-left:auto}
+.superset-settings-body {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px 16px;padding-inline:calc(var(--exercise-padding) + 8px) calc(var(--exercise-padding) + 5px)}
+.superset-members {display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.superset-rest-note {margin:0;color:var(--muted);font-size:.875rem;align-self:center}
+@media (min-width:1100px) {.superset {--exercise-padding:var(--card-padding)}}
+@media (prefers-reduced-motion:reduce) {.superset,.superset::before {transition:none}}
