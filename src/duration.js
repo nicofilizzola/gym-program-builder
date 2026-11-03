@@ -25,16 +25,36 @@ export function normalizeWorkoutTiming(workout) {
 
 export function computeDuration(workout) {
   const value=normalizeWorkoutTiming(workout);
-  let executionSeconds=0,restSeconds=0;
-  for(const ex of value.exercises) {
-    if(!Number.isInteger(ex.sets)||ex.sets<1||ex.sets>10) continue;
-    executionSeconds+=ex.sets*60;
-    restSeconds+=ex.sets*ex.restSeconds;
+  const S=60,exs=value.exercises;
+  let warmupSeconds=0,executionSeconds=0,restSeconds=0;
+  const valid=ex=>Number.isInteger(ex.sets)&&ex.sets>=1&&ex.sets<=10;
+  const counted=ex=>valid(ex)?{sets:ex.sets,warmups:Number.isInteger(ex.warmupSets)&&ex.warmupSets>0?ex.warmupSets:0}:{sets:0,warmups:0};
+  // Blocks follow the same rule as supersetBlocks (kept inline: superset.js imports this module).
+  for(let i=0;i<exs.length;i++) {
+    const ex=exs[i];
+    if(ex.superset&&i+1<exs.length) {
+      const a=counted(ex),b=counted(exs[i+1]),{restBetweenSeconds:t,restAfterRoundSeconds:R}=ex.superset;
+      const W=a.warmups+b.warmups;
+      warmupSeconds+=W*S;
+      if(W>0) restSeconds+=R;
+      for(let k=1;k<=Math.max(a.sets,b.sets);k++) {
+        if(k<=a.sets&&k<=b.sets) {executionSeconds+=2*S;restSeconds+=t+R;}
+        else {executionSeconds+=S;restSeconds+=R;}
+      }
+      i++;
+      continue;
+    }
+    const c=counted(ex);
+    warmupSeconds+=c.warmups*S;
+    if(c.warmups>0) restSeconds+=ex.restSeconds;
+    executionSeconds+=c.sets*S;
+    restSeconds+=c.sets*ex.restSeconds;
   }
-  const extraSeconds=value.exercises.length?value.extraMinutes*60:0;
-  const bufferSeconds=(executionSeconds+restSeconds+extraSeconds)*value.bufferPercent/100;
-  const totalSeconds=executionSeconds+restSeconds+extraSeconds+bufferSeconds;
-  return {executionSeconds,restSeconds,extraSeconds,bufferSeconds,totalSeconds,displayMinutes:Math.ceil(totalSeconds/60)};
+  const extraSeconds=exs.length?value.extraMinutes*60:0;
+  const subtotal=warmupSeconds+executionSeconds+restSeconds+extraSeconds;
+  const bufferSeconds=subtotal*value.bufferPercent/100;
+  const totalSeconds=subtotal+bufferSeconds;
+  return {warmupSeconds,executionSeconds,restSeconds,extraSeconds,bufferSeconds,totalSeconds,displayMinutes:Math.ceil(totalSeconds/60)};
 }
 
 export function formatDuration(seconds) {

@@ -8,7 +8,7 @@ test('server facts count repeated and Unscheduled sessions and preserve timing a
  assert.equal(facts.volume.Chest.direct,6);assert.equal(facts.volume.Triceps.indirect,3);assert.equal(facts.volume.Glutes.direct,3);
  assert.equal(facts.occurrenceCounts.Chest,2);assert.equal(facts.sessions.length,3);assert.equal(facts.unscheduledCount,1);assert.deepEqual(facts.scheduledDays,[0,4]);
  assert.deepEqual(Object.keys(facts.volume),MUSCLE_GROUPS);
- assert.deepEqual(facts.sessions[0].duration,{executionSeconds:180,restSeconds:360,extraSeconds:300,bufferSeconds:84,totalSeconds:924,displayMinutes:16});
+ assert.deepEqual(facts.sessions[0].duration,{warmupSeconds:0,executionSeconds:180,restSeconds:360,extraSeconds:300,bufferSeconds:84,totalSeconds:924,displayMinutes:16});
 });
 test('scheduled days count unique weekdays while Sequence retains unknown cadence',()=>{
  const p=structuredClone(fixtures['repeated-template']);p.workouts[1].day=0;p.workouts[2].day=6;

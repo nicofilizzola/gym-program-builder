@@ -7,13 +7,13 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
   const controller=new AbortController();
   const panelId='duration-details-'+crypto.randomUUID();
   host.classList.add('duration-controls');
-  host.innerHTML='<button type="button" class="secondary-btn duration-toggle" aria-expanded="false" aria-label="Show duration details" data-action-tooltip="Show duration details"><svg class="duration-clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><strong data-duration-total></strong><svg class="duration-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><div class="duration-details" inert aria-hidden="true"><div class="duration-details-clip"><div class="duration-details-content"><dl class="duration-breakdown"></dl><div class="duration-allowances"></div><p class="duration-hint">1 min per set, plus rest after every set. Buffer applies to the full subtotal.</p></div></div></div>';
+  host.innerHTML='<button type="button" class="secondary-btn duration-toggle" aria-expanded="false" aria-label="Show duration details" data-action-tooltip="Show duration details"><svg class="duration-clock" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><strong data-duration-total></strong><svg class="duration-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><div class="duration-details" inert aria-hidden="true"><div class="duration-details-clip"><div class="duration-details-content"><dl class="duration-breakdown"></dl><div class="duration-allowances"></div><p class="duration-hint">1 min per set, plus rest after every set. Warm-ups have no rest between them. Buffer applies to the full subtotal.</p></div></div></div>';
   const tooltips=mountActionTooltips(host);
   const toggle=host.querySelector('button'),details=host.querySelector('.duration-details');
   details.id=panelId;toggle.setAttribute('aria-controls',panelId);
   const total=host.querySelector('[data-duration-total]');
   total.id=panelId+'-total';toggle.setAttribute('aria-describedby',total.id);
-  const labels={executionSeconds:'Execution',restSeconds:'Rest',extraSeconds:'Extra time',bufferSeconds:'Buffer'};
+  const labels={warmupSeconds:'Warm-up',executionSeconds:'Execution',restSeconds:'Rest',extraSeconds:'Extra time',bufferSeconds:'Buffer'};
   for(const [key,label] of Object.entries(labels)) {
     const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');
     dt.textContent=label;dd.dataset.durationPart=key;row.append(dt,dd);host.querySelector('dl').append(row);

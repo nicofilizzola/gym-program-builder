@@ -8,14 +8,29 @@ const workout=(exercises,extraMinutes=5,bufferPercent=10)=>({name:'Upper',exerci
 test('duration counts final rests and buffers the full unrounded subtotal',()=>{
   const w=workout([{sets:3,restSeconds:180},{sets:3,restSeconds:90}]);
   const before=structuredClone(w);
-  assert.deepEqual(duration.computeDuration(w),{executionSeconds:360,restSeconds:810,extraSeconds:300,bufferSeconds:147,totalSeconds:1617,displayMinutes:27});
+  assert.deepEqual(duration.computeDuration(w),{warmupSeconds:0,executionSeconds:360,restSeconds:810,extraSeconds:300,bufferSeconds:147,totalSeconds:1617,displayMinutes:27});
   assert.equal(duration.durationLabel(w),'~27 min');
   assert.deepEqual(w,before);
   assert.equal(duration.computeDuration(workout([{sets:3,restSeconds:120}],0,0)).totalSeconds,540);
   assert.equal(duration.computeDuration(workout([{sets:3,restSeconds:0}],0,0)).totalSeconds,180);
 });
+const w=(exercises,extraMinutes=0,bufferPercent=0)=>({name:'W',goals:{},exercises,extraMinutes,bufferPercent});
+test('straight exercise warm-ups: 60s each, no rest between, exercise rest before first set',()=>{
+  assert.deepEqual(duration.computeDuration(w([{sets:3,restSeconds:120,warmupSets:2}])),{warmupSeconds:120,executionSeconds:180,restSeconds:480,extraSeconds:0,bufferSeconds:0,totalSeconds:780,displayMinutes:13});
+});
+test('uneven superset: warm-ups, rounds and a leftover straight set',()=>{
+  const r=duration.computeDuration(w([{sets:4,restSeconds:180,warmupSets:1,superset:{restBetweenSeconds:30,restAfterRoundSeconds:90}},{sets:3,restSeconds:60,warmupSets:0}]));
+  assert.equal(r.totalSeconds,1020);assert.equal(r.warmupSeconds,60);assert.equal(r.executionSeconds,420);assert.equal(r.restSeconds,540);
+});
+test('equal superset with no transition',()=>{
+  assert.equal(duration.computeDuration(w([{sets:3,restSeconds:60,superset:{restBetweenSeconds:0,restAfterRoundSeconds:120}},{sets:3,restSeconds:60}])).totalSeconds,720);
+});
+test('buffer covers warm-ups; invalid sets in a pair count as zero',()=>{
+  assert.equal(duration.computeDuration(w([{sets:3,restSeconds:120,warmupSets:2}],0,10)).totalSeconds,858);
+  assert.equal(duration.computeDuration(w([{sets:0,restSeconds:60,superset:{restBetweenSeconds:30,restAfterRoundSeconds:90}},{sets:2,restSeconds:60}])).totalSeconds,300);
+});
 test('empty and invalid-set exercises do not invent execution or rest time',()=>{
-  assert.deepEqual(duration.computeDuration(workout([])),{executionSeconds:0,restSeconds:0,extraSeconds:0,bufferSeconds:0,totalSeconds:0,displayMinutes:0});
+  assert.deepEqual(duration.computeDuration(workout([])),{warmupSeconds:0,executionSeconds:0,restSeconds:0,extraSeconds:0,bufferSeconds:0,totalSeconds:0,displayMinutes:0});
   for(const sets of [0,11,1.5,NaN]) assert.equal(duration.computeDuration(workout([{sets,restSeconds:120}],0,0)).totalSeconds,0);
   assert.equal(duration.computeDuration(workout([{name:'',sets:3}],0,0)).totalSeconds,540);
 });
