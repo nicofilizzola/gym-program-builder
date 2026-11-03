@@ -73,9 +73,11 @@ async function transition(work){
   if(document.activeElement===document.body&&invoker?.isConnected&&!invoker.closest('[inert]'))invoker.focus({preventScroll:true});
  }
 }
-function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t save','Sign in to save'].includes(text);reloadSaved.hidden=text!=='Conflict';copySaved.hidden=text!=='Conflict'||active?.id==='profile';if(text==='Sign in to save')showLogin(true);}
+function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t save','Sign in to save'].includes(text);reloadSaved.hidden=text!=='Conflict';copySaved.hidden=text!=='Conflict'||['profile','workout'].includes(active?.kind);if(text==='Sign in to save')showLogin(true);}
 // The profile is not a document: it has one fixed id, its own endpoint and no Save as copy.
 const profileRecord=({profile,revision})=>({id:'profile',kind:'profile',revision,document:profile});
+// A finished workout log is edited through the same autosave; it has no Save as copy.
+const workoutRecord=({id,revision,log})=>({id,kind:'workout',revision,document:log});
 function track(record,{project=value=>value}={}){
  templateController?.dispose();templateController=null;queue?.dispose();active=structuredClone(record);saveStatus('Saved');
  let copyRequest;
@@ -84,7 +86,8 @@ function track(record,{project=value=>value}={}){
  let owned;
  if(record.kind==='template'){
   templateController=createSharedSessionController({api,onStatus,onTemplate:onRecord,onConflict:error=>{message.textContent=error.message+' Save as copy creates a new template; existing programs keep their original template.';}});owned=templateController.load(record);
- }else if(record.kind==='profile')owned=createAutosave({record,save:({revision,document})=>api.updateProfile({revision,profile:document}).then(profileRecord),onStatus,onRecord,onConflict:error=>{message.textContent=error.message+' Reload saved version to continue.';}});
+ }else if(record.kind==='workout')owned=createAutosave({record,save:({id,revision,document})=>api.saveWorkout({id,revision,log:document}).then(workoutRecord),onStatus,onRecord,onConflict:error=>{message.textContent=error.message+' Reload saved version to continue.';}});
+ else if(record.kind==='profile')owned=createAutosave({record,save:({revision,document})=>api.updateProfile({revision,profile:document}).then(profileRecord),onStatus,onRecord,onConflict:error=>{message.textContent=error.message+' Reload saved version to continue.';}});
  else owned=createAutosave({record,save:args=>api.update(args),createCopy:document=>{copyRequest??={id:uid(),kind:record.kind,copyOf:record.id,document:structuredClone(document)};return api.create(copyRequest);},onStatus,onRecord});
  queue=owned;
  return document=>{if(queue!==owned||active?.id!==record.id)return;active.document=document;updateCurrentBreadcrumb(document);owned.change(document);};
@@ -123,7 +126,7 @@ function showLogin(resuming=false){
    workouts.resume();await workouts.boot().catch(report);
    if(resuming&&active&&queue?.isDirty()){
     // Retrying the exact envelope safely recovers a lost acknowledgement or yields a real 409.
-    if(active.kind!=='profile'){const remote=await api.get(active.id);if(remote.kind!==active.kind)throw Error('The saved document kind changed.');}
+    if(!['profile','workout'].includes(active.kind)){const remote=await api.get(active.id);if(remote.kind!==active.kind)throw Error('The saved document kind changed.');}
     await queue.retry();return;
    }
    await renderRoute();
@@ -134,7 +137,7 @@ function showLogin(resuming=false){
 document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();setSignedOut(true);queue?.dispose();queue=null;active=null;clearView();showLogin();})));
 profileButton.addEventListener('click',action(()=>navigate('#/profile')));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
-reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
+reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='workout'){const owned=queue,saved=await api.getWorkout(active.id);if(queue!==owned)return;owned.reload(workoutRecord(saved));message.textContent='';mounted?.setLog?.(saved.log);return;}if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
 copySaved.addEventListener('click',action(()=>transition(async()=>{if(!queue)return;const record=await queue.saveAsCopy();queue=null;active=null;history.pushState(null,'',`#/${record.kind==='program'?'programs':'templates'}/${record.id}`);await renderRoute();})));
 function download(kind,document,templates=[]){const text=serializeDocumentBundle({record:{kind,document},templates}),url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=documentElement('a');a.href=url;a.download=documentFileName(kind);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function externalConflict(owned){
@@ -158,7 +161,7 @@ async function exportActive(kind){
 let refreshing=false;
 window.addEventListener('focus',()=>{refreshActive().catch(report);});
 async function refreshActive(){
- if(refreshing||!authenticated||!active||transitioning)return;
+ if(refreshing||!authenticated||!active||transitioning||active.kind==='workout')return;
  if(templateController){const owned=queue,revision=active.revision;await templateController.refresh();if(queue===owned&&active.revision!==revision&&!owned.isDirty())mounted?.setWorkout?.(active.document,{silent:true});return;}
  const owned=queue,id=active.id,revision=active.revision,version=routeVersion;
  refreshing=true;
@@ -268,18 +271,30 @@ async function prepareWorkout(route){
    return ()=>{const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='Resume or finish your current workout before opening another active workout.';createViewHost().append(p);};
  }
  const local=workouts.owns(route.id)?workouts.snapshot():null,log=local?local.log:record.log,owned=local&&log.status==='active';
- // A finished log is read-only here until finished-log editing (Task 10).
+ // A finished log is edited through the app's autosave, unless the controller still holds it as an unsynced pending finish (read-only).
+ const editFinished=log.status==='finished'&&!local;
  const lastTime=local?local.lastTime:await (linkedVariantIds(log).length?api.lastTime({variantIds:linkedVariantIds(log),exclude:route.id}).catch(error=>{if(isNetworkError(error))return null;report(error);return {};}):Promise.resolve({}));
  const commit=()=>{
-  let logger=null,binding=null;
+  let logger=null,binding=null,change=null;
+  if(editFinished)change=track(workoutRecord(record));
   const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map)};
-  logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,mode:log.status==='active'?'active':'finished',
-   onChange:value=>binding?.onChange(value),
+  logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
+   onChange:value=>(change||binding?.onChange)?.(value),
+   onDelete:async()=>{
+    await queue.flush();
+    await api.deleteWorkout({id:active.id,revision:active.revision});
+    queue?.dispose();queue=null;active=null;saveStatus('');
+    await navigate('#/workouts');
+   },
    onFinish:()=>binding?.onFinish(),
    onDiscard:()=>binding?.onDiscard(),
-   onLastTimeNeeded:ids=>binding?binding.onLastTimeNeeded(ids):Promise.resolve()});
+   onLastTimeNeeded:ids=>binding?binding.onLastTimeNeeded(ids):editFinished?finishedLastTime(ids):Promise.resolve()});
+  const finishedLastTime=async ids=>{
+   const map=await api.lastTime({variantIds:ids,exclude:route.id});
+   if(mounted?.setLog&&logger)logger.setLastTime(map);
+  };
   if(owned)binding=workouts.attach(route.id,handlers);
-  mounted={destroy(){binding?.detach();logger.destroy();}};
+  mounted={destroy(){binding?.detach();logger.destroy();},setLog:value=>logger.setLog(value)};
  };
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;

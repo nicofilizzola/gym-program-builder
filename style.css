@@ -2100,10 +2100,15 @@ button:disabled {opacity:.5;cursor:default}
  .log-stepper[data-kind="weight"]::after {content:"kg"}
  .log-stepper[data-kind="reps"]::after {content:"reps"}
 }
-.workout-logger[data-mode="finished"] :is(.log-step,.log-done,.log-remove-set) {display:none}
+.workout-logger[data-mode="finished"] .log-done,.workout-logger[data-readonly] :is(.log-step,.log-remove-set) {display:none}
+.logger-times {display:flex;flex-wrap:wrap;gap:8px 12px;margin:2px 0 0;padding-inline:8px}
+.logger-times label {display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:.8125rem;font-weight:600}
+.logger-times input {min-height:44px;padding:4px 8px;font:inherit;font-size:1rem;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:8px}
+.logger-times input:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
  .logger-finish {min-height:var(--control-compact)}
  .logger-title .logger-name {min-height:36px}
+ .logger-times input {min-height:var(--control-compact)}
  .log-stepper input[type="text"],.log-step,.log-rir-option {min-height:var(--control-compact)}
  .log-rir-option {width:var(--control-compact)}
  .log-step {width:var(--control-compact)}
