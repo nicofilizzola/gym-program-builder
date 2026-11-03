@@ -206,8 +206,8 @@ test('storage failure never blocks logging',async()=>{
  const api=echoApi();const {sync,timers,statuses}=make({api,storage:throwingStorage()});
  assert.doesNotThrow(()=>sync.change(log({name:'Set'})));
  assert.equal(statuses.at(-1),'Not saved on this device');
- timers.run(400);await settle();assert.equal(api.calls.length,1);assert.equal(statuses.at(-1),'Saved');
- assert.ok(!statuses.includes('Offline · saved on this device'));
+ timers.run(400);await settle();assert.equal(api.calls.length,1);assert.equal(statuses.at(-1),'Not saved on this device');
+ assert.ok(!statuses.includes('Offline · saved on this device'));assert.ok(!statuses.includes('Saved'));
  sync.dispose();
 });
 
@@ -216,4 +216,36 @@ test('offline with a failing mirror reports it is not saved on this device',asyn
  const {sync,timers,statuses}=make({api,storage:throwingStorage()});
  sync.change(log());timers.run(400);await settle();
  assert.equal(statuses.at(-1),'Not saved on this device');assert.equal(timers.pending(2000),1);sync.dispose();
+});
+
+test('a failed mirror write never leaves an older copy behind',async()=>{
+ const api=echoApi();const storage=memoryStorage();let broken=false;const set=storage.setItem;
+ storage.setItem=(k,v)=>{if(broken)throw Error('quota');set(k,v);};
+ const {sync,timers,statuses}=make({api,storage,record:{id:'w1',revision:2,log:log()}});
+ sync.change(log({name:'A'}));assert.equal(readMirror(storage).log.name,'A');
+ broken=true;sync.change(log({name:'B'}));
+ assert.equal(readMirror(storage),null,'stale dirty mirror removed');assert.equal(statuses.at(-1),'Not saved on this device');
+ timers.run(400);await settle();assert.equal(api.calls.at(-1).log.name,'B');
+ assert.equal(readMirror(storage),null);assert.equal(statuses.at(-1),'Not saved on this device','ack whose mirror write failed keeps the warning');
+ broken=false;sync.change(log({name:'C'}));timers.run(400);await settle();
+ assert.equal(statuses.at(-1),'Saved');assert.equal(readMirror(storage).log.name,'C');assert.equal(readMirror(storage).dirty,false);sync.dispose();
+});
+
+test('resume after sign-in replays the paused save',async()=>{
+ let signedIn=false;const calls=[];
+ const api={saveWorkout:async({id,revision,log:l})=>{calls.push(revision);if(!signedIn)throw httpError(401);return {id,revision:revision+1,log:l};}};
+ const {sync,storage,timers,statuses}=make({api,record:{id:'w1',revision:2,log:log()}});
+ await sync.resume();assert.equal(calls.length,0,'no-op when not paused');
+ sync.change(log({name:'Set'}));timers.run(400);await settle();assert.equal(statuses.at(-1),'Sign in to sync');
+ signedIn=true;await sync.resume();
+ assert.deepEqual(calls,[2,2]);assert.equal(statuses.at(-1),'Saved');
+ const m=readMirror(storage);assert.equal(m.dirty,false);assert.equal(m.baseRevision,3);assert.equal(m.log.name,'Set');
+ await sync.resume();assert.equal(calls.length,2);sync.dispose();
+});
+
+test('resume leaves a conflict to the conflict flow',async()=>{
+ const calls=[];const api={saveWorkout:async()=>{calls.push(1);throw httpError(409,'revision_conflict');}};
+ const {sync,timers,statuses}=make({api});
+ sync.change(log());timers.run(400);await settle();await sync.resume();
+ assert.equal(calls.length,1);assert.equal(statuses.at(-1),'Conflict');sync.dispose();
 });

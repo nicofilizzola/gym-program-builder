@@ -44,7 +44,9 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
  let lastError=null,reason=null,attempt=0,retryTimer=null,mirrorFailed=false,quiet=false,disposed=false;
 
  const mirror=isDirty=>{
-  if(!writeMirror(storage,{log,baseRevision:revision,dirty:isDirty,lastTime:last}))mirrorFailed=true;
+  if(writeMirror(storage,{log,baseRevision:revision,dirty:isDirty,lastTime:last}))return true;
+  // Never leave a copy older than memory behind: on reload it could pass for this device's version.
+  clearMirror(storage);mirrorFailed=true;return false;
  };
  const cancelRetry=()=>{if(retryTimer!==null)timers.clearTimeout(retryTimer);retryTimer=null;};
  const retryNow=()=>{cancelRetry();if(!disposed)autosave.retry().catch(()=>{});};
@@ -54,7 +56,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
  };
  const status=value=>{
   if(quiet||disposed)return;
-  if(value==='Saved'){mirrorFailed=false;onStatus(value);return;}
+  if(value==='Saved'){onStatus(mirrorFailed?NO_MIRROR:value);return;}
   if(value==='Sign in to save'){onStatus('Sign in to sync');return;}
   if(value==='Conflict'){onStatus(value);return;}
   let shown=value;
@@ -65,10 +67,9 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
   if(quiet)return;
   log=structuredClone(value.document);revision=value.revision;attempt=0;
   const pending=autosave.isDirty();
-  // A server ack ends the "not saved on this device" warning unless newer edits still live only in memory.
-  mirrorFailed=false;
-  if(log.status==='finished'&&!pending)clearMirror(storage);
-  else {mirror(pending);if(!pending)mirrorFailed=false;}
+  // Each ack rewrites the mirror; the warning lasts until a write succeeds again.
+  if(log.status==='finished'&&!pending){clearMirror(storage);mirrorFailed=false;}
+  else mirrorFailed=!mirror(pending);
   if(!disposed)onRecord({id:value.id,revision:value.revision,log:structuredClone(value.document)});
  };
  const autosave=createAutosave({
@@ -92,6 +93,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
   try {autosave.reload({id,revision:nextRevision,document:structuredClone(document)});}finally {quiet=false;}
   revision=nextRevision;lastError=null;attempt=0;
  }
+ function dispose(){disposed=true;cancelRetry();autosave.dispose();if(listening)events.removeEventListener('online',online);}
  const fetchServer=()=>api.getWorkout(id).catch(error=>{if(error?.status===404)return null;throw error;});
  const settle=async()=>{if(autosave.isSaving())await autosave.flush().catch(()=>{});};
 
@@ -112,6 +114,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
    }else base=(await fetchServer())?.revision??0;
    if(disposed)return;
    await settle();
+   if(disposed)return;
    reason=null;rebase(base,log);change(log);
    await autosave.flush().catch(()=>{});
   },
@@ -120,13 +123,19 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
    const server=await fetchServer();
    if(disposed)return server;
    await settle();
+   if(disposed)return server;
    reason=null;
-   if(!server){clearMirror(storage);this.dispose();return null;}
-   cancelRetry();lastError=null;attempt=0;mirrorFailed=false;
+   if(!server){clearMirror(storage);dispose();return null;}
+   cancelRetry();lastError=null;attempt=0;
    autosave.reload({id:server.id,revision:server.revision,document:structuredClone(server.log)});
    return server;
   },
-  dispose(){disposed=true;cancelRetry();autosave.dispose();if(listening)events.removeEventListener('online',online);},
+  /** Replay after sign-in (401) or another paused non-conflict failure; no-op when not paused or in conflict. */
+  resume(){
+   if(disposed||!lastError||lastError.status===409)return Promise.resolve();
+   cancelRetry();return autosave.retry();
+  },
+  dispose,
   isDirty:()=>autosave.isDirty(),
   get log(){return structuredClone(log);},
   get revision(){return revision;},
