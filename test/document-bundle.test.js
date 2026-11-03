@@ -16,7 +16,7 @@ test('legacy equal embedded sessions remain independent and metadata is portable
  const w={...template,id:'a',day:0},legacy={version:2,kind:'program',program:{name:'Old',mode:'schedule',goals:{},workouts:[w,{...w,id:'b'}]}};
  const parsed=bundles.parseDocumentBundle(JSON.stringify(legacy));assert.equal(parsed.bundle.templates.length,2);
  assert.notEqual(parsed.bundle.program.workouts[0].templateKey,parsed.bundle.program.workouts[1].templateKey);
- const ex={name:'Bench',sets:4,restSeconds:45,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[],equipment:'Barbell',referenceDescription:'<img>',variantDescription:'Slow',brand:'Brand',focusTags:['Upper chest']};
+ const ex={name:'Bench',sets:4,restSeconds:45,warmupSets:0,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[],equipment:'Barbell',referenceDescription:'<img>',variantDescription:'Slow',brand:'Brand',focusTags:['Upper chest']};
  const text=bundles.serializeDocumentBundle({record:{kind:'template',document:{...template,exercises:[ex]}}});
  assert.deepEqual(bundles.parseDocumentBundle(text).bundle.template.exercises[0],ex);
  ex.restSeconds=14;assert.ok(bundles.parseDocumentBundle(JSON.stringify({version:3,kind:'template',template:{...template,exercises:[ex]}})).error);

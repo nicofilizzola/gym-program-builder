@@ -25,7 +25,7 @@ test('migration preserves independent legacy drafts and timing and is idempotent
  assert.notEqual(value.workouts[0].templateId,value.workouts[1].templateId);
  assert.deepEqual(value.sequence,old.sequence);
  assert.deepEqual(value.workouts.map(w=>[w.id,w.day]),[['a',0],['b',null]]);
- for(const w of value.workouts){assert.deepEqual(Object.keys(w).sort(),['day','id','templateId']);assert.deepEqual(JSON.parse(rows.find(r=>r.id===w.templateId).document_json),workout);}
+ for(const w of value.workouts){assert.deepEqual(Object.keys(w).sort(),['day','id','templateId']);assert.deepEqual(JSON.parse(rows.find(r=>r.id===w.templateId).document_json),{...workout,exercises:[{...exercise,warmupSets:0}]});}
  assert.equal((await db.execute('SELECT * FROM program_template_links')).rows.length,2);
  await migrate(db);assert.deepEqual((await db.execute('SELECT * FROM documents ORDER BY id')).rows,[...rows].sort((a,b)=>a.id.localeCompare(b.id)));
  await assert.rejects(db.execute({sql:'DELETE FROM documents WHERE id=?',args:[value.workouts[0].templateId]}),/FOREIGN KEY/i);

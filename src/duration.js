@@ -1,6 +1,8 @@
 /** Timing inputs are stored; totals are always derived in seconds. */
 export const DURATION_LIMITS = Object.freeze({
   restSeconds: Object.freeze({min:0,max:300,step:15}),
+  restBetweenSeconds: Object.freeze({min:0,max:120,step:15}),
+  restAfterRoundSeconds: Object.freeze({min:0,max:300,step:15}),
   extraMinutes: Object.freeze({min:0,max:60,step:1}),
   bufferPercent: Object.freeze({min:0,max:50,step:5}),
 });
@@ -17,7 +19,7 @@ export function normalizeWorkoutTiming(workout) {
     ...workout,
     extraMinutes:Object.hasOwn(workout,'extraMinutes')?workout.extraMinutes:5,
     bufferPercent:Object.hasOwn(workout,'bufferPercent')?workout.bufferPercent:10,
-    exercises:workout.exercises.map(ex=>({...ex,restSeconds:Object.hasOwn(ex,'restSeconds')?ex.restSeconds:120})),
+    exercises:workout.exercises.map(ex=>({...ex,restSeconds:Object.hasOwn(ex,'restSeconds')?ex.restSeconds:120,warmupSets:Object.hasOwn(ex,'warmupSets')?ex.warmupSets:0})),
   };
 }
 
