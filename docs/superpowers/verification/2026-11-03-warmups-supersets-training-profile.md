@@ -64,9 +64,51 @@ Real Chromium (Playwright, headless) driven by a throwaway spec against `node sc
 - The duration rule and v4 export round trip rely on the unit and e2e suites; the browser check only read the displayed breakdown.
 - No preview or production deployment was performed or verified.
 
-## Part B: structured training profile
+## Part B: structured training profile (2026-11-04)
 
-Pending (Task 16).
+Head verified: `d14d16c` (Phase B commits `60ed633..d14d16c`). No SQL migration: the profile JSON gains fields through `normalizeProfile`. **Local databases whose programs still hold `constraintsAndPreferences` in their context drop it on the next load/save (no backup or migration, by decision);** move any text worth keeping into the profile's Constraints and preferences first.
+
+### Automated evidence
+
+- `npm test`: **266 passed, 0 failed**.
+- `npm run test:e2e` (full): **306 passed, 0 failed** (7.2 min), one run, no retries, no flakes.
+- `npm run build`: "Built public assets."
+
+### Browser evidence
+
+Real Chromium (Playwright, headless) driven by a throwaway spec against `node scripts/dev-server.js --test`. Profile fixture: max 4 training days, available Mon/Tue/Thu/Fri/Sat, 1 session per day, max 60 min, intermediate, RIR 2, Barbell/Dumbbell/Cable/Machine. Week program with 7 occurrences: Monday Upper (5 exercises, ~116 min, long name) + Lower (~31 min), Wednesday Push, Thursday Pull, Friday Legs (~116 min), Sunday Arms, Unscheduled Core.
+
+**Profile page.**
+
+- 1366×768, 1440×900, 1920×1080: sections Schedule, Session length, Experience, Equipment, Notes in a two-column grid (647/684/924px columns); no horizontal overflow; sliders 44px hit boxes; pills and segmented radios 32px (fine pointer); page about 857px tall at 1366 (the Notes textareas end at the fold).
+- 200% text (root font size) at 1366 and 1440: two columns kept, no overflow, no clipped pill or radio label (pills 38px, radio labels 50px high).
+- Keyboard: Tab visits max-days slider, Mon–Sun pills (one stop each), the sessions-per-day radio group (one stop), length slider, level radio group, RIR slider, eight equipment pills, both textareas. Pills and textareas show a 2px accent outline; sliders and radio labels use their existing thumb/label focus rings. Arrow keys on sliders and radio groups, Space/Enter on pills and typing all autosaved; the saved profile matched exactly (`maxTrainingDaysPerWeek 4, availableWeekdays [0,1], maxSessionsPerDay 1, maxSessionMinutes 60, intermediate, RIR 2, ['Barbell'], 'Bad left shoulder'`).
+- Retry: with `PUT /api/profile` failing (503), a pill toggle showed "Couldn’t save" and Retry while the pill stayed pressed; further typing was kept; after the route recovered, Retry saved both edits (`['Barbell','Cable']`, appended text) and hid Retry.
+- Conflict: a remote save (90 min, Wed/Fri) then a local RIR change showed Conflict with Reload saved version and no Save as copy; reloading restored every control (`90 min`, Wed pressed, Mon released, RIR 2) and status Saved.
+- 390×844 touch (`isMobile`): one column (358px), every button, range, radio label and textarea at least 44×44px, no overflow; tapping Sunday and the `2` radio saved. Hybrid 1440 (`hasTouch`, `any-pointer: coarse`): every target at least 44px.
+
+**Hints (Week and Sequence).**
+
+- 1366, 1440, 1920: Monday `2 sessions · max 1`, Wednesday and Sunday `Not an available day`, Upper and Legs cards `over 60 min max`, weekly panel `5 training days · max 4`; Tuesday, Thursday, Saturday and Unscheduled Core show none (Unscheduled is excluded from day checks; Core is short). All hints are amber text with the warning icon, no overflow, no overlap between day hints and cards, 0 running animations.
+- Sequence (1440): only the two `over 60 min max` card hints remain; switching back to Week restores the day and weekly hints.
+- 200% text (1440): hints wrap with their rows (day hints move above the cards, weekly line 65px high); no overflow or overlap.
+- 390×844 touch: day hints sit under each day heading, card hints wrap with the metadata, weekly line under the panel subtitle; no overflow.
+- AI review dock (motion on) at 1100×800 and 1440×900: the 340px dock opened and completed a stubbed review; the same 6 hints stayed visible, none under the dock, no overflow, both body figures 180px; at 1100 the weekly panel stacked above the sessions with its hint line. The analysis request body carried no `athlete` (server-owned).
+- Live editor: in the program workout editor, Upper started at `~116 min` + `over 60 min max`; lowering each Sets slider with Home updated the suffix live (103, 90, 76, 63 min with the suffix; 50 min without), with 0 animations; returning to the program showed `Estimated duration ~50 min` with no hint.
+- Profile change and return: on the profile page, adding Wed and Sun, choosing 2 sessions, max length 180 and max days No limit, then returning to the program showed no hints; restoring the limits through the API and dispatching window focus brought back the remaining five hints (Legs, Monday, Wednesday, Sunday, weekly).
+
+### Concerns (judgment calls, not changed)
+
+1. **Narrow day-label column.** At 1366 and 1440 the 78px label column wraps `Not an available day` to three lines (49px) and `2 sessions · max 1` to two, so those day rows grow about 55px beyond their single card. At 1920 (96px column) they take two lines. Readable, but less dense; a shorter label or full-width placement would be a design decision.
+2. **Card hint tooltip is hover-only.** The `over 60 min max` hint is a non-focusable span, so its tooltip ("Longer than your max session length (Profile)") did not appear on a touch tap and cannot be reached by keyboard. The visible text carries the essential information; the "(Profile)" pointer is lost on touch/keyboard.
+
+### Gaps and not verified
+
+- Headless Chromium on Windows only; touch is emulated (`hasTouch`/`isMobile`), 200% text is root font size, not browser zoom.
+- No real model call: the review was stubbed, so the v15 prompt's handling of profile checks relies on the unit tests and fixtures; evaluation CLI runs were not performed.
+- Hint motion was checked by `getAnimations()` counts and the computed `transition`, not by eye; the profile page at 768px tablet was not inspected.
+- The local development database's legacy `constraintsAndPreferences` values were not inspected or cleaned.
+- No preview or production deployment was performed or verified.
 
 
 ## Follow-up: exercise field layout
