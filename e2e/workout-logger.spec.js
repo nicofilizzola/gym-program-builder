@@ -254,6 +254,19 @@ test('logger touch targets and reduced motion',async({browser})=>{
  await context.close();
 });
 
+test('weight and reps inputs show their longest values unclipped at 360px',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:360,height:800},hasTouch:true});
+ const page=await context.newPage();
+ const {names:[first]}=await setup(page,{history:false});
+ await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('999.75');
+ await page.getByLabel(`Set 1 reps, ${first}`,{exact:true}).fill('100');
+ for(const name of ['weight','reps']){
+  const clipped=await page.getByLabel(`Set 1 ${name}, ${first}`,{exact:true}).evaluate(el=>el.scrollWidth-el.clientWidth);
+  expect(clipped,name).toBeLessThanOrEqual(1);
+ }
+ await context.close();
+});
+
 test('chooseAction resolves its choice, or null on Cancel',async({page})=>{
  await page.goto('/');
  const ask=()=>page.evaluate(()=>{window.choice='pending';import('/src/confirm-dialog.js').then(({chooseAction})=>chooseAction({title:'Workout in progress',message:'Resume, finish or discard <b>Push</b>.',choices:[{value:'resume',label:'Resume current'},{value:'discard',label:'Discard current',destructive:true}]}).then(value=>{window.choice=value;}));});

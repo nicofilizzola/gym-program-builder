@@ -2091,7 +2091,10 @@ button:disabled {opacity:.5;cursor:default}
 .log-add-exercise {width:100%;justify-content:center}
 .workout-logger .log-empty {margin:0 0 12px;padding:16px}
 /* 360px phones: the RIR caption would wrap alone, so it is hidden; the group keeps its accessible name. */
-@container (max-width:19.5rem) {.log-rir-label {display:none}}
+@container (max-width:19.5rem) {
+ .log-rir-label {display:none}
+ .log-set-head,.log-set-row {grid-template-columns:1.25rem minmax(0,1.15fr) minmax(0,1fr)}
+}
 /* Enlarged text: kg and reps stack so their inputs keep readable widths; units move inside the steppers. */
 @container (max-width:18rem) {
  .log-set-head {display:none}
