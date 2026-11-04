@@ -42,7 +42,7 @@ export function logExerciseFromEntry(entry,makeId){
 
 export function workoutSummary(log){
  return {id:log.id,name:log.name,source:log.source,startedAt:log.startedAt,finishedAt:log.finishedAt,
-  doneSets:log.exercises.reduce((n,ex)=>n+ex.sets.filter(s=>s.done&&s.kind==='working').length,0)};
+  doneSets:log.exercises.reduce((n,ex)=>n+ex.sets.filter(s=>s.done&&s.kind!=='warmup').length,0)};
 }
 
 const isObject=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -117,10 +117,16 @@ function upgradeV1(value){
   if(!isObject(ex))return ex;
   if(ex.superset!==undefined)return {__bad:`Exercise ${i+1}: Invalid superset.`};
   const sets=Array.isArray(ex.sets)?ex.sets.map((s,j)=>isObject(s)?(s.kind!==undefined?{__bad:`Exercise ${i+1}, set ${j+1}: Invalid set kind.`}:{...s,kind:'working'}):s):ex.sets;
-  const target=isObject(ex.target)?{...ex.target,warmupSets:0}:ex.target;
+  const target=isObject(ex.target)?{...ex.target,warmupSets:ex.target.warmupSets??0}:ex.target;
   return {...ex,sets,target};
  }):value.exercises;
  return {...value,exercises};
+}
+
+/** Version 1 logs come back as canonical version 2; anything else (including invalid input) is returned unchanged. */
+export function upgradeLog(log){
+ if(!isObject(log)||log.logVersion!==1)return log;
+ return validateWorkoutLog(log).log??log;
 }
 
 /** Strict validation shared by client and server; returns a canonical copy. */

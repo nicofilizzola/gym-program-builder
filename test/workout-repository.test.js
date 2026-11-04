@@ -96,3 +96,14 @@ test('history orders by real time across UTC offsets and paginates',async t=>{
  assert.equal(second.records.length,1);assert.equal(second.hasMore,false);
  assert.equal(new Set([...first.records,...second.records].map(r=>r.id)).size,31);
 });
+
+test('stored version 1 logs are summarized and read back as version 2',async t=>{
+ const {db,repo}=await setup(t);
+ const v1={id:'old',logVersion:1,status:'finished',name:'Old',startedAt:'2026-11-03T10:00:00.000+00:00',finishedAt:'2026-11-03T11:00:00.000+00:00',source:{kind:'blank'},
+  exercises:[exercise('e1','v1',[set('s1',80,8),set('s2',80,8)])]};
+ await db.execute({sql:'INSERT INTO workout_logs(id,revision,status,started_at,finished_at,log_json,created_at,updated_at) VALUES(?,1,?,?,?,?,?,?)',
+  args:['old','finished',v1.startedAt,v1.finishedAt,JSON.stringify(v1),'x','x']});
+ assert.equal((await repo.list()).records[0].doneSets,2);
+ const got=(await repo.get('old')).log;
+ assert.equal(got.logVersion,2);assert.ok(got.exercises[0].sets.every(s=>s.kind==='working'));
+});

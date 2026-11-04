@@ -1,4 +1,4 @@
-import {validateWorkoutLog,workoutSummary,WORKOUT_LIMITS} from '../src/workout-log.js';
+import {upgradeLog,validateWorkoutLog,workoutSummary,WORKOUT_LIMITS} from '../src/workout-log.js';
 import {domainError} from './repository.js';
 
 const conflict=(message,reason)=>Object.assign(domainError('CONFLICT',message),{details:{reason}});
@@ -7,7 +7,7 @@ const utc=value=>new Date(value).toISOString();
 
 /** Workout logs: one revisioned row per log, a single active log, and a variant index of finished logs. */
 export function createWorkoutRepository(db,{now=()=>new Date().toISOString()}={}){
- const decode=row=>({id:row.id,revision:Number(row.revision),log:JSON.parse(row.log_json)});
+ const decode=row=>({id:row.id,revision:Number(row.revision),log:upgradeLog(JSON.parse(row.log_json))});
  const validId=id=>typeof id==='string'&&id.length>=1&&id.length<=100;
  const validRevision=revision=>Number.isInteger(revision)&&revision>=0;
  const find=async(executor,id)=>{
@@ -29,7 +29,7 @@ export function createWorkoutRepository(db,{now=()=>new Date().toISOString()}={}
    }
    sql+=' ORDER BY started_at DESC,id DESC LIMIT ?';args.push(size+1);
    const rows=(await db.execute({sql,args})).rows;
-   return {records:rows.slice(0,size).map(row=>workoutSummary(JSON.parse(row.log_json))),hasMore:rows.length>size};
+   return {records:rows.slice(0,size).map(row=>workoutSummary(upgradeLog(JSON.parse(row.log_json)))),hasMore:rows.length>size};
   },
   async active(){
    const row=(await db.execute("SELECT * FROM workout_logs WHERE status='active'")).rows[0];
@@ -113,7 +113,7 @@ export function createWorkoutRepository(db,{now=()=>new Date().toISOString()}={}
     args:[...ids,typeof exclude==='string'?exclude:'']})).rows;
    const result={};
    for(const row of rows){
-    const log=JSON.parse(row.log_json);
+    const log=upgradeLog(JSON.parse(row.log_json));
     const match=log.exercises.find(e=>e.variantId===row.variant_id);
     if(!match)continue;
     result[row.variant_id]={logId:log.id,finishedAt:log.finishedAt,sets:match.sets.map(s=>({weightKg:s.weightKg,reps:s.reps,rir:s.rir}))};

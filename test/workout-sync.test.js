@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {validateWorkoutLog} from '../src/workout-log.js';
+import {addSet} from '../src/workout-edit.js';
 import {MIRROR_KEY,readMirror,writeMirror,clearMirror,backoffDelay,isNetworkError,conflictReason,recoveryDecision,createWorkoutSync} from '../src/workout-sync.js';
 
 const log=(over={})=>({id:'w1',logVersion:1,status:'active',name:'Push',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[],...over});
@@ -306,4 +307,15 @@ test('a dirty version 1 mirror recovers as before and validates to version 2',()
  assert.equal(recoveryDecision({mirror,server:{id:'w1',revision:4,log:v1},reachable:true}).action,'conflict');
  const r=validateWorkoutLog(mirror.log);
  assert.equal(r.log.logVersion,2);assert.equal(r.log.exercises[0].sets[0].kind,'working');
+});
+
+test('a version 1 log is upgraded on adopt, so the first edit saves',async()=>{
+ const v1=log({exercises:[{id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:[],
+  target:{sets:1,repRange:{min:8,max:12},restSeconds:90},sets:[{id:'s1',weightKg:null,reps:null,rir:null,done:false}]}]});
+ const api=echoApi(),{sync,timers}=make({api,record:{id:'w1',revision:2,log:v1}});
+ assert.equal(sync.log.logVersion,2);
+ sync.change(addSet(sync.log,'e1',()=>'n1'));
+ timers.run();await settle();
+ assert.equal(api.calls.length,1);
+ assert.equal(api.calls[0].log.logVersion,2);assert.ok(validateWorkoutLog(api.calls[0].log).log);
 });

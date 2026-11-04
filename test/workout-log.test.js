@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CATALOG_NAME_MAX} from '../src/catalog.js';
-import {WORKOUT_LIMITS,toLocalIso,validateWorkoutLog,createWorkoutLog,logExerciseFromEntry,workoutSummary} from '../src/workout-log.js';
+import {WORKOUT_LIMITS,toLocalIso,validateWorkoutLog,createWorkoutLog,logExerciseFromEntry,workoutSummary,upgradeLog} from '../src/workout-log.js';
 
 const seq=()=>{let n=0;return()=>'id'+(++n);};
 const set=(over={})=>({id:'s1',kind:'working',weightKg:80,reps:8,rir:2,done:true,...over});
@@ -173,3 +173,12 @@ test('valid pairs are kept in canonical shape',()=>{
  assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]).slice(0,2),['id','kind']);
 });
 test('history counts done working sets only',()=>{assert.equal(workoutSummary(logWithDone({warmup:2,working:3})).doneSets,3);});
+
+test('version 1 summary counts done sets; upgrade keeps an existing warmupSets',()=>{
+ const v1=active({logVersion:1,exercises:[exercise({target:{sets:3,repRange:{min:8,max:12},restSeconds:90},sets:[set(),set({id:'s2'})]})]});
+ v1.exercises[0].sets.forEach(s=>delete s.kind);
+ assert.equal(workoutSummary(v1).doneSets,2);
+ assert.equal(upgradeLog(v1).logVersion,2);
+ const kept=upgradeLog({...v1,exercises:[{...v1.exercises[0],target:{...v1.exercises[0].target,warmupSets:2}}]});
+ assert.equal(kept.exercises[0].target.warmupSets,2);
+});
