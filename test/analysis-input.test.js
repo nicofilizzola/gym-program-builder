@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {prepareAnalysisSnapshot,analysisFingerprint} from '../src/analysis-input.js';
 import {workedSession,analysisFixtures} from './fixtures/analysis-sessions.js';
+import {validateDocument} from '../src/document-validation.js';
 test('analysis validates limits and exercise fields without mutating or leaking metadata',()=>{
  const original=structuredClone(workedSession);const raw={...original,id:'secret',exercises:original.exercises.map(e=>({...e,catalogId:'private'}))};
  const snapshot=prepareAnalysisSnapshot(raw);assert.equal(snapshot.exercises[0].position,1);assert.equal(snapshot.id,undefined);assert.equal(snapshot.exercises[0].catalogId,undefined);assert.deepEqual(original,workedSession);
@@ -35,4 +36,16 @@ test('analysis keeps warm-ups and supersets and rejects broken pairs',()=>{
  assert.equal(snap.exercises[1].warmupSets,0);assert.equal(Object.hasOwn(snap.exercises[1],'superset'),false);
  assert.throws(()=>prepareAnalysisSnapshot({...base,exercises:[two[0]]}),e=>e.message==='Exercise 1: Invalid superset.'&&e.exerciseIndex===0&&e.field==='sets');
  assert.throws(()=>prepareAnalysisSnapshot({...base,exercises:[{...two[0],warmupSets:6},two[1]]}),e=>e.exerciseIndex===0&&e.field==='warmupSets');
+});
+test('superset extra keys are dropped consistently with document validation',()=>{
+ const base=structuredClone(workedSession),pair=[{...base.exercises[0],superset:{restBetweenSeconds:30,restAfterRoundSeconds:120,note:'x'}},{...base.exercises[0]}];
+ assert.deepEqual(validateDocument('template',{...base,exercises:pair}).document.exercises[0].superset,{restBetweenSeconds:30,restAfterRoundSeconds:120});
+ assert.deepEqual(prepareAnalysisSnapshot({...base,exercises:pair}).exercises[0].superset,{restBetweenSeconds:30,restAfterRoundSeconds:120});
+});
+test('malformed pair members are indexed 400 errors, never TypeErrors',()=>{
+ const base=structuredClone(workedSession),first={...base.exercises[0],superset:{restBetweenSeconds:30,restAfterRoundSeconds:120}};
+ for(const exercises of [[first,null],[{...base.exercises[0],superset:null},base.exercises[0]],[{...base.exercises[0],superset:5},base.exercises[0]]]){
+  assert.throws(()=>prepareAnalysisSnapshot({...base,exercises}),e=>!(e instanceof TypeError)&&e.code==='INVALID'&&e.status===400&&Number.isInteger(e.exerciseIndex));
+ }
+ assert.throws(()=>prepareAnalysisSnapshot({...base,exercises:[base.exercises[0],{...first},{...first}]}),e=>e.message==='Exercise 2: Invalid superset.'&&e.exerciseIndex===1&&e.field==='sets');
 });

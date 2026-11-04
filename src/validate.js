@@ -71,16 +71,21 @@ export function validateExercise(ex) {
 
 /** A superset is two consecutive exercises, marked on the first only. */
 export function supersetError(exercises) {
+  return supersetIssue(exercises)?.message ?? null;
+}
+
+/** Like supersetError, but also returns the 0-based index of the offending exercise. */
+export function supersetIssue(exercises) {
   for (let i = 0; i < exercises.length; i++) {
-    const s = exercises[i].superset;
+    const s = exercises[i]?.superset;
     if (s === undefined) continue;
     const keys = s && typeof s === 'object' ? Object.keys(s) : [];
     if (keys.length !== 2 || !('restBetweenSeconds' in s) || !('restAfterRoundSeconds' in s)
-      || i + 1 >= exercises.length || exercises[i + 1].superset !== undefined || (i > 0 && exercises[i - 1].superset !== undefined)) {
-      return `Exercise ${i + 1}: Invalid superset.`;
+      || i + 1 >= exercises.length || exercises[i + 1]?.superset !== undefined || (i > 0 && exercises[i - 1]?.superset !== undefined)) {
+      return { index: i, message: `Exercise ${i + 1}: Invalid superset.` };
     }
     const error = timingError(s.restBetweenSeconds, 'restBetweenSeconds') || timingError(s.restAfterRoundSeconds, 'restAfterRoundSeconds');
-    if (error) return `Exercise ${i + 1}: ${error}`;
+    if (error) return { index: i, message: `Exercise ${i + 1}: ${error}` };
   }
   return null;
 }

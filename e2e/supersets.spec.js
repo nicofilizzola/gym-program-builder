@@ -208,6 +208,26 @@ async function expectOrder(page,order){
  await expectValidChanges(page);
 }
 
+test('a frame still closing after Unlink is not draggable (regression: a drag moved only its first exercise)',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await fixture(page);
+ await pairButton(page,'Bench').click();
+ const head=page.locator('.superset-frame-head');
+ await expect.poll(()=>head.evaluate(el=>el.getAnimations().length)).toBe(0);
+ const before=await page.evaluate(()=>window.supersetChanges.length);
+ // Hold the closing frame for the 400ms safety net so the drag deterministically lands inside the window.
+ await page.addStyleTag({content:'.superset-frame-head{transition-duration:5s!important}'});
+ await page.getByRole('button',{name:'Unlink superset',exact:true}).click();
+ await expect(page.locator('.superset.is-closed')).toHaveCount(1);
+ const bench=await page.locator('.superset .exercise .card-name').first().boundingBox(),curl=await page.locator('#exercises > li.exercise').last().boundingBox();
+ // Press inside the closing frame and drop on the lower half of Curl before the close finishes.
+ await page.mouse.move(bench.x+5,bench.y+5);await page.mouse.down();await page.mouse.move(bench.x+15,bench.y+15);
+ await page.mouse.move(curl.x+40,curl.y+curl.height-4);await page.mouse.up();
+ await expect(page.locator('.superset')).toHaveCount(0);
+ await expect(names(page)).toHaveText(['Bench','Row','Curl']);
+ expect(await page.evaluate(()=>window.supersetChanges.length)).toBe(before+1);
+ await expectValidChanges(page);
+});
+
 test('dragging a superset above a single moves the whole pair',async({page})=>{
  await blockFixture(page);
  const head=await page.locator('.superset-title').boundingBox(),a=await page.locator('#exercises > li.exercise').first().boundingBox();

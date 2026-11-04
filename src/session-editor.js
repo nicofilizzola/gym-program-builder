@@ -748,8 +748,9 @@ list.addEventListener('focusin', raiseThumb);
 
 sortable=mountSortable(list,{
   // Items are blocks: single cards and whole superset frames (members are never items, so nothing drops between them).
-  // Keys are block start indexes, mapped to block positions on drop.
-  itemSelector:'.exercise:not(.superset .exercise), .superset',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'exercises'}],
+  // Keys are block start indexes, mapped to block positions on drop. A frame still closing after Unlink
+  // (.is-closed) is no longer a pair, so it is not an item until the rebuild replaces it.
+  itemSelector:'.exercise:not(.superset .exercise), .superset:not(.is-closed)',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'exercises'}],
   getKey:item=>item.matches('.superset')?item.dataset.blockStart:item.dataset.index,
   onCommit:({key,beforeKey})=>{
     const blocks=supersetBlocks(session.exercises),from=blocks.findIndex(b=>b.start===Number(key));
