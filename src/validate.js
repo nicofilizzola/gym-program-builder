@@ -3,7 +3,7 @@ import { DURATION_LIMITS } from './duration.js';
 
 export function timingError(value,key) {
   const {min,max,step}=DURATION_LIMITS[key];
-  const label={restSeconds:'Rest per set',extraMinutes:'Extra time',bufferPercent:'Buffer'}[key];
+  const label={restSeconds:'Rest per set',extraMinutes:'Extra time',bufferPercent:'Buffer',restBetweenSeconds:'Rest between exercises',restAfterRoundSeconds:'Rest after round'}[key];
   return Number.isInteger(value)&&value>=min&&value<=max&&value%step===0?null:
     label+' must be a whole number from '+min+' to '+max+' in steps of '+step+'.';
 }
@@ -14,6 +14,7 @@ export const LIMITS = Object.freeze({
   reps: Object.freeze({ min: 1, max: 30, step: 1 }),
   goal: Object.freeze({ min: 0.5, max: 12, step: 0.5 }),
   weeklyGoal: Object.freeze({ min: 0.5, max: 30, step: 0.5 }),
+  warmupSets: Object.freeze({ min: 0, max: 5, step: 1 }),
 });
 
 const inLimits = (n, { min, max }) => n >= min && n <= max;
@@ -48,6 +49,10 @@ export function validateExercise(ex) {
     if(error) errors.restSeconds=error;
   }
 
+  if (Object.hasOwn(ex, 'warmupSets') && !isCount(ex.warmupSets, LIMITS.warmupSets)) {
+    errors.warmupSets = `Warm-up sets must be a whole number from ${LIMITS.warmupSets.min} to ${LIMITS.warmupSets.max}.`;
+  }
+
   const { min, max } = ex.repRange;
   if (!isCount(min, LIMITS.reps) || !isCount(max, LIMITS.reps) || min > max) {
     errors.repRange = `Reps must be whole numbers from ${LIMITS.reps.min} to ${LIMITS.reps.max}, with min ≤ max.`;
@@ -62,6 +67,27 @@ export function validateExercise(ex) {
   }
 
   return errors;
+}
+
+/** A superset is two consecutive exercises, marked on the first only. */
+export function supersetError(exercises) {
+  return supersetIssue(exercises)?.message ?? null;
+}
+
+/** Like supersetError, but also returns the 0-based index of the offending exercise. */
+export function supersetIssue(exercises) {
+  for (let i = 0; i < exercises.length; i++) {
+    const s = exercises[i]?.superset;
+    if (s === undefined) continue;
+    const keys = s && typeof s === 'object' ? Object.keys(s) : [];
+    if (keys.length !== 2 || !('restBetweenSeconds' in s) || !('restAfterRoundSeconds' in s)
+      || i + 1 >= exercises.length || exercises[i + 1]?.superset !== undefined || (i > 0 && exercises[i - 1]?.superset !== undefined)) {
+      return { index: i, message: `Exercise ${i + 1}: Invalid superset.` };
+    }
+    const error = timingError(s.restBetweenSeconds, 'restBetweenSeconds') || timingError(s.restAfterRoundSeconds, 'restAfterRoundSeconds');
+    if (error) return { index: i, message: `Exercise ${i + 1}: ${error}` };
+  }
+  return null;
 }
 
 /**

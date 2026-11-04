@@ -139,3 +139,31 @@ test('session template has no Analyze action',async({page})=>{
  await expect(page.locator('[data-analyze]')).toHaveCount(0);
  await expect(page.locator('.analysis-panel')).toHaveCount(0);
 });
+
+test('warm-up sets slider adds time, shows in the summary and leaves volume unchanged',async({page})=>{
+ await page.goto('/');
+ await page.waitForFunction(()=>!document.querySelector('#shell').hidden||document.querySelector('input[name="password"]'));
+ if(await page.getByLabel('Password',{exact:true}).isVisible()){
+  await page.getByLabel('Password',{exact:true}).fill('test-password');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ }
+ await expect(page.locator('#shell')).toBeVisible();
+ await page.evaluate(async()=>{
+  const {mountSessionEditor}=await import('/src/session-editor.js');
+  mountSessionEditor(document.querySelector('#app'),{workout:{name:'Upper',goals:{},exercises:[{name:'Bench',sets:3,restSeconds:120,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}],extraMinutes:0,bufferPercent:0},onChange:()=>{}});
+ });
+ const card=page.locator('.exercise').first();
+ await card.locator('[data-action=toggle]').click();
+ const slider=card.getByRole('slider',{name:'Warm-up sets',exact:true});
+ await expect(slider).toHaveAttribute('aria-valuetext','None');
+ await expect(card.locator('[data-value="warmupSets"]')).toHaveText('None');
+ await expect(page.locator('[data-duration-total]')).toHaveText('~9 min');
+ const volume=await page.locator('.panel').innerText();
+ await slider.focus();await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');
+ await expect(card.locator('[data-value="warmupSets"]')).toHaveText('2');
+ await expect(slider).toHaveAttribute('aria-valuetext','2');
+ await expect(page.locator('[data-duration-total]')).toHaveText('~13 min');
+ await card.locator('[data-action=toggle]').click();
+ await expect(card.locator('.card-summary')).toContainText('+ 2 warm-up');
+ expect(await page.locator('.panel').innerText()).toBe(volume);
+});

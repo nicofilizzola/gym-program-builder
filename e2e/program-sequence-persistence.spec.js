@@ -24,7 +24,7 @@ test('rest sequence survives save, reload, portable export, import and library d
  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Export program',exact:true}).click();
  const stream=await (await downloadPromise).createReadStream();let text='';for await(const chunk of stream)text+=chunk;
  const portable=JSON.parse(text);
- expect(portable.version).toBe(3);expect(portable.program.sequence).toEqual([{type:'rest',key:'rest-0'},{type:'workout',workoutKey:'workout-0'},{type:'rest',key:'rest-2'}]);
+ expect(portable.version).toBe(4);expect(portable.program.sequence).toEqual([{type:'rest',key:'rest-0'},{type:'workout',workoutKey:'workout-0'},{type:'rest',key:'rest-2'}]);
  expect(portable.program.workouts[0].day).toBeNull();expect(portable.program.workouts[0].id).toBeUndefined();
  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Programs',exact:true}).click();
  await page.getByRole('button',{name:'Duplicate Rest cycle',exact:true}).click();

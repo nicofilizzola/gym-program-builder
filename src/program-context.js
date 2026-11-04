@@ -1,4 +1,4 @@
-export const PROGRAM_CONTEXT_FIELDS=Object.freeze(['goalsAndPriorities','constraintsAndPreferences']);
+export const PROGRAM_CONTEXT_FIELDS=Object.freeze(['goalsAndPriorities']);
 export const PROGRAM_CONTEXT_MAX_LENGTH=2000;
 
 /** Plain-text prose: CRLF normalized, whitespace-only empty, never truncated. Shared with the user profile. */

@@ -57,3 +57,12 @@ test('sequence validation retains rest days and rejects broken references in dra
  assert.ok(validateDocument('program',{...p,workouts:[],sequence:[{type:'rest',id:'r'}]}).document);
  for(const mode of ['simple','schedule'])assert.equal(validateDocument('program',{...program(),mode}).document.mode,mode);
 });
+
+test('templates keep warmupSets and superset, default legacy warm-ups to 0, and reject broken pairs',()=>{
+  const ex=workout().exercises[0],pair={restBetweenSeconds:30,restAfterRoundSeconds:90};
+  const doc=validateDocument('template',{name:'A',goals:{},exercises:[{...ex,warmupSets:2,superset:pair},ex]}).document;
+  assert.equal(doc.exercises[0].warmupSets,2);assert.deepEqual(doc.exercises[0].superset,pair);
+  assert.equal(doc.exercises[1].warmupSets,0);assert.equal(Object.hasOwn(doc.exercises[1],'superset'),false);
+  assert.equal(validateDocument('template',{name:'A',goals:{},exercises:[{...ex,superset:pair}]}).error,'Exercise 1: Invalid superset.');
+  assert.equal(validateDocument('template',{name:'',goals:{},exercises:[{...ex,superset:pair}]},{draft:true}).error,'Exercise 1: Invalid superset.');
+});

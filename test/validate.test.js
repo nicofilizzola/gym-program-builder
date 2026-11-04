@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIMITS, validateExercise, validateGoal } from '../src/validate.js';
+import { LIMITS, validateExercise, validateGoal, supersetError } from '../src/validate.js';
 
 function valid() {
   return {
@@ -90,6 +90,21 @@ test('LIMITS defines the slider limits once', () => {
     reps: { min: 1, max: 30, step: 1 },
     goal: { min: 0.5, max: 12, step: 0.5 },
     weeklyGoal: { min: 0.5, max: 30, step: 0.5 },
+    warmupSets: { min: 0, max: 5, step: 1 },
   });
   assert.ok(Object.isFrozen(LIMITS));
+});
+
+test('warm-up sets validate 0-5 whole numbers',()=>{
+  for(const n of [0,5])assert.equal(validateExercise({...valid(),warmupSets:n}).warmupSets,undefined);
+  for(const n of [-1,6,1.5,'2'])assert.equal(validateExercise({...valid(),warmupSets:n}).warmupSets,'Warm-up sets must be a whole number from 0 to 5.');
+});
+test('superset invariant: exactly two consecutive members, rests in limits',()=>{
+  const v=valid(),pair={restBetweenSeconds:30,restAfterRoundSeconds:120};
+  assert.equal(supersetError([{...v,superset:pair},v]),null);
+  assert.equal(supersetError([v,{...v,superset:pair}]),'Exercise 2: Invalid superset.');
+  assert.equal(supersetError([{...v,superset:pair},{...v,superset:pair},v]),'Exercise 1: Invalid superset.');
+  assert.equal(supersetError([{...v,superset:{restBetweenSeconds:20,restAfterRoundSeconds:120}},v]),'Exercise 1: Rest between exercises must be a whole number from 0 to 120 in steps of 15.');
+  assert.equal(supersetError([{...v,superset:{restBetweenSeconds:30,restAfterRoundSeconds:315}},v]),'Exercise 1: Rest after round must be a whole number from 0 to 300 in steps of 15.');
+  assert.equal(supersetError([{...v,superset:{restBetweenSeconds:30}},v]),'Exercise 1: Invalid superset.');
 });

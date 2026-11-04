@@ -1,3 +1,4 @@
+import {normalizeProfile} from '../src/profile.js';
 import {pathToFileURL} from 'node:url';
 import {programAnalysisFixtures} from '../test/fixtures/analysis-programs.js';
 import {prepareProgramAnalysisSnapshot} from '../src/program-analysis-input.js';
@@ -12,8 +13,8 @@ export async function runProgramEvaluation({args=process.argv.slice(2),env=proce
  const model=env.OPENROUTER_MODEL||'anthropic/claude-sonnet-4.6';let usage=null,report='';
  try{
   const source=programAnalysisFixtures[fixture];
-  // Mirrors the API: the athlete background is injected beside the validated snapshot, never read from it.
-  const snapshot={...prepareProgramAnalysisSnapshot(source),athlete:{trainingBackgroundAndApproach:source.athlete?.trainingBackgroundAndApproach||''}};
+  // Mirrors the API: the athlete profile is injected beside the validated snapshot, never read from it.
+  const snapshot={...prepareProgramAnalysisSnapshot(source),athlete:normalizeProfile(source.athlete)};
   const service=createAnalysisService({apiKey:env.OPENROUTER_API_KEY,model,fetch,onUsage:value=>usage=value});
   const response=await service.analyze(snapshot);let complete=false;
   for await(const frame of readSse(response.body)){

@@ -123,6 +123,7 @@ test('duration details and sliders update live without replacing focused control
  const toggle=page.locator('.duration-toggle');
  await expect(toggle).toHaveAccessibleDescription('~27 min');
  await toggle.click();await expect(toggle).toHaveAttribute('aria-expanded','true');
+ await expect(page.locator('[data-duration-part="warmupSeconds"]')).toHaveText('0 sec');
  await expect(page.locator('[data-duration-part="executionSeconds"]')).toHaveText('6 min');
  await expect(page.locator('[data-duration-part="restSeconds"]')).toHaveText('13 min 30 sec');
  await expect(page.locator('[data-duration-part="bufferSeconds"]')).toHaveText('2 min 27 sec');

@@ -8,6 +8,7 @@ test('createExercise returns independent defaults', () => {
   assert.deepEqual(a, {
     name: '',
     sets: 3,
+    warmupSets: 0,
     restSeconds: 120,
     repRange: { min: 8, max: 12 },
     primaryMuscles: [],
@@ -129,3 +130,13 @@ test('setRepBound does not mutate', () => {
  assert.equal(exerciseSummary(a),'3 × 8–12 · Rest 3 min');
  assert.equal(exerciseSummary({...a,name:'Row',primaryMuscles:['Lats'],secondaryMuscles:['Biceps']}),'3 × 8–12 · Rest 3 min');
  });
+
+test('summary shows warm-ups and superset rest',()=>{
+  assert.equal(exerciseSummary({sets:3,repRange:{min:8,max:12},restSeconds:120,warmupSets:2}),'3 × 8–12 + 2 warm-up · Rest 2 min');
+  assert.equal(exerciseSummary({sets:3,repRange:{min:8,max:12},restSeconds:120,warmupSets:0}),'3 × 8–12 · Rest 2 min');
+  assert.equal(exerciseSummary({sets:3,repRange:{min:8,max:8},restSeconds:120,warmupSets:1},{paired:true}),'3 × 8 + 1 warm-up · Superset');
+});
+
+test('createExercise defaults to no warm-up sets',()=>{
+  assert.equal(createExercise().warmupSets,0);
+});

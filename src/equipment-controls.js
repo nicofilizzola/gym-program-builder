@@ -9,11 +9,13 @@ const paths={
  'Resistance band':'<path d="M7 3c-6 0-6 18 0 18h10c6 0 6-18 0-18Zm0 4c-2 0-2 10 0 10h10c2 0 2-10 0-10Z"/>',
  Other:'<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6Z"/>',
 };
+/** The equipment pill icon (decorative; the visible label names the equipment). */
+export const equipmentIcon=equipment=>'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[equipment]+'</svg>';
 export function mountEquipmentPills(root,{name='equipment',value='',onChange=()=>{}}={}){
  const fieldset=document.createElement('fieldset');fieldset.className='equipment-pills';const legend=document.createElement('legend');legend.textContent='Equipment';fieldset.append(legend);
  for(const equipment of EQUIPMENT){
   const label=document.createElement('label');label.className='chip';const input=document.createElement('input');input.type='radio';input.name=name;input.value=equipment;input.checked=value===equipment;
-  const span=document.createElement('span');span.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths[equipment]+'</svg>';
+  const span=document.createElement('span');span.innerHTML=equipmentIcon(equipment);
   span.append(document.createTextNode(equipment));label.append(input,span);fieldset.append(label);input.onchange=()=>{if(input.checked)onChange(equipment);};
  }
  root.append(fieldset);return {

@@ -6,6 +6,7 @@ export function createExercise() {
   return {
     name: '',
     sets: 3,
+    warmupSets: 0,
     restSeconds: defaultRestSeconds(),
     repRange: { min: 8, max: 12 },
     primaryMuscles: [],
@@ -74,15 +75,15 @@ export function moveExercise(exercises, from, to) {
 const countText = (n) => (Number.isInteger(n) && n >= 1 ? String(n) : '?');
 
 /**
- * Prescription for a collapsed card, e.g. `4 × 6–10 · Rest 3 min`.
+ * Prescription for a collapsed card, e.g. `4 × 6–10 + 2 warm-up · Rest 3 min` (`Superset` replaces rest when paired).
  * @param {import('./volume.js').Exercise} ex
  * @returns {string}
  */
-export function exerciseSummary(ex) {
+export function exerciseSummary(ex, { paired = false } = {}) {
   const { min, max } = ex.repRange;
   const reps = min === max ? countText(min) : `${countText(min)}–${countText(max)}`;
   return [
-    `${countText(ex.sets)} × ${reps}`,
-    'Rest '+formatDuration(Object.hasOwn(ex,'restSeconds')?ex.restSeconds:defaultRestSeconds()),
+    `${countText(ex.sets)} × ${reps}${ex.warmupSets > 0 ? ` + ${ex.warmupSets} warm-up` : ''}`,
+    paired ? 'Superset' : 'Rest '+formatDuration(Object.hasOwn(ex,'restSeconds')?ex.restSeconds:defaultRestSeconds()),
   ].filter(Boolean).join(' · ');
 }

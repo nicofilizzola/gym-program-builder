@@ -7,7 +7,7 @@ import { actionIcon, mountActionTooltips } from './action-controls.js';
 import { MUSCLE_GROUPS, MUSCLE_INFO } from './muscles.js';
 import { barScale, barSegments, computeVolume, computeVolumeSplit, goalStatus, heatLevel, visibleMuscles } from './volume.js';
 import { LIMITS, validateExercise } from './validate.js';
-import { createExercise, exerciseSummary, moveExercise, setRepBound, toggleMuscle } from './exercise.js';
+import { createExercise, exerciseSummary, setRepBound, toggleMuscle } from './exercise.js';
 import { bodySvg } from './body.js';
 import { tooltipPosition } from './tooltip.js';
 import { parseDocument, serializeDocument, documentFileName } from './document-file.js';
@@ -18,12 +18,14 @@ import { mountDurationControls } from './duration-controls.js';
 import {mountExercisePicker} from './exercise-picker.js';
 import {snapshotExercise} from './catalog.js';
 import {getCatalogStore} from './catalog-store.js';
+import {canPairWithNext,moveBlockOrder,pairRole,pairWithNext,removeExercise,supersetBlocks,swapPair,unpair} from './superset.js';
+import {createSupersetFrame,syncSupersetFrame} from './superset-frame.js';
 
 
-export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,onStartWorkout}={}) {
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,onStartWorkout,maxSessionMinutes=null}={}) {
 root.innerHTML=SESSION_MARKUP;
 const sliderPresentation=mountSliderPresentation(root);
-const disclosureTooltips=mountActionTooltips(root,{selector:'.card-head [data-action-tooltip]'});
+const disclosureTooltips=mountActionTooltips(root,{selector:'.card-head [data-action-tooltip], .superset-head [data-action-tooltip]'});
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
 const startWorkout=root.querySelector('#start-workout');
 if(onStartWorkout){startWorkout.hidden=false;startWorkout.insertAdjacentHTML('afterbegin',actionIcon('start'));startWorkout.addEventListener('click',()=>onStartWorkout(structuredClone(session)));}
@@ -40,7 +42,7 @@ const exerciseCards=new Map(),exercisePickers=new Map(),exerciseInfos=new Map();
 const nameInput=root.querySelector("[data-template-name]");
 nameInput.value=session.name;
 nameInput.addEventListener("input",()=>{session.name=nameInput.value;refresh();});
-const durationControls=mountDurationControls(root.querySelector('[data-duration-controls]'),{workout:session,onChange:settings=>{Object.assign(session,settings);refresh();}});
+const durationControls=mountDurationControls(root.querySelector('[data-duration-controls]'),{workout:session,maxSessionMinutes,onChange:settings=>{Object.assign(session,settings);refresh();}});
 
 /** View state for the volume panel: the clicked muscle, and the one under the mouse. */
 let selectedMuscle = null;
@@ -67,6 +69,13 @@ const moveMenu=mountReorderMenu();
 
 /** View state: whether each exercise is collapsed, in session order. Never part of the session. */
 let collapsed = session.exercises.map(() => true);
+
+/**
+ * View state for superset frames: each frame element keyed by its pair's `superset` object (which survives swaps),
+ * a token that cancels a pending frame removal, and the frame still closing after Unlink, if any.
+ */
+const supersetFrames=new Map();
+let frameToken=0,leavingFrame=null;
 
 const list = root.querySelector('#exercises');
 const empty = root.querySelector('#empty');
@@ -108,6 +117,7 @@ const CARD_HTML = `
     <span class="hit-tag" data-hit-tag></span>
     <span class="fix-tag" data-fix-tag hidden>Needs fixing</span>
     <div class="card-controls">
+    <button type="button" class="action-button" data-action="pair" data-action-tooltip="Superset with next exercise" aria-label="Superset with next exercise" hidden>${actionIcon('link')}</button>
     <button type="button" class="action-button reorder-action" data-action-tooltip="Reorder exercise" aria-label="Reorder exercise" aria-describedby="reorder-hint" aria-expanded="false">${actionIcon('reorder')}</button>
     <button type="button" class="action-button action-button--delete" data-action="remove" data-action-tooltip="Remove exercise" aria-label="Remove exercise">${actionIcon('delete')}</button>
     </div>
@@ -127,13 +137,20 @@ const CARD_HTML = `
     <p class="error" data-error="sets"></p>
   </div>
   <div class="slider-field">
+    <div class="slider-head"><span>Warm-up sets</span><span class="slider-value" data-value="warmupSets" aria-hidden="true"></span></div>
+    <div class="slider"><span class="slider-fill"></span>
+      <input type="range" ${rangeAttrs(LIMITS.warmupSets)} data-field="warmupSets" aria-label="Warm-up sets"></div>
+    <p class="error" data-error="warmupSets"></p>
+  </div>
+  <div class="slider-field">
     <div class="slider-head"><span>Reps</span><span class="slider-value" data-value="reps" aria-hidden="true"></span></div>
     <div class="slider is-range"><span class="slider-fill"></span>
       <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="min" aria-label="Reps min">
       <input type="range" ${rangeAttrs(LIMITS.reps)} data-field="max" aria-label="Reps max"></div>
     <p class="error" data-error="repRange"></p>
   </div>
-  <div class="slider-field">
+  <p class="superset-rest-note" data-superset-rest hidden>Rest set by superset</p>
+  <div class="slider-field" data-rest-field>
     <div class="slider-head"><span>Rest per set</span><span class="slider-value" data-value="restSeconds" aria-hidden="true"></span></div>
     <div class="slider"><span class="slider-fill"></span>
       <input type="range" ${rangeAttrs(DURATION_LIMITS.restSeconds)} data-field="restSeconds" aria-label="Rest per set"></div>
@@ -288,15 +305,46 @@ function revealWhenOpen(part, field) {
   });
 }
 
-/** Rebuild the exercise list. Only on load, add, remove and reorder, so typing keeps focus. Ends any drag and drops a now-stale file message. */
-function renderExercises() {
+/**
+ * Rebuild the exercise list. Only on load, add, remove, reorder and pair changes, so typing keeps focus. Ends any
+ * drag, drops a now-stale file message and cancels a pending frame removal. Single exercises are `li.exercise`;
+ * a pair is `li.superset[data-block-start]` holding its two cards in `ol.superset-members`. A frame created for
+ * `entering` (a user pair action) starts closed so pairAt() can open it with the collapse transition.
+ */
+function renderExercises({entering=null}={}) {
   sortable?.cancel();
   moveMenu.close();
   fileMessage.textContent = '';
+  frameToken++;leavingFrame=null;
+  const active=document.activeElement;
+  // Removing a focused control makes Chrome lay out the half-rebuilt list, which resets the page scroll (for example
+  // Swap or Unlink at the bottom of a long template jumped to the top). Blur it first; focus is restored below.
+  if(active&&list.contains(active))active.blur();
   for(const [ex,picker] of exercisePickers)if(!session.exercises.includes(ex)){picker.destroy();exercisePickers.delete(ex);exerciseCards.delete(ex);}
   for(const ex of exerciseCards.keys())if(!session.exercises.includes(ex))exerciseCards.delete(ex);
   for(const [ex,info]of exerciseInfos)if(!session.exercises.includes(ex)||!exerciseCards.has(ex)){info.controller.destroy();exerciseInfos.delete(ex);}
-  list.replaceChildren(...session.exercises.map((ex, i) => {
+  const pairs=new Set(session.exercises.map(ex=>ex.superset).filter(Boolean));
+  for(const key of supersetFrames.keys())if(!pairs.has(key))supersetFrames.delete(key);
+  list.replaceChildren(...supersetBlocks(session.exercises).map(({start,length})=>{
+    if(length===1)return buildCard(session.exercises[start],start);
+    const pair=session.exercises[start].superset;
+    let frame=supersetFrames.get(pair);
+    if(!frame){
+      frame=createSupersetFrame();supersetFrames.set(pair,frame);
+      if(pair===entering){frame.classList.add('is-closed');setOpen(frame.querySelector('[data-collapse="frame"]'),false);}
+    }
+    frame.dataset.blockStart=start;
+    frame.querySelector('.superset-members').replaceChildren(buildCard(session.exercises[start],start),buildCard(session.exercises[start+1],start+1));
+    return frame;
+  }));
+  // Rebuilding re-inserts nodes, which drops focus; give it back to the same control when it is still shown.
+  if(active&&active!==document.activeElement&&list.contains(active))active.focus({preventScroll:true});
+  empty.hidden = session.exercises.length > 0;
+  listActions.hidden = session.exercises.length === 0;
+}
+
+/** The exercise's card, built once and cached per exercise object, with its position labels updated. */
+function buildCard(ex,i){
     let card=exerciseCards.get(ex);
     if(!card){
     card = document.createElement('li');
@@ -336,10 +384,11 @@ function renderExercises() {
     card.querySelector('.card-body').id = `exercise-body-${i}`;
     card.querySelector('[data-action="toggle"]').setAttribute('aria-controls', `exercise-body-${i}`);
     return card;
-  }));
-  empty.hidden = session.exercises.length > 0;
-  listActions.hidden = session.exercises.length === 0;
 }
+
+/** The card of the exercise at index i, wherever it sits (single, or inside a superset frame). */
+const cardAt=i=>list.querySelector(`.exercise[data-index="${i}"]`);
+const frameAt=start=>list.querySelector(`.superset[data-block-start="${start}"]`);
 
 /** How the selected muscle is trained by an exercise: 'primary', 'secondary', 'none', or '' if nothing is selected. */
 function hitFor(ex) {
@@ -368,7 +417,14 @@ function refresh() {
     const info=exerciseInfos.get(ex);if(info){if(info.collapsed!==isCollapsed)info.controller.hide();info.collapsed=isCollapsed;const target=!isCollapsed&&ex.catalogId?card.querySelector('.exercise-definition-actions'):card.querySelector('.card-title-group');if(target&&info.button.parentElement!==target)target.append(info.button);info.controller.update();}
     setOpen(card.querySelector('[data-collapse="body"]'), !isCollapsed);
     setOpen(card.querySelector('[data-collapse="summary"]'), isCollapsed);
-    card.querySelector('[data-summary]').textContent = exerciseSummary(ex);
+    const role=pairRole(session.exercises,i),name=ex.name.trim()||'Untitled exercise';
+    card.querySelector('[data-summary]').textContent = exerciseSummary(ex,{paired:role!==null});
+    const pair=card.querySelector('[data-action="pair"]');
+    pair.hidden=!canPairWithNext(session.exercises,i);
+    pair.setAttribute('aria-label',`Superset ${name} with next exercise`);
+    card.querySelector('.reorder-action').hidden=role!==null;
+    card.querySelector('[data-rest-field]').hidden=role!==null;
+    card.querySelector('[data-superset-rest]').hidden=role===null;
     const toggle = card.querySelector('[data-action="toggle"]');
     if(toggle.getAttribute('aria-expanded')!==String(!isCollapsed))disclosureTooltips.hide();
     toggle.setAttribute('aria-expanded', String(!isCollapsed));
@@ -382,6 +438,12 @@ function refresh() {
     restInput.setAttribute('aria-valuetext',formatDuration(ex.restSeconds));
     card.querySelector('[data-value="restSeconds"]').textContent=formatDuration(ex.restSeconds);
     setFill(restInput.parentElement,0,fraction(ex.restSeconds,DURATION_LIMITS.restSeconds));
+    const warmup=Number.isInteger(ex.warmupSets)?ex.warmupSets:0;
+    const warmupInput=card.querySelector('[data-field="warmupSets"]');
+    warmupInput.value=warmup;
+    warmupInput.setAttribute('aria-valuetext',warmup===0?'None':String(warmup));
+    card.querySelector('[data-value="warmupSets"]').textContent=warmup===0?'None':String(warmup);
+    setFill(warmupInput.parentElement,0,fraction(warmup,LIMITS.warmupSets));
     card.querySelector('[data-field="min"]').value = min;
     card.querySelector('[data-field="max"]').value = max;
     card.querySelector('[data-value="sets"]').textContent = String(ex.sets);
@@ -402,6 +464,11 @@ function refresh() {
     const hit = hitFor(ex);
     card.dataset.hit = hit;
     card.querySelector('[data-hit-tag]').textContent = hit === 'primary' || hit === 'secondary' ? `${hit} · ${selectedMuscle}` : '';
+  });
+  // A frame closing after Unlink keeps its last text until the rebuild removes it.
+  list.querySelectorAll('.superset').forEach(frame=>{
+    const pair=session.exercises[Number(frame.dataset.blockStart)]?.superset;
+    if(pair&&frame!==leavingFrame)syncSupersetFrame(frame,pair);
   });
 
   const volume = computeVolume(session);
@@ -493,16 +560,36 @@ function indexOf(el) {
   return Number(el.closest('.exercise').dataset.index);
 }
 
-/** Commit a reorder to state, rebuild the list, and keep focus on the moved exercise's handle. */
-function commitMove(from, to) {
-  if (from === to) return;
-  session.exercises = moveExercise(session.exercises, from, to);
-  collapsed = moveExercise(collapsed, from, to);
+/** The block index (in supersetBlocks order) of the single card or superset frame containing el. */
+function blockOf(el) {
+  const frame = el.closest('.superset');
+  const start = Number(frame ? frame.dataset.blockStart : el.closest('.exercise').dataset.index);
+  return supersetBlocks(session.exercises).findIndex((block) => block.start === start);
+}
+
+/**
+ * Move one block (a single exercise or a whole superset) to another block position, so a pair never splits and a
+ * single never lands inside one. Applies the permutation to the exercises and the collapsed view state, rebuilds,
+ * keeps focus on the moved block's Reorder handle and announces its new exercise positions.
+ */
+function commitBlockMove(fromBlock, toBlock) {
+  const count = supersetBlocks(session.exercises).length;
+  if (fromBlock < 0 || fromBlock >= count || toBlock < 0 || toBlock >= count || fromBlock === toBlock) return;
+  const order = moveBlockOrder(session.exercises, fromBlock, toBlock);
+  session.exercises = order.map((i) => session.exercises[i]);
+  collapsed = order.map((i) => collapsed[i]);
   renderExercises();
   refresh();
-  list.children[to].querySelector('.reorder-action').focus();
-  const name = session.exercises[to].name.trim() || 'exercise';
-  orderStatus.textContent = `Moved ${name} to position ${to + 1} of ${session.exercises.length}.`;
+  const { start, length } = supersetBlocks(session.exercises)[toBlock];
+  const name = (i) => session.exercises[i].name.trim() || 'Untitled exercise';
+  const total = session.exercises.length;
+  if (length === 2) {
+    frameAt(start).querySelector('.superset-head .reorder-action').focus();
+    orderStatus.textContent = `Moved superset ${name(start)} and ${name(start + 1)} to positions ${start + 1}–${start + 2} of ${total}.`;
+  } else {
+    cardAt(start).querySelector('.reorder-action').focus();
+    orderStatus.textContent = `Moved ${name(start)} to position ${start + 1} of ${total}.`;
+  }
 }
 
 list.addEventListener('input', (event) => {
@@ -511,6 +598,7 @@ list.addEventListener('input', (event) => {
   const ex = session.exercises[indexOf(event.target)];
   if (field === 'name') ex.name = event.target.value;
   if (field === 'sets') ex.sets = event.target.valueAsNumber;
+  if (field === 'warmupSets') ex.warmupSets = event.target.valueAsNumber;
   if (field === 'restSeconds') ex.restSeconds = event.target.valueAsNumber;
   if (field === 'min' || field === 'max') {
     ex.repRange = setRepBound(ex.repRange, field, event.target.valueAsNumber);
@@ -529,7 +617,7 @@ list.addEventListener('change', (event) => {
 });
 
 function setExerciseCollapsed(index, nextCollapsed, {focusToggle=false}={}) {
-  const card=list.children[index];
+  const card=cardAt(index);
   if(!card)return;
   const toggle=card.querySelector('[data-action="toggle"]');
   if(focusToggle||(nextCollapsed&&card.querySelector('[data-collapse="body"]').contains(document.activeElement)))toggle.focus({preventScroll:true});
@@ -550,10 +638,95 @@ list.addEventListener('click', (event) => {
     if(collapsed[i]&&!event.target.closest('button,input,select,textarea,a,label,[contenteditable]:not([contenteditable="false"]),[role],[tabindex]'))setExerciseCollapsed(i,false,{focusToggle:true});
     return;
   }
+  if(action==='pair'){pairAt(i);return;}
   if(action!=='remove')return;
-  session.exercises.splice(i, 1);
+  // Removing a pair member dissolves the pair; the other member keeps its own rest.
+  const next=removeExercise(session.exercises,i);
+  session.exercises=session.exercises.filter((_,k)=>k!==i);
+  adoptAll(next);
   collapsed.splice(i, 1);
   renderExercises();
+  refresh();
+});
+
+/** Copy a pure helper's result into the existing exercise object, so its card, picker and info stay attached. */
+function adopt(target,value){
+  if(target===value)return;
+  for(const key of Object.keys(target))if(!Object.hasOwn(value,key))delete target[key];
+  Object.assign(target,value);
+}
+const adoptAll=next=>session.exercises.forEach((ex,k)=>adopt(ex,next[k]));
+
+/** Pair exercise i with the next one. A new frame opens with the collapse transition; a closing one reopens. */
+function pairAt(i){
+  if(!canPairWithNext(session.exercises,i))return;
+  const reopen=leavingFrame&&Number(leavingFrame.dataset.blockStart)===i?leavingFrame:null;
+  adoptAll(pairWithNext(session.exercises,i));
+  const pair=session.exercises[i].superset;
+  if(reopen)supersetFrames.set(pair,reopen);
+  renderExercises({entering:pair});
+  refresh();
+  const frame=frameAt(i),head=frame.querySelector('[data-collapse="frame"]');
+  getComputedStyle(head).gridTemplateRows; // flush the closed state so opening transitions from it
+  frame.classList.remove('is-closed');setOpen(head,true);
+  frame.querySelector('[data-superset-action="unlink"]').focus({preventScroll:true});
+}
+
+/** Unlink the pair starting at `start`: data changes at once; the frame closes before the list is rebuilt. */
+function unlinkAt(start){
+  const frame=frameAt(start);
+  adoptAll(unpair(session.exercises,start));
+  refresh();
+  cardAt(start)?.querySelector('[data-action="pair"]').focus({preventScroll:true});
+  const head=frame?.querySelector('[data-collapse="frame"]');
+  if(!head){renderExercises();refresh();return;}
+  const token=++frameToken;leavingFrame=frame;
+  frame.classList.add('is-closed');setOpen(head,false);
+  getComputedStyle(head).gridTemplateRows; // flush styles so a starting transition is visible to getAnimations()
+  const finish=()=>{if(token!==frameToken)return;renderExercises();refresh();};
+  if(head.getAnimations().length===0)return finish();
+  head.addEventListener('transitionend',function onEnd(event){
+    if(event.target!==head||event.propertyName!=='grid-template-rows')return;
+    head.removeEventListener('transitionend',onEnd);finish();
+  });
+  setTimeout(finish,400); // safety net when no transitionend arrives (for example a hidden tab)
+}
+
+/** Swap a pair's members in place, keeping each exercise object, its card and the frame. */
+function swapAt(start){
+  const next=swapPair(session.exercises,start),[a,b]=session.exercises.slice(start,start+2);
+  session.exercises.splice(start,2,b,a);
+  adoptAll(next);
+  collapsed.splice(start,2,collapsed[start+1],collapsed[start]);
+  renderExercises();
+  refresh();
+}
+
+function setSupersetSettingsOpen(frame,open){
+  const toggle=frame.querySelector('[data-superset-action="settings"]'),body=frame.querySelector('[data-collapse="settings"]');
+  if(!open&&body.contains(document.activeElement))toggle.focus({preventScroll:true});
+  toggle.setAttribute('aria-expanded',String(open));
+  setOpen(body,open);
+}
+
+list.addEventListener('click',event=>{
+  const button=event.target.closest('[data-superset-action]');
+  if(!button||event.defaultPrevented)return;
+  const frame=button.closest('.superset'),start=Number(frame.dataset.blockStart);
+  if(frame===leavingFrame||!session.exercises[start]?.superset)return;
+  const action=button.dataset.supersetAction;
+  if(action==='settings')setSupersetSettingsOpen(frame,button.getAttribute('aria-expanded')!=='true');
+  else if(action==='swap')swapAt(start);
+  else if(action==='unlink')unlinkAt(start);
+});
+
+list.addEventListener('input',event=>{
+  const field=event.target.dataset.supersetField;
+  if(!field)return;
+  const pair=session.exercises[Number(event.target.closest('.superset').dataset.blockStart)]?.superset;
+  if(!pair)return;
+  pair[field]=event.target.valueAsNumber;
+  fileMessage.textContent='';
   refresh();
 });
 
@@ -562,9 +735,8 @@ list.addEventListener('keydown', (event) => {
   const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
   if (!step) return;
   event.preventDefault();
-  const from = indexOf(event.target);
-  const to = from + step;
-  if (to >= 0 && to < session.exercises.length) commitMove(from, to);
+  const from = blockOf(event.target);
+  commitBlockMove(from, from + step);
 });
 
 /** Put the last-touched thumb of a two-thumb slider on top, so it can be dragged where the thumbs overlap. */
@@ -577,18 +749,23 @@ list.addEventListener('pointerdown', raiseThumb);
 list.addEventListener('focusin', raiseThumb);
 
 sortable=mountSortable(list,{
-  itemSelector:'.exercise',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'exercises'}],getKey:card=>card.dataset.index,
+  // Items are blocks: single cards and whole superset frames (members are never items, so nothing drops between them).
+  // Keys are block start indexes, mapped to block positions on drop. A frame still closing after Unlink
+  // (.is-closed) is no longer a pair, so it is not an item until the rebuild replaces it.
+  itemSelector:'.exercise:not(.superset .exercise), .superset:not(.is-closed)',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'exercises'}],
+  getKey:item=>item.matches('.superset')?item.dataset.blockStart:item.dataset.index,
   onCommit:({key,beforeKey})=>{
-    const from=Number(key),others=session.exercises.map((_,i)=>i).filter(i=>i!==from);
-    const to=beforeKey===null?others.length:others.indexOf(Number(beforeKey));
-    commitMove(from,to);
+    const blocks=supersetBlocks(session.exercises),from=blocks.findIndex(b=>b.start===Number(key));
+    const others=blocks.filter((_,i)=>i!==from);
+    const to=beforeKey===null?others.length:others.findIndex(b=>b.start===Number(beforeKey));
+    if(from>=0&&to>=0)commitBlockMove(from,to);
   }
 });
 list.addEventListener('click',event=>{
  const button=event.target.closest('.reorder-action');if(!button)return;
- const from=indexOf(button);
+ const from=blockOf(button),count=supersetBlocks(session.exercises).length;
  moveMenu.toggle(button,[['Move up',-1],['Move down',1]].map(([label,step])=>({
-  label,disabled:from+step<0||from+step>=session.exercises.length,run:()=>commitMove(from,from+step)
+  label,disabled:from+step<0||from+step>=count,run:()=>commitBlockMove(from,from+step)
  })));
 });
 
@@ -597,7 +774,7 @@ root.querySelector('#add-exercise').addEventListener('click', () => {
   collapsed.push(false);
   renderExercises();
   refresh();
-  list.lastElementChild.querySelector('[role="combobox"],[data-field="name"]').focus();
+  cardAt(session.exercises.length-1).querySelector('[role="combobox"],[data-field="name"]').focus();
 });
 
 root.querySelector('#expand-all').addEventListener('click', () => {
@@ -616,6 +793,7 @@ root.querySelector('#collapse-all').addEventListener('click', () => {
 const ERROR_FIELDS = {
   name: '[data-field="name"]',
   sets: '[data-field="sets"]',
+  warmupSets: '[data-field="warmupSets"]',
   restSeconds: '[data-field="restSeconds"]',
   repRange: '[data-field="min"]',
   // When every muscle is secondary, all primary chips are disabled; fall back to the first secondary chip.
@@ -632,7 +810,7 @@ function focusFirstError() {
 }
 function focusExerciseError(index,key,message){
   collapsed[index]=false;refresh();fileMessage.textContent=message;
-  const card=list.children[index],field=card.querySelector('[role="combobox"]')||card.querySelector(ERROR_FIELDS[key]||ERROR_FIELDS.name);
+  const card=cardAt(index),field=card.querySelector('[role="combobox"]')||card.querySelector(ERROR_FIELDS[key]||ERROR_FIELDS.name);
   if(field){field.focus({preventScroll:true});revealWhenOpen(card.querySelector('[data-collapse="body"]'),field);}
 }
 root.querySelector('#export-session').addEventListener('click',()=>{
@@ -795,8 +973,8 @@ renderExercises();
 refresh();
 
 const panelLayout=mountPanelLayout(panel);
-return {setWorkout,syncSaved,focusFirstError,destroy(){
-  confirmationController.abort();destroyed=true;sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
+return {setWorkout,syncSaved,focusFirstError,setMaxSessionMinutes:durationControls.setMaxSessionMinutes,destroy(){
+  confirmationController.abort();destroyed=true;frameToken++;supersetFrames.clear();sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
   clearTimeout(hoverTimer);clearTimeout(readoutTimer);clearTimeout(tipHideTimer);

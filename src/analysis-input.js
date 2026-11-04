@@ -1,6 +1,6 @@
 import {MUSCLE_GROUPS} from './muscles.js';
 import {EQUIPMENT} from './catalog.js';
-import {validateExercise,validateGoal,timingError} from './validate.js';
+import {validateExercise,validateGoal,timingError,supersetIssue} from './validate.js';
 import {normalizeWorkoutTiming} from './duration.js';
 
 export const analysisError=(message,code='INVALID',status=400,details={})=>Object.assign(new Error(message),{code,status,...details});
@@ -24,8 +24,12 @@ export function prepareAnalysisSnapshot(workout) {
   for(const key of ['primaryMuscles','secondaryMuscles'])if(!Array.isArray(ex[key])||new Set(ex[key]).size!==ex[key].length)bad('Choose valid, distinct muscles.','muscles');
   const errors=validateExercise(ex);for(const [field,error]of Object.entries(errors))bad(error,field);
   if(Object.hasOwn(ex,'equipment')&&!EQUIPMENT.includes(ex.equipment))bad('Choose valid equipment.','equipment');
-  return {position:i+1,name:ex.name,...(Object.hasOwn(ex,'equipment')?{equipment:ex.equipment}:{}),sets:ex.sets,repRange:{min:ex.repRange.min,max:ex.repRange.max},restSeconds:ex.restSeconds,primaryMuscles:MUSCLE_GROUPS.filter(m=>ex.primaryMuscles.includes(m)),secondaryMuscles:MUSCLE_GROUPS.filter(m=>ex.secondaryMuscles.includes(m))};
+  if(Object.hasOwn(ex,'superset')&&!object(ex.superset))bad('Invalid superset.','sets');
+  return {position:i+1,name:ex.name,...(Object.hasOwn(ex,'equipment')?{equipment:ex.equipment}:{}),sets:ex.sets,repRange:{min:ex.repRange.min,max:ex.repRange.max},restSeconds:ex.restSeconds,warmupSets:ex.warmupSets,...(ex.superset?{superset:{restBetweenSeconds:ex.superset.restBetweenSeconds,restAfterRoundSeconds:ex.superset.restAfterRoundSeconds}}:{}),primaryMuscles:MUSCLE_GROUPS.filter(m=>ex.primaryMuscles.includes(m)),secondaryMuscles:MUSCLE_GROUPS.filter(m=>ex.secondaryMuscles.includes(m))};
  });
+ // Pair invariants run on the projection, matching document validation (extra superset keys are dropped).
+ const pairIssue=supersetIssue(exercises);
+ if(pairIssue)fail(pairIssue.message,{exerciseIndex:pairIssue.index,field:'sets'});
  return {name:value.name.trim()||'Untitled session',exercises,goals,extraMinutes:value.extraMinutes,bufferPercent:value.bufferPercent};
 }
 export const analysisFingerprint=snapshot=>JSON.stringify(snapshot);

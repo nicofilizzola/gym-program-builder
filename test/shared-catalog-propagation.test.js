@@ -6,6 +6,18 @@ import {createCatalogRepository} from '../server/catalog-repository.js';
 import {resolveProgram} from '../src/program-links.js';
 import {computeProgramVolume} from '../src/program-volume.js';
 
+test('catalog propagation keeps warm-ups and supersets on linked exercises',async t=>{
+ const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);
+ const r=createRepository(db),c=createCatalogRepository(db),entry={name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]};
+ await c.create({id:'bench',familyId:'press',familyName:'Press',referenceExerciseType:'compound',entry});
+ const superset={restBetweenSeconds:30,restAfterRoundSeconds:120};
+ const linked={...entry,catalogId:'bench',familyId:'press',catalogRevision:1,sets:4,restSeconds:45,repRange:{min:8,max:12},warmupSets:2,superset};
+ const other={name:'Fly',sets:3,restSeconds:45,warmupSets:0,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]};
+ await r.create({id:'t',kind:'template',document:{name:'Push',goals:{},extraMinutes:5,bufferPercent:10,exercises:[linked,other]}});
+ await c.update({id:'bench',revision:1,entry:{...entry,name:'Bench updated'},impact:await c.impact('bench')});
+ const ex=(await r.get('t')).document.exercises[0];
+ assert.equal(ex.name,'Bench updated');assert.equal(ex.warmupSets,2);assert.deepEqual(ex.superset,superset);
+});
 test('catalog propagates to one shared template while every occurrence contributes volume',async t=>{
  const db=createDb({url:':memory:'});t.after(()=>db.close());await migrate(db);
  const r=createRepository(db),c=createCatalogRepository(db),entry={name:'Bench',equipment:'Barbell',primaryMuscles:['Chest'],secondaryMuscles:[]};

@@ -16,6 +16,7 @@ import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
+import {normalizeProfile} from './profile.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
@@ -29,7 +30,7 @@ let breadcrumb,updateCurrentBreadcrumb=()=>{};
 let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=location.hash||'#/programs',authenticated=false,transitioning=false,creation=null,mountedVersion=0;
 const retryCreation=document.querySelector('#retry-creation');
 const viewTransition=createViewTransition(app),navigationStatus=document.querySelector('#navigation-status');
-let loadingTimer;
+let loadingTimer,limitView=null;
 const pendingConfirmations=new Set();
 function cancelConfirmations(){for(const controller of pendingConfirmations)controller.abort();pendingConfirmations.clear();}
 async function confirmCurrent(options){
@@ -63,7 +64,7 @@ const startWorkout=action(options=>workouts.start(options));
 const SIGNED_OUT_KEY='gpb.signedOut';
 function signedOut(){try{return localStorage.getItem(SIGNED_OUT_KEY)==='1';}catch{return false;}}
 function setSignedOut(value){try{if(value)localStorage.setItem(SIGNED_OUT_KEY,'1');else localStorage.removeItem(SIGNED_OUT_KEY);}catch{/* storage unavailable */}}
-function clearView(){cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
+function clearView(){limitView=null;cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
  const invoker=document.activeElement;
@@ -160,7 +161,17 @@ async function exportActive(kind){
  }
 }
 let refreshing=false;
-window.addEventListener('focus',()=>{refreshActive().catch(report);});
+window.addEventListener('focus',()=>{refreshActive().catch(report);refreshLimitHints();});
+/** Profile limits for non-blocking hints. Any failure resolves to null, which silently hides hints. */
+const loadLimitProfile=()=>api.getProfile().then(saved=>normalizeProfile(saved.profile)).catch(()=>null);
+function applyLimitProfile(view,profile){view.setProfile?.(profile);view.setMaxSessionMinutes?.(profile?.maxSessionMinutes??null);}
+// Each load takes a token when issued; only the latest load's response may apply, and only to the same mounted view.
+let limitRequest=0;
+function applyLimitLoad(view,load){const token=++limitRequest;load.then(profile=>{if(token===limitRequest&&view===limitView&&view===mounted)applyLimitProfile(view,profile);});}
+function refreshLimitHints(){
+ const view=limitView;if(!authenticated||!view||view!==mounted)return;
+ applyLimitLoad(view,loadLimitProfile());
+}
 async function refreshActive(){
  if(refreshing||!authenticated||!active||transitioning||active.kind==='workout')return;
  if(templateController){const owned=queue,revision=active.revision;await templateController.refresh();if(queue===owned&&active.revision!==revision&&!owned.isDirty())mounted?.setWorkout?.(active.document,{silent:true});return;}
@@ -213,7 +224,8 @@ async function importFile(kind,file,version,{replace=false}={}){
  if(version!==mountedVersion)return;
  if(replace)await renderRoute();else await navigate(`#/${kind==='program'?'programs':'templates'}/${result.record.id}`);
 }
-async function prepareRecord(record,context){
+async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
+ // The profile never delays route entry: views mount without hints and adopt them when the load settles.
  let mountProgramView,templates,bundle;
  if(record.kind==='program'){const [module,items,loaded]=await Promise.all([import('./program-view.js'),api.list('template'),api.programBundle(record.id)]);mountProgramView=module.mountProgramView;templates=items;bundle=loaded;record=bundle.record;}
  return ()=>{
@@ -225,6 +237,7 @@ async function prepareRecord(record,context){
    const editorHost=contentHost;
    const programSource=context?{program:{id:context.program.id,name:context.program.document.name.trim()||'Untitled program'},occurrenceId:context.occurrence.id}:{};
    mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onStartWorkout:session=>startWorkout({template:{id:record.id,document:session},...programSource}),onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
+   limitView=mounted;applyLimitLoad(mounted,profileLoad);
    if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
   }else{
    let attachRequest;
@@ -235,6 +248,7 @@ async function prepareRecord(record,context){
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
     programTemplates=result.templates;owned.reload(result.record);mounted.update(resolveProgram(result.record.document,programTemplates));
    })});
+   limitView=mounted;applyLimitLoad(mounted,profileLoad);
    const programView=mounted;api.analysisCapability().then(result=>{if(mounted===programView)programView.setAnalysisEnabled(result.enabled);}).catch(()=>{if(mounted===programView)programView.setAnalysisEnabled(false);});
   }
  };
@@ -330,8 +344,8 @@ async function prepareRoute(route,version){
  }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='workout')return prepareWorkout(route);
- if(route.view==='program-workout'){const bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence});}
- if(route.id)return prepareRecord(await api.get(route.id));
+ if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
+ if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
  return ()=>{mounted=mountLibrary(createViewHost(),{
   kind,records,recordHref:record=>`#/${route.view}/${record.id}`,

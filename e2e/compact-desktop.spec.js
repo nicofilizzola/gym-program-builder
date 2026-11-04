@@ -261,3 +261,42 @@ test('consolidated headers reflow recovery actions and long names',async({page})
     }
   }
 });
+
+async function sliderLayout(page,size,{enlarged=false,paired=false}={}) {
+  await page.setViewportSize(size);await fixture(page);
+  if(paired)await page.getByRole('button',{name:'Superset Bench press with next exercise',exact:true}).click();
+  await page.evaluate(en=>{document.documentElement.style.fontSize=en?'200%':'';},enlarged);
+  await page.waitForTimeout(350);
+  return page.evaluate(()=>[...document.querySelectorAll('.exercise')].map(card=>[...card.querySelectorAll('.exercise-main-fields .slider-field')].filter(f=>f.offsetParent).map(f=>{
+    const r=f.getBoundingClientRect(),t=f.querySelector('.slider').getBoundingClientRect();
+    return {key:f.querySelector('input').dataset.field,top:r.top,bottom:r.bottom,head:f.querySelector('.slider-head').getBoundingClientRect().top,track:t.top,width:t.width-44};
+  })));
+}
+function expectRowsAligned(cards) {
+  for(const fields of cards)for(const a of fields)for(const b of fields) {
+    if(a===b||Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)<=4)continue;
+    expect(Math.abs(a.head-b.head)).toBeLessThanOrEqual(1);expect(Math.abs(a.track-b.track)).toBeLessThanOrEqual(1);
+  }
+}
+
+// Visible track = slider width minus the 44px thumb. Baseline (pre-warm-up, commit 6bc8e6a) Reps/Rest tracks at 1366: ~131px.
+test('exercise sliders share one row with usable tracks at default text',async({page})=>{
+  const minimum={sets:70,warmupSets:70,min:126,restSeconds:126};
+  for(const size of sizes)for(const paired of [false,true]) {
+    const cards=await sliderLayout(page,size,{paired});
+    for(const fields of cards){
+      expect(fields.length).toBeGreaterThanOrEqual(3);
+      expect(Math.max(...fields.map(f=>f.top))-Math.min(...fields.map(f=>f.top)),`${size.width} paired=${paired} one row`).toBeLessThanOrEqual(1);
+      for(const f of fields)expect(f.width,`${size.width} paired=${paired} ${f.key}`).toBeGreaterThanOrEqual(minimum[f.key]);
+    }
+    expectRowsAligned(cards);
+  }
+});
+test('exercise slider rows wrap without misalignment at 200% text',async({page})=>{
+  for(const size of sizes.slice(0,2))for(const paired of [false,true]) {
+    const cards=await sliderLayout(page,size,{enlarged:true,paired});
+    expectRowsAligned(cards);
+    for(const fields of cards)for(const f of fields)expect(f.width,`${size.width} paired=${paired}`).toBeGreaterThanOrEqual(194);
+    await noOverflow(page);
+  }
+});

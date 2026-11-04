@@ -1,5 +1,5 @@
 import { MUSCLE_GROUPS } from './muscles.js';
-import { LIMITS, validateExercise, validateGoalFor, timingError } from './validate.js';
+import { LIMITS, validateExercise, validateGoalFor, timingError, supersetError } from './validate.js';
 import { normalizeWorkoutTiming } from './duration.js';
 import {EQUIPMENT} from './catalog.js';
 import {normalizeProgramContext,hasProgramContext} from './program-context.js';
@@ -38,7 +38,11 @@ function workout(value,draft) {
       const errors=validateExercise(ex);
       if(draft) {delete errors.name;if(ex.primaryMuscles.length===0) delete errors.muscles;}
       if(Object.keys(errors).length) fail(Object.values(errors)[0]);
-      const clean={name:ex.name,sets:ex.sets,restSeconds:ex.restSeconds,repRange:{min:ex.repRange.min,max:ex.repRange.max},primaryMuscles:MUSCLE_GROUPS.filter(m=>ex.primaryMuscles.includes(m)),secondaryMuscles:MUSCLE_GROUPS.filter(m=>ex.secondaryMuscles.includes(m))};
+      const clean={name:ex.name,sets:ex.sets,restSeconds:ex.restSeconds,warmupSets:ex.warmupSets,repRange:{min:ex.repRange.min,max:ex.repRange.max},primaryMuscles:MUSCLE_GROUPS.filter(m=>ex.primaryMuscles.includes(m)),secondaryMuscles:MUSCLE_GROUPS.filter(m=>ex.secondaryMuscles.includes(m))};
+      if(Object.hasOwn(ex,'superset')){
+        if(!object(ex.superset))fail('Invalid superset.');
+        clean.superset={restBetweenSeconds:ex.superset.restBetweenSeconds,restAfterRoundSeconds:ex.superset.restAfterRoundSeconds};
+      }
       for(const key of ['referenceDescription','variantDescription','brand'])if(Object.hasOwn(ex,key)){
         if(typeof ex[key]!=='string'||ex[key].length>(key==='brand'?80:2000))fail('Invalid exercise '+key+'.');
         clean[key]=ex[key].replace(/\r\n?/g,'\n');
@@ -59,6 +63,7 @@ function workout(value,draft) {
       return clean;
     } catch(error) {fail(`Exercise ${i+1}: ${error.message}`);}
   });
+  const pairError=supersetError(exercises);if(pairError)fail(pairError);
   return {name:title,exercises,goals:goals(value.goals,LIMITS.goal),extraMinutes:value.extraMinutes,bufferPercent:value.bufferPercent};
 }
 function validate(kind,value,{draft=false,embedded=false}={}) {
