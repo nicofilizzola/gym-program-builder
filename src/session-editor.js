@@ -22,7 +22,7 @@ import {canPairWithNext,moveBlockOrder,pairRole,pairWithNext,removeExercise,supe
 import {createSupersetFrame,syncSupersetFrame} from './superset-frame.js';
 
 
-export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api}={}) {
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,maxSessionMinutes=null}={}) {
 root.innerHTML=SESSION_MARKUP;
 const sliderPresentation=mountSliderPresentation(root);
 const disclosureTooltips=mountActionTooltips(root,{selector:'.card-head [data-action-tooltip], .superset-head [data-action-tooltip]'});
@@ -40,7 +40,7 @@ const exerciseCards=new Map(),exercisePickers=new Map(),exerciseInfos=new Map();
 const nameInput=root.querySelector("[data-template-name]");
 nameInput.value=session.name;
 nameInput.addEventListener("input",()=>{session.name=nameInput.value;refresh();});
-const durationControls=mountDurationControls(root.querySelector('[data-duration-controls]'),{workout:session,onChange:settings=>{Object.assign(session,settings);refresh();}});
+const durationControls=mountDurationControls(root.querySelector('[data-duration-controls]'),{workout:session,maxSessionMinutes,onChange:settings=>{Object.assign(session,settings);refresh();}});
 
 /** View state for the volume panel: the clicked muscle, and the one under the mouse. */
 let selectedMuscle = null;
@@ -970,7 +970,7 @@ renderExercises();
 refresh();
 
 const panelLayout=mountPanelLayout(panel);
-return {setWorkout,syncSaved,focusFirstError,destroy(){
+return {setWorkout,syncSaved,focusFirstError,setMaxSessionMinutes:durationControls.setMaxSessionMinutes,destroy(){
   confirmationController.abort();destroyed=true;frameToken++;supersetFrames.clear();sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();

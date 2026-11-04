@@ -18,10 +18,12 @@ import {parseDocument} from './document-file.js';
 import {validateExercise} from './validate.js';
 import {MUSCLE_GROUPS} from './muscles.js';
 import {durationLabel} from './duration.js';
+import {profileChecks} from './profile-checks.js';
+import {limitHint,LONG_SESSION_TOOLTIP} from './limit-hint.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest,reviewDock}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest,reviewDock,profile=null}={}) {
   let confirmationController=new AbortController();
   const weekHelpId='program-reorder-hint';
   const viewTransition=createViewTransition(root);
@@ -86,7 +88,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
 
     const groups=value.mode==='schedule'?[...DAYS.map((name,day)=>({name,day})),{name:'Unscheduled',day:null}]:[{name:'Sessions',day:undefined}];
     for(const group of groups){
-      const section=document.createElement('section');section.className='day-section';
+      const section=document.createElement('section');section.className='day-section';if(Number.isInteger(group.day))section.dataset.day=String(group.day);
       section.classList.toggle('day-section--unscheduled',group.day===null);
       const heading=document.createElement('h2');heading.textContent=group.name;section.append(heading);container.append(section);
       const groupList=document.createElement('div');groupList.className='workout-list';groupList.dataset.sortGroup=group.day===undefined?'sequence':group.day===null?'unscheduled':String(group.day);section.append(groupList);
@@ -154,8 +156,35 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
       renderWorkouts();focusHandle(key);
       announceMove(key,groupKey);
     }});
-    updateWorkoutHighlights();
+    updateWorkoutHighlights();applyLimitHints(true);
     if(focusId){const controls=[...container.querySelectorAll(`[data-workout="${focusId}"] :is(button,a)`)];const target=controls.find(b=>b.dataset.action===focusAction&&!b.disabled)||controls.find(b=>!b.disabled);target?.focus();}
+  }
+  /** Profile limit hints are derived on every render from profileChecks; never stored. Unchanged hints keep their nodes. */
+  let limitKey='';
+  function applyLimitHints(force=false){
+    const container=root.querySelector('[data-workouts]');if(!container)return;
+    const checks=profile?profileChecks({mode:value.mode,workouts:value.workouts},profile):null;
+    const long=new Map((checks?.longSessions||[]).map(s=>[value.workouts[s.occurrence-1].id,s.max]));
+    const days=new Map();
+    for(const {day} of checks?.unavailableDays||[])days.set(day,['Not an available day']);
+    for(const {day,count,max} of checks?.crowdedDays||[])days.set(day,[...(days.get(day)||[]),`${count} sessions · max ${max}`]);
+    const weekly=checks?.trainingDays?`${checks.trainingDays.count} training days · max ${checks.trainingDays.max}`:null;
+    const key=JSON.stringify([[...long],[...days],weekly]);
+    if(!force&&key===limitKey)return;
+    limitKey=key;
+    if(!force)tooltips?.hide();
+    root.querySelectorAll('[data-limit-hint],[data-limit-separator],[data-day-limit-hints]').forEach(el=>el.remove());
+    for(const card of container.querySelectorAll('.workout-item')){
+      const max=long.get(card.dataset.workout);if(max===undefined)continue;
+      const separator=document.createElement('span');separator.className='visually-hidden';separator.dataset.limitSeparator='';separator.textContent=' · ';
+      card.querySelector('[data-workout-duration]').append(separator,limitHint(`over ${max} min max`,{tooltip:LONG_SESSION_TOOLTIP}));
+    }
+    for(const [day,texts] of days){
+      const heading=container.querySelector(`.day-section[data-day="${day}"] > h2`);if(!heading)continue;
+      const hints=document.createElement('div');hints.className='day-limit-hints';hints.dataset.dayLimitHints='';
+      hints.append(...texts.map(text=>limitHint(text,{tag:'p'})));heading.after(hints);
+    }
+    if(weekly)root.querySelector('.weekly-panel-heading')?.append(limitHint(weekly,{tag:'p'}));
   }
   function wireReorder(button,key){
     button.onclick=()=>{
@@ -263,6 +292,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   buildOverview();return {
     setAnalysisEnabled(next){analysisEnabled=next;analysisPanel?.setEnabled(next);},
+    setProfile(next){profile=next??null;applyLimitHints();},
     syncSaved(next){value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else patchOverview();},
     update(next){confirmationController.abort();confirmationController=new AbortController();viewGeneration++;viewTransition.cancel();transitionGeneration++;root.inert=false;value=structuredClone(next);if(editor){const workout=value.workouts.find(w=>w.id===editingWorkoutId);if(workout)editor.syncSaved(workout);}else patchOverview();},
     focusFirstError:focusError,focusError,destroy(){disposed=true;transitionGeneration++;viewTransition.destroy();root.inert=false;cleanup();reorderMenu.destroy();root.replaceChildren();}

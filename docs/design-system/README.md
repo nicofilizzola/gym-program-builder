@@ -6,7 +6,7 @@ When you change a value, change it in `style.css` first and then update this fil
 
 ## Principles
 
-- **One accent.** Orange (`--accent`) marks actions and selected state. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`), reserved for the volume-list bars and the met checkmark, and the body map heat ramp (`--untrained`, `--heat-1` to `--heat-4`), reserved for the body map and its legend.
+- **One accent.** Orange (`--accent`) marks actions and selected state. Do not introduce a second accent colour. The only other colours are the four goal status colours (`--under`, `--met`, `--over`, `--no-goal`), reserved for the volume-list bars and the met checkmark (`--under` also marks profile limit hints), and the body map heat ramp (`--untrained`, `--heat-1` to `--heat-4`), reserved for the body map and its legend.
 - **Volume is the hero.** Keep the body map and volume list prominent while editing: a sticky desktop rail when it fits, normal document flow when it exceeds the viewport, and the existing mobile panel placement.
 - **Colour never stands alone.** Every body map colour is paired with the heat legend and the volume list's numbers (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with the `volume / goal` value, the met checkmark and the hidden status word, and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
@@ -37,7 +37,7 @@ Use this checklist while designing, implementing and reviewing every UI change. 
 | `--on-accent` | `#0f172a` | Text on `--accent` |
 | `--error` | `#fca5a5` | Validation messages |
 | `--body` | `#252f3c` | Body-map silhouette (non-muscle areas) |
-| `--under` / `--under-soft` | `#fbbf24` / `rgba(251,191,36,.14)` | Volume bar, under the goal |
+| `--under` / `--under-soft` | `#fbbf24` / `rgba(251,191,36,.14)` | Volume bar, under the goal; profile limit hints |
 | `--met` / `--met-soft` | `#4ade80` / `rgba(74,222,128,.14)` | Volume bar and checkmark, goal met |
 | `--over` / `--over-soft` | `#f87171` / `rgba(248,113,113,.14)` | Volume bar, over the goal |
 | `--no-goal` / `--no-goal-soft` | `#94a3b8` / `rgba(148,163,184,.14)` | Volume bar without a goal; split key swatches |
@@ -282,6 +282,15 @@ Rest per set uses the existing native slider appearance and 44px hit area: 0 to 
 Extra time is 0 to 60 minutes by 1 (default 5); Buffer is 0 to 50% by 5 (default 10). Their controls use two columns with 16px gap, stacking on mobile. Breakdown values use tabular figures, muted labels, existing surface/border tokens, 12px padding and an 8px radius. Both figures retain their existing heights and all touch/hybrid controls retain their existing target sizes.
 
 Exercise slider headings wrap label/value onto separate lines when text is enlarged; value readouts stay on one line. Program workout metadata includes a noninteractive Estimated duration ~N min label in sequence, scheduled days and Unscheduled. It can shrink and wrap with the exercise count and muscle-match badge without adding a second panel or a weekly total.
+
+### Limit hint
+
+Non-blocking profile limit warnings (`.limit-hint`, built by `limitHint()` in `src/limit-hint.js`, `data-limit-hint`): the `actionIcon('warning')` triangle (1em, `aria-hidden`) plus visible short text, 4px apart, in `--under` at `.8125rem`/500 with 1.25 line height (inherits the metadata size inside workout cards). Colour never stands alone: the text names the limit. Hints are derived on every render from `profileChecks` and the saved profile (loaded on program and session-editor entry, revalidated on window focus; a failed load renders none); they are never stored or exported, never animated (`transition: none`, they appear and disappear with routine data updates) and never block saving, exporting or AI review. Equipment mismatches have no in-app hint.
+
+- **Program workout card:** the duration metadata reads `Estimated duration ~30 min · over 20 min max`; the hint carries the shared action tooltip `Longer than your max session length (Profile)` (mouse hover; the visible text already says it on touch and for keyboard/screen-reader users).
+- **Week day label:** `.day-limit-hints` (2px gap, 6px bottom padding) sits after the day `h2` with `Not an available day` and/or `N sessions · max M`. At day-row widths of 30rem and above it floats under the label in the same fixed column (4.875rem, 6rem at ≥1600px) and wraps inside it (icon top-aligned); narrower rows stack it between label and sessions. Sequence shows no day hints.
+- **Weekly line:** `N training days · max M` as a paragraph in `.weekly-panel-heading` under the unit (2px top margin), Week only; never inside the program file-action group.
+- **Session editor:** the duration toggle appends `over N min max` after `~N min` (included in the toggle's `aria-describedby`), toggling instantly as edits change the estimate.
 
 ### Superset frame
 

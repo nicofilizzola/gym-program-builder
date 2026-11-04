@@ -1,9 +1,10 @@
 import {mountSliderPresentation} from './slider-presentation.js';
 import {computeDuration,DURATION_LIMITS,durationLabel,formatDuration,normalizeWorkoutTiming} from './duration.js';
 import {mountActionTooltips} from './action-controls.js';
+import {limitHint} from './limit-hint.js';
 
 /** Inline disclosure; updates preserve the user's focused node and open state. */
-export function mountDurationControls(host,{workout,onChange=()=>{}}) {
+export function mountDurationControls(host,{workout,onChange=()=>{},maxSessionMinutes=null}) {
   const controller=new AbortController();
   const panelId='duration-details-'+crypto.randomUUID();
   host.classList.add('duration-controls');
@@ -25,7 +26,18 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
     const input=field.querySelector('input');input.dataset.allowance=key;
     host.querySelector('.duration-allowances').append(field);
   }
-  let value;
+  let value,hint=null;
+  /** Profile limit suffix after the total: added/removed instantly and announced with the total. */
+  function syncLimitHint() {
+    const over=maxSessionMinutes!==null&&computeDuration(value).displayMinutes>maxSessionMinutes;
+    const text=over?'over '+maxSessionMinutes+' min max':null;
+    if((hint?.textContent??null)===text)return;
+    hint?.remove();hint=null;
+    if(text){hint=limitHint(text);hint.id=panelId+'-limit';total.after(hint);}
+    // Keep any shared-tooltip id while swapping the hint into the total's description.
+    const others=(toggle.getAttribute('aria-describedby')||'').split(/\s+/).filter(id=>id&&id!==total.id&&id!==panelId+'-limit');
+    toggle.setAttribute('aria-describedby',[total.id,...(hint?[hint.id]:[]),...others].join(' '));
+  }
   const sliderPresentation=mountSliderPresentation(host);
   function update(next) {
     value=normalizeWorkoutTiming(next);
@@ -39,6 +51,7 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
       input.parentElement.style.setProperty('--to',n/DURATION_LIMITS[key].max);
     });
     sliderPresentation.sync();
+    syncLimitHint();
   }
   let opened=false;
   function setExpanded(next) {
@@ -58,5 +71,5 @@ export function mountDurationControls(host,{workout,onChange=()=>{}}) {
     update({...value,...settings});onChange(settings);
   },{signal:controller.signal});
   update(workout);
-  return {update,destroy(){sliderPresentation.destroy();controller.abort();tooltips.destroy();host.replaceChildren();host.removeAttribute('data-duration-motion');}};
+  return {update,setMaxSessionMinutes(next){maxSessionMinutes=next??null;syncLimitHint();},destroy(){sliderPresentation.destroy();controller.abort();tooltips.destroy();host.replaceChildren();host.removeAttribute('data-duration-motion');}};
 }

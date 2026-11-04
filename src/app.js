@@ -16,6 +16,7 @@ import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
+import {normalizeProfile} from './profile.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -24,7 +25,7 @@ let breadcrumb,updateCurrentBreadcrumb=()=>{};
 let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=location.hash||'#/programs',authenticated=false,transitioning=false,creation=null,mountedVersion=0;
 const retryCreation=document.querySelector('#retry-creation');
 const viewTransition=createViewTransition(app),navigationStatus=document.querySelector('#navigation-status');
-let loadingTimer;
+let loadingTimer,limitView=null;
 const pendingConfirmations=new Set();
 function cancelConfirmations(){for(const controller of pendingConfirmations)controller.abort();pendingConfirmations.clear();}
 async function confirmCurrent(options){
@@ -50,7 +51,7 @@ const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
 function createViewHost(){return app.appendChild(document.createElement('div'));}
-function clearView(){cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
+function clearView(){limitView=null;cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
  const invoker=document.activeElement;
@@ -141,7 +142,14 @@ async function exportActive(kind){
  }
 }
 let refreshing=false;
-window.addEventListener('focus',()=>{refreshActive().catch(report);});
+window.addEventListener('focus',()=>{refreshActive().catch(report);refreshLimitHints();});
+/** Profile limits for non-blocking hints. Any failure resolves to null, which silently hides hints. */
+const loadLimitProfile=()=>api.getProfile().then(saved=>normalizeProfile(saved.profile)).catch(()=>null);
+function applyLimitProfile(view,profile){view.setProfile?.(profile);view.setMaxSessionMinutes?.(profile?.maxSessionMinutes??null);}
+function refreshLimitHints(){
+ const view=limitView;if(!authenticated||!view||view!==mounted)return;
+ loadLimitProfile().then(profile=>{if(view===limitView&&view===mounted)applyLimitProfile(view,profile);});
+}
 async function refreshActive(){
  if(refreshing||!authenticated||!active||transitioning)return;
  if(templateController){const owned=queue,revision=active.revision;await templateController.refresh();if(queue===owned&&active.revision!==revision&&!owned.isDirty())mounted?.setWorkout?.(active.document,{silent:true});return;}
@@ -194,9 +202,10 @@ async function importFile(kind,file,version,{replace=false}={}){
  if(version!==mountedVersion)return;
  if(replace)await renderRoute();else await navigate(`#/${kind==='program'?'programs':'templates'}/${result.record.id}`);
 }
-async function prepareRecord(record,context){
- let mountProgramView,templates,bundle;
- if(record.kind==='program'){const [module,items,loaded]=await Promise.all([import('./program-view.js'),api.list('template'),api.programBundle(record.id)]);mountProgramView=module.mountProgramView;templates=items;bundle=loaded;record=bundle.record;}
+async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
+ let mountProgramView,templates,bundle,limitProfile;
+ if(record.kind==='program'){const [module,items,loaded,profile]=await Promise.all([import('./program-view.js'),api.list('template'),api.programBundle(record.id),profileLoad]);mountProgramView=module.mountProgramView;templates=items;bundle=loaded;record=bundle.record;limitProfile=profile;}
+ else limitProfile=await profileLoad;
  return ()=>{
   programTemplates=bundle?.templates||[];
   const onChange=track(record,{project:document=>record.kind==='program'?resolveProgram(document,programTemplates):document}),host=createViewHost(),contentHost=host.appendChild(document.createElement('div'));
@@ -204,17 +213,19 @@ async function prepareRecord(record,context){
   breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
   if(record.kind==='template'){
    const editorHost=contentHost;
-   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
+   mounted=mountSessionEditor(editorHost,{api,workout:active.document,maxSessionMinutes:limitProfile?.maxSessionMinutes??null,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
+   limitView=mounted;
    if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
   }else{
    let attachRequest;
    host.classList.add('program-route');const reviewDock=document.createElement('aside');reviewDock.className='review-dock';host.append(reviewDock);
-   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
+   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,profile:limitProfile,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
     const owned=queue,version=mountedVersion;await owned.flush();if(owned!==queue)return;
     attachRequest??={operationId:uid(),programId:record.id,revision:active.revision,templateId:uid(),occurrenceId:uid(),template:{...createTemplate(),name:'Untitled workout'}};
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
     programTemplates=result.templates;owned.reload(result.record);mounted.update(resolveProgram(result.record.document,programTemplates));
    })});
+   limitView=mounted;
    const programView=mounted;api.analysisCapability().then(result=>{if(mounted===programView)programView.setAnalysisEnabled(result.enabled);}).catch(()=>{if(mounted===programView)programView.setAnalysisEnabled(false);});
   }
  };
@@ -258,8 +269,8 @@ async function prepareRoute(route,version){
  }
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved));mounted=mountProfileView(createViewHost(),{profile:active.document,onChange});};}
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
- if(route.view==='program-workout'){const bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence});}
- if(route.id)return prepareRecord(await api.get(route.id));
+ if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
+ if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
  return ()=>{mounted=mountLibrary(createViewHost(),{
   kind,records,recordHref:record=>`#/${route.view}/${record.id}`,

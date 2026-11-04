@@ -1662,6 +1662,25 @@ button:disabled {opacity:.5;cursor:default}
     .week-agenda .workout-list {margin-left:calc(6rem + 12px)}
   }
 }
+/* Limit hint: non-blocking profile limit warning. Amber (--under) icon plus visible text, never
+   colour alone; appears and disappears with routine data updates, so it never animates. */
+.limit-hint {display:inline-flex;align-items:center;gap:4px;min-width:0;margin:0;color:var(--under);font-size:.8125rem;font-weight:500;line-height:1.25;overflow-wrap:anywhere;transition:none}
+.limit-hint svg {width:1em;height:1em;flex:none}
+p.limit-hint {display:flex}
+/* The ' · ' separator is visually hidden: the icon separates the hint from the estimate, so a wrap never strands a dot. */
+.workout-metadata .limit-hint {font-size:inherit;vertical-align:top;margin-left:6px}
+.day-limit-hints {display:grid;gap:2px;padding:0 0 6px}
+.day-limit-hints .limit-hint {align-items:flex-start}
+.day-limit-hints .limit-hint svg {margin-top:.125em}
+@container day (min-width:30rem) {
+  .week-agenda .day-limit-hints {float:left;clear:left;width:4.875rem}
+}
+@media (min-width:1600px) {
+  @container day (min-width:30rem) {
+    .week-agenda .day-limit-hints {width:6rem}
+  }
+}
+.weekly-panel-heading .limit-hint {margin-top:2px}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
   .sequence-rest-item {padding:8px 12px;margin:0 0 8px;gap:8px}
 }
