@@ -103,6 +103,14 @@ Production deployment requires preview smoke evidence, a tested restore and the 
 
 Rollback to a prior compatible Vercel deployment without dropping tables or documents. Migration 1 is additive. Do not roll back to the original static/in-memory app and assume it can read the database. If a future migration is incompatible, restore the tested backup into a new database and point the compatible deployment at it; never blindly delete live tables. Retain the original database until recovery is verified.
 
+### Hosted environments (2026-11-04)
+
+Vercel project `gym-program-builder` (Hobby, Node 24.x, `iad1`), connected to GitHub: `main` deploys Production at `https://gym-hub-app.vercel.app`, and the `preview` branch is the stable Preview at `https://gym-program-builder-git-preview-team-6372.vercel.app`. `APP_ORIGIN` holds exactly those origins. Other aliases (`gym-program-builder-two.vercel.app`, per-commit URLs) serve the app but writes from them are refused. Deployment Protection covers previews only; Production is guarded by the app password.
+
+Turso databases `gym-preview` and `gym-production` come from the Vercel Marketplace integration, each connected to one environment. Secrets are stored as sensitive variables, so `vercel env pull` writes `[SENSITIVE]` for them; the Turso URL and token are pullable for explicit migrations. A project's first Git deployment becomes Production whatever its branch, so migrate both databases before connecting Git to a new project.
+
+To roll back the application, promote a previous Production deployment (`vercel promote <deployment-url>` or the dashboard's Instant Rollback). To recover data, restore a backup into a new database with `scripts/copy-database.js` (see "Copying a local database into a new environment"), verify it, then point the environment's `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` at it and redeploy.
+
 ## References
 
 - [Vercel Node.js runtime](https://vercel.com/docs/functions/runtimes/node-js)
