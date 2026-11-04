@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {setLogName,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,removeSet,updateSet,toggleSetDone,undoneSetCount,finishWorkout,setWorkoutTimes} from '../src/workout-edit.js';
+import {setLogName,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,removeSet,updateSet,toggleSetDone,undoneSetCount,finishWorkout,setWorkoutTimes,finishConfirmation,confirmFinish} from '../src/workout-edit.js';
 import {validateWorkoutLog,toLocalIso} from '../src/workout-log.js';
 
 const seq=()=>{let n=0;return()=>'n'+(++n);};
@@ -81,4 +81,26 @@ test('setLogName, add/remove/move exercise and add/remove/update set',()=>{
  assert.equal(removeExercise(log,'zz'),log);assert.equal(addSet(log,'zz',seq()),log);
  assert.equal(removeSet(log,'e1','zz'),log);assert.equal(updateSet(log,'e1','zz',{reps:1}),log);
  assert.deepEqual(log,before);
+});
+
+test('finishConfirmation pluralizes the standard warning and is null without undone sets',()=>{
+ const one=makeLog();
+ assert.deepEqual(finishConfirmation({...one,exercises:[one.exercises[0]]}),{title:'Finish workout?',message:'1 set not completed — finish anyway? Uncompleted sets will be removed.',confirmLabel:'Finish workout'});
+ assert.equal(finishConfirmation(one).message,'2 sets not completed — finish anyway? Uncompleted sets will be removed.');
+ assert.equal(finishConfirmation({...one,exercises:[exercise('e1',[set('s1',{reps:8,done:true})])]}),null);
+});
+
+test('confirmFinish refuses without done sets, asks about undone sets and finishes the latest log',async()=>{
+ const now=()=>new Date('2026-11-03T19:00:00+01:00'),asked=[];
+ const none={...makeLog(),exercises:[exercise('e1',[set('s1')])]};
+ assert.deepEqual(await confirmFinish(()=>none,{confirm:async o=>{asked.push(o);return true;},now}),{error:'Log at least one set, or discard the workout.'});
+ assert.equal(asked.length,0);
+ assert.deepEqual(await confirmFinish(()=>makeLog(),{confirm:async o=>{asked.push(o);return false;},now}),{cancelled:true});
+ assert.equal(asked[0].message,'2 sets not completed — finish anyway? Uncompleted sets will be removed.');
+ let current=makeLog();
+ const r=await confirmFinish(()=>current,{confirm:async()=>{current=setLogName(current,'Renamed');return true;},now});
+ assert.equal(r.log.status,'finished');assert.equal(r.log.name,'Renamed');assert.equal(r.log.exercises.length,1);
+ assert.deepEqual(await confirmFinish(()=>null,{confirm:async()=>true,now}),{cancelled:true});
+ let gone=false;
+ assert.deepEqual(await confirmFinish(()=>gone?null:makeLog(),{confirm:async()=>{gone=true;return true;},now}),{cancelled:true});
 });

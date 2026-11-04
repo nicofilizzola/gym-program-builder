@@ -1,4 +1,6 @@
 import {MUSCLE_GROUPS} from './muscles.js';
+/** Reference exercise and variant names allow up to this many characters (after trimming). */
+export const CATALOG_NAME_MAX=200;
 export const EQUIPMENT=['Barbell','Dumbbell','Cable','Machine','Bodyweight','Kettlebell','Resistance band','Other'];
 export const normalizeSearch=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim();
 export function catalogSearchText(entry,reference){return normalizeSearch([entry.name,reference?.name||entry.familyName,entry.equipment,typeof entry.brand==='string'?entry.brand:entry.brand?.name,...(entry.focusTags||[]).map(t=>typeof t==='string'?t:t.name)].filter(Boolean).join(' '));}
@@ -8,7 +10,7 @@ export function descriptionText(value=''){
 }
 export function validateReference(value){
  try{
-  if(!value||typeof value.name!=='string'||!value.name.trim()||value.name.trim().length>200)throw Error('Enter a reference exercise name (up to 200 characters).');
+  if(!value||typeof value.name!=='string'||!value.name.trim()||value.name.trim().length>CATALOG_NAME_MAX)throw Error(`Enter a reference exercise name (up to ${CATALOG_NAME_MAX} characters).`);
   if(!['compound','isolation'].includes(value.exerciseType))throw Error('Choose Compound or Isolation.');
   if(!EQUIPMENT.includes(value.equipment))throw Error('Choose equipment for the reference exercise.');
   const primary=value.defaultPrimaryMuscles??[],secondary=value.defaultSecondaryMuscles??[];
@@ -19,7 +21,7 @@ export function validateReference(value){
 }
 export function validateCatalogEntry(value) {
   const fail=error=>({error});
-  if(!value||typeof value.name!=='string'||!value.name.trim()||value.name.trim().length>200)return fail('Enter an exercise name (up to 200 characters).');
+  if(!value||typeof value.name!=='string'||!value.name.trim()||value.name.trim().length>CATALOG_NAME_MAX)return fail(`Enter an exercise name (up to ${CATALOG_NAME_MAX} characters).`);
   if(value.equipment!==undefined&&!EQUIPMENT.includes(value.equipment))return fail('Choose equipment.');
   for(const key of ['primaryMuscles','secondaryMuscles']) {
     if(!Array.isArray(value[key])||value[key].some(m=>!MUSCLE_GROUPS.includes(m))||new Set(value[key]).size!==value[key].length)return fail('Choose valid, distinct muscles.');

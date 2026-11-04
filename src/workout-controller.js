@@ -1,9 +1,9 @@
 import {chooseAction,confirmAction} from './confirm-dialog.js';
 import {createWorkoutLog,workoutSummary,validateWorkoutLog} from './workout-log.js';
-import {finishWorkout,undoneSetCount} from './workout-edit.js';
+import {finishWorkout,confirmFinish,NO_SETS as FINISH_NO_SETS} from './workout-edit.js';
 import {readMirror,clearMirror,createWorkoutSync,recoveryDecision,isNetworkError} from './workout-sync.js';
 
-export const NO_SETS='Log at least one set, or discard the workout.';
+export const NO_SETS=FINISH_NO_SETS;
 export const OFFLINE_DISCARD='Connect to discard this workout.';
 export const UNRECOVERED='A workout saved on this device could not be recovered yet. Reload or sign in, then try again.';
 export const PENDING_FINISH='Your finished workout has not synced yet. Connect to sync it before starting a new workout.';
@@ -15,7 +15,7 @@ export const linkedVariantIds=log=>[...new Set(log.exercises.map(e=>e.variantId)
  */
 export function createWorkoutController({api,storage=globalThis.localStorage,choose=chooseAction,confirm=confirmAction,navigate=async()=>{},bar=null,
  onError=()=>{},onSignIn=()=>{},now=()=>new Date(),makeId=()=>crypto.randomUUID(),timers=globalThis,events=globalThis}){
- let owned=null,view=null,booted=false,booting=null,resolving=false,starting=false;
+ let owned=null,view=null,booted=false,booting=null,resolving=false,starting=false,session=0;
 
  const ownedId=()=>owned?.sync?.log.id??null;
  /** A dirty mirror this controller does not own (a failed or pending boot): never overwrite it. */
@@ -49,6 +49,32 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   catch(error){if(isNetworkError(error))return null;onError(error);return undefined;}
  }
 
+ /** The conflict dialog and its follow-up confirmations, from what the server holds now. */
+ async function conflictPrompt(entry,reason){
+  const here=entry.sync.log,title='Workout changed elsewhere';
+  const keep={value:'keep',label:'Keep this device\'s version',primary:true},saved={value:'saved',label:'Use saved version'};
+  const useSaved={title:'Use saved version?',message:'Your changes on this device will be discarded.',confirmLabel:'Use saved version',destructive:true};
+  if(reason==='active_exists'){
+   // Name what each choice discards; Keep may only delete the workout that was named.
+   // Unreachable: generic name, and Keep discards whichever other workout is active. Known (even none): only that one.
+   const other=await api.activeWorkout().catch(()=>undefined),known=other&&other.id!==here.id?other:null;
+   const otherName=known?known.log.name:'the other workout',capital=otherName[0].toUpperCase()+otherName.slice(1);
+   return {otherId:other===undefined?undefined:known?known.id:null,
+    dialog:{title,message:`${capital} is in progress on another device. Only one workout can be in progress.`,
+     choices:[{...keep,label:`Keep ${here.name} (discards ${otherName})`},{...saved,label:`Switch to ${otherName} (discards ${here.name})`}]},
+    confirmKeep:{title:`Discard ${otherName}?`,message:`${capital} and its sets will be deleted. This cannot be undone.`,confirmLabel:'Discard workout',destructive:true},
+    confirmSaved:{title:`Discard ${here.name}?`,message:'This workout and its sets on this device will be discarded.',confirmLabel:'Discard workout',destructive:true}};
+  }
+  // Unknown (offline) server state shows the plain dialog; keepLocal still refuses to reactivate a finished copy.
+  const server=await entry.sync.savedVersion().catch(()=>undefined);
+  if(server?.log.status==='finished'){
+   // A finished copy cannot become active again: Keep finishes this device's log, so it needs a done set.
+   const message='This workout was finished on another device.';
+   if(finishWorkout(here,now()).error)return {dialog:{title,message,choices:[{...saved,primary:true}]},confirmSaved:useSaved};
+   return {finish:true,dialog:{title,message:`${message} Keep this device's version to finish it with this device's sets.`,choices:[keep,saved]},confirmSaved:useSaved};
+  }
+  return {dialog:{title,message:'This workout was changed on another device.',choices:[keep,saved]},confirmSaved:useSaved};
+ }
  async function resolveConflict(entry,reason){
   entry.conflict=reason;
   if(resolving)return;
@@ -56,16 +82,36 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   try{
    while(owned===entry&&entry.conflict){
     const current=entry.conflict;
-    const choice=await choose({title:'Workout changed elsewhere',
-     message:current==='active_exists'?'Another workout is already in progress on another device.':'This workout was changed on another device.',
-     choices:[{value:'keep',label:'Keep this device\'s version',primary:true},{value:'saved',label:'Use saved version'}]});
+    const prompt=await conflictPrompt(entry,current);
+    if(owned!==entry)break;
+    const choice=await choose(prompt.dialog);
     if(owned!==entry||!choice)break;
     if(choice==='keep'){
+     let transform;
+     if(prompt.finish){
+      const read=()=>owned===entry?entry.sync.log:null;
+      const result=await confirmFinish(read,{confirm,now});
+      if(result.cancelled||owned!==entry)break;
+      if(result.error){onError(Error(result.error));break;}
+      // Finish the log as it is when it is saved, with the same finish time the user just accepted.
+      const finishedAt=result.log.finishedAt;
+      transform=value=>{const r=finishWorkout(value,new Date(Date.parse(finishedAt)));if(r.error)throw Error(r.error);return r.log;};
+     }else if(prompt.confirmKeep&&!await confirm(prompt.confirmKeep))break;
+     if(owned!==entry)break;
+     const id=entry.sync.log.id;
      entry.conflict=null;
-     try{await entry.sync.keepLocal();}catch(error){entry.conflict??=current;onError(error);break;}
+     try{await entry.sync.keepLocal({transform,otherId:prompt.otherId});}
+     catch(error){
+      entry.conflict??=current;
+      // The server changed since the dialog was shown: ask again with what it holds now.
+      if(error?.code==='finished_elsewhere'||error?.code==='other_changed')continue;
+      onError(error);break;
+     }
+     // Kept as finished: the log leaves the active logger (released once synced, read-only while pending).
+     if(transform){refreshBar();await navigate('#/workouts/'+id);}
      continue;
     }
-    if(!await confirm({title:'Use saved version?',message:'Your changes on this device will be discarded.',confirmLabel:'Use saved version',destructive:true}))break;
+    if(!await confirm(prompt.confirmSaved))break;
     if(owned!==entry)break;
     entry.conflict=null;
     let server;
@@ -75,6 +121,12 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   }finally{resolving=false;}
  }
  async function afterUseSaved(entry,server,reason){
+  if(server?.log.status==='finished'){
+   // The finished copy's acknowledgement may already have released the entry (and cleared the mirror).
+   if(owned===entry){release(entry);clearMirror(storage);}
+   else if(owned)return;
+   refreshBar();await navigate('#/workouts/'+server.id);return;
+  }
   if(owned!==entry)return;
   const id=entry.sync.log.id;
   if(!server){
@@ -87,19 +139,15 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
    await navigate(other?'#/workouts/'+other.id:'#/workouts');
    return;
   }
-  if(server.log.status==='finished'){release(entry);clearMirror(storage);refreshBar();await navigate('#/workouts/'+server.id);return;}
   if(view?.id===id)view.setLog?.(server.log);
   refreshBar();
  }
 
  async function finish(){
   if(resolving||!isActive())return false;
-  const entry=owned,log=entry.sync.log;
-  if(!log.exercises.some(e=>e.sets.some(s=>s.done)))throw Error(NO_SETS);
-  const open=undoneSetCount(log);
-  if(open&&!await confirm({title:'Finish workout?',message:`${open===1?'1 set':`${open} sets`} not completed — finish anyway? Uncompleted sets will be removed.`,confirmLabel:'Finish workout'}))return false;
-  if(owned!==entry||!isActive())return false;
-  const result=finishWorkout(entry.sync.log,now());
+  const entry=owned;
+  const result=await confirmFinish(()=>owned===entry&&isActive()?entry.sync.log:null,{confirm,now});
+  if(result.cancelled)return false;
   if(result.error)throw Error(result.error);
   entry.sync.change(result.log);
   refreshBar();
@@ -183,10 +231,11 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
  /** Recovers the mirror and the server's active log. Idempotent after success; a failure is retried on the next call. */
  function boot(){
   if(booted)return Promise.resolve();
-  booting??=recover().then(()=>{booted=true;},error=>{booting=null;throw error;});
+  const mine=session;
+  booting??=recover(mine).then(()=>{if(mine===session)booted=true;},error=>{if(mine===session)booting=null;throw error;});
   return booting;
  }
- async function recover(){
+ async function recover(mine){
   const mirror=readMirror(storage);
   let reachable=true,active=null,server=null;
   try{active=await api.activeWorkout();}catch(error){if(!isNetworkError(error))throw error;reachable=false;}
@@ -195,7 +244,8 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
    if(active?.id===mirror.log.id)server=active;
    else try{server=await api.getWorkout(mirror.log.id);}catch(error){if(error?.status===404)server=null;else if(isNetworkError(error))reachable=false;else throw error;}
   }
-  if(owned)return;
+  // Signed out meanwhile: the next sign-in boots again.
+  if(owned||mine!==session)return;
   if(mirror){
    const {action}=recoveryDecision({mirror,server,reachable});
    if(action==='use-server'){own(server,{lastTime:mirror.lastTime});return;}
@@ -222,6 +272,8 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
    onChange(log){forMe()?.sync.change(log);},
    async onFinish(){const target=forMe();await target?.sync.flush().catch(()=>{});await navigate('#/workouts');},
    async onDiscard(){if(forMe()&&await discard())await navigate('#/workouts');},
+   /** Retry after a paused non-network failure (`Couldn’t save`). */
+   onRetry(){return forMe()?.sync.resume().catch(()=>{});},
    async onLastTimeNeeded(ids){
     const target=forMe();if(!target)return;
     const wanted=target.sync.lastTime===null?linkedVariantIds(target.sync.log):ids;
@@ -252,6 +304,10 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   },
   owns:id=>ownedId()===id,
   snapshot(){return owned?.sync?{log:owned.sync.log,lastTime:owned.sync.lastTime}:null;},
+  /** Best effort before Log out: saves pending workout edits while still signed in. */
+  flush(){return owned?.sync?owned.sync.flush().catch(()=>{}):Promise.resolve();},
+  /** After Log out: stop syncing and hide the bar. The mirror stays, so signing in again recovers the workout. */
+  signOut(){session++;booted=false;booting=null;view=null;release();refreshBar({animate:false});},
   pendingSummary(){const log=owned?.sync?.log;return log&&log.status==='finished'&&owned.sync.isDirty()?workoutSummary(log):null;},
   resume(){return owned?.sync?.resume().catch(()=>{});}
  };

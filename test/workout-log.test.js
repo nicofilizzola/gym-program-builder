@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {CATALOG_NAME_MAX} from '../src/catalog.js';
 import {WORKOUT_LIMITS,toLocalIso,validateWorkoutLog,createWorkoutLog,logExerciseFromEntry,workoutSummary} from '../src/workout-log.js';
 
 const seq=()=>{let n=0;return()=>'id'+(++n);};
@@ -11,7 +12,19 @@ const bad=(log,part)=>{const r=validateWorkoutLog(log);assert.ok(r.error,'expect
 
 test('limits are frozen',()=>{
  assert.ok(Object.isFrozen(WORKOUT_LIMITS));
- assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30});
+ assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30});
+});
+
+test('exercise names follow the catalog limit (200), separate from the workout name limit (120)',()=>{
+ assert.equal(WORKOUT_LIMITS.exerciseNameMax,CATALOG_NAME_MAX);
+ const long='x'.repeat(200);
+ assert.ok(validateWorkoutLog(active({exercises:[exercise({name:long})]})).log);
+ bad(active({exercises:[exercise({name:'x'.repeat(201)})]}),/Exercise 1: Name must be 1–200 characters/);
+ bad(active({name:'x'.repeat(121),exercises:[exercise({name:long})]}),/^Name must be 1–120 characters/);
+ const entry={id:'v1',familyId:'r1',name:long,equipment:'Cable',primaryMuscles:['Lats'],secondaryMuscles:[]};
+ assert.ok(validateWorkoutLog(active({exercises:[{...logExerciseFromEntry(entry,seq()),sets:[set()]}]})).log);
+ const template={id:'t1',document:{name:'Pull',exercises:[{name:long,sets:1,repRange:{min:8,max:12},restSeconds:90,primaryMuscles:['Lats'],secondaryMuscles:[],catalogId:'v1',familyId:'r1'}]}};
+ assert.ok(validateWorkoutLog(createWorkoutLog({id:'l2',now:new Date('2026-11-03T17:00:00Z'),makeId:seq(),template})).log);
 });
 
 test('createWorkoutLog seeds a program occurrence snapshot',()=>{

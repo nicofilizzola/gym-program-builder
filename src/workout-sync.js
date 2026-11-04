@@ -104,18 +104,35 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
   change,
   setLastTime(map){if(disposed)return;last=map;const pending=autosave.isDirty();if(pending||log.status!=='finished')mirror(pending);},
   flush:()=>autosave.flush(),
-  async keepLocal(){
+  /** The server's copy of this log (null when it is gone), after any in-flight save settles. */
+  async savedVersion(){await settle();return fetchServer();},
+  /**
+   * Saves this device's log over the server's. `transform(log)` may change it first (Keep over a finished copy finishes it);
+   * an active log never overwrites a finished server copy, and active_exists only discards `otherId` when given (null: none).
+   * Those refusals throw (code finished_elsewhere / other_changed) and leave the local log and the conflict as they were.
+   */
+  async keepLocal({transform=value=>value,otherId}={}){
    await settle();
-   let base;
+   let base,finishedElsewhere=false;
    if(reason==='active_exists'){
     const other=await api.activeWorkout();
-    if(other&&other.id!==id){await api.deleteWorkout({id:other.id,revision:other.revision});base=revision;}
-    else base=other?other.revision:revision;
-   }else base=(await fetchServer())?.revision??0;
+    if(other&&other.id!==id){
+     // otherId null means none was active when the user chose: a newer one is never discarded unseen.
+     if(otherId!==undefined&&other.id!==otherId)throw Object.assign(Error('Another workout is now in progress on another device.'),{code:'other_changed'});
+     await api.deleteWorkout({id:other.id,revision:other.revision});base=revision;
+    }else base=other?other.revision:revision;
+   }else{
+    const server=await fetchServer();
+    finishedElsewhere=server?.log.status==='finished';
+    base=server?.revision??0;
+   }
    if(disposed)return;
    await settle();
    if(disposed)return;
-   reason=null;rebase(base,log);change(log);
+   const next=transform(structuredClone(log));
+   // The server rejects reactivating a finished log, which would pause sync with no way forward.
+   if(finishedElsewhere&&next.status!=='finished')throw Object.assign(Error('This workout was finished on another device.'),{code:'finished_elsewhere'});
+   reason=null;rebase(base,next);change(next);
    await autosave.flush().catch(()=>{});
   },
   async useSaved(){

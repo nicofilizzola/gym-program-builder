@@ -1,7 +1,7 @@
 import {MUSCLE_GROUPS} from './muscles.js';
-import {EQUIPMENT} from './catalog.js';
+import {EQUIPMENT,CATALOG_NAME_MAX} from './catalog.js';
 
-export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30});
+export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:CATALOG_NAME_MAX,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30});
 
 const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,3})?(Z|[+-]\d\d:\d\d)$/;
 const pad=(n,w=2)=>String(n).padStart(w,'0');
@@ -86,7 +86,7 @@ function validateExercise(ex,i,finished){
  const where=`Exercise ${i+1}`;
  if(!isObject(ex)||!isText(ex.id))return fail(`${where}: Invalid exercise.`);
  if(![ex.variantId,ex.referenceId].every(v=>v===null||isText(v))||(ex.variantId===null)!==(ex.referenceId===null))return fail(`${where}: Invalid catalog link.`);
- if(typeof ex.name!=='string'||ex.name===''||ex.name.length>WORKOUT_LIMITS.nameMax)return fail(`${where}: Name must be 1–120 characters.`);
+ if(typeof ex.name!=='string'||ex.name===''||ex.name.length>WORKOUT_LIMITS.exerciseNameMax)return fail(`${where}: Name must be 1–${WORKOUT_LIMITS.exerciseNameMax} characters.`);
  if(ex.equipment!==null&&!EQUIPMENT.includes(ex.equipment))return fail(`${where}: Invalid equipment.`);
  const primary=validateMuscles(ex.primaryMuscles,where);if(primary.error)return primary;
  const secondary=validateMuscles(ex.secondaryMuscles,where);if(secondary.error)return secondary;

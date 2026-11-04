@@ -249,3 +249,49 @@ test('resume leaves a conflict to the conflict flow',async()=>{
  sync.change(log());timers.run(400);await settle();await sync.resume();
  assert.equal(calls.length,1);assert.equal(statuses.at(-1),'Conflict');sync.dispose();
 });
+
+test('keepLocal never re-activates a finished server copy; a finishing transform saves it finished at the server revision',async()=>{
+ const finishedAt='2026-11-03T19:00:00.000+01:00';
+ const server={id:'w1',revision:7,log:log({name:'Server',status:'finished',finishedAt})};
+ const calls=[];let conflict=true;
+ const api={getWorkout:async()=>structuredClone(server),
+  saveWorkout:async({id,revision,log:l})=>{
+   calls.push([revision,l.status,l.name]);
+   if(conflict){conflict=false;throw httpError(409,'revision_conflict');}
+   if(revision===server.revision&&l.status==='active')throw httpError(400);
+   return {id,revision:revision+1,log:l};
+  }};
+ const {sync,storage,timers,conflicts,statuses}=make({api,record:{id:'w1',revision:5,log:log()}});
+ sync.change(log({name:'Local'}));timers.run(400);await settle();assert.deepEqual(conflicts,['revision_conflict']);
+ assert.equal((await sync.savedVersion()).log.status,'finished');
+ // Without finishing, Keep is refused before any save: the local copy and the conflict stay.
+ await assert.rejects(sync.keepLocal(),{code:'finished_elsewhere',message:'This workout was finished on another device.'});
+ assert.equal(calls.length,1);assert.equal(readMirror(storage).log.name,'Local');assert.equal(readMirror(storage).dirty,true);
+ // Finishing the local copy saves it over the finished server copy.
+ await sync.keepLocal({transform:l=>({...l,status:'finished',finishedAt})});
+ assert.deepEqual(calls.at(-1),[7,'finished','Local']);assert.equal(sync.revision,8);
+ assert.equal(readMirror(storage),null,'a synced finish clears the mirror');assert.equal(statuses.at(-1),'Saved');sync.dispose();
+});
+
+test('keepLocal for active_exists only discards the workout that was confirmed',async()=>{
+ const deleted=[];let active={id:'third',revision:2,log:log({id:'third'})};let conflict=true;
+ const api={activeWorkout:async()=>active,deleteWorkout:async args=>{deleted.push(args);},
+  saveWorkout:async({id,revision,log:l})=>{if(conflict){conflict=false;throw httpError(409,'active_exists');}return {id,revision:revision+1,log:l};}};
+ const {sync,timers}=make({api});
+ sync.change(log({name:'Local'}));timers.run(400);await settle();
+ await assert.rejects(sync.keepLocal({otherId:'other'}),{code:'other_changed'});
+ await assert.rejects(sync.keepLocal({otherId:null}),{code:'other_changed'},'none was active when chosen');
+ assert.deepEqual(deleted,[]);
+ active={id:'other',revision:4,log:log({id:'other'})};
+ await sync.keepLocal({otherId:'other'});
+ assert.deepEqual(deleted,[{id:'other',revision:4}]);assert.equal(sync.revision,1);sync.dispose();
+});
+
+test('resume replays a paused non-network failure (Retry)',async()=>{
+ let fail=true;const calls=[];
+ const api={saveWorkout:async({id,revision,log:l})=>{calls.push(revision);if(fail)throw httpError(400);return {id,revision:revision+1,log:l};}};
+ const {sync,timers,statuses}=make({api,record:{id:'w1',revision:2,log:log()}});
+ sync.change(log({name:'Set'}));timers.run(400);await settle();
+ assert.equal(statuses.at(-1),'Couldn’t save');assert.equal(timers.tasks.size,0);
+ fail=false;await sync.resume();assert.deepEqual(calls,[2,2]);assert.equal(statuses.at(-1),'Saved');sync.dispose();
+});

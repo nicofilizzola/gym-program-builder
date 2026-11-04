@@ -4,12 +4,11 @@ import {mountExercisePicker} from './exercise-picker.js';
 import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {validateWorkoutLog,WORKOUT_LIMITS} from './workout-log.js';
-import {setLogName,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,removeSet,updateSet,toggleSetDone,undoneSetCount,finishWorkout} from './workout-edit.js';
+import {setLogName,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,removeSet,updateSet,toggleSetDone,confirmFinish} from './workout-edit.js';
 import {formatLastTime,setPlaceholder,formatElapsed} from './workout-sets.js';
 import {createSetRow,updateSetRow} from './workout-set-row.js';
 
 const LAST_EXERCISE='A workout needs at least one exercise. Delete the workout instead.';
-const NO_SETS='Log at least one set, or discard the workout.';
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const uid=()=>crypto.randomUUID();
 
@@ -29,14 +28,14 @@ function collapseOut(part,animate){
 const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],secondaryMuscles:[]};
 
 /** Active workout logger: sticky header, exercise cards with set rows, add/swap/remove/reorder and Finish. */
-export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{}}){
+export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onRetry=()=>{}}){
  let log=structuredClone(initial),last=lastTime,destroyed=false,busy=false,addPicker=null,sortable=null;
  const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
  const page=document.createElement('section');page.className='workout-logger';page.dataset.mode=mode;if(readOnly)page.dataset.readonly='true';
- page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span></p><p class="error logger-message" role="alert"></p></header><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
+ page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
  const $=selector=>page.querySelector(selector);
- const times=$('.logger-times'),dateInput=$('.logger-date'),startInput=$('.logger-start'),endInput=$('.logger-end'),title=$('.logger-title'),nameInput=$('.logger-name'),finish=$('.logger-finish'),more=$('.logger-more'),elapsed=$('.logger-elapsed'),statusText=$('.logger-status'),message=$('.logger-message');
+ const times=$('.logger-times'),dateInput=$('.logger-date'),startInput=$('.logger-start'),endInput=$('.logger-end'),title=$('.logger-title'),nameInput=$('.logger-name'),finish=$('.logger-finish'),more=$('.logger-more'),elapsed=$('.logger-elapsed'),statusText=$('.logger-status'),retryButton=$('.logger-retry'),message=$('.logger-message');
  const list=$('.log-exercises'),empty=$('.log-empty'),addArea=$('.log-picker'),addHost=addArea.firstElementChild,addCancel=addArea.lastElementChild,addButton=$('.log-add-exercise');
  const tooltips=mountActionTooltips(page),menu=mountReorderMenu({label:'Workout actions'}),moveMenu=mountReorderMenu();
  nameInput.readOnly=!editable;finish.hidden=!active;more.hidden=addButton.hidden=!editable;times.hidden=mode!=='finished'||readOnly;
@@ -231,11 +230,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  }
  finish.addEventListener('click',()=>run(async()=>{
   say('');
-  if(!log.exercises.some(e=>e.sets.some(s=>s.done))){say(NO_SETS);return;}
-  const open=undoneSetCount(log);
-  if(open&&!await confirmAction({title:'Finish workout?',message:`${open===1?'1 set':`${open} sets`} not completed — finish anyway? Uncompleted sets will be removed.`,confirmLabel:'Finish workout',signal:confirmations.signal}))return;
-  if(destroyed)return;
-  const result=finishWorkout(log,new Date());
+  const result=await confirmFinish(()=>destroyed?null:log,{confirm:options=>confirmAction({...options,signal:confirmations.signal}),now:()=>new Date()});
+  if(result.cancelled)return;
   if(result.error){say(result.error);return;}
   log=result.log;onChange(structuredClone(log));
   await onFinish(structuredClone(log));
@@ -250,6 +246,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
    if(!destroyed)await onDelete();
   })}]),{signal});
  for(const input of [dateInput,startInput,endInput])input.addEventListener('change',changeTimes,{signal});
+ retryButton.addEventListener('click',()=>{Promise.resolve(onRetry()).catch(()=>{});},{signal});
 
  const tick=()=>{if(!destroyed&&active)elapsed.textContent=formatElapsed(Date.now()-Date.parse(log.startedAt));};
  const timer=active?setInterval(tick,60000):null;
@@ -259,7 +256,14 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  return {
   setLog(value){if(destroyed)return;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();},
   setLastTime(map){if(destroyed)return;last=map;if(map)for(const id of Object.keys(map))unavailable.delete(id);render();},
-  setStatus(text){if(!destroyed)statusText.textContent=text;},
+  /** A paused non-network failure (`Couldn’t save`) shows Retry; other statuses retry by themselves or have their own flow. */
+  setStatus(text){
+   if(destroyed)return;
+   statusText.textContent=text;
+   const hide=!(active&&text==='Couldn’t save');
+   if(hide&&document.activeElement===retryButton)title.focus({preventScroll:true});
+   retryButton.hidden=hide;
+  },
   /** True while a finished log has a set still showing `Enter reps`, which is not saved. */
   hasUnsavedDraft(){return mode==='finished'&&editable&&[...page.querySelectorAll('.log-set-error')].some(e=>e.textContent==='Enter reps');},
   focusTitle(){title.focus({preventScroll:true});},

@@ -135,7 +135,7 @@ function showLogin(resuming=false){
  });
  form.elements.password.focus();
 }
-document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();setSignedOut(true);queue?.dispose();queue=null;active=null;clearView();showLogin();})));
+document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await workouts.flush();await api.logout();setSignedOut(true);workouts.signOut();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
 profileButton.addEventListener('click',action(()=>navigate('#/profile')));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
 reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='workout'){const owned=queue,saved=await api.getWorkout(active.id);if(queue!==owned)return;owned.reload(workoutRecord(saved));message.textContent='';mounted?.setLog?.(saved.log);return;}if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
@@ -289,6 +289,7 @@ async function prepareWorkout(route){
    },
    onFinish:()=>binding?.onFinish(),
    onDiscard:()=>binding?.onDiscard(),
+   onRetry:()=>binding?.onRetry(),
    onLastTimeNeeded:ids=>binding?binding.onLastTimeNeeded(ids):editFinished?finishedLastTime(ids):Promise.resolve()});
   const finishedLastTime=async ids=>{
    const map=await api.lastTime({variantIds:ids,exclude:route.id});

@@ -1,6 +1,6 @@
 import {logExerciseFromEntry,normalizeLogName,toLocalIso,validateWorkoutLog} from './workout-log.js';
 
-const NO_SETS='Log at least one set, or discard the workout.';
+export const NO_SETS='Log at least one set, or discard the workout.';
 
 const mapExercise=(log,exerciseId,fn)=>{
  if(!log.exercises.some(e=>e.id===exerciseId))return log;
@@ -60,6 +60,26 @@ export function finishWorkout(log,now){
  if(!exercises.length)return {error:NO_SETS};
  const result=validateWorkoutLog({...log,status:'finished',finishedAt:toLocalIso(now),exercises});
  return result.error?{error:result.error}:{log:result.log};
+}
+
+/** The standard warning before finishing a log with undone sets, or null when every set is done. */
+export function finishConfirmation(log){
+ const open=undoneSetCount(log);
+ return open?{title:'Finish workout?',message:`${open===1?'1 set':`${open} sets`} not completed — finish anyway? Uncompleted sets will be removed.`,confirmLabel:'Finish workout'}:null;
+}
+
+/**
+ * The one finish flow: refuses a log without done sets, confirms undone sets, then finishes the latest log.
+ * `read` returns the current log, or null once the caller no longer owns it. Resolves {log}, {error} or {cancelled:true}.
+ */
+export async function confirmFinish(read,{confirm,now}){
+ const before=read();
+ if(!before)return {cancelled:true};
+ if(!before.exercises.some(e=>e.sets.some(s=>s.done)))return {error:NO_SETS};
+ const ask=finishConfirmation(before);
+ if(ask&&!await confirm(ask))return {cancelled:true};
+ const current=read();
+ return current?finishWorkout(current,now()):{cancelled:true};
 }
 
 const DATE=/^(\d{4})-(\d\d)-(\d\d)$/,TIME=/^(\d\d):(\d\d)$/;
