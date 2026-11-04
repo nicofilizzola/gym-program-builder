@@ -1,4 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
+import {normalizeProfile} from '../src/profile.js';
 import {runProgramEvaluation} from '../scripts/evaluate-program-analysis.js';
 import {programAnalysisFixtures} from './fixtures/analysis-programs.js';
 test('program evaluation requires one explicit valid fixture and live flag before spending',async()=>{
@@ -26,6 +27,6 @@ test('program evaluation passes the fixture athlete background as server-owned a
    athlete=JSON.parse(JSON.parse(init.body).messages[1].content).athlete;
    return new Response('data: '+JSON.stringify({choices:[{delta:{content:'Program review'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n',{headers:{'content-type':'text/event-stream'}});
   }});
-  assert.equal(result.exitCode,0);assert.deepEqual(athlete,{trainingBackgroundAndApproach:expected});
+  assert.equal(result.exitCode,0);assert.deepEqual(athlete,normalizeProfile({...programAnalysisFixtures[fixture].athlete,trainingBackgroundAndApproach:expected}));
  }
 });

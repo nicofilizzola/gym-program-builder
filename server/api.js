@@ -1,4 +1,5 @@
 import {MAX_DOCUMENT_BYTES} from '../src/document-file.js';
+import {normalizeProfile} from '../src/profile.js';
 import {domainError} from './repository.js';
 import {validateProgramAnalysisSnapshot,PROGRAM_ANALYSIS_MAX_BYTES} from '../src/program-analysis-input.js';
 const statuses={INVALID:400,UNAUTHORIZED:401,FORBIDDEN:403,NOT_FOUND:404,METHOD:405,CONFLICT:409,IN_USE:409,TOO_LARGE:413,RATE_LIMIT:429};
@@ -31,8 +32,8 @@ export function createApi({repository,commands,catalog,auth,origin,analysis,prof
           if(!analysis?.enabled)return respond({error:{code:'CONFIGURATION',message:'Program analysis is not configured.'}},503);
           const data=await body(request,PROGRAM_ANALYSIS_MAX_BYTES);
           const snapshot=validateProgramAnalysisSnapshot(data.snapshot);
-          // The background is server-owned profile data; the validated snapshot never carries a client copy.
-          const athlete={trainingBackgroundAndApproach:profile?(await profile.get()).profile.trainingBackgroundAndApproach:''};
+          // The profile is server-owned; the validated snapshot never carries a client copy.
+          const athlete=normalizeProfile(profile?(await profile.get()).profile:undefined);
           return await analysis.analyze({...snapshot,athlete},{signal:request.signal});
         }catch(error){
           const allowed={INVALID:400,TOO_LARGE:413,CONFIGURATION:503,CREDITS:402,RATE_LIMIT:429,PROVIDER:502,TIMEOUT:504},status=allowed[error.code]||502,details={};
