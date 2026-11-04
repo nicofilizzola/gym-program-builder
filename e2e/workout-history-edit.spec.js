@@ -74,6 +74,7 @@ test('a finished workout edits online with autosave',async({page})=>{
  await page.getByRole('button',{name:`Add set, ${first}`,exact:true}).click();
  await expect(page.getByLabel(`Set 2 weight, ${first}`,{exact:true})).toHaveValue('80');
  await expect(page.getByLabel(`Set 2 reps, ${first}`,{exact:true})).toHaveValue('10');
+ await expect(page.getByRole('group',{name:`Set 2 RIR, ${first}`}).getByRole('button',{name:'2',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect.poll(async()=>{const s=(await serverRecord(page,log.id)).log.exercises[0].sets;return s.length+':'+s[1]?.done;}).toBe('2:true');
 
  // Removing the last set of an exercise removes the exercise after confirming.
@@ -108,6 +109,27 @@ test('a new set with no derivable reps stays unsaved until reps are entered',asy
  expect((await serverRecord(page,log.id)).log.exercises.length).toBe(2);
  await added.locator('input[data-field="reps"]').fill('12');
  await expect.poll(async()=>(await serverRecord(page,log.id)).log.exercises.length).toBe(3);
+});
+
+test('valid edits save beside an incomplete set, and leaving asks before dropping it',async({page})=>{
+ const {log,names:[first]}=await setup(page);
+ await open(page,log.id);
+ await page.getByRole('button',{name:'Add exercise',exact:true}).click();
+ await page.getByRole('combobox',{name:'Exercise'}).fill('curl');
+ await page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').first().click();
+ await expect(page.locator('.log-exercise').last().locator('.log-set-error')).toHaveText('Enter reps');
+ await page.getByLabel(`Set 1 reps, ${first}`,{exact:true}).fill('7');
+ await expect.poll(async()=>(await serverRecord(page,log.id)).log.exercises[0].sets[0].reps).toBe(7);
+ expect((await serverRecord(page,log.id)).log.exercises.length).toBe(2);
+ await page.getByRole('link',{name:'Workouts',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Discard unsaved changes?'});
+ await expect(dialog).toBeVisible();
+ await dialog.getByRole('button',{name:'Cancel'}).click();
+ await expect(page).toHaveURL(new RegExp('#/workouts/'+log.id));
+ await expect(page.locator('.log-exercise').last().locator('.log-set-error')).toHaveText('Enter reps');
+ await page.getByRole('link',{name:'Workouts',exact:true}).click();
+ await page.getByRole('dialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Discard and leave'}).click();
+ await expect(page).toHaveURL(/#\/workouts$/);
 });
 
 test('delete and conflict on finished workouts',async({page})=>{

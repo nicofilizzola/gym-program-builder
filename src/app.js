@@ -93,6 +93,7 @@ function track(record,{project=value=>value}={}){
  return document=>{if(queue!==owned||active?.id!==record.id)return;active.document=document;updateCurrentBreadcrumb(document);owned.change(document);};
 }
 async function leave(){
+ if(mounted?.hasUnsavedDraft?.()&&!await confirmCurrent({title:'Discard unsaved changes?',message:'A set without reps is not saved. Discard it and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;
  if(!queue?.isDirty())return true;
  try{await queue.flush();return true;}catch(error){report(error);if(error.status===401)return false;if(!await confirmCurrent({title:'Discard unsaved changes?',message:'Changes could not be saved. Discard them and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;return true;}
 }
@@ -109,7 +110,7 @@ document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('cli
  if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
  event.preventDefault();action(()=>navigate(link.hash))();
 }));
-window.addEventListener('beforeunload',event=>{if(queue?.isDirty()){event.preventDefault();event.returnValue='';}});
+window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(location.hash||'#/programs',{push:false});}));
 function showLogin(resuming=false){
  cancelActiveConfirmation();
@@ -294,7 +295,7 @@ async function prepareWorkout(route){
    if(mounted?.setLog&&logger)logger.setLastTime(map);
   };
   if(owned)binding=workouts.attach(route.id,handlers);
-  mounted={destroy(){binding?.detach();logger.destroy();},setLog:value=>logger.setLog(value)};
+  mounted={destroy(){binding?.detach();logger.destroy();},setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft()};
  };
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;

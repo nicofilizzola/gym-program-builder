@@ -43,6 +43,12 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
 
  // In a finished log every set is a completed set; an added exercise starts with one that still needs reps.
  const withDoneSets=next=>mode==='finished'?{...next,exercises:next.exercises.map((e,i)=>i===next.exercises.length-1?{...e,sets:e.sets.map(s=>({...s,done:true}))}:e)}:next;
+ /** The log without done sets that lack reps (and exercises left empty), or null when every set is complete. */
+ function withoutIncompleteSets(value){
+  const incomplete=s=>s.done&&s.reps===null;
+  if(!value.exercises.some(e=>e.sets.some(incomplete)))return null;
+  return {...value,exercises:value.exercises.map(e=>({...e,sets:e.sets.filter(s=>!incomplete(s))})).filter(e=>e.sets.length)};
+ }
  const find=id=>log.exercises.find(e=>e.id===id);
  const lastSets=ex=>ex.variantId&&last&&!unavailable.has(ex.variantId)?last[ex.variantId]?.sets:undefined;
  function lastText(ex){
@@ -57,8 +63,13 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   timeError=false;
   const result=validateWorkoutLog(next);
   if(result.error&&mode==='finished'){
-   // A finished log may be mid-fix (a new set still needs reps): keep the draft, report nothing, save nothing.
-   log=next;say('');render({animate});return true;
+   // Only an incomplete set (done, no reps) is tolerated: it stays on screen while the rest of the edit saves without it.
+   const saveable=withoutIncompleteSets(next);
+   if(saveable){
+    const rest=validateWorkoutLog(saveable);
+    if(rest.error&&saveable.exercises.length){say(rest.error);render();return false;}
+    log=next;say('');render({animate});if(!rest.error)onChange(structuredClone(rest.log));return true;
+   }
   }
   if(result.error){say(result.error);render();return false;}
   log=result.log;say('');render({animate});onChange(structuredClone(log));return true;
@@ -129,7 +140,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  function inheritedValues(exerciseId){
   const ex=find(exerciseId),index=ex.sets.length-1,previous=ex.sets[index];if(!previous)return {done:true};
   const ph=setPlaceholder(ex,index,lastSets(ex))||{};
-  return {done:true,weightKg:previous.weightKg??ph.weightKg??null,reps:previous.reps??ph.reps??null,rir:previous.rir??ph.rir??null};
+  // Recorded values only: a blank weight stays bodyweight and a blank RIR stays blank; reps may fall back to the placeholder.
+  return {done:true,weightKg:previous.weightKg,reps:previous.reps??ph.reps??null,rir:previous.rir};
  }
  function toggle(exerciseId,setId){
   const ex=find(exerciseId),index=ex.sets.findIndex(s=>s.id===setId);
@@ -248,6 +260,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   setLog(value){if(destroyed)return;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();},
   setLastTime(map){if(destroyed)return;last=map;if(map)for(const id of Object.keys(map))unavailable.delete(id);render();},
   setStatus(text){if(!destroyed)statusText.textContent=text;},
+  /** True while a finished log has a set still showing `Enter reps`, which is not saved. */
+  hasUnsavedDraft(){return mode==='finished'&&editable&&[...page.querySelectorAll('.log-set-error')].some(e=>e.textContent==='Enter reps');},
   focusTitle(){title.focus({preventScroll:true});},
   destroy(){
    destroyed=true;clearInterval(timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();tooltips.destroy();
