@@ -103,3 +103,41 @@ test('an empty profile renders no hint elements',async({page})=>{
  await expect(page.locator('[data-duration-total]')).toHaveText('~30 min');
  await expect(page.locator('[data-limit-hint]')).toHaveCount(0);
 });
+
+test('a hung profile request never blocks program or editor routes; hints appear once it settles',async({page})=>{
+ await login(page);await saveProfile(page,LIMITS);const {program,long}=await seed(page);
+ const held=[];
+ await page.route('**/api/profile',route=>{if(route.request().method()!=='GET')return route.continue();held.push(route);});
+ await page.goto('/#/programs/'+program.id);await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Hint week');
+ await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
+ await expect(page.locator('[data-limit-hint]')).toHaveCount(0);
+ await page.getByLabel('Program name',{exact:true}).fill('Hint week held');await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ await expect.poll(()=>held.length).toBeGreaterThan(0);
+ for(const route of held.splice(0))await route.continue();
+ await expect(page.locator('[data-weekly-panel] [data-limit-hint]')).toHaveText('2 training days · max 1');
+ await expect(longCard(page).locator('[data-limit-hint]')).toHaveText('over 20 min max');
+ await page.goto('/#/templates/'+long.id);await expect(page.getByLabel('Session template name')).toHaveValue('Long push');
+ await expect(page.locator('[data-limit-hint]')).toHaveCount(0);
+ await page.getByLabel('Session template name').fill('Long push held');await expect(page.getByTestId('save-status')).toHaveText('Saved');
+ await expect.poll(()=>held.length).toBeGreaterThan(0);
+ for(const route of held.splice(0))await route.continue();
+ await expect(page.locator('.duration-toggle [data-limit-hint]')).toHaveText('over 20 min max');
+ await page.unroute('**/api/profile');
+});
+
+test('an older profile response never replaces a newer one',async({page})=>{
+ await login(page);await saveProfile(page,LIMITS);const {program}=await seed(page);
+ const held=[];
+ await page.route('**/api/profile',route=>{if(route.request().method()==='GET'&&!held.length){held.push(route);return;}return route.continue();});
+ await page.goto('/#/programs/'+program.id);await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Hint week');
+ await expect.poll(()=>held.length).toBe(1);
+ // A newer focus revalidation answers first with the saved limits.
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect(page.locator('[data-weekly-panel] [data-limit-hint]')).toHaveText('2 training days · max 1');
+ // The stale route-entry response (no limits) arrives last and must be ignored.
+ await held[0].fulfill({json:{revision:0,profile:{}}});
+ await page.waitForTimeout(300);
+ await expect(page.locator('[data-weekly-panel] [data-limit-hint]')).toHaveText('2 training days · max 1');
+ await expect(longCard(page).locator('[data-limit-hint]')).toHaveText('over 20 min max');
+ await page.unroute('**/api/profile');
+});

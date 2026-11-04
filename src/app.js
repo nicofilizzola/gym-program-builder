@@ -146,9 +146,12 @@ window.addEventListener('focus',()=>{refreshActive().catch(report);refreshLimitH
 /** Profile limits for non-blocking hints. Any failure resolves to null, which silently hides hints. */
 const loadLimitProfile=()=>api.getProfile().then(saved=>normalizeProfile(saved.profile)).catch(()=>null);
 function applyLimitProfile(view,profile){view.setProfile?.(profile);view.setMaxSessionMinutes?.(profile?.maxSessionMinutes??null);}
+// Each load takes a token when issued; only the latest load's response may apply, and only to the same mounted view.
+let limitRequest=0;
+function applyLimitLoad(view,load){const token=++limitRequest;load.then(profile=>{if(token===limitRequest&&view===limitView&&view===mounted)applyLimitProfile(view,profile);});}
 function refreshLimitHints(){
  const view=limitView;if(!authenticated||!view||view!==mounted)return;
- loadLimitProfile().then(profile=>{if(view===limitView&&view===mounted)applyLimitProfile(view,profile);});
+ applyLimitLoad(view,loadLimitProfile());
 }
 async function refreshActive(){
  if(refreshing||!authenticated||!active||transitioning)return;
@@ -203,9 +206,9 @@ async function importFile(kind,file,version,{replace=false}={}){
  if(replace)await renderRoute();else await navigate(`#/${kind==='program'?'programs':'templates'}/${result.record.id}`);
 }
 async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
- let mountProgramView,templates,bundle,limitProfile;
- if(record.kind==='program'){const [module,items,loaded,profile]=await Promise.all([import('./program-view.js'),api.list('template'),api.programBundle(record.id),profileLoad]);mountProgramView=module.mountProgramView;templates=items;bundle=loaded;record=bundle.record;limitProfile=profile;}
- else limitProfile=await profileLoad;
+ // The profile never delays route entry: views mount without hints and adopt them when the load settles.
+ let mountProgramView,templates,bundle;
+ if(record.kind==='program'){const [module,items,loaded]=await Promise.all([import('./program-view.js'),api.list('template'),api.programBundle(record.id)]);mountProgramView=module.mountProgramView;templates=items;bundle=loaded;record=bundle.record;}
  return ()=>{
   programTemplates=bundle?.templates||[];
   const onChange=track(record,{project:document=>record.kind==='program'?resolveProgram(document,programTemplates):document}),host=createViewHost(),contentHost=host.appendChild(document.createElement('div'));
@@ -213,19 +216,19 @@ async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
   breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
   if(record.kind==='template'){
    const editorHost=contentHost;
-   mounted=mountSessionEditor(editorHost,{api,workout:active.document,maxSessionMinutes:limitProfile?.maxSessionMinutes??null,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
-   limitView=mounted;
+   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
+   limitView=mounted;applyLimitLoad(mounted,profileLoad);
    if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
   }else{
    let attachRequest;
    host.classList.add('program-route');const reviewDock=document.createElement('aside');reviewDock.className='review-dock';host.append(reviewDock);
-   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,profile:limitProfile,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
+   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
     const owned=queue,version=mountedVersion;await owned.flush();if(owned!==queue)return;
     attachRequest??={operationId:uid(),programId:record.id,revision:active.revision,templateId:uid(),occurrenceId:uid(),template:{...createTemplate(),name:'Untitled workout'}};
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
     programTemplates=result.templates;owned.reload(result.record);mounted.update(resolveProgram(result.record.document,programTemplates));
    })});
-   limitView=mounted;
+   limitView=mounted;applyLimitLoad(mounted,profileLoad);
    const programView=mounted;api.analysisCapability().then(result=>{if(mounted===programView)programView.setAnalysisEnabled(result.enabled);}).catch(()=>{if(mounted===programView)programView.setAnalysisEnabled(false);});
   }
  };
