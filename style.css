@@ -1672,12 +1672,14 @@ p.limit-hint {display:flex}
 .day-limit-hints {display:grid;gap:2px;padding:0 0 6px}
 .day-limit-hints .limit-hint {align-items:flex-start}
 .day-limit-hints .limit-hint svg {margin-top:.125em}
+/* Wide day rows: hints sit in the content column above the sessions (aligned with the cards, beside the
+   floated label), so short hint text stays on one line instead of wrapping in the narrow label column. */
 @container day (min-width:30rem) {
-  .week-agenda .day-limit-hints {float:left;clear:left;width:4.875rem}
+  .week-agenda .day-limit-hints {margin-left:calc(4.875rem + 12px)}
 }
 @media (min-width:1600px) {
   @container day (min-width:30rem) {
-    .week-agenda .day-limit-hints {width:6rem}
+    .week-agenda .day-limit-hints {margin-left:calc(6rem + 12px)}
   }
 }
 .weekly-panel-heading .limit-hint {margin-top:2px}

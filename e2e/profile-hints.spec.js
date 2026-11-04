@@ -55,6 +55,36 @@ test('program hints show long sessions, day limits and training days, and Sequen
  await expect(duration).toHaveText('Estimated duration ~30 min · over 20 min max (set in Profile)');
 });
 
+for(const [width,height] of [[1366,768],[1440,900]]){
+ test(`Week day hints sit in the content column and add at most one hint line at ${width}x${height} (regression: label-column wrap)`,async({page})=>{
+  await page.setViewportSize({width,height});
+  await login(page);await saveProfile(page,{});const {program}=await seed(page);
+  await page.goto('/#/programs/'+program.id);await expect(page.getByLabel('Program name',{exact:true})).toHaveValue('Hint week');
+  const rowHeight=name=>day(page,name).evaluate(el=>el.getBoundingClientRect().height);
+  const plain={Monday:await rowHeight('Monday'),Wednesday:await rowHeight('Wednesday')};
+  await saveProfile(page,LIMITS);await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(dayHint(page,'Wednesday')).toHaveText('Not an available day');
+  await expect(dayHint(page,'Monday')).toHaveText('2 sessions · max 1');
+  for(const name of ['Monday','Wednesday']){
+   const m=await day(page,name).evaluate(section=>{
+    const hints=section.querySelector('[data-day-limit-hints]'),hint=hints.querySelector('[data-limit-hint]'),label=section.querySelector('h2'),list=section.querySelector('.workout-list');
+    const r=el=>el.getBoundingClientRect(),style=getComputedStyle(hint);
+    return {row:r(section).height,line:parseFloat(style.lineHeight),padding:parseFloat(getComputedStyle(hints).paddingBottom),
+     hintHeight:r(hint).height,hintLeft:r(hints).left,hintRight:r(hints).right,labelRight:r(label).right,listLeft:r(list).left,sectionRight:r(section).right,
+     overflow:hints.scrollWidth>hints.clientWidth||hint.scrollWidth>hint.clientWidth};
+   });
+   // Single line, in the content column (aligned with the cards, right of the label), never overflowing.
+   expect(m.hintHeight).toBeLessThan(m.line*1.5);
+   expect(m.hintLeft).toBeGreaterThanOrEqual(m.labelRight);
+   expect(Math.abs(m.hintLeft-m.listLeft)).toBeLessThanOrEqual(1);
+   expect(m.hintRight).toBeLessThanOrEqual(m.sectionRight+0.5);
+   expect(m.overflow).toBe(false);
+   // At most one hint line (plus the hints' bottom padding) taller than the same row without hints.
+   expect(m.row-plain[name]).toBeLessThanOrEqual(m.line+m.padding+1);
+  }
+ });
+}
+
 test('shared editor duration readout shows the over-max suffix live without motion',async({page})=>{
  await page.setViewportSize({width:1440,height:900});
  await login(page);await saveProfile(page,LIMITS);const {program}=await seed(page);
