@@ -2082,3 +2082,138 @@ p.limit-hint {display:flex}
 .superset-rest-note {margin:0;color:var(--muted);font-size:.875rem;align-self:center}
 @media (min-width:1100px) {.superset {--exercise-padding:var(--card-padding)}}
 @media (prefers-reduced-motion:reduce) {.superset,.superset::before {transition:none}}
+/* Workout history */
+.workout-history {max-width:40rem;margin:auto;padding:32px 24px}
+.workout-history-day {margin:20px 0 8px;font-size:.875rem;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.workout-history-list {list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.workout-history-row {position:relative;display:grid;gap:4px;padding:12px 16px;min-height:44px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);transition:border-color 150ms ease-out,background-color 150ms ease-out}
+.workout-history-row:hover {border-color:var(--muted);background:var(--surface-2)}
+.workout-history-row:has(a:focus-visible) {outline:2px solid var(--accent);outline-offset:2px}
+.workout-history-row h3 {margin:0;font-size:1.125rem;overflow-wrap:anywhere}
+.workout-history-row h3 a {color:var(--text);text-decoration:none}
+.workout-history-row h3 a:focus-visible {outline:none}
+.workout-history-row h3 a::after {content:"";position:absolute;inset:0}
+.workout-history-meta {display:flex;flex-wrap:wrap;gap:2px 12px;margin:0;color:var(--muted);font-size:.875rem}
+.workout-history-meta span {overflow-wrap:anywhere}
+.workout-history-unsynced {justify-self:start;padding:1px 8px;border:1px solid var(--under);border-radius:999px;color:var(--under);background:var(--under-soft);font-size:.75rem;font-weight:600}
+.workout-history-more {display:flex;justify-content:center;margin-top:16px}
+.workout-history .empty {margin:24px 0;color:var(--muted)}
+@media(max-width:600px){.workout-history{padding:16px}}
+@media(prefers-reduced-motion:reduce){.workout-history-row{transition:none}}
+
+/* Workout logger: one centered column, sticky header, compact set grid. Add/remove reuse .collapsible (200ms grid-row + fade). */
+.workout-logger {max-width:40rem;margin:0 auto;padding:0 16px 32px}
+@media (min-width:761px) {.workout-logger {padding-inline:24px}}
+.logger-header {position:sticky;top:0;z-index:5;margin-bottom:12px;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--border)}
+.logger-header-row {display:flex;align-items:center;gap:8px}
+.logger-title {flex:1 1 auto;min-width:0;margin:0;border-radius:8px}
+.logger-title:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+.logger-title .logger-name {min-height:44px;padding:4px 8px;border-color:transparent;background:transparent;font-family:var(--font-display);font-size:1.375rem;font-weight:700;letter-spacing:.01em;text-overflow:ellipsis}
+.logger-title .logger-name:hover:not([readonly]) {border-color:var(--border)}
+.logger-title .logger-name:focus {background:var(--surface-2)}
+.logger-finish {flex:none;width:auto;min-height:44px;padding:0 16px;border-radius:8px;font-size:1rem}
+.logger-meta {display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;min-height:1.5em;margin:2px 0 0;padding-inline:8px;color:var(--muted);font-size:.875rem}
+.logger-message {padding-inline:8px}
+.log-exercises,.log-sets {list-style:none;margin:0;padding:0}
+.workout-logger .collapsible > * {margin:0;padding:0}
+.workout-logger .log-set > .log-set-clip {margin:0 -4px;padding:0 4px}
+.log-exercise-card {container-type:inline-size;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.log-exercise-head {display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.log-exercise-identity {min-width:0;padding-top:4px}
+.log-exercise-identity h2 {margin:0;font-size:1.125rem;line-height:1.3;overflow-wrap:anywhere;border-radius:4px}
+.log-exercise-identity h2:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+.log-equipment {margin:0;color:var(--muted)}
+.log-exercise-actions {display:flex;flex:none;gap:4px}
+.log-last-time {margin:6px 0 8px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
+.log-last-label {margin-right:6px;color:var(--text);font-weight:600}
+.log-picker {display:grid;gap:8px;margin:0 0 12px}
+.log-picker > .secondary-btn {justify-self:start}
+.log-set-head,.log-set-row {display:grid;grid-template-columns:1.25rem minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:center}
+.log-set-head {padding:0 4px 2px;color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.log-set-head span {text-align:center}
+.log-set-head-rir {display:none}
+.log-set-row {grid-template-areas:"num weight reps" "extra extra extra";margin:2px 0;padding:4px;border-radius:8px;transition:background-color 150ms ease-out,color 150ms ease-out}
+.log-set-number {grid-area:num;color:var(--muted);font-weight:600;text-align:center;transition:color 150ms ease-out}
+.log-stepper {display:flex;min-width:0;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);transition:border-color 150ms ease-out}
+.log-stepper[data-kind="weight"] {grid-area:weight}
+.log-stepper[data-kind="reps"] {grid-area:reps}
+.log-stepper:focus-within {border-color:var(--accent)}
+.log-stepper:has([aria-invalid="true"]) {border-color:var(--error)}
+.log-stepper input[type="text"] {flex:1 1 auto;width:100%;min-width:0;min-height:44px;padding:0 2px;border:0;border-radius:0;background:transparent;font-variant-numeric:tabular-nums;text-align:center}
+.log-stepper input[type="text"]:focus {box-shadow:none}
+.log-stepper input::placeholder {color:var(--muted);opacity:.75}
+.log-step {display:grid;flex:none;place-items:center;width:44px;min-height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out}
+.log-step:hover {color:var(--text)}
+.log-step:focus-visible {outline-offset:-2px}
+.log-step svg {width:18px;height:18px}
+/* Line two wraps: RIR options keep full touch targets and the done/remove pair moves to its own line when the card is narrow. */
+.log-set-extra {grid-area:extra;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.log-set-actions {display:flex;gap:6px;margin-left:auto}
+.log-rir-label {color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em}
+.log-rir {display:flex;flex:none;gap:2px}
+.log-rir-option {flex:none;width:var(--control-touch);min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.log-rir-option:hover:not(:disabled) {color:var(--text);border-color:var(--muted)}
+.log-rir-option.is-placeholder {border-style:dashed;color:var(--text)}
+.log-rir-option[aria-pressed="true"] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
+.log-rir-option:disabled {cursor:default}
+.log-done {display:grid;flex:none;place-items:center;width:44px;height:44px;margin-left:auto;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.log-done:hover {border-color:var(--accent);color:var(--text)}
+.log-done[aria-pressed="true"] {border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
+.log-done svg {width:22px;height:22px}
+.log-set.is-done .log-set-row {background:var(--accent-soft)}
+.log-set.is-done .log-set-number {color:var(--accent)}
+.log-set-error {grid-column:1/-1;margin:0;color:var(--error);font-size:.8125rem}
+.log-set-error:empty {display:none}
+.log-add-set {margin-top:6px}
+.log-add-exercise {width:100%;justify-content:center}
+.workout-logger .log-empty {margin:0 0 12px;padding:16px}
+/* 360px phones: the RIR caption would wrap alone, so it is hidden; the group keeps its accessible name. */
+@container (max-width:19.5rem) {
+ .log-rir-label {display:none}
+ .log-set-head,.log-set-row {grid-template-columns:1.25rem minmax(0,1.15fr) minmax(0,1fr)}
+}
+/* Enlarged text: kg and reps stack so their inputs keep readable widths; units move inside the steppers. */
+@container (max-width:18rem) {
+ .log-set-head {display:none}
+ .log-set-row {grid-template-columns:2rem minmax(0,1fr);grid-template-areas:"num weight" "num reps" "extra extra"}
+ .log-stepper::after {align-self:center;padding-right:8px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase}
+ .log-stepper[data-kind="weight"]::after {content:"kg"}
+ .log-stepper[data-kind="reps"]::after {content:"reps"}
+}
+.workout-logger[data-mode="finished"] .log-done,.workout-logger[data-readonly] :is(.log-step,.log-remove-set) {display:none}
+.logger-times {display:flex;flex-wrap:wrap;gap:8px 12px;margin:2px 0 0;padding-inline:8px}
+.logger-times label {display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:.8125rem;font-weight:600}
+.logger-times input {min-height:44px;padding:4px 8px;font:inherit;font-size:1rem;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:8px}
+.logger-times input:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
+ .logger-finish {min-height:var(--control-compact)}
+ .logger-title .logger-name {min-height:36px}
+ .logger-times input {min-height:var(--control-compact)}
+ .log-stepper input[type="text"],.log-step,.log-rir-option {min-height:var(--control-compact)}
+ .log-rir-option {width:var(--control-compact)}
+ .log-step {width:var(--control-compact)}
+ .log-done {width:var(--control-compact);height:var(--control-compact)}
+ .log-done svg {width:18px;height:18px}
+ @container (min-width:34rem) {
+  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
+  .log-set-row {grid-template-areas:"num weight reps rir done remove"}
+  .log-set-extra,.log-set-actions {display:contents}
+  .log-rir-label {display:none}
+  .log-set-head-rir {display:block}
+  .log-rir {grid-area:rir;flex:none}
+  .log-done {grid-area:done;margin:0}
+  .log-remove-set {grid-area:remove}
+ }
+}
+
+/* Active workout bar: fixed to the bottom on every route except its own logger; body padding reserves its height.
+   Slides in/out over 180ms ease-out (transform + opacity); instant on initial render and with reduced motion. */
+.workout-bar {position:fixed;right:0;bottom:0;left:0;z-index:20;padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);background:var(--surface);box-shadow:0 -4px 16px #0006;transform:translateY(100%);opacity:0;transition:transform 180ms ease-out,opacity 180ms ease-out}
+.workout-bar.is-open {transform:none;opacity:1}
+.workout-bar-inner {display:flex;align-items:center;gap:12px;max-width:40rem;margin:0 auto}
+.workout-bar-text {flex:1 1 auto;min-width:0;margin:0;font-weight:600;overflow-wrap:anywhere}
+.workout-bar-resume {flex:none;text-decoration:none}
+@media (prefers-reduced-motion:reduce) {.workout-bar {transition:none}}
+/* Session editor toolbar: a labeled primary Start workout leads the file actions at its natural width. */
+.file-actions .add-btn {width:auto;flex:none;min-height:44px;padding:0 16px;font-size:1rem}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.file-actions .add-btn {min-height:var(--control-compact);padding:6px 12px;font-size:.875rem}}

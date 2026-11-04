@@ -75,6 +75,21 @@ Using the authenticated Turso CLI, export the target database with `turso db she
 
 For local SQLite, close the app and database connections before copying the file, or use SQLite's consistent backup command; do not copy a live file without accounting for journals. Keep production backup retention/restore procedures in your Turso account's operational policy. JSON exports preserve individual portable documents but are not a full operational database backup.
 
+## Copying a local database into a new environment
+
+`scripts/copy-database.js` copies every data row from a SQLite file (for example a backup of `local.db`) into an environment's database. It copies everything except `schema_migrations`, `auth_sessions` and `login_attempts`, so copied data never carries login sessions or lockouts. The same command restores a backup into a new isolated database.
+
+1. Close the app, then copy the source file to a private backup outside the repository. Copy from that backup, so a later local edit cannot make environments differ.
+2. Pull the target environment's variables into a private, ignored file, for example `vercel env pull .env.preview.local --environment=preview`. Check that `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are not empty without printing them.
+3. Migrate the target and copy, naming the environment file explicitly (not `npm run db:*`, which also loads `.env.local`):
+
+   ```text
+   node --env-file=.env.preview.local scripts/migrate.js
+   node --env-file=.env.preview.local scripts/copy-database.js --from <backup.db>
+   ```
+
+The copy refuses, and writes nothing, when the source and target migration versions differ, the target lacks a source table, or any copied table in the target already has rows. Otherwise it copies in one transaction, checks each table's row count before committing and prints the counts. Run `scripts/seed-catalog.js` the same way afterwards if the environment should get the starter catalog. Delete the pulled environment file when finished.
+
 ## Password rotation and session revocation
 
 1. Generate a new salted password hash; update `APP_PASSWORD_HASH` in the intended environment.

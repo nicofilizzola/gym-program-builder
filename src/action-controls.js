@@ -22,7 +22,11 @@ const paths={
  unlink:'<path d="m17.5 12.9 2.1-2.1a4.5 4.5 0 0 0-6.4-6.4L11.1 6.5M6.5 11.1l-2.1 2.1a4.5 4.5 0 0 0 6.4 6.4l2.1-2.1M8 2v3M2 8h3M16 22v-3M22 16h-3"/>',
  swap:'<path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3"/>',
  settings:'<path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
- warning:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3v.01"/>'
+ warning:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4m0 3v.01"/>',
+ start:'<path d="M7 4.5v15L19.5 12Z"/>',
+ more:'<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+ check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+ minus:'<path d="M5 12h14"/>'
 };
 export function actionIcon(name){
  return `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths[name]}</svg>`;

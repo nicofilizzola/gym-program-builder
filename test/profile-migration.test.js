@@ -31,7 +31,7 @@ test('migration 007 backs up and removes program training background, keeping ot
  const backup=(await db.execute('SELECT program_id,text,backed_up_at FROM program_context_background_backup ORDER BY program_id')).rows;
  assert.deepEqual(backup.map(r=>[r.program_id,r.text]),[['a','Five years'],['b','Beginner']]);assert.ok(backup.every(r=>r.backed_up_at));
  assert.equal((await db.execute('SELECT count(*) AS n FROM user_profile')).rows[0].n,0);
- assert.equal((await db.execute('SELECT max(version) AS v FROM schema_migrations')).rows[0].v,7);
+ assert.equal((await db.execute('SELECT max(version) AS v FROM schema_migrations')).rows[0].v,8);
  const repository=createRepository(db);assert.deepEqual((await repository.get('a')).document.context,{goalsAndPriorities:'Grow',constraintsAndPreferences:'60 min'});
  await migrate(db);assert.equal((await db.execute("SELECT revision FROM documents WHERE id='a'")).rows[0].revision,4);
  assert.equal((await db.execute('SELECT count(*) AS n FROM program_context_background_backup')).rows[0].n,2);

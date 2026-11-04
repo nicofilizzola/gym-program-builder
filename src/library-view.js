@@ -1,6 +1,6 @@
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 
-export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDuplicate,onDelete,onImport,onExport}) {
+export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDuplicate,onDelete,onImport,onExport,onStartWorkout}) {
   root.innerHTML='<section class="library"><header class="library-heading"><h1></h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-new></button><button type="button" class="secondary-btn" data-import></button><input data-file type="file" accept=".json,application/json" hidden></div></header><div data-items></div><p data-empty class="empty"></p></section>';
   const plural=kind==='program'?'Programs':'Session templates';root.querySelector('h1').textContent=plural;
   const create=root.querySelector('[data-new]');create.innerHTML=actionIcon('plus');create.append(kind==='program'?'New program':'New session template');create.onclick=onCreate;
@@ -18,6 +18,10 @@ export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDup
       link.onclick=event=>{if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();onOpen(record);};
       title.append(link);article.append(title);
       const actions=document.createElement('div');actions.className='item-actions';article.append(actions);
+      if(kind==='template'&&onStartWorkout){
+        const start=document.createElement('button');start.type='button';start.className='action-button';start.innerHTML=actionIcon('start');
+        start.dataset.actionTooltip='Start workout';start.setAttribute('aria-label',`Start workout ${name}`);start.onclick=()=>onStartWorkout(record);actions.append(start);
+      }
       for(const [label,callback] of [['Duplicate',onDuplicate],['Export',onExport],['Delete',onDelete]]) {
         const button=document.createElement('button');button.type='button';button.className=`action-button${label==='Delete'?' action-button--delete':''}`;
         button.innerHTML=actionIcon(label.toLowerCase());button.dataset.actionTooltip=label;button.setAttribute('aria-label',`${label} ${name}`);button.onclick=()=>callback(record);actions.append(button);

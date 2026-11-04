@@ -4,6 +4,7 @@ export const SESSION_MARKUP = `
       <header class="editor-heading"><h1>Session template</h1><label class="field template-name">Session template name <input type="text" data-template-name></label><div data-duration-controls></div></header>
       <div class="toolbar">
         <div class="file-actions">
+          <button id="start-workout" type="button" class="add-btn" hidden>Start workout</button>
           <button id="import-session" type="button" class="secondary-btn">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 15v4h16v-4"/></svg>
             Import

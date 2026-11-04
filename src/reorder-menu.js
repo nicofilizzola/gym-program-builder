@@ -3,10 +3,10 @@ import {tooltipPosition} from './tooltip.js';
 let nextId=0;
 
 /** Ordinary buttons in a top-layer group retain native Tab/Enter/Space behavior. */
-export function mountReorderMenu(){
+export function mountReorderMenu({label='Reorder options'}={}){
  const popup=document.createElement('div');
  popup.id=`reorder-options-${++nextId}`;popup.className='reorder-menu';
- popup.setAttribute('popover','manual');popup.setAttribute('role','group');popup.setAttribute('aria-label','Reorder options');
+ popup.setAttribute('popover','manual');popup.setAttribute('role','group');popup.setAttribute('aria-label',label);
  document.body.append(popup);
  const events=new AbortController(),options={signal:events.signal};
  let trigger=null,anchorRect=null;

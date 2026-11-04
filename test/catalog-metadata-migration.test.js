@@ -49,3 +49,11 @@ test('reference metadata validates single equipment and optional distinct defaul
  for(const patch of [{equipment:undefined},{equipment:'Unknown'},{description:'x'.repeat(2001)},{defaultPrimaryMuscles:['Chest','Chest']},{defaultPrimaryMuscles:['Chest'],defaultSecondaryMuscles:['Chest']}])assert.ok(catalog.validateReference({...ref,...patch}).error);
  assert.ok(catalog.validateReference({...ref,description:'x'.repeat(2000)}).reference);
 });
+
+test('migrations avoid HAVING without GROUP BY, which the remote Turso parser rejects',async t=>{
+ const db=createDb({url:':memory:'});t.after(()=>db.close());
+ const statements=[],record=target=>new Proxy(target,{get:(o,key)=>key==='execute'?(stmt=>{statements.push(typeof stmt==='string'?stmt:stmt.sql);return o.execute(stmt);}):typeof o[key]==='function'?o[key].bind(o):o[key]});
+ await migrate(new Proxy(db,{get:(o,key)=>key==='transaction'?async mode=>record(await o.transaction(mode)):typeof o[key]==='function'?o[key].bind(o):o[key]}));
+ assert.ok(statements.length>8);
+ for(const sql of statements)assert.ok(!/\bHAVING\b/i.test(sql)||/\bGROUP\s+BY\b/i.test(sql),sql);
+});

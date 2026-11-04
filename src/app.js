@@ -17,6 +17,11 @@ import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
 import {normalizeProfile} from './profile.js';
+import {mountWorkoutHistory} from './workout-history-view.js';
+import {readMirror,isNetworkError} from './workout-sync.js';
+import {mountWorkoutLogger} from './workout-logger-view.js';
+import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
+import {mountWorkoutBar} from './workout-bar.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -51,6 +56,14 @@ const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
 function createViewHost(){return app.appendChild(document.createElement('div'));}
+const workoutBar=mountWorkoutBar(document.querySelector('#workout-bar-host'),{onResume:id=>action(()=>navigate('#/workouts/'+id))()});
+const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
+let barRendered=false;
+const startWorkout=action(options=>workouts.start(options));
+// Set by Log out, cleared by a successful sign-in: offline startup never bypasses the password after a sign-out.
+const SIGNED_OUT_KEY='gpb.signedOut';
+function signedOut(){try{return localStorage.getItem(SIGNED_OUT_KEY)==='1';}catch{return false;}}
+function setSignedOut(value){try{if(value)localStorage.setItem(SIGNED_OUT_KEY,'1');else localStorage.removeItem(SIGNED_OUT_KEY);}catch{/* storage unavailable */}}
 function clearView(){limitView=null;cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
@@ -61,9 +74,11 @@ async function transition(work){
   if(document.activeElement===document.body&&invoker?.isConnected&&!invoker.closest('[inert]'))invoker.focus({preventScroll:true});
  }
 }
-function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t save','Sign in to save'].includes(text);reloadSaved.hidden=text!=='Conflict';copySaved.hidden=text!=='Conflict'||active?.id==='profile';if(text==='Sign in to save')showLogin(true);}
+function saveStatus(text){status.textContent=text;retry.hidden=!['Couldn’t save','Sign in to save'].includes(text);reloadSaved.hidden=text!=='Conflict';copySaved.hidden=text!=='Conflict'||['profile','workout'].includes(active?.kind);if(text==='Sign in to save')showLogin(true);}
 // The profile is not a document: it has one fixed id, its own endpoint and no Save as copy.
 const profileRecord=({profile,revision})=>({id:'profile',kind:'profile',revision,document:profile});
+// A finished workout log is edited through the same autosave; it has no Save as copy.
+const workoutRecord=({id,revision,log})=>({id,kind:'workout',revision,document:log});
 function track(record,{project=value=>value}={}){
  templateController?.dispose();templateController=null;queue?.dispose();active=structuredClone(record);saveStatus('Saved');
  let copyRequest;
@@ -72,12 +87,14 @@ function track(record,{project=value=>value}={}){
  let owned;
  if(record.kind==='template'){
   templateController=createSharedSessionController({api,onStatus,onTemplate:onRecord,onConflict:error=>{message.textContent=error.message+' Save as copy creates a new template; existing programs keep their original template.';}});owned=templateController.load(record);
- }else if(record.kind==='profile')owned=createAutosave({record,save:({revision,document})=>api.updateProfile({revision,profile:document}).then(profileRecord),onStatus,onRecord,onConflict:error=>{message.textContent=error.message+' Reload saved version to continue.';}});
+ }else if(record.kind==='workout')owned=createAutosave({record,save:({id,revision,document})=>api.saveWorkout({id,revision,log:document}).then(workoutRecord),onStatus,onRecord,onConflict:error=>{message.textContent=error.message+' Reload saved version to continue.';}});
+ else if(record.kind==='profile')owned=createAutosave({record,save:({revision,document})=>api.updateProfile({revision,profile:document}).then(profileRecord),onStatus,onRecord,onConflict:error=>{message.textContent=error.message+' Reload saved version to continue.';}});
  else owned=createAutosave({record,save:args=>api.update(args),createCopy:document=>{copyRequest??={id:uid(),kind:record.kind,copyOf:record.id,document:structuredClone(document)};return api.create(copyRequest);},onStatus,onRecord});
  queue=owned;
  return document=>{if(queue!==owned||active?.id!==record.id)return;active.document=document;updateCurrentBreadcrumb(document);owned.change(document);};
 }
 async function leave(){
+ if(mounted?.hasUnsavedDraft?.()&&!await confirmCurrent({title:'Discard unsaved changes?',message:'A set without reps is not saved. Discard it and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;
  if(!queue?.isDirty())return true;
  try{await queue.flush();return true;}catch(error){report(error);if(error.status===401)return false;if(!await confirmCurrent({title:'Discard unsaved changes?',message:'Changes could not be saved. Discard them and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;return true;}
 }
@@ -94,7 +111,7 @@ document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('cli
  if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
  event.preventDefault();action(()=>navigate(link.hash))();
 }));
-window.addEventListener('beforeunload',event=>{if(queue?.isDirty()){event.preventDefault();event.returnValue='';}});
+window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(location.hash||'#/programs',{push:false});}));
 function showLogin(resuming=false){
  cancelActiveConfirmation();
@@ -106,10 +123,12 @@ function showLogin(resuming=false){
  const form=authHost.querySelector('form');form.addEventListener('submit',async event=>{
   event.preventDefault();const button=form.querySelector('button');button.disabled=true;
   try{
-   await api.login(form.elements.password.value);authenticated=true;authHost.hidden=true;shell.hidden=false;
+   await api.login(form.elements.password.value);setSignedOut(false);authenticated=true;authHost.hidden=true;shell.hidden=false;
+   // A workout sync paused by 401 continues; a first sign-in recovers the active workout.
+   workouts.resume();await workouts.boot().catch(report);
    if(resuming&&active&&queue?.isDirty()){
     // Retrying the exact envelope safely recovers a lost acknowledgement or yields a real 409.
-    if(active.kind!=='profile'){const remote=await api.get(active.id);if(remote.kind!==active.kind)throw Error('The saved document kind changed.');}
+    if(!['profile','workout'].includes(active.kind)){const remote=await api.get(active.id);if(remote.kind!==active.kind)throw Error('The saved document kind changed.');}
     await queue.retry();return;
    }
    await renderRoute();
@@ -117,10 +136,10 @@ function showLogin(resuming=false){
  });
  form.elements.password.focus();
 }
-document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await api.logout();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
+document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await workouts.flush();await api.logout();setSignedOut(true);workouts.signOut();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
 profileButton.addEventListener('click',action(()=>navigate('#/profile')));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
-reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
+reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='workout'){const owned=queue,saved=await api.getWorkout(active.id);if(queue!==owned)return;owned.reload(workoutRecord(saved));message.textContent='';mounted?.setLog?.(saved.log);return;}if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
 copySaved.addEventListener('click',action(()=>transition(async()=>{if(!queue)return;const record=await queue.saveAsCopy();queue=null;active=null;history.pushState(null,'',`#/${record.kind==='program'?'programs':'templates'}/${record.id}`);await renderRoute();})));
 function download(kind,document,templates=[]){const text=serializeDocumentBundle({record:{kind,document},templates}),url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=documentElement('a');a.href=url;a.download=documentFileName(kind);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function externalConflict(owned){
@@ -154,7 +173,7 @@ function refreshLimitHints(){
  applyLimitLoad(view,loadLimitProfile());
 }
 async function refreshActive(){
- if(refreshing||!authenticated||!active||transitioning)return;
+ if(refreshing||!authenticated||!active||transitioning||active.kind==='workout')return;
  if(templateController){const owned=queue,revision=active.revision;await templateController.refresh();if(queue===owned&&active.revision!==revision&&!owned.isDirty())mounted?.setWorkout?.(active.document,{silent:true});return;}
  const owned=queue,id=active.id,revision=active.revision,version=routeVersion;
  refreshing=true;
@@ -216,13 +235,14 @@ async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
   breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
   if(record.kind==='template'){
    const editorHost=contentHost;
-   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
+   const programSource=context?{program:{id:context.program.id,name:context.program.document.name.trim()||'Untitled program'},occurrenceId:context.occurrence.id}:{};
+   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onStartWorkout:session=>startWorkout({template:{id:record.id,document:session},...programSource}),onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
    limitView=mounted;applyLimitLoad(mounted,profileLoad);
    if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
   }else{
    let attachRequest;
    host.classList.add('program-route');const reviewDock=document.createElement('aside');reviewDock.className='review-dock';host.append(reviewDock);
-   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
+   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,onStartWorkout:workout=>startWorkout({template:{id:workout.templateId,document:workout},program:{id:record.id,name:active.document.name.trim()||'Untitled program'},occurrenceId:workout.id}),program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
     const owned=queue,version=mountedVersion;await owned.flush();if(owned!==queue)return;
     attachRequest??={operationId:uid(),programId:record.id,revision:active.revision,templateId:uid(),occurrenceId:uid(),template:{...createTemplate(),name:'Untitled workout'}};
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
@@ -246,12 +266,54 @@ async function renderRoute(version=++routeVersion){
    document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',route.view.startsWith(a.dataset.nav.slice(0,-1))?'page':'false'));
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,0);
+   workouts.refreshBar({animate:barRendered});barRendered=true;
   },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-workout-title="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
  }catch(error){
   if(version!==routeVersion)return;
   history.replaceState(null,'',currentHash);report(error);
   if(!mounted&&error.status!==401){app.textContent='This page could not be opened. Choose Programs or Session templates to retry.';}
  }finally{idle(version);}
+}
+async function prepareWorkout(route){
+ // Recovers this device's mirror first (retried after a failed boot), so a stray dirty log is never overwritten.
+ await workouts.boot();
+ // The active (or unsynced finished) log lives in the controller; the logger only attaches to its sync.
+ let record=null;
+ if(!workouts.owns(route.id)){
+  try{record=await api.getWorkout(route.id);}catch(error){if(error.status!==404)throw error;}
+  if(!record)return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
+  if(record.log.status==='active'&&!workouts.adopt(record))
+   return ()=>{const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='Resume or finish your current workout before opening another active workout.';createViewHost().append(p);};
+ }
+ const local=workouts.owns(route.id)?workouts.snapshot():null,log=local?local.log:record.log,owned=local&&log.status==='active';
+ // A finished log is edited through the app's autosave, unless the controller still holds it as an unsynced pending finish (read-only).
+ const editFinished=log.status==='finished'&&!local;
+ const lastTime=local?local.lastTime:await (linkedVariantIds(log).length?api.lastTime({variantIds:linkedVariantIds(log),exclude:route.id}).catch(error=>{if(isNetworkError(error))return null;report(error);return {};}):Promise.resolve({}));
+ const commit=()=>{
+  let logger=null,binding=null,change=null;
+  if(editFinished)change=track(workoutRecord(record));
+  const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map)};
+  logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
+   onChange:value=>(change||binding?.onChange)?.(value),
+   onDelete:async()=>{
+    await queue.flush();
+    await api.deleteWorkout({id:active.id,revision:active.revision});
+    queue?.dispose();queue=null;active=null;saveStatus('');
+    await navigate('#/workouts');
+   },
+   onFinish:()=>binding?.onFinish(),
+   onDiscard:()=>binding?.onDiscard(),
+   onRetry:()=>binding?.onRetry(),
+   onLastTimeNeeded:ids=>binding?binding.onLastTimeNeeded(ids):editFinished?finishedLastTime(ids):Promise.resolve()});
+  const finishedLastTime=async ids=>{
+   const map=await api.lastTime({variantIds:ids,exclude:route.id});
+   if(mounted?.setLog&&logger)logger.setLastTime(map);
+  };
+  if(owned)binding=workouts.attach(route.id,handlers);
+  mounted={destroy(){binding?.detach();logger.destroy();},setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft()};
+ };
+ commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
+ return commit;
 }
 async function prepareRoute(route,version){
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
@@ -271,12 +333,23 @@ async function prepareRoute(route,version){
   return commit;
  }
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved));mounted=mountProfileView(createViewHost(),{profile:active.document,onChange});};}
+ if(route.view==='workouts'){
+  let page,error='';
+  try{page=await api.listWorkouts();}catch(failure){if(!isNetworkError(failure))throw failure;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
+  const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
+  return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
+   onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
+   onStartBlank:()=>startWorkout({}),
+   onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});};
+ }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
+ if(route.view==='workout')return prepareWorkout(route);
  if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
  if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
  const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
  return ()=>{mounted=mountLibrary(createViewHost(),{
   kind,records,recordHref:record=>`#/${route.view}/${record.id}`,
+  onStartWorkout:kind==='template'?action(async record=>{const template=await api.get(record.id);if(version!==mountedVersion)return;await startWorkout({template:{id:template.id,document:template.document}});}):undefined,
   onCreate:action(()=>create(kind,kind==='program'?createProgram():createTemplate())),
   onOpen:action(record=>navigate(`#/${route.view}/${record.id}`)),
   onDuplicate:action(async record=>{
@@ -300,4 +373,16 @@ async function prepareRoute(route,version){
   onImport:action(file=>importFile(kind,file,version))
  });};
 }
-try{await api.passwordSession();authenticated=true;shell.hidden=false;authHost.hidden=true;await renderRoute();}catch(error){if(error.status===401)showLogin();else {shell.hidden=false;report(error);app.innerHTML='<button type="button" class="secondary-btn" onclick="location.reload()">Retry connection</button>';}}
+async function start(){
+ try{await api.passwordSession();}catch(error){
+  if(error.status===401){showLogin();return;}
+  // After an explicit Log out the password gate always applies, even offline.
+  if(isNetworkError(error)&&signedOut()){showLogin();return;}
+  // Offline with a workout saved on this device: keep logging from the mirror; sync resumes on reconnect.
+  if(!(isNetworkError(error)&&readMirror(localStorage))){shell.hidden=false;report(error);app.innerHTML='<button type="button" class="secondary-btn" onclick="location.reload()">Retry connection</button>';return;}
+ }
+ authenticated=true;shell.hidden=false;authHost.hidden=true;
+ await workouts.boot().catch(report);
+ await renderRoute();
+}
+await start();
