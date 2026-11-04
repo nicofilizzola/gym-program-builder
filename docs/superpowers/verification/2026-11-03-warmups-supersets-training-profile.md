@@ -49,7 +49,9 @@ Real Chromium (Playwright, headless) driven by a throwaway spec against `node sc
 
 **Rebuilding the exercise list reset the page scroll** (fixed in `3bac2f4`, `fix: keep the page scroll when the exercise list rebuilds`). Reproduce on `3c163b3`: long template, scroll to the bottom, Unlink superset or Swap exercises: `scrollY` 323 → 0 (top of the page); a single card's keyboard move went 363 → 257. Cause: `renderExercises()` re-inserts cards with `list.replaceChildren()`; removing the focused control during that call makes Chrome lay out the half-rebuilt list (with or without scroll anchoring, and with blur/focusout handlers suppressed), which clamps the scroll. Fix: blur the focused control before rebuilding; focus is restored afterwards as before. After the fix: swap 363 → 363, keyboard move 363 → 363, unlink 363 → 323 (the 40px header is gone, a legitimate clamp at the page end). Regression test: `e2e/supersets.spec.js`, "swap, unlink and keyboard moves keep the page scroll position", which fails without the fix (1375 → 1269).
 
-### Concerns (judgment calls, not changed)
+### Concerns (resolved by the follow-up)
+
+Both concerns below were resolved later by [Follow-up: exercise field layout](#follow-up-exercise-field-layout) (wider measured tracks at 1366/1440/1920; two columns at 200% text). They are kept as the original Part A record.
 
 1. **1366 slider tracks are about 98px.** Reps (two thumbs, 30 steps) and Rest (21 steps) are fiddly with a mouse; values sit close to the next column's label. Options for a later decision: let the name column shrink further, or drop to the name-above layout below a larger container width.
 2. **200% text keeps five columns** at 1366 and 1440, so headings wrap to two or three lines and the Warm-up slider is about 77px lower than its neighbours.
@@ -97,7 +99,9 @@ Real Chromium (Playwright, headless) driven by a throwaway spec against `node sc
 - Live editor: in the program workout editor, Upper started at `~116 min` + `over 60 min max`; lowering each Sets slider with Home updated the suffix live (103, 90, 76, 63 min with the suffix; 50 min without), with 0 animations; returning to the program showed `Estimated duration ~50 min` with no hint.
 - Profile change and return: on the profile page, adding Wed and Sun, choosing 2 sessions, max length 180 and max days No limit, then returning to the program showed no hints; restoring the limits through the API and dispatching window focus brought back the remaining five hints (Legs, Monday, Wednesday, Sunday, weekly).
 
-### Concerns (judgment calls, not changed)
+### Concerns (resolved by the final review fixes)
+
+Both concerns below were fixed in [Final review fixes](#final-review-fixes) (items 1 and 2). They are kept as the original Part B record.
 
 1. **Narrow day-label column.** At 1366 and 1440 the 78px label column wraps `Not an available day` to three lines (49px) and `2 sessions · max 1` to two, so those day rows grow about 55px beyond their single card. At 1920 (96px column) they take two lines. Readable, but less dense; a shorter label or full-width placement would be a design decision.
 2. **Card hint tooltip is hover-only.** The `over 60 min max` hint is a non-focusable span, so its tooltip ("Longer than your max session length (Profile)") did not appear on a touch tap and cannot be reached by keyboard. The visible text carries the essential information; the "(Profile)" pointer is lost on touch/keyboard.
@@ -119,3 +123,17 @@ Fix for Phase A concerns 1 and 2. Visible slider track = slider width minus the 
 - 1920x1080: 150, 150, 261, 261 (name 277); frame 148, 148, 258; card 251px.
 - 200% text (root font-size) 1366: 2 columns, tracks 359 each, heads/tracks aligned within 1px; 1440 frame 390.
 Baseline Reps/Rest before warm-up sets was about 131/148/241px. Regression tests: compact-desktop.spec.js (exercise sliders...). Headless Chromium only; no deployment verified.
+
+## Final review fixes
+
+Fixes from the final whole-branch review (2026-11-04). Headless Chromium on Windows only; no deployment verified.
+
+1. **Week day hints in the content column** (resolves Part B concern 1). At day-row widths of 30rem and above, `.day-limit-hints` now sits in the content column above the sessions (left edge aligned with the cards) instead of floating in the label column. Measured with the profile-hints fixture (Monday 2 sessions, Wednesday unavailable), flagged vs unflagged row height: 1366x768, 1440x900 and 1920x1080 Monday 103 → 125.25px, Wednesday 53 → 75.25px (+22.25 = one 16.25px hint line + 6px padding; every hint 16.25px tall, no overflow, no page overflow). 768x1024: +22.25. 390x844 (stacked layout, unchanged CSS): Wednesday +22.25; Monday 203.78 → 242.28 (+38.5 = the 22.25 day hint plus 16.25 from the card's own `over 20 min max` hint wrapping onto a new metadata line). 200% text at 1366 (stacked): one 32.5px hint line + padding (+38.5). Regression: `e2e/profile-hints.spec.js` "Week day hints sit in the content column ..." at 1366x768 and 1440x900 (failed before the fix: hint 32.5px, 2 lines). Week agenda, review dock and drag suites (`program-overview`, `program-review-dock`, `drag-reorder`) passed: 71.
+2. **Profile source for all inputs** (resolves Part B concern 2). The program card hint and the session editor suffix append visually hidden ` (set in Profile)`; visible text and the mouse tooltip are unchanged. The editor toggle's accessible description is `~30 min over 20 min max (set in Profile)`. Covered in `e2e/profile-hints.spec.js` (5 tests failed before the change).
+3. **Sortable closing frame.** A superset frame still closing after Unlink (`.is-closed`) is no longer a sortable item. Regression in `e2e/supersets.spec.js` "a frame still closing after Unlink is not draggable" (before the fix the order became Row, Curl, Bench: only the first exercise moved); passes 5/5 repeated.
+4. **Analysis input pair check** runs on the projected exercises (extra superset keys dropped like document validation; a non-object superset or null member is an indexed 400, never a TypeError) and takes the index from `supersetIssue` instead of parsing the message. Unit tests in `test/analysis-input.test.js` (extra-key test failed before).
+5. **Duration pairing parity** unit tests in `test/duration.test.js`: block-by-block parity with `supersetBlocks` (including a stray trailing superset counted straight), warm-ups only on B (930 s), warm-ups on both members with one round rest (810 s), invalid sets with warm-ups (0 s straight; 300 s pair). Mutation checks (round rest per member; pairing rule changed) each failed one new test.
+
+Results after all fixes: `npm test` 272/272 passed; `npm run test:e2e` 309/309 passed (6.6 min); `npm run build` succeeded.
+
+The measurement specs used for this and the earlier browser evidence were throwaway files and are not committed, so those measurements cannot be reproduced from the repository as-is; the committed regression tests cover the geometry and behaviour assertions above.
