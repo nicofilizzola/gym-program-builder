@@ -287,10 +287,10 @@ Exercise slider headings wrap label/value onto separate lines when text is enlar
 
 Non-blocking profile limit warnings (`.limit-hint`, built by `limitHint()` in `src/limit-hint.js`, `data-limit-hint`): the `actionIcon('warning')` triangle (1em, `aria-hidden`) plus visible short text, 4px apart, in `--under` at `.8125rem`/500 with 1.25 line height (inherits the metadata size inside workout cards). Colour never stands alone: the text names the limit. Hints are derived on every render from `profileChecks` and the saved profile (loaded on program and session-editor entry, revalidated on window focus; a failed load renders none); they are never stored or exported, never animated (`transition: none`, they appear and disappear with routine data updates) and never block saving, exporting or AI review. Equipment mismatches have no in-app hint.
 
-- **Program workout card:** the duration metadata reads `Estimated duration ~30 min · over 20 min max`; the hint carries the shared action tooltip `Longer than your max session length (Profile)` (mouse hover; the visible text already says it on touch and for keyboard/screen-reader users).
+- **Program workout card:** the duration metadata reads `Estimated duration ~30 min · over 20 min max`; the hint carries the shared action tooltip `Longer than your max session length (Profile)` (mouse hover only). The hint also carries visually hidden ` (set in Profile)` (`limitHint(text,{source})`), so keyboard, touch and screen-reader users get the source without the tooltip; the visible text is unchanged.
 - **Week day label:** `.day-limit-hints` (2px gap, 6px bottom padding) sits after the day `h2` with `Not an available day` and/or `N sessions · max M`. At day-row widths of 30rem and above it floats under the label in the same fixed column (4.875rem, 6rem at ≥1600px) and wraps inside it (icon top-aligned); narrower rows stack it between label and sessions. Sequence shows no day hints.
 - **Weekly line:** `N training days · max M` as a paragraph in `.weekly-panel-heading` under the unit (2px top margin), Week only; never inside the program file-action group.
-- **Session editor:** the duration toggle appends `over N min max` after `~N min` (included in the toggle's `aria-describedby`), toggling instantly as edits change the estimate.
+- **Session editor:** the duration toggle appends `over N min max` after `~N min` plus the same visually hidden ` (set in Profile)` (both included in the toggle's `aria-describedby`), toggling instantly as edits change the estimate.
 
 ### Superset frame
 

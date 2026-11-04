@@ -177,7 +177,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     for(const card of container.querySelectorAll('.workout-item')){
       const max=long.get(card.dataset.workout);if(max===undefined)continue;
       const separator=document.createElement('span');separator.className='visually-hidden';separator.dataset.limitSeparator='';separator.textContent=' · ';
-      card.querySelector('[data-workout-duration]').append(separator,limitHint(`over ${max} min max`,{tooltip:LONG_SESSION_TOOLTIP}));
+      card.querySelector('[data-workout-duration]').append(separator,limitHint(`over ${max} min max`,{tooltip:LONG_SESSION_TOOLTIP,source:'Profile'}));
     }
     for(const [day,texts] of days){
       const heading=container.querySelector(`.day-section[data-day="${day}"] > h2`);if(!heading)continue;
