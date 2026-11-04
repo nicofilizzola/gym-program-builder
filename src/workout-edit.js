@@ -32,7 +32,7 @@ export function moveLogExercise(log,from,to){
 }
 
 export const addSet=(log,exerciseId,makeId,values={})=>mapExercise(log,exerciseId,e=>({...e,
- sets:[...e.sets,{id:makeId(),weightKg:null,reps:null,rir:null,done:false,...values}]}));
+ sets:[...e.sets,{id:makeId(),kind:'working',weightKg:null,reps:null,rir:null,done:false,...values}]}));
 
 export const removeSet=(log,exerciseId,setId)=>{
  const ex=log.exercises.find(e=>e.id===exerciseId);

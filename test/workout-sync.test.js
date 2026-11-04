@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {validateWorkoutLog} from '../src/workout-log.js';
 import {MIRROR_KEY,readMirror,writeMirror,clearMirror,backoffDelay,isNetworkError,conflictReason,recoveryDecision,createWorkoutSync} from '../src/workout-sync.js';
 
 const log=(over={})=>({id:'w1',logVersion:1,status:'active',name:'Push',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[],...over});
@@ -294,4 +295,15 @@ test('resume replays a paused non-network failure (Retry)',async()=>{
  sync.change(log({name:'Set'}));timers.run(400);await settle();
  assert.equal(statuses.at(-1),'Couldn’t save');assert.equal(timers.tasks.size,0);
  fail=false;await sync.resume();assert.deepEqual(calls,[2,2]);assert.equal(statuses.at(-1),'Saved');sync.dispose();
+});
+
+test('a dirty version 1 mirror recovers as before and validates to version 2',()=>{
+ const v1=log({exercises:[{id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:[],
+  target:{sets:1,repRange:{min:8,max:12},restSeconds:90},sets:[{id:'s1',weightKg:null,reps:null,rir:null,done:false}]}]});
+ const storage=memoryStorage();writeMirror(storage,{log:v1,baseRevision:3,dirty:true,lastTime:null});
+ const mirror=readMirror(storage);
+ assert.equal(recoveryDecision({mirror,server:{id:'w1',revision:3,log:v1},reachable:true}).action,'resume-local');
+ assert.equal(recoveryDecision({mirror,server:{id:'w1',revision:4,log:v1},reachable:true}).action,'conflict');
+ const r=validateWorkoutLog(mirror.log);
+ assert.equal(r.log.logVersion,2);assert.equal(r.log.exercises[0].sets[0].kind,'working');
 });

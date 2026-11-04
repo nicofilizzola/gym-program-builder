@@ -4,9 +4,9 @@ import {setLogName,addExercise,swapExercise,removeExercise,moveLogExercise,addSe
 import {validateWorkoutLog,toLocalIso} from '../src/workout-log.js';
 
 const seq=()=>{let n=0;return()=>'n'+(++n);};
-const set=(id,over={})=>({id,weightKg:null,reps:null,rir:null,done:false,...over});
-const exercise=(id,sets,over={})=>({id,variantId:null,referenceId:null,name:'Row '+id,equipment:null,primaryMuscles:['Lats'],secondaryMuscles:['Biceps'],target:{sets:2,repRange:{min:6,max:10},restSeconds:90},sets,...over});
-const makeLog=()=>({id:'l1',logVersion:1,status:'active',name:'Workout',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},
+const set=(id,over={})=>({id,kind:'working',weightKg:null,reps:null,rir:null,done:false,...over});
+const exercise=(id,sets,over={})=>({id,variantId:null,referenceId:null,name:'Row '+id,equipment:null,primaryMuscles:['Lats'],secondaryMuscles:['Biceps'],target:{sets:2,warmupSets:0,repRange:{min:6,max:10},restSeconds:90},sets,...over});
+const makeLog=()=>({id:'l1',logVersion:2,status:'active',name:'Workout',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},
  exercises:[exercise('e1',[set('s1',{weightKg:80,reps:8,rir:2,done:true}),set('s2')]),exercise('e2',[set('s3')])]});
 const copy=l=>JSON.parse(JSON.stringify(l));
 const entry={id:'v9',familyId:'r9',name:'Incline press',equipment:'Dumbbell',primaryMuscles:['Chest'],secondaryMuscles:['Front delts']};
@@ -27,14 +27,14 @@ test('toggleSetDone fills empty fields from the placeholder and needs reps',()=>
  const log=makeLog(),before=copy(log);
  const ph={weightKg:80,reps:8,rir:2};
  const r=toggleSetDone(log,'e1','s2',ph);
- assert.deepEqual(r.log.exercises[0].sets[1],{id:'s2',weightKg:80,reps:8,rir:2,done:true});
+ assert.deepEqual(r.log.exercises[0].sets[1],{id:'s2',kind:'working',weightKg:80,reps:8,rir:2,done:true});
  assert.deepEqual(log,before);
  const typed=updateSet(log,'e1','s2',{weightKg:82.5});
  assert.equal(toggleSetDone(typed,'e1','s2',ph).log.exercises[0].sets[1].weightKg,82.5);
  assert.deepEqual(toggleSetDone(log,'e1','s2',{weightKg:80,reps:null,rir:null}),{error:'Enter reps'});
  assert.deepEqual(toggleSetDone(log,'e1','s2',undefined),{error:'Enter reps'});
  const undone=toggleSetDone(log,'e1','s1',ph).log.exercises[0].sets[0];
- assert.deepEqual(undone,{id:'s1',weightKg:80,reps:8,rir:2,done:false});
+ assert.deepEqual(undone,{id:'s1',kind:'working',weightKg:80,reps:8,rir:2,done:false});
  assert.equal(toggleSetDone(log,'e1','zz',ph).log,log);
 });
 
@@ -73,8 +73,8 @@ test('setLogName, add/remove/move exercise and add/remove/update set',()=>{
  assert.deepEqual(moveLogExercise(log,0,1).exercises.map(e=>e.id),['e2','e1']);
  assert.equal(moveLogExercise(log,0,5),log);
  const withSet=addSet(log,'e1',seq(),{weightKg:80,reps:8,done:true});
- assert.deepEqual(withSet.exercises[0].sets[2],{id:'n1',weightKg:80,reps:8,rir:null,done:true});
- assert.deepEqual(addSet(log,'e2',seq()).exercises[1].sets[1],{id:'n1',weightKg:null,reps:null,rir:null,done:false});
+ assert.deepEqual(withSet.exercises[0].sets[2],{id:'n1',kind:'working',weightKg:80,reps:8,rir:null,done:true});
+ assert.deepEqual(addSet(log,'e2',seq()).exercises[1].sets[1],{id:'n1',kind:'working',weightKg:null,reps:null,rir:null,done:false});
  assert.deepEqual(removeSet(log,'e1','s2').exercises[0].sets.map(s=>s.id),['s1']);
  const upd=updateSet(log,'e1','s2',{reps:5});
  assert.equal(upd.exercises[0].sets[1].reps,5);assert.deepEqual(upd.exercises[0].sets[0],log.exercises[0].sets[0]);assert.deepEqual(upd.exercises[1],log.exercises[1]);
