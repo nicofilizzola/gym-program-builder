@@ -18,6 +18,7 @@ import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
 import {normalizeProfile} from './profile.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
+import {openWorkoutStartSheet} from './workout-start-sheet.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
 import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
@@ -335,11 +336,18 @@ async function prepareRoute(route,version){
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved));mounted=mountProfileView(createViewHost(),{profile:active.document,onChange});};}
  if(route.view==='workouts'){
   let page,error='';
+  // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.
+  const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
+  const lists=Promise.all([optional(api.list('program')),optional(api.list('template'))]);
   try{page=await api.listWorkouts();}catch(failure){if(!isNetworkError(failure))throw failure;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
+  let [programs,templates]=await lists;
   const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
   return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
    onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
-   onStartBlank:()=>startWorkout({}),
+   onStart:()=>openWorkoutStartSheet({programs,templates,logs:page.records,
+    loadProgram:async id=>{const bundle=await api.programBundle(id);return resolveProgram(bundle.record.document,bundle.templates);},
+    loadTemplate:id=>api.get(id),onStart:options=>startWorkout(options),
+    onNavigate:hash=>action(()=>navigate(hash))(),onRetryList:async kind=>{const list=await api.list(kind);if(kind==='program')programs=list;else templates=list;return list;}}),
    onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});};
  }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};

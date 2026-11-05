@@ -71,7 +71,7 @@ test('start from a program card, a template card, the template editor and blank'
  await expect.poll(async()=>(await serverRecord(page,occurrenceLog))?.log.source).toMatchObject({kind:'program',programId,occurrenceId:'occ'});
  await discardFromLogger(page);
  // Blank from History.
- await page.getByRole('button',{name:'Start blank workout',exact:true}).click();
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();await page.getByRole('button',{name:'Blank workout',exact:true}).click();
  const blankLog=await expectLogger(page,'Workout');
  await expect(page.locator('.log-exercise')).toHaveCount(0);
  await expect.poll(async()=>(await serverRecord(page,blankLog))?.log.source).toEqual({kind:'blank'});

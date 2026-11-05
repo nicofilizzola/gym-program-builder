@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {login,resetWorkouts,createLinkedTemplate,saveFinishedLog,headers} from './workout-helper.js';
 
 /**
  * Mounts the start sheet on a bare page with fixture data (no sign-in, no API).
@@ -229,4 +230,93 @@ test('reduced motion opens and closes without pending motion classes',async({pag
  expect(await sheet(page).evaluate(d=>d.classList.contains('is-entering')||d.classList.contains('is-closing'))).toBe(false);
  await page.keyboard.press('Escape');
  expect(await page.locator('dialog.start-sheet').count()).toBe(0);
+});
+
+// App-level: the sheet on #/workouts with the real API.
+const weekdayToday=()=>(new Date().getDay()+6)%7;
+async function setupApp(page,days=[weekdayToday()]){
+ await login(page);await resetWorkouts(page);
+ await page.reload();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
+ const tag=crypto.randomUUID().slice(0,6),program='Plan '+tag,names=days.map((_,i)=>`Session ${i+1} ${tag}`);
+ const templates=[];for(const name of names)templates.push(await createLinkedTemplate(page,name));
+ const programId=crypto.randomUUID(),workouts=days.map((day,i)=>({id:'occ'+i,templateId:templates[i].id,day}));
+ const response=await page.request.post('/api/documents',{headers,data:{id:programId,kind:'program',document:{name:program,mode:'schedule',goals:{},workouts}}});
+ expect(response.ok()).toBeTruthy();
+ return {program,programId,names,templates,tag};
+}
+async function openFromWorkouts(page){
+ await page.goto('/#/workouts');
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await expect(sheet(page)).toBeVisible();
+}
+async function expectLoggerNamed(page,name){
+ await expect(page).toHaveURL(/#\/workouts\/[\w-]+$/);
+ await expect(page.getByLabel('Workout name',{exact:true})).toHaveValue(name);
+}
+async function discardCurrent(page){
+ await page.getByRole('button',{name:'Workout actions',exact:true}).click();
+ await page.getByRole('button',{name:'Discard workout',exact:true}).click();
+ await page.getByRole('dialog',{name:'Discard workout?'}).getByRole('button',{name:'Discard workout'}).click();
+ await expect(page).toHaveURL(/#\/workouts$/);
+}
+
+test('start from the sheet lands in the logger',async({page})=>{
+ const {program,names}=await setupApp(page);
+ await openFromWorkouts(page);
+ await page.getByRole('button',{name:`Up next: ${names[0]}, ${program}`,exact:true}).click();
+ await expectLoggerNamed(page,names[0]);
+ await discardCurrent(page);
+});
+
+test('up next advances after a finished session',async({page})=>{
+ const today=weekdayToday();
+ const {program,programId,names,templates}=await setupApp(page,[today,(today+1)%7]);
+ await openFromWorkouts(page);
+ await expect(page.getByRole('button',{name:`Up next: ${names[0]}, ${program}`,exact:true})).toBeVisible();
+ await page.keyboard.press('Escape');
+ await saveFinishedLog(page,{name:names[0],startedAt:new Date(Date.now()-60*60000).toISOString(),source:{kind:'program',programId,occurrenceId:'occ0',templateId:templates[0].id,programName:program,templateName:names[0]}});
+ await page.reload();
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await expect(page.getByRole('button',{name:`Up next: ${names[1]}, ${program}`,exact:true})).toBeVisible();
+});
+
+test('template and blank from the sheet',async({page})=>{
+ const {names}=await setupApp(page);
+ await openFromWorkouts(page);
+ await page.getByRole('tab',{name:'Template'}).click();
+ await page.getByRole('button',{name:`Start ${names[0]}`,exact:true}).click();
+ await expectLoggerNamed(page,names[0]);
+ await discardCurrent(page);
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await page.getByRole('button',{name:'Blank workout',exact:true}).click();
+ await expectLoggerNamed(page,'Workout');
+ await discardCurrent(page);
+});
+
+test('active workout prompts before a second start',async({page})=>{
+ const {names}=await setupApp(page);
+ await openFromWorkouts(page);
+ await page.getByRole('button',{name:'Blank workout',exact:true}).click();
+ await expectLoggerNamed(page,'Workout');
+ await page.goto('/#/workouts');
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await page.getByRole('tab',{name:'Template'}).click();
+ await page.getByRole('button',{name:`Start ${names[0]}`,exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Workout in progress'});
+ await expect(dialog.getByRole('button',{name:'Resume current'})).toBeVisible();
+ await dialog.getByRole('button',{name:'Resume current'}).click();
+ await expectLoggerNamed(page,'Workout');
+ await discardCurrent(page);
+});
+
+test('offline lists show retry',async({page})=>{
+ const {program}=await setupApp(page);
+ await page.route('**/api/documents?kind=program*',route=>route.abort('internetdisconnected'));
+ await page.goto('/#/workouts');
+ await expect(page.getByRole('heading',{name:'Workouts',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await expect(sheet(page).getByText("Couldn't load programs.")).toBeVisible();
+ await page.unroute('**/api/documents?kind=program*');
+ await sheet(page).getByRole('button',{name:'Retry',exact:true}).click();
+ await expect(page.getByRole('button',{name:new RegExp('^'+program)})).toBeVisible();
 });
