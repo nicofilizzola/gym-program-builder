@@ -404,10 +404,10 @@ See "Workout start points and active workout bar" above for behaviour. Authorita
 
 At ≤760px the main `<nav>` becomes a bottom tab bar; above 760px the header is unchanged (icons hidden, full labels).
 
-- **Bar:** `position: fixed` at the bottom, `z-index: 21`, height `--tab-bar-height` (`calc(56px + env(safe-area-inset-bottom))`, `0px` above 760px), `--surface` with a 1px `--border` top edge. `index.html` uses `viewport-fit=cover` so the inset applies.
+- **Bar:** `position: fixed` at the bottom, `z-index: 21`, height `--tab-bar-height` (`calc(max(56px, 34px + .9rem) + env(safe-area-inset-bottom))`: 56px, growing with enlarged text; `0px` above 760px), `--surface` with a 1px `--border` top edge. `index.html` uses `viewport-fit=cover` so the inset applies.
 - **Tabs:** four equal columns (`Programs`, `Templates`, `Catalog`, `Workouts`; `.nav-label-short` replaces `.nav-label-full` so the accessible name equals the visible label), a 24px icon (`calendar`, `template`, `catalog`, `dumbbell`) above a 12px 600-weight label, at least 44×44px. The current tab is accent-coloured with a 2px accent indicator on the top edge and keeps `aria-current="page"`; tab changes are instant.
 - **Stacking:** `body` reserves `--tab-bar-height` at the bottom. The active workout bar sits at `bottom: var(--tab-bar-height)` and reserves `calc(var(--tab-bar-height) + its height)`. The session editor's pinned volume panel sticks at `bottom: var(--tab-bar-height)`.
-- **Typing:** `src/typing-state.js` sets `body.is-typing` while a text field in `#app` has focus. The tab bar and resume bar slide out (`translateY`, 150ms ease-out; instant with reduced motion) and the pinned panel drops to `bottom: 0`; reserved padding never changes. Leaving a field restores them only after the current tap's click, so a returning bar never takes a tap meant for the page.
+- **Typing:** `src/typing-state.js` sets `body.is-typing` while the user types in a text field in `#app` (focus that follows their own press or key; script focus never hides the bars). The tab bar and resume bar slide out (`translateY`, 150ms ease-out; instant with reduced motion) and the pinned panel drops to `bottom: 0`; reserved padding never changes. Leaving a field by tapping restores them only after that tap's click (700ms fallback), so a returning bar never takes a tap meant for the page.
 
 ### Start sheet search
 

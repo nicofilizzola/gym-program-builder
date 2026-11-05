@@ -419,3 +419,17 @@ test('starting from a search result disables the field while it starts',async({p
  await expect(sheet(page)).toHaveCount(0);
  expect((await calls(page)).starts).toHaveLength(1);
 });
+
+test('Retry in search results keeps focus, shows Searching… and never a false empty message',async({page})=>{
+ await mountSheet(page,{failOnce:['cycle'],delay:{cycle:400}});await open(page);
+ await search(page).fill('cycle');
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(panel).toContainText("Couldn't search Cycle.");
+ await panel.getByRole('button',{name:'Retry'}).click();
+ await expect(panel.getByRole('status')).toHaveText('Searching…');
+ await expect(search(page)).toBeFocused();
+ await expect(panel.getByText('No sessions match')).toBeHidden();
+ await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(3);
+ await expect(panel.getByText('No sessions match')).toBeHidden();
+ await expect(panel.getByRole('status')).toHaveCount(0);
+});

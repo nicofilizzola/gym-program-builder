@@ -6,7 +6,7 @@ Design: docs/superpowers/specs/2026-11-05-mobile-polish-tracker-notes-design.md 
 
 - At ≤760px the main `<nav>` is a fixed bottom tab bar (`--tab-bar-height`: `max(56px, 34px + .9rem)` + safe area; `viewport-fit=cover`): four tabs with icon and short label (`Programs`, `Templates`, `Catalog`, `Workouts`; accessible name = visible label), ≥44px targets, accent plus 2px top indicator and `aria-current`. The header is one compact row (save status left, Profile and Log out right).
 - The active workout bar sits above the tab bar and the page reserves both; the session editor's pinned volume panel sticks above the tab bar.
-- While a text field in `#app` has focus (`body.is-typing`, `src/typing-state.js`) the bars slide out (150ms; instant with reduced motion) and the pinned panel drops to the bottom; reserved padding never changes. Leaving a field restores them only after the current tap's click, so a returning bar never takes a tap.
+- While the user types in a text field in `#app` (`body.is-typing`, `src/typing-state.js`; focus must follow their own press or key, script focus never counts) the bars slide out (150ms; instant with reduced motion) and the pinned panel drops to the bottom; reserved padding never changes. Leaving a field restores them only after the current tap's click, so a returning bar never takes a tap.
 
 ## Workout start sheet (2026-11-05)
 

@@ -156,7 +156,12 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
    },()=>{
     const text=el('p','start-sheet-error',`Couldn't search ${programName(record)}.`);text.setAttribute('role','alert');
     const retry=el('button','secondary-btn','Retry');retry.type='button';retry.disabled=starting;
-    retry.addEventListener('click',()=>{group.replaceChildren();group.hidden=true;fill().then(()=>{if(!status.isConnected)none.hidden=[...results.children].some(g=>!g.hidden);});});
+    // The group stays visible with its own status while it reloads; focus returns to the field, not the removed button.
+    retry.addEventListener('click',()=>{
+     field.focus();
+     const wait=el('p','start-sheet-hint','Searching…');wait.setAttribute('role','status');group.replaceChildren(wait);
+     fill().then(()=>{if(!status.isConnected)none.hidden=[...results.children].some(g=>!g.hidden);});
+    });
     group.replaceChildren(text,retry);group.hidden=false;
    });
    fill().finally(settle);
