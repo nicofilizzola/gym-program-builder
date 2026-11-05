@@ -35,11 +35,11 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
 </div></form>`;
  const $=selector=>dialog.querySelector(selector);
  const tabs=[...dialog.querySelectorAll('[role=tab]')],panels={program:$('[data-panel=program]'),template:$('[data-panel=template]')};
- let resolveClosed,starting=false;
+ let resolveClosed,starting=false,dismissed=false;
  const closed=new Promise(resolve=>{resolveClosed=resolve;});
  const tips=mountActionTooltips(dialog);
  const motion=mountDialogMotion(dialog,{duration:()=>narrow()?200:150,onClosed:()=>{tips?.destroy?.();if(invoker?.isConnected)invoker.focus({preventScroll:true});resolveClosed();}});
- const close=()=>{dialog.style.transform='';dialog.style.transition='';motion.close();};
+ const close=()=>{dismissed=true;dialog.style.transform='';dialog.style.transition='';motion.close();};
 
  // Programs load once per sheet; a failed load is forgotten so Retry asks again.
  const cache=new Map();
@@ -171,7 +171,15 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
     panel.querySelector('.start-sheet-error')?.remove();setBusy(true);
     let template;
     try{template=await loadTemplate(record.id);}
-    catch{setBusy(false);const error=el('p','start-sheet-error',"Couldn't load this template. Try again.");error.setAttribute('role','alert');item.append(error);return;}
+    catch{
+     if(dismissed)return;
+     setBusy(false);const error=el('p','start-sheet-error',"Couldn't load this template. Try again.");error.setAttribute('role','alert');item.append(error);
+     // Some browsers drop focus from a button while it is disabled.
+     if(!dialog.contains(document.activeElement))button.focus();
+     return;
+    }
+    // Closed while the template loaded: the user cancelled, so nothing starts.
+    if(dismissed)return;
     setBusy(false);start({template:{id:template.id,document:template.document}});
    });
    item.append(button);list.append(item);

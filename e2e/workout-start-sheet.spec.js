@@ -29,7 +29,7 @@ async function mountSheet(page,opts={}){
    logs:[{source:{kind:'program',programId:'ppl',occurrenceId:'push',templateId:'t-push',programName:'PPL',templateName:'Push A'},startedAt:toLocalIso(new Date(2026,10,2,9))}],
    now:new Date(2026,10,4,10),
    loadProgram:async id=>{calls.loads.push(id);if(opts.delay?.[id])await sleep(opts.delay[id]);if(opts.failOnce?.includes(id)&&!failed.has(id)){failed.add(id);throw Error('Session template not found.');}return structuredClone(resolved[id]);},
-   loadTemplate:async id=>{calls.templateLoads.push(id);if(opts.failTemplate)throw Error('offline');return {id,document:{name:long+'Upper',goals:{},exercises:[ex('A')]}};},
+   loadTemplate:async id=>{calls.templateLoads.push(id);if(opts.templateDelay)await sleep(opts.templateDelay);if(opts.failTemplate)throw Error('offline');return {id,document:{name:long+'Upper',goals:{},exercises:[ex('A')]}};},
    onStart:options=>calls.starts.push(structuredClone(options)),
    onNavigate:hash=>calls.navigations.push(hash),
    onRetryList:async kind=>{calls.retries.push(kind);return kind==='program'?programList:templateList;}
@@ -232,6 +232,35 @@ test('reduced motion opens and closes without pending motion classes',async({pag
  expect(await page.locator('dialog.start-sheet').count()).toBe(0);
 });
 
+test('closing while a template loads starts nothing',async({page})=>{
+ await mountSheet(page,{templateDelay:400});await open(page);
+ await page.getByRole('tab',{name:'Template'}).click();
+ await page.getByRole('button',{name:'Start Upper',exact:true}).click();
+ await page.keyboard.press('Escape');
+ await expect(sheet(page)).toHaveCount(0);
+ await page.waitForTimeout(700);
+ expect((await calls(page)).starts).toHaveLength(0);
+});
+
+test('template failure keeps focus on the row',async({page})=>{
+ await mountSheet(page,{failTemplate:true});await open(page);
+ await page.getByRole('tab',{name:'Template'}).click();
+ const row=page.getByRole('button',{name:'Start Upper',exact:true});
+ await row.focus();await page.keyboard.press('Enter');
+ await expect(sheet(page).getByRole('alert')).toBeVisible();
+ await expect(row).toBeFocused();
+});
+
+test('edge taps inside the bottom sheet keep it open',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await mountSheet(page);await open(page);
+ expect(await sheet(page).evaluate(d=>getComputedStyle(d).paddingLeft)).toBe('0px');
+ const box=await sheet(page).boundingBox();
+ await page.mouse.click(box.x+8,box.y+box.height/2);
+ await page.mouse.click(box.x+box.width/2,box.y+box.height-6);
+ await expect(sheet(page)).toBeVisible();
+});
+
 // App-level: the sheet on #/workouts with the real API.
 const weekdayToday=()=>(new Date().getDay()+6)%7;
 async function setupApp(page,days=[weekdayToday()]){
@@ -319,4 +348,17 @@ test('offline lists show retry',async({page})=>{
  await page.unroute('**/api/documents?kind=program*');
  await sheet(page).getByRole('button',{name:'Retry',exact:true}).click();
  await expect(page.getByRole('button',{name:new RegExp('^'+program)})).toBeVisible();
+});
+
+test('a server error on a list keeps history and offers retry',async({page})=>{
+ const {names}=await setupApp(page);
+ await page.route('**/api/documents?kind=template*',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:{code:'SERVER',message:'Something went wrong.'}})}));
+ await page.goto('/#/workouts');
+ await expect(page.getByRole('heading',{name:'Workouts',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await page.getByRole('tab',{name:'Template'}).click();
+ await expect(sheet(page).getByText("Couldn't load session templates.")).toBeVisible();
+ await page.unroute('**/api/documents?kind=template*');
+ await sheet(page).getByRole('button',{name:'Retry',exact:true}).click();
+ await expect(page.getByRole('button',{name:`Start ${names[0]}`,exact:true})).toBeVisible();
 });
