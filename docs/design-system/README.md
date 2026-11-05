@@ -416,3 +416,5 @@ The search field sits on its own full-width row under the tabs and Blank workout
 ### Active program
 
 Programs list cards lead their icon actions with a star toggle (`.active-program-toggle`, shared `.action-button` sizing and tooltip; `aria-pressed`; outline `star` when off, filled accent `star-filled` with an accent border when on). The active card shows an `Active` pill (`.library-badge`: 1px accent outline, accent text, 12px 600-weight body font) after its name and is listed first; badge and order change instantly.
+
+In the start sheet the active program's disclosure and search heading carry the same `Active` pill right after the name. Without an active program, the Up next slot holds one muted 14px line `No active program · ` followed by an accent, underlined text button `Make {name} active` (44px touch / 32px compact target); it swaps for the Up next card instantly after saving.

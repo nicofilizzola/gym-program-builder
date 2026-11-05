@@ -25,3 +25,26 @@ Plan: docs/superpowers/plans/2026-11-05-mobile-nav-search.md (branch `feature/mo
 **Gaps**
 - No real iOS/Android device was used: safe-area insets and on-screen keyboard behaviour were not observed; the keyboard was simulated by text-field focus.
 - Motion was checked only for presence of the 150ms transition rule, not watched frame by frame.
+
+**Final review (Opus) and fix pass**
+- Fixed: script focus no longer hides the bars; tap-out restores them only after the tap's click on real touch order and with reduced motion; search Retry keeps focus, shows its own status and never a false empty message; design-system tab bar height corrected.
+- A full run after the fixes passed 378 of 380. The 2 program-review-dock failures were caused by `mobile-navigation.spec.js` leaving an active workout behind (its resume bar changed their layout); fixed by cleanup, pair re-run 29/29.
+- Deferred minors: re-requests of a failed program on each keystroke; date/time inputs enter the typing state; search results drop the Unscheduled cue; navigation toast overlaps the tab bar; drag autoscroll zone under the bars; search e2e only at desktop size; result groups announce their name twice.
+
+## Plan 2 — active program
+
+Plan: docs/superpowers/plans/2026-11-05-active-program.md (branch `feature/mobile-polish`). Migration 009 applied to the local database only.
+
+**Automated**
+- `npm test`: settings repository and API (`test/settings.test.js`), `activeProgram`; migration-version expectations updated to 9.
+- `e2e/active-program.spec.js`: star toggle, badge and sort, persistence, failed save reverts, rapid taps end on the last choice on the server, the sheet follows the active program, aborted settings load behaves as none.
+- `e2e/workout-start-sheet.spec.js`: active program first, expanded and alone feeding Up next; one-tap Make active (focus to Up next); failed activation; deleted active program; Unscheduled-only active program; Make active disabled during a start. The real-app tests set an active program.
+
+**Browser review**
+- 390 touch: Programs list star and badge (wrapping name), tooltip; start sheet without an active program, after Make active, and searching (Active pill beside the program name).
+- 1366: Programs list star (32px), tooltip.
+
+- Full run: `npm test` 371/371; `npm run test:e2e` 386/387 (one `reference-exercises` flake, 14/14 on re-run); `npm run build` passes.
+
+**Gaps**
+- Migration 009 has not been run on preview or production.

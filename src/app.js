@@ -342,13 +342,14 @@ async function prepareRoute(route,version){
   let page,error='';
   // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.
   const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
-  const lists=Promise.all([optional(api.list('program')),optional(api.list('template'))]);
+  const lists=Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
   try{page=await api.listWorkouts();}catch(failure){if(!isNetworkError(failure))throw failure;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
-  let [programs,templates]=await lists;
+  let [programs,templates,settings]=await lists;
   const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
   return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
    onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
-   onStart:()=>openWorkoutStartSheet({programs,templates,logs:page.records,
+   onStart:()=>openWorkoutStartSheet({programs,templates,logs:page.records,activeProgramId:settings?.activeProgramId??null,
+    onActivate:async id=>{const saved=await api.setActiveProgram(id);settings=saved;return saved;},
     loadProgram:async id=>{const bundle=await api.programBundle(id);return resolveProgram(bundle.record.document,bundle.templates);},
     loadTemplate:id=>api.get(id),onStart:options=>startWorkout(options),
     onNavigate:hash=>action(()=>navigate(hash))(),onRetryList:async kind=>{const list=await api.list(kind);if(kind==='program')programs=list;else templates=list;return list;}}),

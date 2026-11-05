@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,headers} from './workout-helper.js';
+import {login,headers,createLinkedTemplate,resetWorkouts} from './workout-helper.js';
 
 /** Deletes every program and clears the active program, then creates the given ones in order (last = most recently edited). */
 async function programs(page,names){
@@ -9,6 +9,8 @@ async function programs(page,names){
  for(const name of names){const id=crypto.randomUUID();ids[name]=id;await page.request.post('/api/documents',{headers,data:{id,kind:'program',document:{name,mode:'schedule',goals:{},workouts:[]}}});}
  return ids;
 }
+// Leave no active program behind for later specs.
+test.afterEach(async({page})=>{await page.request.put('/api/settings/active-program',{headers,data:{programId:null}}).catch(()=>{});});
 const cards=page=>page.locator('.library-item h2');
 const star=(page,name)=>page.getByRole('button',{name:`Active program ${name}`,exact:true});
 
@@ -47,4 +49,21 @@ test('rapid taps on two stars end with the last choice',async({page})=>{
  await expect(star(page,'Beta')).toHaveAttribute('aria-pressed','true');
  await expect(cards(page)).toHaveText(['BetaActive','Alpha']);
  await expect.poll(async()=>(await (await page.request.get('/api/settings')).json()).settings.activeProgramId).toBe(ids.Beta);
+});
+
+test('the start sheet follows the active program and treats a failed settings load as none',async({page})=>{
+ await login(page);await resetWorkouts(page);const ids=await programs(page,['Alpha','Beta']);
+ const {id:templateId}=await createLinkedTemplate(page,'Alpha session');
+ const alpha=(await (await page.request.get('/api/documents/'+ids.Alpha)).json()).record;
+ await page.request.put('/api/documents/'+ids.Alpha,{headers,data:{revision:alpha.revision,document:{...alpha.document,workouts:[{id:'occ0',templateId,day:(new Date().getDay()+6)%7}]}}});
+ await page.reload();await star(page,'Alpha').click();await expect(star(page,'Alpha')).toHaveAttribute('aria-pressed','true');
+ await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Workouts'}).click();
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Up next: Alpha session, Alpha',exact:true})).toBeFocused();
+ await page.keyboard.press('Escape');
+ await page.route('**/api/settings',route=>route.abort());
+ await page.reload();await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ const sheet=page.locator('dialog.start-sheet[open]');
+ await expect(sheet.getByRole('button',{name:/^Up next/})).toHaveCount(0);
+ await expect(sheet.locator('.start-sheet-program-toggle')).toHaveCount(2);
 });

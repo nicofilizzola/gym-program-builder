@@ -1,7 +1,7 @@
 import {mountDialogMotion} from './dialog-motion.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {durationLabel} from './duration.js';
-import {upNextProgram,upNextOccurrence,occurrenceLabels,sessionOrder} from './workout-up-next.js';
+import {upNextProgram,upNextOccurrence,occurrenceLabels,sessionOrder,activeProgram} from './workout-up-next.js';
 import {matchesQuery} from './search-text.js';
 
 const svg=path=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${path}</svg>`;
@@ -12,6 +12,7 @@ let sheets=0;
 
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;};
 const programName=record=>record.name.trim()||'Untitled program';
+const activeBadge=()=>el('span','library-badge','Active');
 const sessionName=workout=>workout.name?.trim()||'Untitled template';
 const exerciseCount=n=>`${n} ${n===1?'exercise':'exercises'}`;
 
@@ -19,7 +20,7 @@ const exerciseCount=n=>`${n} ${n===1?'exercise':'exercises'}`;
  * Opens the Start workout sheet: a bottom sheet at ≤760px, a dialog above. Lists come from the caller
  * (null = failed to load); program sessions load on demand once per sheet. `onStart` runs after the sheet closed.
  */
-export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,now=new Date()}){
+export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,activeProgramId=null,onActivate=async id=>({activeProgramId:id}),now=new Date()}){
  const invoker=document.activeElement,uid=`start-sheet-${++sheets}`;
  const dialog=document.createElement('dialog');
  dialog.className='catalog-dialog start-sheet';dialog.setAttribute('aria-labelledby',`${uid}-title`);
@@ -152,7 +153,8 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
     const labels=occurrenceLabels(program),nameMatches=matchesQuery(programName(record),query);
     const rows=sessionOrder(program).map(id=>program.workouts.find(w=>w.id===id)).filter(w=>nameMatches||matchesQuery(sessionName(w),query));
     const list=el('ul','start-sheet-sessions');for(const workout of rows)list.append(sessionRow(workout,labels.get(workout.id),record));
-    if(rows.length)group.replaceChildren(el('p','start-sheet-group',programName(record)),list);else group.replaceChildren();group.hidden=!rows.length;
+    const heading=el('p','start-sheet-group',programName(record));if(record.id===activeProgramId)heading.append(activeBadge());
+    if(rows.length)group.replaceChildren(heading,list);else group.replaceChildren();group.hidden=!rows.length;
    },()=>{
     const text=el('p','start-sheet-error',`Couldn't search ${programName(record)}.`);text.setAttribute('role','alert');
     const retry=el('button','secondary-btn','Retry');retry.type='button';retry.disabled=starting;
@@ -173,13 +175,15 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   if(programs===null){listError(panel,'program',"Couldn't load programs.");return;}
   if(!programs.length){empty(panel,'No programs yet.','Go to Programs','#/programs');return;}
   if(query.trim()){renderProgramResults(panel);return;}
-  const nextId=upNextProgram(programs,logs),slot=el('div','start-sheet-next-slot'),list=el('ul','start-sheet-programs');
-  programs.forEach((record,index)=>{
+  // Up next comes only from the active program, listed first and expanded; without one, offer the suggested program.
+  const current=activeProgram(programs,activeProgramId),slot=el('div','start-sheet-next-slot'),list=el('ul','start-sheet-programs');
+  const ordered=current?[current,...programs.filter(p=>p!==current)]:programs;
+  ordered.forEach((record,index)=>{
    const item=el('li','start-sheet-program'),toggle=el('button','start-sheet-program-toggle'),region=el('div','collapsible start-sheet-program-region');
-   const open=expanded.get(record.id)??record.id===nextId;
+   const open=expanded.get(record.id)??record===current;
    toggle.type='button';toggle.id=`${uid}-program-${index}`;region.id=`${uid}-program-${index}-sessions`;
    toggle.setAttribute('aria-controls',region.id);toggle.setAttribute('aria-expanded',String(open));
-   toggle.append(el('span','start-sheet-program-name',programName(record)));toggle.insertAdjacentHTML('beforeend',CHEVRON);
+   toggle.append(el('span','start-sheet-program-name',programName(record)));if(record===current)toggle.append(activeBadge());toggle.insertAdjacentHTML('beforeend',CHEVRON);
    region.setAttribute('role','region');region.setAttribute('aria-labelledby',toggle.id);
    region.append(el('div','start-sheet-program-inner'));
    if(!open){region.classList.add('is-closed');region.inert=true;}
@@ -192,7 +196,28 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
    if(open)fillProgram(region,record);
   });
   panel.replaceChildren(slot,list);
-  if(nextId)renderNext(slot,programs.find(p=>p.id===nextId));
+  if(current)renderNext(slot,current);
+  else{const suggested=programs.find(p=>p.id===upNextProgram(programs,logs));if(suggested)renderActivate(slot,suggested);}
+ }
+
+ /** `No active program · Make {name} active`: one tap saves the setting and shows that program's Up next. */
+ function renderActivate(slot,record){
+  const line=el('p','start-sheet-activate','No active program · '),make=el('button','start-sheet-activate-action',`Make ${programName(record)} active`);
+  make.type='button';make.disabled=starting;line.append(make);slot.replaceChildren(line);
+  make.addEventListener('click',async()=>{
+   if(starting)return;
+   make.disabled=true;slot.querySelector('.start-sheet-error')?.remove();
+   let saved;
+   try{saved=await onActivate(record.id);}
+   catch{
+    if(!slot.isConnected)return;
+    make.disabled=starting;const error=el('p','start-sheet-error',"Couldn't set the active program.");error.setAttribute('role','alert');slot.append(error);
+    if(!dialog.contains(document.activeElement))make.focus();
+    return;
+   }
+   if(dismissed)return;
+   activeProgramId=saved.activeProgramId;expanded.delete(record.id);renderPrograms();
+  });
  }
 
  function renderTemplates(){
