@@ -13,6 +13,8 @@ export function createApiClient({fetch:request=globalThis.fetch}={}) {
     importDocument:request=>call('document-commands/import','POST',request),
     analysisCapability:()=>call('analysis'),
     getProfile:()=>call('profile'),
+    getSettings:async()=>(await call('settings')).settings,
+    setActiveProgram:async programId=>(await call('settings/active-program','PUT',{programId})).settings,
     updateProfile:({revision,profile})=>call('profile','PUT',{revision,profile}),
     listWorkouts:({before,beforeId}={})=>{
       const query=new URLSearchParams();if(before!==undefined)query.set('before',before);if(beforeId!==undefined)query.set('beforeId',beforeId);

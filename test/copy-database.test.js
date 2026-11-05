@@ -42,7 +42,7 @@ test("keeps the target's own schema_migrations",async t=>{
  const {source,target}=await pair(t);
  const before=await rows(target,'SELECT * FROM schema_migrations ORDER BY version');
  await copyDatabase(source,target);
- assert.deepEqual(before.map(r=>Number(r.version)),[1,2,3,4,5,6,7,8]);
+ assert.deepEqual(before.map(r=>Number(r.version)),[1,2,3,4,5,6,7,8,9]);
  assert.deepEqual(await rows(target,'SELECT * FROM schema_migrations ORDER BY version'),before);
 });
 
