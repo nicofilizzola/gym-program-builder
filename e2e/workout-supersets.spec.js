@@ -227,3 +227,61 @@ test('removing A1 animates and leaves focus on A2',async({browser})=>{
  await expect(page.locator('.log-exercise h2').first()).toBeFocused();
  await context.close();
 });
+
+test.describe('guided focus between superset partners',()=>{
+ const rows=(page,card,kind='working')=>page.locator('.log-exercise').nth(card).locator(`.log-set[data-kind="${kind}"]`);
+ const reps=(page,card,n)=>rows(page,card).nth(n).locator('[data-field="reps"]');
+ const done=(page,card,n)=>rows(page,card).nth(n).locator('.log-done');
+ const check=async(page,card,n)=>{const r=reps(page,card,n);if(!(await r.inputValue()))await r.fill('8');await done(page,card,n).click();};
+
+ test('✓ jumps to the partner then back, stays put when nothing remains, never on warm-up/uncheck/unpaired/typing',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:1366,height:768},reducedMotion:'reduce'});const page=await context.newPage();
+  await openActive(page);
+  await check(page,0,0);
+  await expect(reps(page,1,0)).toBeFocused();
+  await check(page,1,0);
+  await expect(reps(page,0,1)).toBeFocused();
+  // Uncheck leaves focus on the button.
+  await done(page,1,0).click();
+  await expect(done(page,1,0)).toBeFocused();
+  // Typing never moves focus.
+  await reps(page,1,0).fill('9');
+  await expect(reps(page,1,0)).toBeFocused();
+  await done(page,1,0).click();
+  await expect(reps(page,0,1)).toBeFocused();
+  // Finish A set 2: B set 2 is open, so it is the target; finish B set 2: nothing remains, focus stays on the button.
+  await check(page,0,1);
+  await expect(reps(page,1,1)).toBeFocused();
+  await check(page,1,1);
+  await expect(done(page,1,1)).toBeFocused();
+  // Unpaired exercise: focus stays.
+  await check(page,2,0);
+  await expect(done(page,2,0)).toBeFocused();
+  // Warm-up ✓ in a paired exercise does not move focus.
+  await page.locator('.log-exercise').nth(0).locator('.log-add-warmup').click();
+  const warm=rows(page,0,'warmup').first();
+  await warm.locator('[data-field="reps"]').fill('5');
+  await warm.locator('.log-done').click();
+  await expect(warm.locator('.log-done')).toBeFocused();
+  await context.close();
+ });
+
+ test('the partner row is scrolled below the sticky header (touch)',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});const page=await context.newPage();
+  await openActive(page);
+  await check(page,0,1);
+  await expect(reps(page,1,0)).toBeFocused();
+  const headerBottom=await page.locator('.logger-header').evaluate(h=>h.getBoundingClientRect().bottom);
+  const top=await rows(page,1).nth(0).evaluate(r=>r.getBoundingClientRect().top);
+  expect(top).toBeGreaterThanOrEqual(headerBottom-0.5);
+  // Scroll away so the target is off-screen, then guide again from a lower row.
+  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+  await page.locator('.log-exercise').nth(0).locator('.log-done').first().scrollIntoViewIfNeeded();
+  await check(page,0,0);
+  await expect(reps(page,1,0)).toBeFocused();
+  const hb=await page.locator('.logger-header').evaluate(h=>h.getBoundingClientRect().bottom);
+  const t2=await rows(page,1).nth(0).evaluate(r=>r.getBoundingClientRect().top);
+  expect(t2).toBeGreaterThanOrEqual(hb-0.5);
+  await context.close();
+ });
+});

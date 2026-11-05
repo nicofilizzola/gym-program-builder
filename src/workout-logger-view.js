@@ -4,7 +4,7 @@ import {mountExercisePicker} from './exercise-picker.js';
 import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {validateWorkoutLog,WORKOUT_LIMITS} from './workout-log.js';
-import {setLogName,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,confirmFinish} from './workout-edit.js';
+import {setLogName,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
 import {formatLastTime,setPlaceholder,formatElapsed} from './workout-sets.js';
 import {createSetRow,updateSetRow} from './workout-set-row.js';
 import {supersetBlocks} from './superset.js';
@@ -200,7 +200,22 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   const ex=find(exerciseId),index=ex.sets.findIndex(s=>s.id===setId);
   const result=toggleSetDone(log,exerciseId,setId,setPlaceholder(ex,index,lastSets(ex)));
   if(result.error)return result.error;
-  commit(result.log);
+  if(commit(result.log)&&active)guideFocus(exerciseId,setId);
+ }
+ /** After a working set becomes done in a pair, focus the next open set's reps (never while typing in a field). */
+ function guideFocus(exerciseId,setId){
+  if(!find(exerciseId)?.sets.find(s=>s.id===setId)?.done)return;
+  const target=nextGuidedSet(log,exerciseId,setId);
+  if(!target)return;
+  const typing=document.activeElement;
+  if(typing&&page.contains(typing)&&/^(INPUT|TEXTAREA|SELECT)$/.test(typing.tagName))return;
+  const row=cards.get(target.exerciseId)?.rows.get(target.setId);
+  const input=row?.querySelector('[data-field="reps"]');
+  if(!input)return;
+  // Keep the row clear of the sticky header, whatever height it currently has.
+  row.style.scrollMarginTop=`${$('.logger-header').getBoundingClientRect().height}px`;
+  input.focus({preventScroll:true});
+  row.scrollIntoView({block:'nearest'});
  }
  async function dropSet(exerciseId,setId){
   // The last set of a finished exercise removes the exercise (after confirming).
