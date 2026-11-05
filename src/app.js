@@ -23,6 +23,7 @@ import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
 import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
 import {mountWorkoutBar} from './workout-bar.js';
+import {mountTypingState} from './typing-state.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -108,6 +109,9 @@ async function navigate(hash,{push=true}={}){
   await renderRoute(version);
  }finally{idle(version);}
 }
+mountTypingState(app);
+const NAV_ICONS={programs:'calendar',templates:'template',catalog:'catalog',workouts:'dumbbell'};
+document.querySelectorAll('[data-nav]').forEach(link=>link.insertAdjacentHTML('afterbegin',actionIcon(NAV_ICONS[link.dataset.nav])));
 document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('click',event=>{
  if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
  event.preventDefault();action(()=>navigate(link.hash))();

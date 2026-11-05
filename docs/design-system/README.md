@@ -92,7 +92,7 @@ Numbers in the volume list use `font-variant-numeric: tabular-nums` so columns l
 
 - **Desktop (?1100px):** fluid canvas, 24px side gutters, 16px main gap, `minmax(0, 1fr) 460px`; the panel becomes 520px at ?1600px. Header, editor and program edges align. One compact application header carries product identity, labeled navigation and save/recovery controls. Page headings are 24px and names/actions use wrapping rows.
 - **Tablet (761?1099px):** retain the previous 1120px cap and 340px session rail; program overview stacks at ?800px. Desktop density does not apply.
-- **Mobile (≤ 760px):** single column (`minmax(0, 1fr)`, which prevents the chip row from causing horizontal scroll); the panel is pinned to the bottom with 120px-tall figures and the muscle list turned into one horizontally scrolling row of chips.
+- **Mobile (≤ 760px):** one compact top row (save status left, Profile and Log out right) plus the [bottom tab bar](#mobile-tab-bar); single column (`minmax(0, 1fr)`, which prevents the chip row from causing horizontal scroll); the panel is pinned to the bottom with 120px-tall figures and the muscle list turned into one horizontally scrolling row of chips.
 
 ## Desktop density tokens
 
@@ -399,3 +399,12 @@ Workout logging (2026-11-03) reuses the dark surfaces, Barlow typography and ora
 ### Active workout bar
 
 See "Workout start points and active workout bar" above for behaviour. Authoritative values: `.workout-bar` is `position: fixed` at `z-index: 20` over `--surface` with a `0 -4px 16px` shadow, content capped at 40rem, closed at `translateY(100%)` and `opacity: 0`, and `.is-open` removes both over 180ms `ease-out` (transform and opacity only). Reduced motion removes the transition.
+
+### Mobile tab bar
+
+At ≤760px the main `<nav>` becomes a bottom tab bar; above 760px the header is unchanged (icons hidden, full labels).
+
+- **Bar:** `position: fixed` at the bottom, `z-index: 21`, height `--tab-bar-height` (`calc(56px + env(safe-area-inset-bottom))`, `0px` above 760px), `--surface` with a 1px `--border` top edge. `index.html` uses `viewport-fit=cover` so the inset applies.
+- **Tabs:** four equal columns (`Programs`, `Templates`, `Catalog`, `Workouts`; `.nav-label-short` replaces `.nav-label-full` so the accessible name equals the visible label), a 24px icon (`calendar`, `template`, `catalog`, `dumbbell`) above a 12px 600-weight label, at least 44×44px. The current tab is accent-coloured with a 2px accent indicator on the top edge and keeps `aria-current="page"`; tab changes are instant.
+- **Stacking:** `body` reserves `--tab-bar-height` at the bottom. The active workout bar sits at `bottom: var(--tab-bar-height)` and reserves `calc(var(--tab-bar-height) + its height)`. The session editor's pinned volume panel sticks at `bottom: var(--tab-bar-height)`.
+- **Typing:** `src/typing-state.js` sets `body.is-typing` while a text field in `#app` has focus. The tab bar and resume bar slide out (`translateY`, 150ms ease-out; instant with reduced motion) and the pinned panel drops to `bottom: 0`; reserved padding never changes. Leaving a field restores them only after the current tap's click, so a returning bar never takes a tap meant for the page.
