@@ -4,8 +4,8 @@ import {CATALOG_NAME_MAX} from '../src/catalog.js';
 import {WORKOUT_LIMITS,toLocalIso,validateWorkoutLog,createWorkoutLog,logExerciseFromEntry,workoutSummary,upgradeLog} from '../src/workout-log.js';
 
 const seq=()=>{let n=0;return()=>'id'+(++n);};
-const set=(over={})=>({id:'s1',kind:'working',weightKg:80,reps:8,rir:2,done:true,...over});
-const exercise=(over={})=>({id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:['Biceps'],target:null,sets:[set()],...over});
+const set=(over={})=>({id:'s1',kind:'working',weightKg:80,reps:8,rir:2,done:true,note:'',...over});
+const exercise=(over={})=>({id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:['Biceps'],target:null,note:'',sets:[set()],...over});
 const active=(over={})=>({id:'l1',logVersion:2,status:'active',name:'Workout',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[exercise()],...over});
 const finished=(over={})=>active({status:'finished',finishedAt:'2026-11-03T19:00:00.000+01:00',...over});
 const bad=(log,part)=>{const r=validateWorkoutLog(log);assert.ok(r.error,'expected error');if(part)assert.match(r.error,part);};
