@@ -116,7 +116,7 @@ export function createWorkoutRepository(db,{now=()=>new Date().toISOString()}={}
     const log=upgradeLog(JSON.parse(row.log_json));
     const match=log.exercises.find(e=>e.variantId===row.variant_id);
     if(!match)continue;
-    result[row.variant_id]={logId:log.id,finishedAt:log.finishedAt,sets:match.sets.map(s=>({weightKg:s.weightKg,reps:s.reps,rir:s.rir}))};
+    result[row.variant_id]={logId:log.id,finishedAt:log.finishedAt,sets:match.sets.map(s=>({weightKg:s.weightKg,reps:s.reps,rir:s.rir,kind:s.kind==='warmup'?'warmup':'working'}))};
    }
    return result;
   },

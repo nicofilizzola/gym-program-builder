@@ -32,7 +32,7 @@ test('workouts API requires auth and round trips',async t=>{
  assert.equal((await (await call('/active')).json()).record,null);
  const list=await (await call('')).json();assert.equal(list.hasMore,false);assert.equal(list.records.length,1);
  assert.equal((await call('?before=nope')).status,400);
- assert.deepEqual((await (await call('/last?variantIds=v1')).json()).lastTime.v1.sets,[{weightKg:80,reps:8,rir:null}]);
+ assert.deepEqual((await (await call('/last?variantIds=v1')).json()).lastTime.v1.sets,[{weightKg:80,reps:8,rir:null,kind:'working'}]);
  assert.deepEqual(await (await call('/last?variantIds=v1&exclude=a')).json(),{lastTime:{}});
  assert.deepEqual(await (await call('/last')).json(),{lastTime:{}});
  const big=JSON.stringify({revision:2,log:{pad:'x'.repeat(WORKOUT_LIMITS.bytes)}});

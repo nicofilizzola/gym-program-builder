@@ -71,11 +71,26 @@ test('lastTime returns the first occurrence in the latest finished log, excludin
  await repo.save({id:'L1',revision:0,log:fin('L1','2026-11-01T10:00:00.000+00:00','2026-11-01T11:00:00.000+00:00',[exercise('e1','v1',[set('s1',80,8)])])});
  const l2=fin('L2','2026-11-02T10:00:00.000+00:00','2026-11-02T11:00:00.000+00:00',[exercise('e1','v1',[set('s1',85,6)]),exercise('e2','v1',[set('s2',60,12)])]);
  await repo.save({id:'L2',revision:0,log:l2});
- assert.deepEqual(await repo.lastTime({variantIds:['v1','v2']}),{v1:{logId:'L2',finishedAt:l2.finishedAt,sets:[{weightKg:85,reps:6,rir:null}]}});
+ assert.deepEqual(await repo.lastTime({variantIds:['v1','v2']}),{v1:{logId:'L2',finishedAt:l2.finishedAt,sets:[{weightKg:85,reps:6,rir:null,kind:'working'}]}});
  const r=await repo.lastTime({variantIds:['v1'],exclude:'L2'});
- assert.equal(r.v1.logId,'L1');assert.deepEqual(r.v1.sets,[{weightKg:80,reps:8,rir:null}]);
+ assert.equal(r.v1.logId,'L1');assert.deepEqual(r.v1.sets,[{weightKg:80,reps:8,rir:null,kind:'working'}]);
  assert.deepEqual(await repo.lastTime({variantIds:[]}),{});
  await assert.rejects(repo.lastTime({variantIds:Array.from({length:41},(_,i)=>'v'+i)}),{code:'INVALID'});
+});
+
+test('lastTime returns kind per set, working for version 1 logs',async t=>{
+ const {repo,db}=await setup(t);
+ const v2=validateWorkoutLog({id:'W2',logVersion:2,status:'finished',name:'Push',startedAt:'2026-11-02T10:00:00.000+00:00',finishedAt:'2026-11-02T11:00:00.000+00:00',source:{kind:'blank'},
+  exercises:[exercise('e1','v2',[{id:'a',kind:'warmup',weightKg:40,reps:8,rir:null,done:true},{id:'b',kind:'working',weightKg:80,reps:8,rir:2,done:true}])]}).log;
+ await repo.save({id:'W2',revision:0,log:v2});
+ await repo.save({id:'W1',revision:0,log:fin('W1','2026-11-01T10:00:00.000+00:00','2026-11-01T11:00:00.000+00:00',[exercise('e1','v1',[set('s1',80,8)])])});
+ const raw=JSON.parse((await db.execute("SELECT log_json FROM workout_logs WHERE id='W1'")).rows[0].log_json);
+ for(const ex of raw.exercises)for(const s of ex.sets)delete s.kind;
+ raw.logVersion=1;
+ await db.execute({sql:"UPDATE workout_logs SET log_json=? WHERE id='W1'",args:[JSON.stringify(raw)]});
+ const r=await repo.lastTime({variantIds:['v1','v2']});
+ assert.deepEqual(r.v2.sets.map(s=>s.kind),['warmup','working']);
+ assert.deepEqual(r.v1.sets.map(s=>s.kind),['working']);
 });
 
 test('history orders by real time across UTC offsets and paginates',async t=>{

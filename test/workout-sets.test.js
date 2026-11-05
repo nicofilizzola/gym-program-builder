@@ -33,3 +33,16 @@ test('steppers clamp and start from the placeholder',()=>{
  assert.equal(stepReps(null,8,1),9);assert.equal(stepReps(1,null,-1),1);assert.equal(stepReps(100,null,1),100);
 });
 test('formatElapsed',()=>{assert.equal(formatElapsed(0),'0 min');assert.equal(formatElapsed(32*60000),'32 min');assert.equal(formatElapsed(65*60000),'1 h 05 min');});
+
+test('last time ignores warm-ups',()=>{
+ assert.equal(formatLastTime([{kind:'warmup',weightKg:40,reps:8,rir:null},{kind:'working',weightKg:80,reps:8,rir:2}]),'80×8 @2');
+ assert.equal(formatLastTime([{kind:'warmup',weightKg:40,reps:8,rir:null}]),'No history');
+});
+test('placeholders follow the set kind',()=>{
+ const ex={target:{repRange:{min:8,max:12}},sets:[{kind:'warmup',weightKg:null,reps:null,rir:null},{kind:'warmup',weightKg:null,reps:null,rir:null},{kind:'working',weightKg:null,reps:null,rir:null}]};
+ const last=[{kind:'warmup',weightKg:40,reps:10,rir:null},{kind:'working',weightKg:80,reps:8,rir:2}];
+ assert.deepEqual(setPlaceholder(ex,0,last),{weightKg:40,reps:10,rir:null});
+ assert.deepEqual(setPlaceholder(ex,1,last),{weightKg:40,reps:10,rir:null});
+ assert.deepEqual(setPlaceholder(ex,2,last),{weightKg:80,reps:8,rir:2});
+ assert.deepEqual(setPlaceholder({...ex,sets:[ex.sets[0]]},0,[]),{weightKg:null,reps:null,rir:null});
+});
