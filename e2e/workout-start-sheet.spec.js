@@ -362,3 +362,60 @@ test('a server error on a list keeps history and offers retry',async({page})=>{
  await sheet(page).getByRole('button',{name:'Retry',exact:true}).click();
  await expect(page.getByRole('button',{name:`Start ${names[0]}`,exact:true})).toBeVisible();
 });
+
+// Search (2026-11-05): one field filters the visible tab; the query is shared by both tabs.
+const twoTemplates=[{id:'t1',name:'Upper'},{id:'t2',name:'Pull B'}];
+const search=page=>sheet(page).getByRole('searchbox',{name:'Search sessions'});
+
+test('search filters templates and program sessions, keeping the query across tabs',async({page})=>{
+ await mountSheet(page,{templates:twoTemplates});await open(page);
+ await expect(page.getByRole('button',{name:'Up next: Legs A, PPL',exact:true})).toBeFocused();
+ await sheet(page).getByRole('tab',{name:'Template'}).click();
+ await search(page).fill('pull');
+ await expect(sheet(page).getByRole('button',{name:/^Start /})).toHaveText(['Pull B']);
+ await sheet(page).getByRole('tab',{name:'Program'}).click();
+ await expect(search(page)).toHaveValue('pull');
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(panel.getByRole('button',{name:/^Up next/})).toHaveCount(0);
+ await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(1);
+ await expect(panel.getByRole('button',{name:'Start Pull A, PPL, Tuesday',exact:true})).toBeVisible();
+ await expect(panel.locator('.start-sheet-group')).toHaveText(['PPL']);
+ await search(page).fill('cycle');
+ await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(3);
+ await search(page).fill('zzz');
+ await expect(panel).toContainText('No sessions match "zzz".');
+ await sheet(page).getByRole('tab',{name:'Template'}).click();
+ await expect(sheet(page).locator('[data-panel=template]')).toContainText('No templates match "zzz".');
+});
+
+test('Escape clears the search first, then closes the sheet; clearing restores the disclosures',async({page})=>{
+ await mountSheet(page);await open(page);
+ await search(page).fill('legs');
+ await search(page).press('Escape');
+ await expect(search(page)).toHaveValue('');await expect(sheet(page)).toBeVisible();
+ await expect(page.getByRole('button',{name:'Up next: Legs A, PPL',exact:true})).toBeVisible();
+ await expect(sheet(page).getByRole('button',{name:'PPL',exact:true})).toHaveAttribute('aria-expanded','true');
+ await search(page).press('Escape');
+ await expect(sheet(page)).toHaveCount(0);
+});
+
+test('a program that fails to load shows Retry while the others still match',async({page})=>{
+ await mountSheet(page,{failOnce:['cycle']});await open(page);
+ await search(page).fill('a');
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(panel).toContainText("Couldn't search Cycle.");
+ await expect(panel.getByRole('button',{name:'Start Legs A, PPL, Thursday',exact:true})).toBeVisible();
+ await panel.getByRole('button',{name:'Retry'}).click();
+ await expect(panel.getByRole('button',{name:'Start A, Cycle, Day 1',exact:true})).toBeVisible();
+ await expect(panel).not.toContainText("Couldn't search Cycle.");
+});
+
+test('starting from a search result disables the field while it starts',async({page})=>{
+ await mountSheet(page,{templates:twoTemplates,templateDelay:400});await open(page);
+ await sheet(page).getByRole('tab',{name:'Template'}).click();
+ await search(page).fill('upper');
+ await sheet(page).getByRole('button',{name:'Start Upper',exact:true}).click();
+ await expect(search(page)).toBeDisabled();
+ await expect(sheet(page)).toHaveCount(0);
+ expect((await calls(page)).starts).toHaveLength(1);
+});

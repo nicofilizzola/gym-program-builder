@@ -1824,6 +1824,11 @@ p.limit-hint {display:flex}
 .start-sheet-blank {padding:0 12px;font-size:.875rem}
 .start-sheet-tablist [role=tab][aria-selected=true] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
 .start-sheet-body {flex:1;min-height:0;overflow-y:auto;padding:12px 16px 16px}
+.start-sheet-search {position:relative;display:flex;flex:1 0 100%;align-items:center}
+.start-sheet-search svg {position:absolute;left:10px;width:18px;height:18px;color:var(--muted);pointer-events:none}
+.start-sheet .start-sheet-search input {width:100%;min-height:44px;padding-left:36px}
+.start-sheet-result+.start-sheet-result {margin-top:12px}
+.start-sheet-result>.start-sheet-group {margin:0 0 4px}
 .start-sheet-body ul {list-style:none;margin:0;padding:0}
 .start-sheet-next,.start-sheet-session,.start-sheet-program-toggle {display:flex;width:100%;min-height:44px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere;transition:background-color 150ms ease-out,border-color 150ms ease-out}
 .start-sheet-next:hover:not(:disabled),.start-sheet-session:hover:not(:disabled),.start-sheet-program-toggle:hover {background:var(--surface-2)}
@@ -1867,6 +1872,7 @@ p.limit-hint {display:flex}
 .catalog-dialog select,.catalog-toolbar select {max-width:100%;min-height:44px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:inherit}
 @media (max-width:1000px) {.catalog-row {grid-template-columns:minmax(0,1fr)}.catalog-row-actions {justify-content:start}}
 @media (max-width:760px) {.catalog-page {padding:16px}.catalog-toolbar>.field {flex:1;min-width:100%}.catalog-muscles {grid-template-columns:minmax(0,1fr)}.catalog-dialog {padding:16px}.catalog-form-actions {bottom:-16px}}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.start-sheet .start-sheet-search input {min-height:32px}}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.catalog-dialog select,.catalog-toolbar select {min-height:32px}.catalog-muscles .chip span {min-height:28px}.catalog-meta,.catalog-mapping {font-size:.8125rem}.catalog-archived {min-height:32px}}
 
 /* Top-layer exercise suggestions stay clear of card clipping and the mobile rail. */

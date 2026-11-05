@@ -1,5 +1,13 @@
 # Gym Program Builder
 
+## Mobile navigation (2026-11-05)
+
+Design: docs/superpowers/specs/2026-11-05-mobile-polish-tracker-notes-design.md (§A1); plan: docs/superpowers/plans/2026-11-05-mobile-nav-search.md. Supersedes the header layout at ≤760px; wider screens are unchanged.
+
+- At ≤760px the main `<nav>` is a fixed bottom tab bar (`--tab-bar-height`: `max(56px, 34px + .9rem)` + safe area; `viewport-fit=cover`): four tabs with icon and short label (`Programs`, `Templates`, `Catalog`, `Workouts`; accessible name = visible label), ≥44px targets, accent plus 2px top indicator and `aria-current`. The header is one compact row (save status left, Profile and Log out right).
+- The active workout bar sits above the tab bar and the page reserves both; the session editor's pinned volume panel sticks above the tab bar.
+- While a text field in `#app` has focus (`body.is-typing`, `src/typing-state.js`) the bars slide out (150ms; instant with reduced motion) and the pinned panel drops to the bottom; reserved padding never changes. Leaving a field restores them only after the current tap's click, so a returning bar never takes a tap.
+
 ## Workout start sheet (2026-11-05)
 
 Design: docs/superpowers/specs/2026-11-05-workout-start-sheet-design.md; plan: docs/superpowers/plans/2026-11-05-workout-start-sheet.md. These approved requirements supersede the Workout tracker's "start blank from Workouts" entry point.
@@ -8,6 +16,7 @@ Design: docs/superpowers/specs/2026-11-05-workout-start-sheet-design.md; plan: d
 - **Up next** (`src/workout-up-next.js`, pure): the program of the newest program log on the first history page that still exists, else the most recently edited program. Week: the first session from today through Sunday not logged this week (local Monday–Sunday, program order within a day, missed earlier days are never caught up), else next week's first scheduled session; Unscheduled sessions are never suggested. Sequence: the workout entry after the newest log still in the sequence (rests skipped, wrapping), else the first. Computed on open, never stored or exported; no server or schema change.
 - Lists come from the Workouts route; program sessions load on demand once per sheet (`api.programBundle`), templates load on tap (`api.get`). Failed lists, programs or templates show inline errors with Retry; Blank workout always works. Rows, tabs and Blank are disabled while a start is in progress.
 - Motion: bottom sheet 200ms translateY + backdrop, dialog 150ms catalog modal motion, program disclosures 200ms `.collapsible`, tabs instant; all instant with reduced motion. Focus goes to the Up next card (else the selected tab) and returns to Start workout on Close, Escape, backdrop or swipe.
+- Search (2026-11-05): one `type=search` field (`Search sessions`, never auto-focused) under the tabs filters the visible tab with `matchesQuery` (`src/search-text.js`: every word, case/accent-insensitive); the query is kept across tabs and filters instantly. Program search loads every program through the per-sheet cache (`Searching…`) and lists matching sessions (session or program name) under program headings, hiding Up next and the disclosures; failures show `Couldn't search {program}.` with Retry. Empty: `No sessions match "{q}".` / `No templates match "{q}".`. Escape clears a non-empty query before closing; clearing restores each disclosure's state; the field is disabled during a start.
 - Verification: docs/superpowers/verification/2026-11-05-workout-start-sheet.md. Never claim a pending deployment was verified.
 
 ## Warm-ups, supersets and training profile (2026-11-03)

@@ -2,9 +2,10 @@ import {mountDialogMotion} from './dialog-motion.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {durationLabel} from './duration.js';
 import {upNextProgram,upNextOccurrence,occurrenceLabels,sessionOrder} from './workout-up-next.js';
+import {matchesQuery} from './search-text.js';
 
 const svg=path=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${path}</svg>`;
-const CLOSE=svg('<path d="M6 6l12 12M18 6 6 18"/>'),CHEVRON=svg('<path d="m6 9 6 6 6-6"/>');
+const CLOSE=svg('<path d="M6 6l12 12M18 6 6 18"/>'),CHEVRON=svg('<path d="m6 9 6 6 6-6"/>'),SEARCH=svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>');
 const narrow=()=>matchMedia('(max-width:760px)').matches;
 const SWIPE_DISTANCE=80,SWIPE_VELOCITY=0.5;
 let sheets=0;
@@ -28,14 +29,16 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
 <div class="start-sheet-tabs"><div class="start-sheet-tablist" role="tablist" aria-label="Start from">
 <button type="button" role="tab" id="${uid}-tab-program" aria-controls="${uid}-panel-program" data-tab="program">Program</button>
 <button type="button" role="tab" id="${uid}-tab-template" aria-controls="${uid}-panel-template" data-tab="template">Template</button></div>
-<button type="button" class="secondary-btn start-sheet-blank" data-blank>Blank workout</button></div>
+<button type="button" class="secondary-btn start-sheet-blank" data-blank>Blank workout</button>
+<label class="start-sheet-search"><span class="visually-hidden">Search sessions</span>${SEARCH}<input type="search" placeholder="Search" autocomplete="off" spellcheck="false" data-search></label></div>
 <div class="start-sheet-body">
 <div role="tabpanel" id="${uid}-panel-program" aria-labelledby="${uid}-tab-program" data-panel="program"></div>
 <div role="tabpanel" id="${uid}-panel-template" aria-labelledby="${uid}-tab-template" data-panel="template" hidden></div>
 </div></form>`;
  const $=selector=>dialog.querySelector(selector);
  const tabs=[...dialog.querySelectorAll('[role=tab]')],panels={program:$('[data-panel=program]'),template:$('[data-panel=template]')};
- let resolveClosed,starting=false,dismissed=false;
+ let resolveClosed,starting=false,dismissed=false,query='';
+ const field=$('[data-search]'),expanded=new Map();
  const closed=new Promise(resolve=>{resolveClosed=resolve;});
  const tips=mountActionTooltips(dialog);
  const motion=mountDialogMotion(dialog,{duration:()=>narrow()?200:150,onClosed:()=>{tips?.destroy?.();if(invoker?.isConnected)invoker.focus({preventScroll:true});resolveClosed();}});
@@ -54,7 +57,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
 
  function setBusy(on){
   starting=on;
-  for(const button of dialog.querySelectorAll('.start-sheet-tabs button,.start-sheet-body button'))button.disabled=on;
+  for(const control of dialog.querySelectorAll('.start-sheet-tabs button,.start-sheet-body button,[data-search]'))control.disabled=on;
  }
  async function start(options){
   if(starting)return;setBusy(true);close();await closed;onStart(options);
@@ -91,6 +94,15 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   return {button,meta};
  }
 
+ /** A session row button (name and meta) as listed under a program or in search results. */
+ function sessionRow(workout,label,record){
+  const {button,meta}=sessionButton(workout,label,record,'start-sheet-session');
+  button.setAttribute('aria-label',`Start ${sessionName(workout)}, ${programName(record)}, ${label.long}`);
+  button.append(el('span','start-sheet-session-name',sessionName(workout)),el('span','start-sheet-meta',meta));
+  button.disabled=starting;
+  const item=el('li');item.append(button);return item;
+ }
+
  function renderNext(slot,record){
   const status=el('p','start-sheet-hint','Finding your next session…');status.setAttribute('role','status');slot.replaceChildren(status);
   getProgram(record.id).then(program=>{
@@ -118,11 +130,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
    for(const id of order){
     const workout=program.workouts.find(w=>w.id===id),label=labels.get(id);
     if(label.short==='Unscheduled'&&!grouped){grouped=true;list.append(el('li','start-sheet-group','Unscheduled'));}
-    const {button,meta}=sessionButton(workout,label,record,'start-sheet-session');
-    button.setAttribute('aria-label',`Start ${sessionName(workout)}, ${programName(record)}, ${label.long}`);
-    button.append(el('span','start-sheet-session-name',sessionName(workout)),el('span','start-sheet-meta',meta));
-    button.disabled=starting;
-    const item=el('li');item.append(button);list.append(item);
+    list.append(sessionRow(workout,label,record));
    }
    inner.replaceChildren(list);region.dataset.ready='';
   },()=>{
@@ -132,14 +140,38 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   });
  }
 
+ /** Search results: every program loads (per-sheet cache) and lists its matching sessions under its name. */
+ function renderProgramResults(panel){
+  const status=el('p','start-sheet-hint','Searching…'),results=el('div','start-sheet-results'),none=el('p','start-sheet-empty',`No sessions match "${query.trim()}".`);
+  status.setAttribute('role','status');none.hidden=true;panel.replaceChildren(status,results,none);
+  let pending=programs.length;
+  const settle=()=>{if(--pending>0||!status.isConnected)return;status.remove();none.hidden=[...results.children].some(group=>!group.hidden);};
+  for(const record of programs){
+   const group=el('div','start-sheet-result');group.setAttribute('role','group');group.setAttribute('aria-label',programName(record));group.hidden=true;results.append(group);
+   const fill=()=>getProgram(record.id).then(program=>{
+    const labels=occurrenceLabels(program),nameMatches=matchesQuery(programName(record),query);
+    const rows=sessionOrder(program).map(id=>program.workouts.find(w=>w.id===id)).filter(w=>nameMatches||matchesQuery(sessionName(w),query));
+    const list=el('ul','start-sheet-sessions');for(const workout of rows)list.append(sessionRow(workout,labels.get(workout.id),record));
+    if(rows.length)group.replaceChildren(el('p','start-sheet-group',programName(record)),list);else group.replaceChildren();group.hidden=!rows.length;
+   },()=>{
+    const text=el('p','start-sheet-error',`Couldn't search ${programName(record)}.`);text.setAttribute('role','alert');
+    const retry=el('button','secondary-btn','Retry');retry.type='button';retry.disabled=starting;
+    retry.addEventListener('click',()=>{group.replaceChildren();group.hidden=true;fill().then(()=>{if(!status.isConnected)none.hidden=[...results.children].some(g=>!g.hidden);});});
+    group.replaceChildren(text,retry);group.hidden=false;
+   });
+   fill().finally(settle);
+  }
+ }
+
  function renderPrograms(){
   const panel=panels.program;
   if(programs===null){listError(panel,'program',"Couldn't load programs.");return;}
   if(!programs.length){empty(panel,'No programs yet.','Go to Programs','#/programs');return;}
+  if(query.trim()){renderProgramResults(panel);return;}
   const nextId=upNextProgram(programs,logs),slot=el('div','start-sheet-next-slot'),list=el('ul','start-sheet-programs');
   programs.forEach((record,index)=>{
    const item=el('li','start-sheet-program'),toggle=el('button','start-sheet-program-toggle'),region=el('div','collapsible start-sheet-program-region');
-   const open=record.id===nextId;
+   const open=expanded.get(record.id)??record.id===nextId;
    toggle.type='button';toggle.id=`${uid}-program-${index}`;region.id=`${uid}-program-${index}-sessions`;
    toggle.setAttribute('aria-controls',region.id);toggle.setAttribute('aria-expanded',String(open));
    toggle.append(el('span','start-sheet-program-name',programName(record)));toggle.insertAdjacentHTML('beforeend',CHEVRON);
@@ -148,7 +180,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
    if(!open){region.classList.add('is-closed');region.inert=true;}
    toggle.addEventListener('click',()=>{
     const expand=toggle.getAttribute('aria-expanded')!=='true';
-    toggle.setAttribute('aria-expanded',String(expand));region.classList.toggle('is-closed',!expand);region.inert=!expand;
+    toggle.setAttribute('aria-expanded',String(expand));region.classList.toggle('is-closed',!expand);region.inert=!expand;expanded.set(record.id,expand);
     if(expand&&!('ready' in region.dataset)&&!region.querySelector('.start-sheet-hint'))fillProgram(region,record);
    });
    item.append(toggle,region);list.append(item);
@@ -162,8 +194,10 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   const panel=panels.template;
   if(templates===null){listError(panel,'template',"Couldn't load session templates.");return;}
   if(!templates.length){empty(panel,'No session templates yet.','Go to Session templates','#/templates');return;}
+  const shown=templates.filter(record=>matchesQuery(record.name.trim()||'Untitled template',query));
+  if(!shown.length){panel.replaceChildren(el('p','start-sheet-empty',`No templates match "${query.trim()}".`));return;}
   const list=el('ul','start-sheet-sessions');
-  for(const record of templates){
+  for(const record of shown){
    const name=record.name.trim()||'Untitled template',button=el('button','start-sheet-session'),item=el('li');
    button.type='button';button.setAttribute('aria-label',`Start ${name}`);button.append(el('span','start-sheet-session-name',name));
    button.addEventListener('click',async()=>{
@@ -210,6 +244,12 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
  dialog.addEventListener('click',event=>{if(event.target===dialog)close();});
  $('[data-close]').addEventListener('click',close);
  $('[data-blank]').addEventListener('click',()=>start({}));
+ field.addEventListener('input',()=>{if(field.value===query)return;query=field.value;renderPrograms();renderTemplates();});
+ // Escape clears a non-empty search instead of closing the sheet.
+ field.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||!field.value)return;
+  event.preventDefault();event.stopPropagation();field.value='';query='';renderPrograms();renderTemplates();
+ });
  tabs.forEach(tab=>tab.addEventListener('click',()=>select(tab.dataset.tab)));
  $('[role=tablist]').addEventListener('keydown',event=>{
   const index=tabs.indexOf(document.activeElement);if(index<0)return;
