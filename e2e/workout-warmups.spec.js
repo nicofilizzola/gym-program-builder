@@ -43,6 +43,12 @@ for(const [label,opts] of [['phone',{viewport:{width:390,height:844},hasTouch:tr
   await expect(page.getByRole('button',{name:`Add set, ${exName}`,exact:true}).locator('xpath=..')).toHaveClass(/log-set-actions/);
   // Warm-ups never open the finish warning: with both done, only working sets are counted.
   await doneSet(page,'Warm-up set 1',exName,'10');await doneSet(page,'Warm-up set 2',exName,'8');await doneSet(page,'Set 1',exName,'8');
+  const colors=await page.evaluate(()=>{const c=li=>getComputedStyle(li.querySelector('.log-set-number')).color,rows=[...document.querySelector('.log-exercise').querySelectorAll('.log-set')];
+   const probe=document.createElement('i');probe.style.color='var(--muted)';document.body.append(probe);const muted=getComputedStyle(probe).color;probe.remove();
+   return {warm:c(rows[0]),working:c(rows[2]),muted,warmClass:rows[0].classList.contains('is-warmup'),workingClass:rows[2].classList.contains('is-warmup'),
+    fieldWarm:getComputedStyle(rows[0].querySelector('input')).color,fieldWork:getComputedStyle(rows[2].querySelector('input')).color};});
+  expect(colors.warmClass).toBe(true);expect(colors.workingClass).toBe(false);
+  expect(colors.warm).toBe(colors.muted);expect(colors.working).not.toBe(colors.muted);expect(colors.fieldWarm).toBe(colors.fieldWork);
   await page.getByRole('button',{name:'Finish',exact:true}).click();
   await expect(page.getByRole('dialog')).toContainText('5 sets not completed');
   await page.getByRole('dialog').getByRole('button',{name:'Cancel'}).click();
@@ -62,9 +68,10 @@ test('Add warm-up animates the collapse unless reduced motion',async({browser})=
  await context.close();
  const reduced=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});const p2=await reduced.newPage();
  const {exName:n2}=await openActive(p2);
+ await p2.evaluate(()=>{window.__closed=false;new MutationObserver(rs=>{if(rs.some(r=>r.oldValue?.includes('is-closed')||[...r.addedNodes].some(n=>n.classList?.contains('is-closed'))||r.target.classList?.contains('is-closed')))window.__closed=true;}).observe(document.body,{subtree:true,attributes:true,childList:true,attributeOldValue:true,attributeFilter:['class']});});
  await p2.getByRole('button',{name:`Add warm-up, ${n2}`,exact:true}).click();
  await expect(p2.locator('.log-exercise').first().locator('.log-set-number')).toHaveText(['W1','W2','W3','1','2','3']);
- expect(await p2.evaluate(()=>getComputedStyle(document.querySelector('.log-set.is-warmup')).transitionDuration.split(',').every(d=>parseFloat(d)<=0.15))).toBe(true);
+ expect(await p2.evaluate(()=>window.__closed)).toBe(false);
  await reduced.close();
 });
 
@@ -97,9 +104,23 @@ test('finished log: Add warm-up inherits; removing the last working set removes 
  await expect(page.locator('.log-exercise').first().locator('.log-set-number')).toHaveText(['W1','W2','1']);
  await expect(page.getByLabel(`Warm-up set 2 weight, ${exName}`,{exact:true})).toHaveValue('40');
  await expect(page.getByLabel(`Warm-up set 2 reps, ${exName}`,{exact:true})).toHaveValue('10');
- await page.getByRole('button',{name:`Set 1 actions, ${exName}`,exact:true}).click();
- await page.getByRole('group',{name:'Set actions'}).getByRole('button',{name:'Remove set',exact:true}).click();
- await expect(page.getByRole('dialog')).toContainText('Remove');
+ const removeFrom=async label=>{await page.getByRole('button',{name:`${label} actions, ${exName}`,exact:true}).click();await page.getByRole('group',{name:'Set actions'}).getByRole('button',{name:'Remove set',exact:true}).click();};
+ const numbers=page.locator('.log-exercise').first().locator('.log-set-number');
+ // Removing a warm-up never asks to remove the exercise.
+ await removeFrom('Warm-up set 2');
+ await expect(numbers).toHaveText(['W1','1']);await expect(page.getByRole('dialog')).toHaveCount(0);
+ // Removing a non-last working set does not either.
+ await page.getByRole('button',{name:`Add set, ${exName}`,exact:true}).click();
+ await expect(numbers).toHaveText(['W1','1','2']);
+ await removeFrom('Set 2');
+ await expect(numbers).toHaveText(['W1','1']);await expect(page.getByRole('dialog')).toHaveCount(0);
+ // The last working set asks to remove the exercise and removes it with its warm-ups.
+ await expect(page.locator('.log-exercise')).toHaveCount(2);
+ await removeFrom('Set 1');
+ const dialog=page.getByRole('dialog');await expect(dialog).toContainText('Remove');
+ await dialog.getByRole('button',{name:'Remove exercise'}).click();
+ await expect(page.locator('.log-exercise')).toHaveCount(1);
+ await expect(page.getByRole('button',{name:`Add warm-up, ${exName}`,exact:true})).toHaveCount(0);
 });
 
 test('a dirty version 1 mirror resumes with numbered working rows and syncs',async({page})=>{

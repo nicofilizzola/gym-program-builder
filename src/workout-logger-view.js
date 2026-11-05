@@ -101,7 +101,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
    let row=card.rows.get(set.id);const fresh=!row;
    if(fresh){
     row=createSetRow({...props,readOnly:!editable,onPatch:patch=>commit(updateSet(log,ex.id,set.id,patch)),onToggle:()=>toggle(ex.id,set.id),onMenu:button=>setMenu.toggle(button,[{label:'Remove set',run:()=>dropSet(ex.id,set.id)}])});
-    if(animate)row.classList.add('is-closed');card.rows.set(set.id,row);
+    if(animate&&!reducedMotion.matches)row.classList.add('is-closed');card.rows.set(set.id,row);
    }else updateSetRow(row,props);
    const live=[...card.sets.children].filter(el=>!el.classList.contains('is-removing'));
    if(live[index]!==row)card.sets.insertBefore(row,live[index]||null);
@@ -112,7 +112,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   for(const [id,card] of cards)if(!find(id)){cards.delete(id);card.picker?.destroy();collapseOut(card.li,animate);}
   log.exercises.forEach((ex,index)=>{
    let card=cards.get(ex.id);const fresh=!card;
-   if(fresh){card=createCard(ex);cards.set(ex.id,card);if(animate)card.li.classList.add('is-closed');}
+   if(fresh){card=createCard(ex);cards.set(ex.id,card);if(animate&&!reducedMotion.matches)card.li.classList.add('is-closed');}
    const live=[...list.children].filter(el=>!el.classList.contains('is-removing'));
    if(live[index]!==card.li)list.insertBefore(card.li,live[index]||null);
    updateCard(card,ex,animate&&!fresh);
