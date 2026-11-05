@@ -17,11 +17,12 @@ async function mountSheet(page,opts={}){
   const w=(id,day,name)=>({id,templateId:'t-'+id,day,name,goals:{},exercises:[ex('A'),ex('B')],extraMinutes:5,bufferPercent:10});
   const resolved={
    ppl:{name:long+'PPL',mode:'schedule',goals:{},workouts:[w('push',0,long+'Push A'),w('pull',1,'Pull A'),w('legs',3,'Legs A'),w('arms',null,'Arms')]},
+   loose:{name:'Loose',mode:'schedule',goals:{},workouts:[w('x',null,'X')]},
    cycle:{name:'Cycle',mode:'simple',goals:{},workouts:[w('a',null,'A'),w('b',null,'B'),w('c',null,'C')],sequence:[{type:'workout',workoutId:'a'},{type:'rest',id:'r'},{type:'workout',workoutId:'b'},{type:'workout',workoutId:'c'}]}
   };
   window.expectedDuration=durationLabel(resolved.ppl.workouts[2]);
   const programList=[{id:'ppl',name:long+'PPL'},{id:'cycle',name:'Cycle'}],templateList=[{id:'t1',name:long+'Upper'}];
-  const calls=window.calls={starts:[],loads:[],templateLoads:[],navigations:[],retries:[]};
+  const calls=window.calls={starts:[],loads:[],templateLoads:[],navigations:[],retries:[],activations:[]};
   const failed=new Set();const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   window.openSheet=()=>openWorkoutStartSheet({
    programs:opts.programs===undefined?programList:opts.programs,
@@ -32,7 +33,9 @@ async function mountSheet(page,opts={}){
    loadTemplate:async id=>{calls.templateLoads.push(id);if(opts.templateDelay)await sleep(opts.templateDelay);if(opts.failTemplate)throw Error('offline');return {id,document:{name:long+'Upper',goals:{},exercises:[ex('A')]}};},
    onStart:options=>calls.starts.push(structuredClone(options)),
    onNavigate:hash=>calls.navigations.push(hash),
-   onRetryList:async kind=>{calls.retries.push(kind);return kind==='program'?programList:templateList;}
+   onRetryList:async kind=>{calls.retries.push(kind);return kind==='program'?programList:templateList;},
+   activeProgramId:opts.activeProgramId===undefined?'ppl':opts.activeProgramId,
+   onActivate:async id=>{calls.activations.push(id);await sleep(50);if(opts.activateFails)throw Error('offline');return {activeProgramId:id};}
   });
   document.querySelector('#opener').addEventListener('click',()=>window.openSheet());
  },opts);
@@ -271,6 +274,8 @@ async function setupApp(page,days=[weekdayToday()]){
  const programId=crypto.randomUUID(),workouts=days.map((day,i)=>({id:'occ'+i,templateId:templates[i].id,day}));
  const response=await page.request.post('/api/documents',{headers,data:{id:programId,kind:'program',document:{name:program,mode:'schedule',goals:{},workouts}}});
  expect(response.ok()).toBeTruthy();
+ // The user follows this program: Up next comes only from the active program.
+ expect((await page.request.put('/api/settings/active-program',{headers,data:{programId}})).ok()).toBeTruthy();
  return {program,programId,names,templates,tag};
 }
 async function openFromWorkouts(page){
@@ -361,4 +366,133 @@ test('a server error on a list keeps history and offers retry',async({page})=>{
  await page.unroute('**/api/documents?kind=template*');
  await sheet(page).getByRole('button',{name:'Retry',exact:true}).click();
  await expect(page.getByRole('button',{name:`Start ${names[0]}`,exact:true})).toBeVisible();
+});
+
+// Search (2026-11-05): one field filters the visible tab; the query is shared by both tabs.
+const twoTemplates=[{id:'t1',name:'Upper'},{id:'t2',name:'Pull B'}];
+const search=page=>sheet(page).getByRole('searchbox',{name:'Search sessions'});
+
+test('search filters templates and program sessions, keeping the query across tabs',async({page})=>{
+ await mountSheet(page,{templates:twoTemplates});await open(page);
+ await expect(page.getByRole('button',{name:'Up next: Legs A, PPL',exact:true})).toBeFocused();
+ await sheet(page).getByRole('tab',{name:'Template'}).click();
+ await search(page).fill('pull');
+ await expect(sheet(page).getByRole('button',{name:/^Start /})).toHaveText(['Pull B']);
+ await sheet(page).getByRole('tab',{name:'Program'}).click();
+ await expect(search(page)).toHaveValue('pull');
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(panel.getByRole('button',{name:/^Up next/})).toHaveCount(0);
+ await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(1);
+ await expect(panel.getByRole('button',{name:'Start Pull A, PPL, Tuesday',exact:true})).toBeVisible();
+ await expect(panel.locator('.start-sheet-group')).toHaveText(['PPL Active']);
+ await search(page).fill('cycle');
+ await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(3);
+ await search(page).fill('zzz');
+ await expect(panel).toContainText('No sessions match "zzz".');
+ await sheet(page).getByRole('tab',{name:'Template'}).click();
+ await expect(sheet(page).locator('[data-panel=template]')).toContainText('No templates match "zzz".');
+});
+
+test('Escape clears the search first, then closes the sheet; clearing restores the disclosures',async({page})=>{
+ await mountSheet(page);await open(page);
+ await search(page).fill('legs');
+ await search(page).press('Escape');
+ await expect(search(page)).toHaveValue('');await expect(sheet(page)).toBeVisible();
+ await expect(page.getByRole('button',{name:'Up next: Legs A, PPL',exact:true})).toBeVisible();
+ await expect(toggle(page,'PPL')).toHaveAttribute('aria-expanded','true');
+ await search(page).press('Escape');
+ await expect(sheet(page)).toHaveCount(0);
+});
+
+test('a program that fails to load shows Retry while the others still match',async({page})=>{
+ await mountSheet(page,{failOnce:['cycle']});await open(page);
+ await search(page).fill('a');
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(panel).toContainText("Couldn't search Cycle.");
+ await expect(panel.getByRole('button',{name:'Start Legs A, PPL, Thursday',exact:true})).toBeVisible();
+ await panel.getByRole('button',{name:'Retry'}).click();
+ await expect(panel.getByRole('button',{name:'Start A, Cycle, Day 1',exact:true})).toBeVisible();
+ await expect(panel).not.toContainText("Couldn't search Cycle.");
+});
+
+test('starting from a search result disables the field while it starts',async({page})=>{
+ await mountSheet(page,{templates:twoTemplates,templateDelay:400});await open(page);
+ await sheet(page).getByRole('tab',{name:'Template'}).click();
+ await search(page).fill('upper');
+ await sheet(page).getByRole('button',{name:'Start Upper',exact:true}).click();
+ await expect(search(page)).toBeDisabled();
+ await expect(sheet(page)).toHaveCount(0);
+ expect((await calls(page)).starts).toHaveLength(1);
+});
+
+test('Retry in search results keeps focus, shows Searching… and never a false empty message',async({page})=>{
+ await mountSheet(page,{failOnce:['cycle'],delay:{cycle:400}});await open(page);
+ await search(page).fill('cycle');
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(panel).toContainText("Couldn't search Cycle.");
+ await panel.getByRole('button',{name:'Retry'}).click();
+ await expect(panel.getByRole('status')).toHaveText('Searching…');
+ await expect(search(page)).toBeFocused();
+ await expect(panel.getByText('No sessions match')).toBeHidden();
+ await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(3);
+ await expect(panel.getByText('No sessions match')).toBeHidden();
+ await expect(panel.getByRole('status')).toHaveCount(0);
+});
+
+// Active program (2026-11-05): Up next comes only from the active program.
+const toggle=(page,name)=>sheet(page).locator('.start-sheet-program-toggle').filter({hasText:name});
+
+test('the active program is listed first, expanded, and alone feeds Up next',async({page})=>{
+ await mountSheet(page,{activeProgramId:'cycle'});await open(page);
+ await expect(page.getByRole('button',{name:'Up next: A, Cycle',exact:true})).toBeFocused();
+ await expect(sheet(page).locator('.start-sheet-program-toggle')).toHaveText(['Cycle Active','PPL']);
+ await expect(toggle(page,'Cycle')).toHaveAttribute('aria-expanded','true');
+ await expect(toggle(page,'PPL')).toHaveAttribute('aria-expanded','false');
+});
+
+test('with no active program the sheet offers the suggested program in one tap',async({page})=>{
+ await mountSheet(page,{activeProgramId:null});await open(page);
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(panel.getByRole('button',{name:/^Up next/})).toHaveCount(0);
+ await expect(panel).toContainText('No active program');
+ await panel.getByRole('button',{name:'Make PPL active',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Up next: Legs A, PPL',exact:true})).toBeFocused();
+ await expect(sheet(page).getByRole('button',{name:'PPL Active',exact:true})).toBeVisible();
+ await expect(panel).not.toContainText('No active program');
+ expect((await calls(page)).activations).toEqual(['ppl']);
+});
+
+test('a failed activation keeps the line with an error',async({page})=>{
+ await mountSheet(page,{activeProgramId:null,activateFails:true});await open(page);
+ const panel=sheet(page).locator('[data-panel=program]'),make=panel.getByRole('button',{name:'Make PPL active',exact:true});
+ await make.click();
+ await expect(panel.getByRole('alert')).toHaveText("Couldn't set the active program.");
+ await expect(make).toBeEnabled();
+});
+
+test('an active program that no longer exists behaves as none',async({page})=>{
+ await mountSheet(page,{activeProgramId:'gone'});await open(page);
+ await expect(sheet(page).getByRole('button',{name:'Make PPL active',exact:true})).toBeVisible();
+});
+
+test('an active program with only Unscheduled sessions shows no Up next and no Make-active line',async({page})=>{
+ await mountSheet(page,{activeProgramId:'loose',programs:[{id:'ppl',name:'PPL'},{id:'loose',name:'Loose'}]});await open(page);
+ const panel=sheet(page).locator('[data-panel=program]');
+ await expect(toggle(page,'Loose')).toHaveAttribute('aria-expanded','true');
+ await expect(panel.getByRole('button',{name:'Start X, Loose, Unscheduled',exact:true})).toBeVisible();
+ await expect(panel.getByRole('button',{name:/^Up next/})).toHaveCount(0);
+ await expect(panel).not.toContainText('No active program');
+});
+
+test('Make active is disabled while a start is in progress',async({page})=>{
+ await mountSheet(page,{activeProgramId:null,templateDelay:400});await open(page);
+ await sheet(page).getByRole('tab',{name:'Template'}).click();
+ await sheet(page).getByRole('button',{name:'Start Upper',exact:true}).click();
+ await expect(sheet(page).getByRole('button',{name:'Make PPL active',exact:true,includeHidden:true})).toBeDisabled();
+});
+
+test('activating a program without an Up next moves focus to its disclosure',async({page})=>{
+ await mountSheet(page,{activeProgramId:null,programs:[{id:'loose',name:'Loose'}]});await open(page);
+ await sheet(page).getByRole('button',{name:'Make Loose active',exact:true}).click();
+ await expect(sheet(page).getByRole('button',{name:'Loose Active',exact:true})).toBeFocused();
 });

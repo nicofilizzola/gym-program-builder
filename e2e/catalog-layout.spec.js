@@ -9,7 +9,7 @@ async function checkActionStrip(strip,target){
  }
 }
 async function populated(page){
- await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true})).toBeVisible();
+ await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:/^(Exercise catalog|Catalog)$/})).toBeVisible();
  const id=await page.evaluate(async()=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient(),{entries}=await api.catalog();
   const names=['Barbell bench press','Pull-up','Dumbbell lateral raise','Leg press'];
@@ -43,7 +43,7 @@ for(const size of [{width:1366,height:768},{width:1440,height:900},{width:1920,h
   await page.screenshot({path:directory+'/form-'+size.width+'.png',fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
   await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
-  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true}).click();await expect(page.locator('.reference-group').first()).toBeVisible();
+  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:/^(Exercise catalog|Catalog)$/}).click();await expect(page.locator('.reference-group').first()).toBeVisible();
   await expect(page.locator('[data-count]')).toHaveText(/^\d+ reference exercises? \u00b7 \d+ variants?$/);
   expect((await page.getByLabel('Search catalog',{exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(size.width>=1100?32:44);
   await page.screenshot({path:directory+'/catalog-'+size.width+'.png'});
@@ -77,7 +77,7 @@ test('hybrid input and enlarged text preserve catalog controls',async({browser})
   await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
   const referenceName='Long reference '+Date.now()+' '+('Press '.repeat(20));
   await page.evaluate(async name=>{const {createApiClient}=await import('/src/api-client.js');await createApiClient().createReference({equipment:'Barbell',exerciseType:'compound',id:crypto.randomUUID(),name});},referenceName);
-  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Long reference');
+  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:/^(Exercise catalog|Catalog)$/}).click();await page.getByLabel('Search catalog',{exact:true}).fill('Long reference');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1366);
   const reference=page.locator('.reference-group').filter({has:page.getByText(referenceName.trim(),{exact:true})});const add=reference.getByRole('button',{name:'Add variant to '+referenceName.trim(),exact:true});expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(44);await add.click();
   for(const viewport of [{width:1366,height:768},{width:390,height:844}]){
@@ -97,7 +97,7 @@ for(const config of [{width:1366,touch:false},{width:1366,touch:true},{width:390
    const {createApiClient}=await import('/src/api-client.js'),{MUSCLE_GROUPS}=await import('/src/muscles.js');const api=createApiClient(),name=('Compact '+crypto.randomUUID()+' Press '.repeat(40)).slice(0,200),variant=('Variant '+crypto.randomUUID()+' Wide '.repeat(40)).slice(0,200),ref=await api.createReference({equipment:'Barbell',exerciseType:'compound',id:crypto.randomUUID(),name});
    await api.createCatalog({id:crypto.randomUUID(),familyId:ref.id,entry:{name:variant,equipment:'Barbell',primaryMuscles:MUSCLE_GROUPS.slice(0,6),secondaryMuscles:MUSCLE_GROUPS.slice(6)}});await api.archiveReference({id:ref.id,revision:2,archived:true});return {name,variant};
   });
-  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Exercise catalog',exact:true}).click();await page.getByLabel('Show archived',{exact:true}).check();await page.getByLabel('Search catalog',{exact:true}).fill(names.name.slice(0,40));await page.addStyleTag({content:'html {font-size:200%}'});
+  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:/^(Exercise catalog|Catalog)$/}).click();await page.getByLabel('Show archived',{exact:true}).check();await page.getByLabel('Search catalog',{exact:true}).fill(names.name.slice(0,40));await page.addStyleTag({content:'html {font-size:200%}'});
   const ref=page.locator('.reference-group').filter({has:page.getByText(names.name.trim(),{exact:true})});await expect(ref).toBeVisible();
   if(config.width===390)expect((await ref.locator('.reference-header h2').boundingBox()).width).toBeGreaterThanOrEqual((await ref.boundingBox()).width-1);
   for(const strip of await ref.locator('.reference-header-actions,.catalog-row-actions').all())await checkActionStrip(strip,config.touch||config.width<1100?44:32);

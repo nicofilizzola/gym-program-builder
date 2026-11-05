@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {weekStart,upNextProgram,upNextOccurrence,occurrenceLabels,sessionOrder} from '../src/workout-up-next.js';
+import {weekStart,upNextProgram,upNextOccurrence,occurrenceLabels,sessionOrder,activeProgram} from '../src/workout-up-next.js';
 import {toLocalIso} from '../src/workout-log.js';
 
 // Local dates so the rules are checked in whatever timezone the tests run in. 2026-11-02 is a Monday.
@@ -92,4 +92,11 @@ test('labels and session order',()=>{
  assert.deepEqual(occurrenceLabels(cycle()).get('c'),{short:'Day 3',long:'Day 3'});
  const unordered={mode:'schedule',workouts:[{id:'late',day:5},{id:'loose',day:null},{id:'early',day:1}]};
  assert.deepEqual(sessionOrder(unordered),['early','late','loose']);
+});
+
+test('activeProgram returns the matching listed program or null',()=>{
+ const list=[{id:'a'},{id:'b'}];
+ assert.equal(activeProgram(list,'b'),list[1]);
+ assert.equal(activeProgram(list,'gone'),null);
+ assert.equal(activeProgram(list,null),null);
 });

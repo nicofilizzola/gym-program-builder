@@ -1,13 +1,30 @@
 # Gym Program Builder
 
+## Active program (2026-11-05)
+
+Design: docs/superpowers/specs/2026-11-05-mobile-polish-tracker-notes-design.md (§A2); plan: docs/superpowers/plans/2026-11-05-active-program.md.
+
+- One single-user server setting: migration 009 `app_settings(key, value_json, updated_at)`; run it explicitly per environment. `GET /api/settings` → `{settings:{activeProgramId}}` (null when unset or naming no program); `PUT /api/settings/active-program {programId|null}` (unknown → 404 `Program not found.`, other → 400 `Invalid program id.`); last write wins, no revision. Never exported, never sent to the AI review, never copied by duplication.
+- Programs list cards lead with a star toggle (`aria-pressed`, name `Active program {name}`, tooltip `Set as active program` / `Active program`); the active card shows an `Active` badge and sorts first. Keyboard focus stays on the moved star; for 500ms after a re-sort, star taps on other cards are ignored (a fast double-tap never toggles the card that slid in). Taps apply at once; the client keeps one request in flight and sends only the latest choice, so the server ends on the last intent; a failure reverts and reports.
+- The Workouts route loads settings with its lists; a failed load behaves as no active program.
+
+## Mobile navigation (2026-11-05)
+
+Design: docs/superpowers/specs/2026-11-05-mobile-polish-tracker-notes-design.md (§A1); plan: docs/superpowers/plans/2026-11-05-mobile-nav-search.md. Supersedes the header layout at ≤760px; wider screens are unchanged.
+
+- At ≤760px the main `<nav>` is a fixed bottom tab bar (`--tab-bar-height`: `max(56px, 34px + .9rem)` + safe area; `viewport-fit=cover`): four tabs with icon and short label (`Programs`, `Templates`, `Catalog`, `Workouts`; accessible name = visible label), ≥44px targets, accent plus 2px top indicator and `aria-current`. The header is one compact row (save status left, Profile and Log out right).
+- The active workout bar sits above the tab bar and the page reserves both; the session editor's pinned volume panel sticks above the tab bar.
+- While the user types in a text field in `#app` (`body.is-typing`, `src/typing-state.js`; focus must follow their own press or key, script focus never counts) the bars slide out (150ms; instant with reduced motion) and the pinned panel drops to the bottom; reserved padding never changes. Leaving a field restores them only after the current tap's click, so a returning bar never takes a tap.
+
 ## Workout start sheet (2026-11-05)
 
 Design: docs/superpowers/specs/2026-11-05-workout-start-sheet-design.md; plan: docs/superpowers/plans/2026-11-05-workout-start-sheet.md. These approved requirements supersede the Workout tracker's "start blank from Workouts" entry point.
 
 - The Workouts header's **Start workout** opens one sheet (`src/workout-start-sheet.js`): a bottom sheet at ≤760px (85dvh, grab handle, swipe down past 80px or 0.5px/ms closes) and a centred dialog above (`min(480px, 100vw − 32px)`). It has `Program | Template` tabs and a **Blank workout** action; tapping the Up next card, any program session or any template starts it at once through the existing start flow (Resume/Finish/Discard prompt unchanged).
-- **Up next** (`src/workout-up-next.js`, pure): the program of the newest program log on the first history page that still exists, else the most recently edited program. Week: the first session from today through Sunday not logged this week (local Monday–Sunday, program order within a day, missed earlier days are never caught up), else next week's first scheduled session; Unscheduled sessions are never suggested. Sequence: the workout entry after the newest log still in the sequence (rests skipped, wrapping), else the first. Computed on open, never stored or exported; no server or schema change.
+- **Up next** (`src/workout-up-next.js`, pure) comes only from the active program (2026-11-05, `activeProgram`), listed first and expanded with an `Active` badge; other programs follow collapsed. With no (or a deleted) active program the sheet shows `No active program · Make {name} active`, where `{name}` is `upNextProgram`: the program of the newest program log on the first history page that still exists, else the most recently edited program; one tap saves the setting and shows that program's Up next (focused). An active program with no scheduled session shows no Up next and no line. Week: the first session from today through Sunday not logged this week (local Monday–Sunday, program order within a day, missed earlier days are never caught up), else next week's first scheduled session; Unscheduled sessions are never suggested. Sequence: the workout entry after the newest log still in the sequence (rests skipped, wrapping), else the first. Computed on open, never stored or exported; no server or schema change.
 - Lists come from the Workouts route; program sessions load on demand once per sheet (`api.programBundle`), templates load on tap (`api.get`). Failed lists, programs or templates show inline errors with Retry; Blank workout always works. Rows, tabs and Blank are disabled while a start is in progress.
 - Motion: bottom sheet 200ms translateY + backdrop, dialog 150ms catalog modal motion, program disclosures 200ms `.collapsible`, tabs instant; all instant with reduced motion. Focus goes to the Up next card (else the selected tab) and returns to Start workout on Close, Escape, backdrop or swipe.
+- Search (2026-11-05): one `type=search` field (`Search sessions`, never auto-focused) under the tabs filters the visible tab with `matchesQuery` (`src/search-text.js`: every word, case/accent-insensitive); the query is kept across tabs and filters instantly. Program search loads every program through the per-sheet cache (`Searching…`) and lists matching sessions (session or program name) under program headings, hiding Up next and the disclosures; failures show `Couldn't search {program}.` with Retry. Empty: `No sessions match "{q}".` / `No templates match "{q}".`. Escape clears a non-empty query before closing; clearing restores each disclosure's state; the field is disabled during a start.
 - Verification: docs/superpowers/verification/2026-11-05-workout-start-sheet.md. Never claim a pending deployment was verified.
 
 ## Warm-ups, supersets and training profile (2026-11-03)

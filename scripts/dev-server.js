@@ -9,6 +9,7 @@ import {createRepository} from '../server/repository.js';
 import {createApi} from '../server/api.js';
 import {createCatalogRepository} from '../server/catalog-repository.js';
 import {createProfileRepository} from '../server/profile-repository.js';
+import {createSettingsRepository} from '../server/settings-repository.js';
 import {createWorkoutRepository} from '../server/workout-repository.js';
 import {createAnalysisService} from '../server/analysis-service.js';
 import {pipeWebResponse} from '../server/http-response.js';
@@ -23,7 +24,7 @@ const analysis=testing?{enabled:true,analyze:async()=>{
  const report='Assessment\nA test program review.\nStrengths\n- Clear exercise selection.\nImprovements\nNo clear changes needed.\nLimits\nEffort is unknown.';
  return new Response('event: start\ndata: '+JSON.stringify({requestId:'test',promptVersion:'test-program'})+'\n\nevent: delta\ndata: '+JSON.stringify({text:report})+'\n\nevent: complete\ndata: {}\n\n',{headers:{'content-type':'text/event-stream'}});
 }}:createAnalysisService({apiKey:process.env.OPENROUTER_API_KEY,model:process.env.OPENROUTER_MODEL});
-const api=createApi({repository:createRepository(db),commands:createDocumentCommands(db),catalog:createCatalogRepository(db),profile:createProfileRepository(db),workouts:createWorkoutRepository(db),analysis,auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
+const api=createApi({repository:createRepository(db),commands:createDocumentCommands(db),catalog:createCatalogRepository(db),profile:createProfileRepository(db),settings:createSettingsRepository(db),workouts:createWorkoutRepository(db),analysis,auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
 const root=resolve('.'),mime={'.js':'text/javascript','.css':'text/css','.html':'text/html'};
 const server=createServer(async(req,res)=>{
  try {

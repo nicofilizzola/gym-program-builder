@@ -46,3 +46,6 @@ export function upNextOccurrence(program,logs,now){
  const today=weekday(now);
  return pick(scheduled.find(w=>w.day>=today&&!logged.has(w.id))?.id??scheduled[0].id);
 }
+
+/** The listed program named by the active-program setting, or null when unset or no longer listed. */
+export const activeProgram=(programs,activeProgramId)=>programs.find(p=>p.id===activeProgramId)??null;

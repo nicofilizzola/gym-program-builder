@@ -23,6 +23,7 @@ import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
 import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
 import {mountWorkoutBar} from './workout-bar.js';
+import {mountTypingState} from './typing-state.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
@@ -108,6 +109,9 @@ async function navigate(hash,{push=true}={}){
   await renderRoute(version);
  }finally{idle(version);}
 }
+mountTypingState(app);
+const NAV_ICONS={programs:'calendar',templates:'template',catalog:'catalog',workouts:'dumbbell'};
+document.querySelectorAll('[data-nav]').forEach(link=>link.insertAdjacentHTML('afterbegin',actionIcon(NAV_ICONS[link.dataset.nav])));
 document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('click',event=>{
  if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
  event.preventDefault();action(()=>navigate(link.hash))();
@@ -338,13 +342,14 @@ async function prepareRoute(route,version){
   let page,error='';
   // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.
   const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
-  const lists=Promise.all([optional(api.list('program')),optional(api.list('template'))]);
+  const lists=Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
   try{page=await api.listWorkouts();}catch(failure){if(!isNetworkError(failure))throw failure;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
-  let [programs,templates]=await lists;
+  let [programs,templates,settings]=await lists;
   const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
   return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
    onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
-   onStart:()=>openWorkoutStartSheet({programs,templates,logs:page.records,
+   onStart:()=>openWorkoutStartSheet({programs,templates,logs:page.records,activeProgramId:settings?.activeProgramId??null,
+    onActivate:async id=>{const saved=await api.setActiveProgram(id);settings=saved;return saved;},
     loadProgram:async id=>{const bundle=await api.programBundle(id);return resolveProgram(bundle.record.document,bundle.templates);},
     loadTemplate:id=>api.get(id),onStart:options=>startWorkout(options),
     onNavigate:hash=>action(()=>navigate(hash))(),onRetryList:async kind=>{const list=await api.list(kind);if(kind==='program')programs=list;else templates=list;return list;}}),
@@ -354,9 +359,25 @@ async function prepareRoute(route,version){
  if(route.view==='workout')return prepareWorkout(route);
  if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
  if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
- const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
- return ()=>{mounted=mountLibrary(createViewHost(),{
-  kind,records,recordHref:record=>`#/${route.view}/${record.id}`,
+ const kind=route.view==='programs'?'program':'template';
+ // A settings failure on the network just shows no active program; anything else is reported.
+ const [records,settings]=await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
+ return ()=>{
+ // Star taps apply at once; one request is in flight at a time and only the latest choice is sent next.
+ let confirmed=settings?.activeProgramId??null,wanted=confirmed,sending=false;
+ const toggleActive=action(async record=>{
+  wanted=wanted===record.id?null:record.id;mounted.update(records,{activeProgramId:wanted});
+  if(sending)return;sending=true;
+  try{
+   while(wanted!==confirmed){
+    const target=wanted;
+    try{confirmed=(await api.setActiveProgram(target)).activeProgramId;}
+    catch(error){if(wanted!==target)continue;wanted=confirmed;if(version===mountedVersion)mounted.update(records,{activeProgramId:confirmed});throw error;}
+   }
+  }finally{sending=false;}
+ });
+ mounted=mountLibrary(createViewHost(),{
+  kind,records,recordHref:record=>`#/${route.view}/${record.id}`,activeProgramId:settings?.activeProgramId??null,onToggleActive:kind==='program'?toggleActive:undefined,
   onStartWorkout:kind==='template'?action(async record=>{const template=await api.get(record.id);if(version!==mountedVersion)return;await startWorkout({template:{id:template.id,document:template.document}});}):undefined,
   onCreate:action(()=>create(kind,kind==='program'?createProgram():createTemplate())),
   onOpen:action(record=>navigate(`#/${route.view}/${record.id}`)),

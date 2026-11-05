@@ -13,7 +13,7 @@ async function body(request,limit=MAX_DOCUMENT_BYTES,message='Request must be at
   try {const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}const data=JSON.parse(new TextDecoder().decode(bytes));if(!data||typeof data!=='object'||Array.isArray(data))throw Error();return data;}catch {throw domainError('INVALID','Request is not valid JSON.');}
 }
 /** Writes must come from this app: the configured origin or the origin the request itself was served from (another alias of the same deployment, or localhost vs 127.0.0.1). The SameSite=Strict session cookie still blocks cross-site use. */
-export function createApi({repository,commands,catalog,auth,origin,analysis,profile,workouts,clientIp=()=> 'local',requestOrigin=request=>new URL(request.url).origin}) {
+export function createApi({repository,commands,catalog,auth,origin,analysis,profile,settings,workouts,clientIp=()=> 'local',requestOrigin=request=>new URL(request.url).origin}) {
   const respond=(value,status=200,headers={})=>new Response(status===204?null:JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store',...headers}});
   return async request=>{
     try {
@@ -51,6 +51,14 @@ export function createApi({repository,commands,catalog,auth,origin,analysis,prof
         if(method==='GET')return respond(await profile.get());
         if(method==='PUT')return respond(await profile.update(await body(request)));
         throw domainError('METHOD','Method not allowed.');
+      }
+      if(path[0]==='settings'&&settings){
+        if(path.length===1){if(method!=='GET')throw domainError('METHOD','Method not allowed.');return respond({settings:await settings.get()});}
+        if(path.length!==2||path[1]!=='active-program')throw domainError('NOT_FOUND','Endpoint not found.');
+        if(method!=='PUT')throw domainError('METHOD','Method not allowed.');
+        const data=await body(request);
+        if(!data||typeof data!=='object'||!Object.hasOwn(data,'programId'))throw domainError('INVALID','Invalid program id.');
+        return respond({settings:await settings.setActiveProgram(data.programId)});
       }
       if(path[0]==='workouts'&&workouts){
         if(path.length>2)throw domainError('NOT_FOUND','Endpoint not found.');
