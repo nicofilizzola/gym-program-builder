@@ -2185,7 +2185,7 @@ p.limit-hint {display:flex}
 .log-picker {display:grid;gap:8px;margin:0 0 12px}
 .log-picker > .secondary-btn {justify-self:start}
 /* Set grid: # | kg (1.15fr) | reps (1fr) | 44px. Line 1 holds the steppers and done; line 2 the RIR caption (number column), the segmented RIR group (kg to reps) and the set menu; line 3 is the note slot. Rows run edge to edge so separators and the done tint span the card. */
-.log-set-head,.log-set-row {display:grid;grid-template-columns:1.5rem minmax(0,1.15fr) minmax(0,1fr) 44px;column-gap:4px;align-items:center}
+.log-set-head,.log-set-row {display:grid;grid-template-columns:1.5rem minmax(0,1.2fr) minmax(0,1fr) 44px;column-gap:4px;align-items:center}
 .log-set-head {padding:0 var(--log-pad) 2px;color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .log-set-head span {text-align:center}
 .log-set-head-rir {display:none}
@@ -2197,7 +2197,7 @@ p.limit-hint {display:flex}
 .log-stepper[data-kind="reps"] {grid-area:reps}
 .log-stepper:focus-within {border-color:var(--accent)}
 .log-stepper:has([aria-invalid="true"]) {border-color:var(--error)}
-.log-stepper input[type="text"] {flex:1 1 auto;width:100%;min-width:0;min-height:44px;padding:0 2px;border:0;border-radius:0;background:transparent;font-variant-numeric:tabular-nums;text-align:center}
+.log-stepper input[type="text"] {flex:1 1 auto;width:100%;min-width:0;min-height:44px;padding:0;border:0;border-radius:0;background:transparent;font-variant-numeric:tabular-nums;text-align:center}
 .log-stepper input[type="text"]:focus {box-shadow:none}
 .log-stepper input::placeholder {color:var(--muted);opacity:.75}
 .log-step {display:grid;flex:none;place-items:center;width:44px;min-height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out}
@@ -2206,12 +2206,14 @@ p.limit-hint {display:flex}
 .log-step svg {width:18px;height:18px}
 /* Line two: the RIR caption sits in the number column; the group fills kg to reps and its options share that width (44px tall). */
 .log-rir-label {grid-area:cap;margin-top:6px;color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:0;text-align:center;white-space:nowrap}
-.log-rir {grid-area:rir;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;margin-top:6px}
+.log-rir {grid-area:rir;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;margin-top:6px}
+.log-rir-option + .log-rir-option {margin-left:-1px}
+.log-rir-option:is(:hover,:focus-visible,[aria-pressed="true"]) {position:relative;z-index:1}
 .log-set-menu {grid-area:menu;margin-top:6px}
 .log-set-note-slot {grid-area:note}
 .log-set-note-slot:empty {display:none}
 .log-set-menu[hidden] {display:none}
-.log-rir-option {min-width:0;width:100%;min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.log-rir-option {min-width:0;min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 .log-rir-option:hover:not(:disabled) {color:var(--text);border-color:var(--muted)}
 .log-rir-option.is-placeholder {border-style:dashed;color:var(--text)}
 .log-rir-option[aria-pressed="true"] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
@@ -2227,6 +2229,16 @@ p.limit-hint {display:flex}
 .log-add-set {margin-top:6px}
 .log-add-exercise {width:100%;justify-content:center}
 .workout-logger .log-empty {margin:0 0 12px;padding:16px}
+/* Cards under 22rem cannot fit six 44px segments between kg and reps: the group spans number to reps and the caption is dropped (the group keeps its accessible name). */
+@container (max-width:22rem) {
+ .log-set-row {grid-template-areas:"num weight reps done" "rir rir rir menu" ". note note note" "err err err err"}
+ .log-rir-label {display:none}
+}
+/* Phones under 390px: a slightly smaller input font and a 1.1 kg:reps ratio keep values up to 102.5 kg and 100 reps readable between 44px step buttons. */
+@media (max-width:389px) {
+ .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.1fr) minmax(0,1fr) 44px}
+ .log-stepper input[type="text"] {font-size:.875rem}
+}
 /* Enlarged text: kg and reps stack so their inputs keep readable widths; units move inside the steppers. */
 @container (max-width:18rem) {
  .log-set-head {display:none}
@@ -2236,8 +2248,6 @@ p.limit-hint {display:flex}
  .log-stepper[data-kind="weight"]::after {content:"kg"}
  .log-stepper[data-kind="reps"]::after {content:"reps"}
 }
-/* Phones: stepper buttons give up width (not height) so 999.75 kg and 100 reps stay fully visible. */
-@media (max-width:760px) {.log-step {width:36px}}
 .workout-logger[data-mode="finished"] .log-done,.workout-logger[data-readonly] :is(.log-step,.log-set-menu) {display:none}
 .logger-times {display:flex;flex-wrap:wrap;gap:8px 12px;margin:2px 0 0;padding-inline:8px}
 .logger-times label {display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:.8125rem;font-weight:600}
@@ -2250,16 +2260,24 @@ p.limit-hint {display:flex}
  .logger-title .logger-name {min-height:36px}
  .logger-times input {min-height:var(--control-compact)}
  .log-stepper input[type="text"],.log-step,.log-rir-option {min-height:var(--control-compact)}
- .log-rir-option {width:var(--control-compact)}
  .log-step {width:var(--control-compact)}
  .log-done {width:var(--control-compact);min-width:var(--control-compact);height:var(--control-compact)}
  .log-done svg {width:18px;height:18px}
- /* Wide cards (560px container; compact desktop only, where 32px targets leave the steppers room): one line # kg reps RIR done menu. */
+}
+
+/* Wide cards (container 35rem or more) on fine-pointer-only devices, at any viewport width: one line # kg reps RIR done menu with 32px controls, which leave the steppers room. Touch and hybrid devices keep two lines with 44px targets (a 44px one-line row needs a 44rem card, wider than the logger column). */
+@media (pointer:fine) and (not (any-pointer:coarse)) {
  @container (min-width:35rem) {
-  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.15fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
+  .log-stepper input[type="text"],.log-step,.log-rir-option {min-height:var(--control-compact)}
+  .log-step {width:var(--control-compact)}
+  .log-done {width:var(--control-compact);min-width:var(--control-compact);height:var(--control-compact)}
+  .log-done svg {width:18px;height:18px}
+  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.2fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
   .log-set-row {grid-template-areas:"num weight reps rir done menu" ". note note note note note" "err err err err err err";padding-block:6px}
   .log-rir-label {display:none}
   .log-set-head-rir {display:block}
+  .log-rir {gap:2px}
+  .log-rir-option + .log-rir-option {margin-left:0}
   .log-rir,.log-set-menu {margin-top:0}
   .log-set-menu {width:var(--control-compact);height:var(--control-compact);flex-basis:var(--control-compact)}
  }

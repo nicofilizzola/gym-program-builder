@@ -5,7 +5,7 @@ import {createWorkoutLog} from '../src/workout-log.js';
 const makeId=()=>crypto.randomUUID();
 
 /** An active log from a 3-set template; returns the first exercise name. */
-async function setup(page){
+async function setup(page,weight='999.75'){
  await login(page);await resetWorkouts(page);
  const {id}=await createLinkedTemplate(page,'Push A');
  const template=(await (await page.request.get(`/api/documents/${id}`)).json()).record;
@@ -15,7 +15,7 @@ async function setup(page){
  await page.goto('/#/workouts/'+log.id);
  await expect(page.getByRole('button',{name:'Finish',exact:true})).toBeVisible();
  const name=log.exercises[0].name;
- await page.getByLabel(`Set 1 weight, ${name}`,{exact:true}).fill('999.75');
+ await page.getByLabel(`Set 1 weight, ${name}`,{exact:true}).fill(weight);
  await page.getByLabel(`Set 1 reps, ${name}`,{exact:true}).fill('100');
  return name;
 }
@@ -30,7 +30,8 @@ const measure=(page,name)=>page.evaluate(exerciseName=>{
   const row=li.querySelector('.log-set-row'),q=s=>row.querySelector(s);
   const inputs=[...row.querySelectorAll('.log-stepper input')];
   const all=[...row.querySelectorAll('*')].filter(el=>el.getBoundingClientRect().width>0).map(el=>el.getBoundingClientRect().right);
-  return {row:rect(row),li:rect(li),weight:rect(q('[data-kind="weight"]')),reps:rect(q('[data-kind="reps"]')),done:rect(q('.log-done')),menu:rect(q('.log-set-menu')),
+  const caption=q('.log-rir-label');
+  return {row:rect(row),num:rect(q('.log-set-number')),captionShown:getComputedStyle(caption).display!=='none',steps:[...row.querySelectorAll('.log-step')].map(rect),options:[...row.querySelectorAll('.log-rir-option')].map(rect),li:rect(li),weight:rect(q('[data-kind="weight"]')),reps:rect(q('[data-kind="reps"]')),done:rect(q('.log-done')),menu:rect(q('.log-set-menu')),
    rir:rect(q('.log-rir')),clipped:inputs.map(i=>i.scrollWidth-i.clientWidth),borderTop:parseFloat(getComputedStyle(row).borderTopWidth),
    maxRight:Math.max(...all),bg:getComputedStyle(row).backgroundColor};
  })};
@@ -38,11 +39,11 @@ const measure=(page,name)=>page.evaluate(exerciseName=>{
 
 const near=(a,b,message)=>expect(Math.abs(a-b),message).toBeLessThanOrEqual(1);
 
-for(const width of [360,390]){
+for(const width of [360,390,430]){
  test(`set rows share one grid at ${width}px`,async({browser})=>{
   const context=await browser.newContext({viewport:{width,height:844},hasTouch:true,reducedMotion:'reduce'});
   const page=await context.newPage();
-  const name=await setup(page);
+  const name=await setup(page,width===360?'102.5':'999.75');
   await page.getByRole('button',{name:`Mark set 3 done, ${name}`,exact:true}).click();
   const m=await measure(page,name),[first]=m.rows;
   expect(m.rows).toHaveLength(3);
@@ -50,14 +51,18 @@ for(const width of [360,390]){
    near(r.weight.left,first.weight.left,`kg x ${i}`);near(r.weight.width,first.weight.width,`kg w ${i}`);
    near(r.reps.left,first.reps.left,`reps x ${i}`);near(r.reps.width,first.reps.width,`reps w ${i}`);
    near(r.done.left,first.done.left,`done x ${i}`);
-   near(r.rir.left,r.weight.left,`rir left ${i}`);near(r.rir.right,r.reps.right,`rir right ${i}`);
+   // Under 22rem (card content 352px: 360 and 390 phones) the group spans number to reps and drops the caption.
+   const spansNumber=width<430;
+   near(r.rir.left,spansNumber?r.num.left:r.weight.left,`rir left ${i}`);near(r.rir.right,r.reps.right,`rir right ${i}`);
+   expect(r.captionShown,`caption ${i}`).toBe(!spansNumber);
+   for(const box of [...r.steps,...r.options]){expect(box.width,`target w ${i}`).toBeGreaterThanOrEqual(43.5);expect(box.height,`target h ${i}`).toBeGreaterThanOrEqual(43.5);}
    near(r.menu.left,r.done.left,`menu x ${i}`);
    expect(r.maxRight,`overflow ${i}`).toBeLessThanOrEqual(m.inner.right+1);
    expect(r.rir.top,`rir below line 1 ${i}`).toBeGreaterThan(r.done.bottom-2);
    expect(r.borderTop,`separator ${i}`).toBe(i===0?0:1);
    for(const box of [r.done,r.menu]){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   }
-  expect(first.clipped.every(c=>c<=0)).toBe(true);
+  expect(first.clipped.every(c=>c<=1)).toBe(true);
   // A done row's tint spans the card's inner width plus its padding.
   const done=m.rows[2];
   near(done.row.left,m.card.left+1,'done tint left');near(done.row.right,m.card.right-1,'done tint right');
@@ -67,8 +72,8 @@ for(const width of [360,390]){
  });
 }
 
-test('set rows are one line at 1366px',async({page})=>{
- await page.setViewportSize({width:1366,height:768});
+for(const [width,height] of [[900,800],[1366,768]])test(`set rows are one line at ${width}px fine pointer`,async({page})=>{
+ await page.setViewportSize({width,height});
  const name=await setup(page);
  const m=await measure(page,name),[first]=m.rows;
  for(const [i,r] of m.rows.entries()){

@@ -204,13 +204,13 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
 
 const rirBoxes=(page,name)=>page.getByRole('group',{name:`Set 1 RIR, ${name}`}).getByRole('button').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};}));
 for(const width of [360,390]){
- test(`RIR options are 44px tall and share the kg-to-reps width at ${width}px`,async({browser})=>{
+ test(`RIR options keep 44px touch targets at ${width}px`,async({browser})=>{
   const context=await browser.newContext({viewport:{width,height:800},hasTouch:true,reducedMotion:'reduce'});
   const page=await context.newPage();
   const {names:[first]}=await setup(page,{history:false});
   const boxes=await rirBoxes(page,first);
   expect(boxes).toHaveLength(6);
-  for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(36);expect(box.height).toBeGreaterThanOrEqual(44);}
+  for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   for(const name of [`Mark set 1 done, ${first}`,`Set 1 actions, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBe(0);
   await context.close();
@@ -234,8 +234,7 @@ test('logger touch targets and reduced motion',async({browser})=>{
   page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true}),page.getByRole('button',{name:`Increase set 1 weight, ${first}`,exact:true}),
   page.getByRole('button',{name:`Set 1 actions, ${first}`,exact:true}),page.getByRole('button',{name:'Finish',exact:true})];
  for(const target of targets){const box=await target.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);}
- // Stepper buttons are 36px wide on phones (full 44px height) so 999.75 and 100 stay visible.
- for(const target of targets.slice(2).filter((_,i)=>i!==1)){const box=await target.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);}
+ for(const target of targets.slice(2)){const box=await target.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);}
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
  expect(overflow).toBe(0);
  // Initial render has no running animations; reduced motion inserts a new set instantly.
@@ -255,11 +254,11 @@ test('logger touch targets and reduced motion',async({browser})=>{
  await context.close();
 });
 
-test('weight and reps inputs show their longest values unclipped at 360px',async({browser})=>{
+test('weight and reps inputs show 102.5 kg and 100 reps unclipped at 360px',async({browser})=>{
  const context=await browser.newContext({viewport:{width:360,height:800},hasTouch:true});
  const page=await context.newPage();
  const {names:[first]}=await setup(page,{history:false});
- await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('999.75');
+ await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('102.5');
  await page.getByLabel(`Set 1 reps, ${first}`,{exact:true}).fill('100');
  for(const name of ['weight','reps']){
   const clipped=await page.getByLabel(`Set 1 ${name}, ${first}`,{exact:true}).evaluate(el=>el.scrollWidth-el.clientWidth);
