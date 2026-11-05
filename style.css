@@ -2180,6 +2180,16 @@ p.limit-hint {display:flex}
 .log-exercise-identity h2:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
 .log-equipment {margin:0;color:var(--muted)}
 .log-exercise-actions {display:flex;flex:none;gap:4px}
+/* Superset frame: the editor's accent rail and compact header around two member cards; the 10px rail gutter is the only width the frame takes from the cards. */
+.log-superset {position:relative;display:grid;padding-left:10px;transition:padding-left 200ms ease-out}
+.log-superset::before {content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:2px;background:var(--accent);transition:opacity 200ms ease-out}
+.log-superset.is-closed {padding-left:0}
+.log-superset.is-closed::before {opacity:0}
+.workout-logger .log-superset-head > .superset-head {padding:0 4px 8px 6px}
+.log-superset-members {display:grid;margin:0;padding:0;list-style:none}
+.log-superset.sort-drag-copy {background:var(--bg);border-radius:var(--radius);box-shadow:none}
+.log-superset.sort-drag-copy .log-exercise-card {border-color:var(--accent);box-shadow:0 14px 38px #0007}
+@media (prefers-reduced-motion:reduce) {.log-superset,.log-superset::before {transition:none}}
 .log-last-time {margin:6px 0 8px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
 .log-last-label {margin-right:6px;color:var(--text);font-weight:600}
 .log-picker {display:grid;gap:8px;margin:0 0 12px}
