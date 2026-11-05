@@ -1,7 +1,9 @@
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 
 export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDuplicate,onDelete,onImport,onExport,onStartWorkout,activeProgramId=null,onToggleActive}) {
-  let activeId=activeProgramId,shown=records;
+  // A re-sort moves cards under the pointer: for a moment, star taps on other cards are ignored.
+  const RESORT_GUARD=500;
+  let activeId=activeProgramId,resortedAt=-Infinity,movedId=null;
   root.innerHTML='<section class="library"><header class="library-heading"><h1></h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-new></button><button type="button" class="secondary-btn" data-import></button><input data-file type="file" accept=".json,application/json" hidden></div></header><div data-items></div><p data-empty class="empty"></p></section>';
   const plural=kind==='program'?'Programs':'Session templates';root.querySelector('h1').textContent=plural;
   const create=root.querySelector('[data-new]');create.innerHTML=actionIcon('plus');create.append(kind==='program'?'New program':'New session template');create.onclick=onCreate;
@@ -11,24 +13,28 @@ export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDup
   /** `options.activeProgramId` (programs) badges that card and lists it first; the rest keep their order. */
   function update(items,options={}) {
     if(Object.hasOwn(options,'activeProgramId'))activeId=options.activeProgramId;
-    shown=items;tooltips.hide();
+    tooltips.hide();
+    const container=root.querySelector('[data-items]'),focusedStar=container.contains(document.activeElement)&&document.activeElement.closest('.active-program-toggle')?.dataset.recordId;
+    const before=[...container.children].map(article=>article.dataset.recordId);
     const active=items.find(item=>item.id===activeId);
     if(active)items=[active,...items.filter(item=>item!==active)];
-    const container=root.querySelector('[data-items]');container.replaceChildren();
+    if(before.length&&items.some((item,index)=>before[index]!==item.id)){resortedAt=performance.now();movedId=focusedStar||active?.id||null;}
+    container.replaceChildren();
     root.querySelector('[data-empty]').textContent=items.length?'':`No ${plural.toLowerCase()} yet. Create one to get started.`;
     for(const record of items) {
       const name=record.name.trim()||(kind==='program'?'Untitled program':'Untitled template');
-      const article=document.createElement('article');article.className='library-item';
+      const article=document.createElement('article');article.className='library-item';article.dataset.recordId=record.id;
       const title=document.createElement('h2'),link=document.createElement('a');link.textContent=name;link.href=recordHref(record);
       link.onclick=event=>{if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();onOpen(record);};
       title.append(link);article.append(title);
       const isActive=record===active;
-      if(isActive){const badge=document.createElement('span');badge.className='library-badge';badge.textContent='Active';title.append(badge);}
+      if(isActive){const badge=document.createElement('span');badge.className='library-badge';badge.textContent='Active';title.append(' ',badge);}
       const actions=document.createElement('div');actions.className='item-actions';article.append(actions);
       if(kind==='program'&&onToggleActive){
         const star=document.createElement('button');star.type='button';star.className='action-button active-program-toggle';star.innerHTML=actionIcon(isActive?'star-filled':'star');
         star.dataset.actionTooltip=isActive?'Active program':'Set as active program';star.setAttribute('aria-label',`Active program ${name}`);star.setAttribute('aria-pressed',String(isActive));
-        star.onclick=()=>onToggleActive(record);actions.append(star);
+        star.dataset.recordId=record.id;
+        star.onclick=()=>{if(performance.now()-resortedAt<RESORT_GUARD&&record.id!==movedId)return;onToggleActive(record);};actions.append(star);
       }
       if(kind==='template'&&onStartWorkout){
         const start=document.createElement('button');start.type='button';start.className='action-button';start.innerHTML=actionIcon('start');
@@ -40,6 +46,8 @@ export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDup
       }
       container.append(article);
     }
+    // Rebuilding removed the focused star: focus that record's new star.
+    if(focusedStar)container.querySelector(`.active-program-toggle[data-record-id="${CSS.escape(focusedStar)}"]`)?.focus();
   }
   update(records);return {update,destroy(){tooltips.destroy();root.replaceChildren();}};
 }

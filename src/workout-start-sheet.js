@@ -12,7 +12,8 @@ let sheets=0;
 
 const el=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;};
 const programName=record=>record.name.trim()||'Untitled program';
-const activeBadge=()=>el('span','library-badge','Active');
+// A leading space keeps the badge a separate word in accessible names ("PPL Active").
+const activeBadge=()=>{const badge=el('span','library-badge','Active');const part=document.createDocumentFragment();part.append(' ',badge);return part;};
 const sessionName=workout=>workout.name?.trim()||'Untitled template';
 const exerciseCount=n=>`${n} ${n===1?'exercise':'exercises'}`;
 
@@ -104,21 +105,23 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   const item=el('li');item.append(button);return item;
  }
 
- function renderNext(slot,record){
+ /** `claimFocus` (after Make active): focus the card, or the program's disclosure when it has no Up next. */
+ function renderNext(slot,record,{claimFocus=false}={}){
+  const focusToggle=()=>{if(claimFocus&&!dismissed)dialog.querySelector(`.start-sheet-program-toggle[data-program-id="${CSS.escape(record.id)}"]`)?.focus();};
   const status=el('p','start-sheet-hint','Finding your next session…');status.setAttribute('role','status');slot.replaceChildren(status);
   getProgram(record.id).then(program=>{
    if(!slot.isConnected)return;
    const next=upNextOccurrence(program,logs,now),workout=next&&program.workouts.find(w=>w.id===next.occurrenceId);
-   if(!workout){slot.replaceChildren();return;}
+   if(!workout){slot.replaceChildren();focusToggle();return;}
    const {button,meta}=sessionButton(workout,occurrenceLabels(program).get(workout.id),record,'start-sheet-next');
    button.setAttribute('aria-label',`Up next: ${sessionName(workout)}, ${programName(record)}`);
    button.append(el('span','start-sheet-next-label',`Up next · ${programName(record)}`),el('span','start-sheet-next-name',sessionName(workout)),el('span','start-sheet-meta',meta));
    const play=el('span','start-sheet-play');play.innerHTML=actionIcon('start');play.append('Start');button.append(play);
    button.disabled=starting;
-   const focusCard=document.activeElement===selectedTab()||!dialog.contains(document.activeElement);
+   const focusCard=claimFocus||document.activeElement===selectedTab()||!dialog.contains(document.activeElement);
    slot.replaceChildren(button);
    if(focusCard&&!panels.program.hidden)button.focus();
-  },()=>{if(slot.isConnected)slot.replaceChildren();});
+  },()=>{if(slot.isConnected){slot.replaceChildren();focusToggle();}});
  }
 
  function fillProgram(region,record){
@@ -170,7 +173,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   }
  }
 
- function renderPrograms(){
+ function renderPrograms({claimFocus=false}={}){
   const panel=panels.program;
   if(programs===null){listError(panel,'program',"Couldn't load programs.");return;}
   if(!programs.length){empty(panel,'No programs yet.','Go to Programs','#/programs');return;}
@@ -181,7 +184,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   ordered.forEach((record,index)=>{
    const item=el('li','start-sheet-program'),toggle=el('button','start-sheet-program-toggle'),region=el('div','collapsible start-sheet-program-region');
    const open=expanded.get(record.id)??record===current;
-   toggle.type='button';toggle.id=`${uid}-program-${index}`;region.id=`${uid}-program-${index}-sessions`;
+   toggle.type='button';toggle.id=`${uid}-program-${index}`;toggle.dataset.programId=record.id;region.id=`${uid}-program-${index}-sessions`;
    toggle.setAttribute('aria-controls',region.id);toggle.setAttribute('aria-expanded',String(open));
    toggle.append(el('span','start-sheet-program-name',programName(record)));if(record===current)toggle.append(activeBadge());toggle.insertAdjacentHTML('beforeend',CHEVRON);
    region.setAttribute('role','region');region.setAttribute('aria-labelledby',toggle.id);
@@ -196,7 +199,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
    if(open)fillProgram(region,record);
   });
   panel.replaceChildren(slot,list);
-  if(current)renderNext(slot,current);
+  if(current)renderNext(slot,current,{claimFocus});
   else{const suggested=programs.find(p=>p.id===upNextProgram(programs,logs));if(suggested)renderActivate(slot,suggested);}
  }
 
@@ -216,7 +219,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
     return;
    }
    if(dismissed)return;
-   activeProgramId=saved.activeProgramId;expanded.delete(record.id);renderPrograms();
+   activeProgramId=saved.activeProgramId;expanded.delete(record.id);renderPrograms({claimFocus:true});
   });
  }
 

@@ -384,7 +384,7 @@ test('search filters templates and program sessions, keeping the query across ta
  await expect(panel.getByRole('button',{name:/^Up next/})).toHaveCount(0);
  await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(1);
  await expect(panel.getByRole('button',{name:'Start Pull A, PPL, Tuesday',exact:true})).toBeVisible();
- await expect(panel.locator('.start-sheet-group')).toHaveText(['PPLActive']);
+ await expect(panel.locator('.start-sheet-group')).toHaveText(['PPL Active']);
  await search(page).fill('cycle');
  await expect(panel.getByRole('button',{name:/^Start /})).toHaveCount(3);
  await search(page).fill('zzz');
@@ -445,7 +445,7 @@ const toggle=(page,name)=>sheet(page).locator('.start-sheet-program-toggle').fil
 test('the active program is listed first, expanded, and alone feeds Up next',async({page})=>{
  await mountSheet(page,{activeProgramId:'cycle'});await open(page);
  await expect(page.getByRole('button',{name:'Up next: A, Cycle',exact:true})).toBeFocused();
- await expect(sheet(page).locator('.start-sheet-program-toggle')).toHaveText(['CycleActive','PPL']);
+ await expect(sheet(page).locator('.start-sheet-program-toggle')).toHaveText(['Cycle Active','PPL']);
  await expect(toggle(page,'Cycle')).toHaveAttribute('aria-expanded','true');
  await expect(toggle(page,'PPL')).toHaveAttribute('aria-expanded','false');
 });
@@ -457,7 +457,7 @@ test('with no active program the sheet offers the suggested program in one tap',
  await expect(panel).toContainText('No active program');
  await panel.getByRole('button',{name:'Make PPL active',exact:true}).click();
  await expect(page.getByRole('button',{name:'Up next: Legs A, PPL',exact:true})).toBeFocused();
- await expect(toggle(page,'PPL')).toHaveText('PPLActive');
+ await expect(sheet(page).getByRole('button',{name:'PPL Active',exact:true})).toBeVisible();
  await expect(panel).not.toContainText('No active program');
  expect((await calls(page)).activations).toEqual(['ppl']);
 });
@@ -489,4 +489,10 @@ test('Make active is disabled while a start is in progress',async({page})=>{
  await sheet(page).getByRole('tab',{name:'Template'}).click();
  await sheet(page).getByRole('button',{name:'Start Upper',exact:true}).click();
  await expect(sheet(page).getByRole('button',{name:'Make PPL active',exact:true,includeHidden:true})).toBeDisabled();
+});
+
+test('activating a program without an Up next moves focus to its disclosure',async({page})=>{
+ await mountSheet(page,{activeProgramId:null,programs:[{id:'loose',name:'Loose'}]});await open(page);
+ await sheet(page).getByRole('button',{name:'Make Loose active',exact:true}).click();
+ await expect(sheet(page).getByRole('button',{name:'Loose Active',exact:true})).toBeFocused();
 });

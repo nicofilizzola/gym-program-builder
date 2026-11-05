@@ -46,5 +46,10 @@ Plan: docs/superpowers/plans/2026-11-05-active-program.md (branch `feature/mobil
 
 - Full run: `npm test` 371/371; `npm run test:e2e` 386/387 (one `reference-exercises` flake, 14/14 on re-run); `npm run build` passes.
 
+**Final review (Opus) and fix pass**
+- Fixed: keyboard focus stays on the moved star; a fast second tap where the starred card used to be is ignored for 500ms after a re-sort; the `Active` badge is a separate word in accessible names; activating a program without an Up next focuses its disclosure.
+- After fixes: `npm test` 371/371, `npm run test:e2e` 390/390, `npm run build` passes.
+- Deferred minors: Make active re-enabled by a failed template load mid-activation; no sign-in prompt for a 401 from Make active; late star failures report on the next route; dead variable in library-view; some e2e gaps (empty-Sequence active program, real-server deleted program).
+
 **Gaps**
 - Migration 009 has not been run on preview or production.

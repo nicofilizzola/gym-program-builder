@@ -5,7 +5,7 @@
 Design: docs/superpowers/specs/2026-11-05-mobile-polish-tracker-notes-design.md (§A2); plan: docs/superpowers/plans/2026-11-05-active-program.md.
 
 - One single-user server setting: migration 009 `app_settings(key, value_json, updated_at)`; run it explicitly per environment. `GET /api/settings` → `{settings:{activeProgramId}}` (null when unset or naming no program); `PUT /api/settings/active-program {programId|null}` (unknown → 404 `Program not found.`, other → 400 `Invalid program id.`); last write wins, no revision. Never exported, never sent to the AI review, never copied by duplication.
-- Programs list cards lead with a star toggle (`aria-pressed`, name `Active program {name}`, tooltip `Set as active program` / `Active program`); the active card shows an `Active` badge and sorts first. Taps apply at once; the client keeps one request in flight and sends only the latest choice, so the server ends on the last intent; a failure reverts and reports.
+- Programs list cards lead with a star toggle (`aria-pressed`, name `Active program {name}`, tooltip `Set as active program` / `Active program`); the active card shows an `Active` badge and sorts first. Keyboard focus stays on the moved star; for 500ms after a re-sort, star taps on other cards are ignored (a fast double-tap never toggles the card that slid in). Taps apply at once; the client keeps one request in flight and sends only the latest choice, so the server ends on the last intent; a failure reverts and reports.
 - The Workouts route loads settings with its lists; a failed load behaves as no active program.
 
 ## Mobile navigation (2026-11-05)

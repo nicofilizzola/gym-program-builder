@@ -20,11 +20,11 @@ test('the star marks one active program, sorts it first and persists',async({pag
  await expect(star(page,'Alpha')).toHaveAttribute('aria-pressed','false');
  await star(page,'Alpha').click();
  await expect(star(page,'Alpha')).toHaveAttribute('aria-pressed','true');
- await expect(cards(page)).toHaveText(['AlphaActive','Beta']);
+ await expect(cards(page)).toHaveText(['Alpha Active','Beta']);
  await page.reload();
- await expect(cards(page)).toHaveText(['AlphaActive','Beta']);
+ await expect(cards(page)).toHaveText(['Alpha Active','Beta']);
  await star(page,'Beta').click();
- await expect(cards(page)).toHaveText(['BetaActive','Alpha']);
+ await expect(cards(page)).toHaveText(['Beta Active','Alpha']);
  await expect(star(page,'Alpha')).toHaveAttribute('aria-pressed','false');
  await star(page,'Beta').click();
  await expect(cards(page)).toHaveText(['Beta','Alpha']);
@@ -43,11 +43,11 @@ test('a failed save reverts the star and reports the error',async({page})=>{
 test('rapid taps on two stars end with the last choice',async({page})=>{
  await login(page);const ids=await programs(page,['Alpha','Beta']);await page.reload();
  let first=true;
- await page.route('**/api/settings/active-program',async route=>{if(first){first=false;await new Promise(r=>setTimeout(r,500));}await route.continue();});
- await star(page,'Alpha').click();await star(page,'Beta').click();
- await page.waitForTimeout(900);
+ await page.route('**/api/settings/active-program',async route=>{if(first){first=false;await new Promise(r=>setTimeout(r,1500));}await route.continue();});
+ // Taps 600ms apart (past the re-sort guard) while the first request is still pending.
+ await star(page,'Alpha').click();await page.waitForTimeout(600);await star(page,'Beta').click();
  await expect(star(page,'Beta')).toHaveAttribute('aria-pressed','true');
- await expect(cards(page)).toHaveText(['BetaActive','Alpha']);
+ await expect(cards(page)).toHaveText(['Beta Active','Alpha']);
  await expect.poll(async()=>(await (await page.request.get('/api/settings')).json()).settings.activeProgramId).toBe(ids.Beta);
 });
 
@@ -66,4 +66,23 @@ test('the start sheet follows the active program and treats a failed settings lo
  const sheet=page.locator('dialog.start-sheet[open]');
  await expect(sheet.getByRole('button',{name:/^Up next/})).toHaveCount(0);
  await expect(sheet.locator('.start-sheet-program-toggle')).toHaveCount(2);
+});
+
+test('keyboard toggling keeps focus on the moved star',async({page})=>{
+ await login(page);await programs(page,['Alpha','Beta']);await page.reload();
+ await star(page,'Alpha').focus();await page.keyboard.press('Space');
+ await expect(star(page,'Alpha')).toHaveAttribute('aria-pressed','true');
+ await expect(star(page,'Alpha')).toBeFocused();
+ await page.keyboard.press('Space');
+ await expect(star(page,'Alpha')).toHaveAttribute('aria-pressed','false');
+ await expect(star(page,'Alpha')).toBeFocused();
+});
+
+test('a fast second tap where the starred card used to be does not toggle the card that moved in',async({page})=>{
+ await login(page);const ids=await programs(page,['Alpha','Beta']);await page.reload();
+ const box=await star(page,'Alpha').boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
+ await page.mouse.click(x,y);await page.mouse.click(x,y);
+ await expect(star(page,'Alpha')).toHaveAttribute('aria-pressed','true');
+ await expect(star(page,'Beta')).toHaveAttribute('aria-pressed','false');
+ await expect.poll(async()=>(await (await page.request.get('/api/settings')).json()).settings.activeProgramId).toBe(ids.Alpha);
 });
