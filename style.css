@@ -2197,7 +2197,7 @@ p.limit-hint {display:flex}
 .log-stepper[data-kind="reps"] {grid-area:reps}
 .log-stepper:focus-within {border-color:var(--accent)}
 .log-stepper:has([aria-invalid="true"]) {border-color:var(--error)}
-.log-stepper input[type="text"] {flex:1 1 auto;width:100%;min-width:0;min-height:44px;padding:0;border:0;border-radius:0;background:transparent;font-variant-numeric:tabular-nums;text-align:center}
+.log-stepper input[type="text"] {font-family:var(--font-display);font-weight:600;flex:1 1 auto;width:100%;min-width:0;min-height:44px;padding:0;border:0;border-radius:0;background:transparent;font-variant-numeric:tabular-nums;text-align:center}
 .log-stepper input[type="text"]:focus {box-shadow:none}
 .log-stepper input::placeholder {color:var(--muted);opacity:.75}
 .log-step {display:grid;flex:none;place-items:center;width:44px;min-height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out}
@@ -2234,10 +2234,9 @@ p.limit-hint {display:flex}
  .log-set-row {grid-template-areas:"num weight reps done" "rir rir rir menu" ". note note note" "err err err err"}
  .log-rir-label {display:none}
 }
-/* Phones under 390px: a slightly smaller input font and a 1.1 kg:reps ratio keep values up to 102.5 kg and 100 reps readable between 44px step buttons. */
+/* Phones under 390px: a 1.1 kg:reps ratio and 2px column gaps (with the condensed digits, still 16px) keeps values up to 102.5 kg and 100 reps visible between 44px step buttons. */
 @media (max-width:389px) {
- .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.1fr) minmax(0,1fr) 44px}
- .log-stepper input[type="text"] {font-size:.875rem}
+ .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.1fr) minmax(0,1fr) 44px;column-gap:2px}
 }
 /* Enlarged text: kg and reps stack so their inputs keep readable widths; units move inside the steppers. */
 @container (max-width:18rem) {

@@ -63,6 +63,8 @@ for(const width of [360,390,430]){
    for(const box of [r.done,r.menu]){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   }
   expect(first.clipped.every(c=>c<=1)).toBe(true);
+  // iOS zooms the page on focus of inputs under 16px.
+  for(const field of ['weight','reps'])expect(await page.getByLabel(`Set 1 ${field}, ${name}`,{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize)),field).toBeGreaterThanOrEqual(16);
   // A done row's tint spans the card's inner width plus its padding.
   const done=m.rows[2];
   near(done.row.left,m.card.left+1,'done tint left');near(done.row.right,m.card.right-1,'done tint right');
