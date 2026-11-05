@@ -306,10 +306,10 @@ Record results in `docs/superpowers/verification/2026-11-05-mobile-polish-tracke
 
 ## Delivery
 
-Three plans, executed in order:
+Three plans sized to their risk, executed in order:
 
-1. `docs/superpowers/plans/2026-11-05-mobile-navigation.md`: A1.
-2. `docs/superpowers/plans/2026-11-05-active-program-search.md`: A2, A3 (migration 009).
-3. `docs/superpowers/plans/2026-11-05-tracker-polish-supersets-notes.md`: B1, then the remaining 11-04 tasks (2–7) adapted to B1, then B3. It continues on `feature/log-warmups-supersets` rebased onto main, superseding that branch's plan from Task 2 on.
+1. **Light:** `docs/superpowers/plans/2026-11-05-mobile-nav-search.md` covers A1 and A3. Both are client-only, mostly CSS plus one pure helper, with focused tests and the existing suite.
+2. **Medium:** `docs/superpowers/plans/2026-11-05-active-program.md` covers A2 (migration 009, API, Programs list, start sheet).
+3. **Rigorous:** `docs/superpowers/plans/2026-11-05-tracker-polish-supersets-notes.md` covers B1 (including set separators), then the remaining 11-04 tasks (2–7) adapted to B1, then B3. It continues on `feature/log-warmups-supersets` rebased onto main after plans 1–2 merge, superseding that branch's plan from Task 2 on.
 
 Update AGENTS.md and the design-system doc with each plan's final requirements.
