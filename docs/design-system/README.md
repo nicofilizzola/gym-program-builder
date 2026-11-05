@@ -412,3 +412,7 @@ At ≤760px the main `<nav>` becomes a bottom tab bar; above 760px the header is
 ### Start sheet search
 
 The search field sits on its own full-width row under the tabs and Blank workout: a native `type=search` input (visually hidden label `Search sessions`, placeholder `Search`, 18px magnifier inset 10px, 36px left padding, 44px tall; 32px on compact fine-pointer desktop). Results replace the list instantly (no animation); program results group sessions under the existing uppercase `.start-sheet-group` heading with 12px between programs.
+
+### Active program
+
+Programs list cards lead their icon actions with a star toggle (`.active-program-toggle`, shared `.action-button` sizing and tooltip; `aria-pressed`; outline `star` when off, filled accent `star-filled` with an accent border when on). The active card shows an `Active` pill (`.library-badge`: 1px accent outline, accent text, 12px 600-weight body font) after its name and is listed first; badge and order change instantly.

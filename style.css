@@ -2306,3 +2306,8 @@ body {padding-bottom:var(--tab-bar-height)}
 }
 @media (max-width:760px) and (hover:hover) {.app-header nav a:hover:not([aria-current=page]) {color:var(--text)}}
 @media (max-width:760px) and (prefers-reduced-motion:reduce) {.app-header nav {transition:none}}
+
+/* Active program (2026-11-05): star toggle and badge on Programs list cards. */
+.library-badge {display:inline-block;margin-left:10px;padding:1px 8px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-family:var(--font-body);font-size:.75rem;font-weight:600;letter-spacing:.02em;vertical-align:middle}
+.active-program-toggle[aria-pressed=true] {color:var(--accent);border-color:var(--accent)}
+.active-program-toggle[aria-pressed=true]:hover {color:var(--accent)}

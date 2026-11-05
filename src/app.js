@@ -358,9 +358,25 @@ async function prepareRoute(route,version){
  if(route.view==='workout')return prepareWorkout(route);
  if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
  if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
- const kind=route.view==='programs'?'program':'template',records=await api.list(kind);
- return ()=>{mounted=mountLibrary(createViewHost(),{
-  kind,records,recordHref:record=>`#/${route.view}/${record.id}`,
+ const kind=route.view==='programs'?'program':'template';
+ // A settings failure on the network just shows no active program; anything else is reported.
+ const [records,settings]=await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
+ return ()=>{
+ // Star taps apply at once; one request is in flight at a time and only the latest choice is sent next.
+ let confirmed=settings?.activeProgramId??null,wanted=confirmed,sending=false;
+ const toggleActive=action(async record=>{
+  wanted=wanted===record.id?null:record.id;mounted.update(records,{activeProgramId:wanted});
+  if(sending)return;sending=true;
+  try{
+   while(wanted!==confirmed){
+    const target=wanted;
+    try{confirmed=(await api.setActiveProgram(target)).activeProgramId;}
+    catch(error){if(wanted!==target)continue;wanted=confirmed;if(version===mountedVersion)mounted.update(records,{activeProgramId:confirmed});throw error;}
+   }
+  }finally{sending=false;}
+ });
+ mounted=mountLibrary(createViewHost(),{
+  kind,records,recordHref:record=>`#/${route.view}/${record.id}`,activeProgramId:settings?.activeProgramId??null,onToggleActive:kind==='program'?toggleActive:undefined,
   onStartWorkout:kind==='template'?action(async record=>{const template=await api.get(record.id);if(version!==mountedVersion)return;await startWorkout({template:{id:template.id,document:template.document}});}):undefined,
   onCreate:action(()=>create(kind,kind==='program'?createProgram():createTemplate())),
   onOpen:action(record=>navigate(`#/${route.view}/${record.id}`)),
