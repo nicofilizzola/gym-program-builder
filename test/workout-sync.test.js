@@ -319,3 +319,13 @@ test('a version 1 log is upgraded on adopt, so the first edit saves',async()=>{
  assert.equal(api.calls.length,1);
  assert.equal(api.calls[0].log.logVersion,2);assert.ok(validateWorkoutLog(api.calls[0].log).log);
 });
+
+test('a version 1 mirror snapshot recovers with notes',()=>{
+ const v1=log({exercises:[{id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:[],
+  target:{sets:1,repRange:{min:8,max:12},restSeconds:90},sets:[{id:'s1',weightKg:null,reps:null,rir:null,done:false}]}]});
+ const storage=memoryStorage();writeMirror(storage,{log:v1,baseRevision:3,dirty:true,lastTime:null});
+ const mirror=readMirror(storage);
+ assert.equal(recoveryDecision({mirror,server:{id:'w1',revision:3,log:v1},reachable:true}).action,'resume-local');
+ const r=validateWorkoutLog(mirror.log);
+ assert.equal(r.log.exercises[0].note,'');assert.equal(r.log.exercises[0].sets[0].note,'');
+});

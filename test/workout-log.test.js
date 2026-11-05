@@ -12,7 +12,7 @@ const bad=(log,part)=>{const r=validateWorkoutLog(log);assert.ok(r.error,'expect
 
 test('limits are frozen',()=>{
  assert.ok(Object.isFrozen(WORKOUT_LIMITS));
- assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30});
+ assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280});
 });
 
 test('exercise names follow the catalog limit (200), separate from the workout name limit (120)',()=>{
@@ -35,7 +35,7 @@ test('createWorkoutLog seeds a program occurrence snapshot',()=>{
  assert.deepEqual(log.source,{kind:'program',programId:'p1',occurrenceId:'o1',templateId:'t1',programName:'PPL',templateName:'Push A'});
  assert.deepEqual(log.exercises[0].target,{sets:3,warmupSets:0,repRange:{min:6,max:10},restSeconds:180});
  assert.equal(log.exercises[0].variantId,'v1');assert.equal(log.exercises[0].referenceId,'r1');assert.equal(log.exercises[0].equipment,'Barbell');assert.equal(log.exercises[0].sets.length,3);
- assert.deepEqual(log.exercises[0].sets[0],{id:log.exercises[0].sets[0].id,kind:'working',weightKg:null,reps:null,rir:null,done:false});
+ assert.deepEqual(log.exercises[0].sets[0],{id:log.exercises[0].sets[0].id,kind:'working',weightKg:null,reps:null,rir:null,done:false,note:''});
  assert.equal(log.exercises[1].variantId,null);assert.equal(log.exercises[1].equipment,null);
  assert.equal(log.exercises[1].sets.length,2);
  assert.equal(new Set(log.exercises.flatMap(e=>[e.id,...e.sets.map(s=>s.id)])).size,7);
@@ -63,7 +63,7 @@ test('createWorkoutLog normalizes the template name like setLogName',()=>{
 test('logExerciseFromEntry snapshots a catalog entry with one empty set',()=>{
  const ex=logExerciseFromEntry({id:'v9',familyId:'r9',name:'Curl',equipment:'Dumbbell',primaryMuscles:['Biceps'],secondaryMuscles:[],extra:1},seq());
  assert.equal(ex.variantId,'v9');assert.equal(ex.referenceId,'r9');assert.equal(ex.target,null);assert.equal(ex.name,'Curl');
- assert.equal(ex.sets.length,1);assert.deepEqual(ex.sets[0],{id:ex.sets[0].id,kind:'working',weightKg:null,reps:null,rir:null,done:false});
+ assert.equal(ex.sets.length,1);assert.deepEqual(ex.sets[0],{id:ex.sets[0].id,kind:'working',weightKg:null,reps:null,rir:null,done:false,note:''});
  assert.ok(!('extra' in ex));
 });
 
@@ -112,8 +112,8 @@ test('validateWorkoutLog enforces structure and limits',()=>{
  const r=validateWorkoutLog(finished({startedAt:'2026-11-03T17:00:00Z',finishedAt:'2026-11-03T18:00:00.000Z',junk:1,source:{kind:'blank',junk:2},exercises:[exercise({junk:3,sets:[set({junk:4})]})]}));
  assert.ok(r.log);
  assert.deepEqual(Object.keys(r.log),['id','logVersion','status','name','startedAt','finishedAt','source','exercises']);
- assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','sets']);
- assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]),['id','kind','weightKg','reps','rir','done']);
+ assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','sets']);
+ assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]),['id','kind','weightKg','reps','rir','done','note']);
  assert.deepEqual(r.log.source,{kind:'blank'});
  // target
  const target={sets:3,warmupSets:0,repRange:{min:6,max:10},restSeconds:180};
@@ -169,7 +169,7 @@ test('valid pairs are kept in canonical shape',()=>{
  pair.exercises[0].superset={restBetweenSeconds:30,restAfterRoundSeconds:120};
  const r=validateWorkoutLog(pair);
  assert.deepEqual(r.log.exercises[0].superset,{restBetweenSeconds:30,restAfterRoundSeconds:120});
- assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','superset','sets']);
+ assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','superset','sets']);
  assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]).slice(0,2),['id','kind']);
 });
 test('history counts done working sets only',()=>{assert.equal(workoutSummary(logWithDone({warmup:2,working:3})).doneSets,3);});
@@ -181,4 +181,30 @@ test('version 1 summary counts done sets; upgrade keeps an existing warmupSets',
  assert.equal(upgradeLog(v1).logVersion,2);
  const kept=upgradeLog({...v1,exercises:[{...v1.exercises[0],target:{...v1.exercises[0].target,warmupSets:2}}]});
  assert.equal(kept.exercises[0].target.warmupSets,2);
+});
+
+test('notes default to empty and upgrade from version 1',()=>{
+ const v1={...active({logVersion:1}),exercises:[exercise({sets:[set()]})]};v1.exercises[0].sets.forEach(s=>delete s.kind);
+ const {log}=validateWorkoutLog(v1);
+ assert.equal(log.exercises[0].note,'');assert.equal(log.exercises[0].sets[0].note,'');
+ const v2=validateWorkoutLog(active()).log;
+ assert.equal(v2.exercises[0].note,'');assert.equal(v2.exercises[0].sets[0].note,'');
+});
+test('note limits',()=>{
+ const withEx=note=>active({exercises:[exercise({note})]});
+ const withSet=note=>active({exercises:[exercise({sets:[set({note})]})]});
+ assert.equal(validateWorkoutLog(withEx('x'.repeat(1001))).error,'Exercise 1: Note must be at most 1,000 characters.');
+ assert.equal(validateWorkoutLog(withSet('x'.repeat(281))).error,'Exercise 1, set 1: Note must be at most 280 characters.');
+ assert.equal(validateWorkoutLog(withEx('x'.repeat(1000))).log.exercises[0].note,'x'.repeat(1000));
+ assert.equal(validateWorkoutLog(withSet('x'.repeat(280))).log.exercises[0].sets[0].note,'x'.repeat(280));
+ assert.equal(validateWorkoutLog(withSet(42)).error,'Exercise 1, set 1: Invalid set.');
+ assert.equal(validateWorkoutLog(withEx(42)).error,'Exercise 1: Invalid exercise.');
+});
+test('created logs and exercises carry empty notes',()=>{
+ const entry={id:'v1',familyId:'r1',name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:[]};
+ const ex=logExerciseFromEntry(entry,seq());
+ assert.equal(ex.note,'');assert.equal(ex.sets[0].note,'');
+ const template={id:'t1',document:{name:'Pull',exercises:[{name:'Row',sets:1,warmupSets:1,repRange:{min:8,max:12},restSeconds:90,primaryMuscles:['Lats'],secondaryMuscles:[]}]}};
+ const log=createWorkoutLog({id:'l',now:new Date(),makeId:seq(),template});
+ assert.equal(log.exercises[0].note,'');assert.deepEqual(log.exercises[0].sets.map(s=>s.note),['','']);
 });

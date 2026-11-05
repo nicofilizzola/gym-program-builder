@@ -2,7 +2,7 @@ import {MUSCLE_GROUPS} from './muscles.js';
 import {EQUIPMENT,CATALOG_NAME_MAX} from './catalog.js';
 import {supersetIssue} from './validate.js';
 
-export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:CATALOG_NAME_MAX,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30});
+export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:CATALOG_NAME_MAX,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280});
 
 const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,3})?(Z|[+-]\d\d:\d\d)$/;
 const pad=(n,w=2)=>String(n).padStart(w,'0');
@@ -15,7 +15,10 @@ export function toLocalIso(date){
 
 export const LOG_VERSION=2;
 const SET_KINDS=['warmup','working'];
-const emptySet=(makeId,kind='working')=>({id:makeId(),kind,weightKg:null,reps:null,rir:null,done:false});
+const emptySet=(makeId,kind='working')=>({id:makeId(),kind,weightKg:null,reps:null,rir:null,done:false,note:''});
+
+/** Trim; whitespace-only becomes ''. */
+export const normalizeNote=text=>String(text).trim();
 
 /** Trim, default to 'Workout' when empty, cap at the name limit. */
 export const normalizeLogName=text=>(String(text).trim()||'Workout').slice(0,WORKOUT_LIMITS.nameMax);
@@ -30,14 +33,14 @@ export function createWorkoutLog({id,now,makeId,template,program,occurrenceId}){
   primaryMuscles:[...ex.primaryMuscles],secondaryMuscles:[...ex.secondaryMuscles],
   target:{sets:ex.sets,warmupSets:ex.warmupSets??0,repRange:{min:ex.repRange.min,max:ex.repRange.max},restSeconds:ex.restSeconds},
   ...(ex.superset?{superset:{restBetweenSeconds:ex.superset.restBetweenSeconds,restAfterRoundSeconds:ex.superset.restAfterRoundSeconds}}:{}),
-  sets:[...Array.from({length:ex.warmupSets??0},()=>emptySet(makeId,'warmup')),...Array.from({length:ex.sets},()=>emptySet(makeId,'working'))]
+  note:'',sets:[...Array.from({length:ex.warmupSets??0},()=>emptySet(makeId,'warmup')),...Array.from({length:ex.sets},()=>emptySet(makeId,'working'))]
  }));
  return {id,logVersion:LOG_VERSION,status:'active',name,startedAt:toLocalIso(now),finishedAt:null,source,exercises};
 }
 
 export function logExerciseFromEntry(entry,makeId){
  return {id:makeId(),variantId:entry.id,referenceId:entry.familyId,name:entry.name,equipment:entry.equipment??null,
-  primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null,sets:[emptySet(makeId)]};
+  primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null,note:'',sets:[emptySet(makeId)]};
 }
 
 export function workoutSummary(log){
@@ -77,6 +80,9 @@ function validateMuscles(list,where){
 function validateSet(s,where){
  if(!isObject(s)||!isText(s.id))return fail(`${where}: Invalid set.`);
  const {kind,weightKg,reps,rir,done}=s;
+ const note=s.note===undefined?'':s.note;
+ if(typeof note!=='string')return fail(`${where}: Invalid set.`);
+ if(note.length>WORKOUT_LIMITS.setNoteMax)return fail(`${where}: Note must be at most 280 characters.`);
  if(!SET_KINDS.includes(kind))return fail(`${where}: Invalid set kind.`);
  if(weightKg!==null&&!(typeof weightKg==='number'&&weightKg>=0&&weightKg<=WORKOUT_LIMITS.weightMax&&Number.isInteger(weightKg*4)))
   return fail(`${where}: Weight must be a multiple of 0.25 from 0 to 999.75 kg.`);
@@ -84,7 +90,7 @@ function validateSet(s,where){
  if(rir!==null&&!isInt(rir,0,WORKOUT_LIMITS.rirMax))return fail(`${where}: RIR must be a whole number from 0 to 5.`);
  if(typeof done!=='boolean')return fail(`${where}: Done must be true or false.`);
  if(done&&reps===null)return fail(`${where}: A completed set needs reps.`);
- return {set:{id:s.id,kind,weightKg,reps,rir,done}};
+ return {set:{id:s.id,kind,weightKg,reps,rir,done,note}};
 }
 
 function validateExercise(ex,i,finished){
@@ -92,6 +98,9 @@ function validateExercise(ex,i,finished){
  if(!isObject(ex)||!isText(ex.id))return fail(`${where}: Invalid exercise.`);
  if(![ex.variantId,ex.referenceId].every(v=>v===null||isText(v))||(ex.variantId===null)!==(ex.referenceId===null))return fail(`${where}: Invalid catalog link.`);
  if(typeof ex.name!=='string'||ex.name===''||ex.name.length>WORKOUT_LIMITS.exerciseNameMax)return fail(`${where}: Name must be 1–${WORKOUT_LIMITS.exerciseNameMax} characters.`);
+ const note=ex.note===undefined?'':ex.note;
+ if(typeof note!=='string')return fail(`${where}: Invalid exercise.`);
+ if(note.length>WORKOUT_LIMITS.exerciseNoteMax)return fail(`${where}: Note must be at most 1,000 characters.`);
  if(ex.equipment!==null&&!EQUIPMENT.includes(ex.equipment))return fail(`${where}: Invalid equipment.`);
  const primary=validateMuscles(ex.primaryMuscles,where);if(primary.error)return primary;
  const secondary=validateMuscles(ex.secondaryMuscles,where);if(secondary.error)return secondary;
@@ -107,7 +116,7 @@ function validateExercise(ex,i,finished){
   if(r.set.kind==='warmup'&&sets.some(p=>p.kind==='working'))return fail(`${where}: Warm-up sets must come before working sets.`);
   sets.push(r.set);
  }
- const out={id:ex.id,variantId:ex.variantId,referenceId:ex.referenceId,name:ex.name,equipment:ex.equipment,primaryMuscles:primary.list,secondaryMuscles:secondary.list,target,...(ex.superset!==undefined?{superset:ex.superset}:{}),sets};
+ const out={id:ex.id,variantId:ex.variantId,referenceId:ex.referenceId,name:ex.name,equipment:ex.equipment,primaryMuscles:primary.list,secondaryMuscles:secondary.list,target,note,...(ex.superset!==undefined?{superset:ex.superset}:{}),sets};
  return {exercise:out};
 }
 

@@ -21,6 +21,9 @@ export const swapExercise=(log,exerciseId,entry)=>mapExercise(log,exerciseId,e=>
  variantId:entry.id,referenceId:entry.familyId,name:entry.name,equipment:entry.equipment??null,
  primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null}));
 
+export const setExerciseNote=(log,exerciseId,text)=>mapExercise(log,exerciseId,e=>({...e,note:text}));
+export const setSetNote=(log,exerciseId,setId,text)=>mapSet(log,exerciseId,setId,s=>({...s,note:text}));
+
 export const removeExercise=(log,exerciseId)=>{
  const i=log.exercises.findIndex(e=>e.id===exerciseId);
  return i<0?log:{...log,exercises:removePairMember(log.exercises,i)};
@@ -45,7 +48,7 @@ export function moveLogExercise(log,from,to){
  return {...log,exercises};
 }
 
-const blankSet=(id,kind,values)=>({id,kind,weightKg:null,reps:null,rir:null,done:false,...values});
+const blankSet=(id,kind,values)=>({id,kind,weightKg:null,reps:null,rir:null,done:false,note:'',...values});
 
 const atLimit=(log,exerciseId)=>(log.exercises.find(e=>e.id===exerciseId)?.sets.length??0)>=WORKOUT_LIMITS.sets;
 

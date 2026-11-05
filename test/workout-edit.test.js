@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {addWarmup,moveLogBlock,unlinkSuperset,nextGuidedSet,NO_SETS,setLogName,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,removeSet,updateSet,toggleSetDone,undoneSetCount,finishWorkout,setWorkoutTimes,finishConfirmation,confirmFinish} from '../src/workout-edit.js';
-import {validateWorkoutLog,toLocalIso} from '../src/workout-log.js';
+import {setExerciseNote,setSetNote,addWarmup,moveLogBlock,unlinkSuperset,nextGuidedSet,NO_SETS,setLogName,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,removeSet,updateSet,toggleSetDone,undoneSetCount,finishWorkout,setWorkoutTimes,finishConfirmation,confirmFinish} from '../src/workout-edit.js';
+import {validateWorkoutLog,toLocalIso,normalizeNote} from '../src/workout-log.js';
 
 const seq=()=>{let n=0;return()=>'n'+(++n);};
 const set=(id,over={})=>({id,kind:'working',weightKg:null,reps:null,rir:null,done:false,...over});
@@ -73,8 +73,8 @@ test('setLogName, add/remove/move exercise and add/remove/update set',()=>{
  assert.deepEqual(moveLogExercise(log,0,1).exercises.map(e=>e.id),['e2','e1']);
  assert.equal(moveLogExercise(log,0,5),log);
  const withSet=addSet(log,'e1',seq(),{weightKg:80,reps:8,done:true});
- assert.deepEqual(withSet.exercises[0].sets[2],{id:'n1',kind:'working',weightKg:80,reps:8,rir:null,done:true});
- assert.deepEqual(addSet(log,'e2',seq()).exercises[1].sets[1],{id:'n1',kind:'working',weightKg:null,reps:null,rir:null,done:false});
+ assert.deepEqual(withSet.exercises[0].sets[2],{id:'n1',kind:'working',weightKg:80,reps:8,rir:null,done:true,note:''});
+ assert.deepEqual(addSet(log,'e2',seq()).exercises[1].sets[1],{id:'n1',kind:'working',weightKg:null,reps:null,rir:null,done:false,note:''});
  assert.deepEqual(removeSet(log,'e1','s2').exercises[0].sets.map(s=>s.id),['s1']);
  const upd=updateSet(log,'e1','s2',{reps:5});
  assert.equal(upd.exercises[0].sets[1].reps,5);assert.deepEqual(upd.exercises[0].sets[0],log.exercises[0].sets[0]);assert.deepEqual(upd.exercises[1],log.exercises[1]);
@@ -162,4 +162,14 @@ test('guided focus alternates partners and falls back',()=>{
 });
 test('active log may keep an exercise with only warm-ups after removing its working sets',()=>{
  const log=removeSet(base(['warmup','working']),'e1','s2');assert.ok(validateWorkoutLog(log).log);
+});
+
+test('note transforms',()=>{
+ let log=makeLog();const ex=log.exercises[0],sid=ex.sets[0].id;
+ log=setExerciseNote(log,ex.id,'Seat 4');assert.equal(log.exercises[0].note,'Seat 4');
+ log=setSetNote(log,ex.id,sid,'Felt easy');assert.equal(log.exercises[0].sets[0].note,'Felt easy');
+ assert.equal(swapExercise(log,ex.id,entry).exercises[0].note,'Seat 4');
+ assert.equal(addSet(log,ex.id,seq()).exercises[0].sets.at(-1).note,'');
+ assert.equal(addWarmup(log,ex.id,seq()).exercises[0].sets[0].note,'');
+ assert.equal(normalizeNote('  \n '),'');assert.equal(normalizeNote(' a b '),'a b');
 });
