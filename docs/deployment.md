@@ -24,7 +24,7 @@ Before the first live test:
    ```
 
    Copy existing local configuration privately if using a separate worktree. Never paste keys into chat or commit env files. Restart `npm start` after changing local env. On Windows use `npm.cmd` if PowerShell blocks the npm script wrapper.
-4. Add the matching variables in Vercel Project Settings → Environment Variables separately for Preview and Production, then redeploy that environment. Never let Preview inherit the Production key. Keep `APP_ORIGIN` matched to the actual preview URL. The configured function duration is 75 seconds; confirm the hosting plan supports it. The service itself aborts at 60 seconds.
+4. Add the matching variables in Vercel Project Settings → Environment Variables separately for Preview and Production, then redeploy that environment. Never let Preview inherit the Production key. Set `APP_ORIGIN` to the stable preview URL. The configured function duration is 75 seconds; confirm the hosting plan supports it. The service itself aborts at 60 seconds.
 5. Confirm access to the model and the `anthropic` provider, review the account/provider data policies, and verify model pricing before spending. Requests allow only that provider with no fallback, disable extended reasoning and cap output at 1500 tokens. The server never automatically retries paid requests. Provider cancellation billing varies; Stop aborts the connection but does not promise zero further charges.
 
 Run one explicit, paid fixture evaluation at a time from the feature worktree:
@@ -51,7 +51,7 @@ Create separate Turso databases for preview and production, near the Vercel func
 | `AUTH_SECRET` | At least 32 cryptographically random bytes, encoded as hex |
 | `APP_ORIGIN` | Exact HTTPS origin, including host and optional port, no trailing slash |
 
-Never expose variables as client/public variables or commit env files. `APP_ORIGIN` must match the URL you actually open. Use a stable preview alias (or configure the exact preview URL for that environment); arbitrary preview URLs are rejected for writes. Local HTTP is supported only by local configuration.
+Never expose variables as client/public variables or commit env files. Writes (including sign-in) are accepted when the browser's `Origin` is `APP_ORIGIN` or the origin the request was served from: any alias of the same deployment (Vercel's `x-forwarded-host`/`x-forwarded-proto`) or, locally, `localhost` and `127.0.0.1` alike. Other origins are refused, and the `SameSite=Strict` session cookie is never sent cross-site. The cookie is `Secure` whenever the request arrived over HTTPS. Local HTTP is supported only by local configuration.
 
 This release has one personal password, no account registration or password-reset endpoint. Session cookies expire after 30 days, are HttpOnly/SameSite=Strict and Secure in HTTPS environments. Five failed login attempts per platform client IP lock further attempts for 15 minutes; rate limits live in SQLite. Vercel overwrites `x-vercel-forwarded-for`; the local server ignores forwarded-IP headers and uses a local bucket. Do not place an untrusted reverse proxy in front of the app without reviewing client-IP semantics.
 
@@ -105,7 +105,7 @@ Rollback to a prior compatible Vercel deployment without dropping tables or docu
 
 ### Hosted environments (2026-11-04)
 
-Vercel project `gym-program-builder` (Hobby, Node 24.x, `iad1`), connected to GitHub: `main` deploys Production at `https://gym-hub-app.vercel.app`, and the `preview` branch is the stable Preview at `https://gym-program-builder-git-preview-team-6372.vercel.app`. `APP_ORIGIN` holds exactly those origins. Other aliases (`gym-program-builder-two.vercel.app`, per-commit URLs) serve the app but writes from them are refused. Deployment Protection covers previews only; Production is guarded by the app password.
+Vercel project `gym-program-builder` (Hobby, Node 24.x, `iad1`), connected to GitHub: `main` deploys Production at `https://gym-hub-app.vercel.app`, and the `preview` branch is the stable Preview at `https://gym-program-builder-git-preview-team-6372.vercel.app`. `APP_ORIGIN` holds exactly those origins. Other aliases (`gym-program-builder-two.vercel.app`, per-commit URLs) serve the app; since 2026-11-04 writes from them are accepted as same-origin requests (pending a deployed check). Deployment Protection covers previews only; Production is guarded by the app password.
 
 Turso databases `gym-preview` and `gym-production` come from the Vercel Marketplace integration, each connected to one environment. Secrets are stored as sensitive variables, so `vercel env pull` writes `[SENSITIVE]` for them; the Turso URL and token are pullable for explicit migrations. A project's first Git deployment becomes Production whatever its branch, so migrate both databases before connecting Git to a new project.
 

@@ -27,7 +27,9 @@ const api=createApi({repository:createRepository(db),commands:createDocumentComm
 const root=resolve('.'),mime={'.js':'text/javascript','.css':'text/css','.html':'text/html'};
 const server=createServer(async(req,res)=>{
  try {
-  const url=new URL(req.url,origin);
+  // Keep the host the browser used (localhost or 127.0.0.1) so same-host writes pass; other Host values (DNS rebinding) fall back to the configured origin.
+  const host=req.headers.host,loopback=/^(localhost|127\.0\.0\.1|\[::1\]):\d+$/.test(host||'');
+  const url=new URL(req.url,loopback?`http://${host}`:origin);
   if(url.pathname.startsWith('/api/')) {
    const headers=new Headers();for(const [key,value]of Object.entries(req.headers))if(value)headers.set(key,Array.isArray(value)?value.join(','):value);
    const abort=new AbortController();const disconnect=()=>{if(!res.writableFinished)abort.abort();};req.once('aborted',disconnect);res.once('close',disconnect);

@@ -29,6 +29,17 @@ test('authenticated HTTP API validates origin, size, drafts, revisions and error
  assert.equal((await call('documents/cycle','PUT',{revision:1,document:{...cycle,sequence:[{type:'workout',workoutId:'missing'}]}})).status,400);
  assert.equal((await (await call('documents/cycle')).json()).record.revision,1);
  await call('auth/logout','POST',{});assert.equal((await call('auth/session')).status,401);
+ const alias=createApi({repository:createRepository(db),auth,origin:'https://app.example'});
+ const post=(url,origin)=>alias(new Request(url,{method:'POST',headers:{...(origin?{origin}:{}),'content-type':'application/json'},body:JSON.stringify({password:'secret'})}));
+ const fromAlias=await post('https://alias.example/api/auth/login','https://alias.example');
+ assert.equal(fromAlias.status,200);assert.match(fromAlias.headers.get('set-cookie'),/; Secure/);
+ assert.equal((await post('https://alias.example/api/auth/login','https://app.example')).status,200);
+ assert.equal((await post('https://alias.example/api/auth/login','https://evil.test')).status,403);
+ assert.equal((await post('https://alias.example/api/auth/login')).status,403);
+ const local=await post('http://127.0.0.1:3000/api/auth/login','http://127.0.0.1:3000');
+ assert.equal(local.status,200);assert.doesNotMatch(local.headers.get('set-cookie'),/Secure/);
+ const forwarded=createApi({repository:createRepository(db),auth,origin:'https://app.example',requestOrigin:()=>'https://alias.example'});
+ assert.equal((await forwarded(new Request('http://internal/api/auth/login',{method:'POST',headers:{origin:'https://alias.example','content-type':'application/json'},body:JSON.stringify({password:'secret'})}))).status,200);
  const broken=createApi({repository:{list:()=>{throw Error('SQL secret');}},auth:{session:async()=>true},origin:'http://localhost'});
  const failed=await broken(new Request('http://localhost/api/documents?kind=template'));assert.equal(failed.status,503);assert.equal((await failed.text()).includes('SQL'),false);
 });

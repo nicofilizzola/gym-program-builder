@@ -12,13 +12,14 @@ async function body(request,limit=MAX_DOCUMENT_BYTES,message='Request must be at
   if(request.body) {const reader=request.body.getReader();try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw domainError('TOO_LARGE',sizeMessage);}chunks.push(value);}}finally{reader.releaseLock();}}
   try {const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}const data=JSON.parse(new TextDecoder().decode(bytes));if(!data||typeof data!=='object'||Array.isArray(data))throw Error();return data;}catch {throw domainError('INVALID','Request is not valid JSON.');}
 }
-export function createApi({repository,commands,catalog,auth,origin,analysis,profile,workouts,clientIp=()=> 'local'}) {
+/** Writes must come from this app: the configured origin or the origin the request itself was served from (another alias of the same deployment, or localhost vs 127.0.0.1). The SameSite=Strict session cookie still blocks cross-site use. */
+export function createApi({repository,commands,catalog,auth,origin,analysis,profile,workouts,clientIp=()=> 'local',requestOrigin=request=>new URL(request.url).origin}) {
   const respond=(value,status=200,headers={})=>new Response(status===204?null:JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store',...headers}});
   return async request=>{
     try {
       const url=new URL(request.url),path=url.pathname.replace(/^\/api\/?/,'').split('/').filter(Boolean),method=request.method;
-      const secure=new URL(origin).protocol==='https:';
-      if(!['GET','HEAD'].includes(method)&&request.headers.get('origin')!==origin)throw domainError('FORBIDDEN','Cross-origin requests are not allowed.');
+      const own=requestOrigin(request),secure=new URL(own).protocol==='https:',sent=request.headers.get('origin');
+      if(!['GET','HEAD'].includes(method)&&(!sent||(sent!==origin&&sent!==own)))throw domainError('FORBIDDEN','Cross-origin requests are not allowed.');
       if(path[0]==='auth') {
         if(path[1]==='login'&&method==='POST') {const data=await body(request);const cookie=await auth.login(data.password,clientIp(request),secure);return respond({ok:true},200,{'set-cookie':cookie});}
         if(path[1]==='logout'&&method==='POST')return respond({ok:true},200,{'set-cookie':await auth.logout(request.headers.get('cookie'),secure)});
