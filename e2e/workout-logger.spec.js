@@ -187,7 +187,7 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    // Nothing done: Finish is refused; Discard removes the log.
    const blank=await openLog(page,template);
    await page.getByRole('button',{name:'Finish',exact:true}).click();
-   await expect(page.getByText('Log at least one set, or discard the workout.')).toBeVisible();
+   await expect(page.getByText('Log at least one working set, or discard the workout.')).toBeVisible();
    await expect(page).toHaveURL(new RegExp(blank.id));
    await page.getByRole('button',{name:'Workout actions',exact:true}).click();
    await page.getByRole('button',{name:'Discard workout',exact:true}).click();

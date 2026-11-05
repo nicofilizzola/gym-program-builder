@@ -105,7 +105,7 @@ test('a second start asks to Resume, Finish or Discard the current workout',asyn
  await page.getByRole('link',{name:'Session templates',exact:true}).click();
  await page.getByRole('button',{name:`Start workout ${T}`,exact:true}).click();
  await dialog.getByRole('button',{name:'Finish current'}).click();
- await expect(page.locator('#app-message')).toHaveText('Log at least one set, or discard the workout.');
+ await expect(page.locator('#app-message')).toHaveText('Log at least one working set, or discard the workout.');
  await expect(page).toHaveURL(/#\/templates$/);
  expect((await activeRecord(page)).id).toBe(firstLog);
  // Discard current confirms, deletes the old log and opens the new one.
