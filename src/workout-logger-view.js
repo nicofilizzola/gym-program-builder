@@ -113,8 +113,12 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  /** Hoist a frame's remaining members into the list in its place and drop the frame. */
  function finalizeFrame(frame){
   clearTimeout(frame.timer);closing.delete(frame);
+  // Moving a node blurs it, so remember the focused control (and its caret) and restore it afterwards.
+  const focused=frame.li.contains(document.activeElement)&&!document.activeElement.closest('.is-removing')?document.activeElement:null;
+  const range=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd,focused.selectionDirection]:null;
   for(const child of [...frame.members.children])if(!child.classList.contains('is-removing'))frame.li.before(child);
   frame.li.remove();
+  if(focused&&focused.isConnected){focused.focus({preventScroll:true});if(range)try{focused.setSelectionRange(...range);}catch{}}
  }
  /** An unpaired frame closes (rail fades, header collapses) and only then releases its cards. */
  function dissolveFrame(frame,animate){
@@ -125,7 +129,12 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  }
  const firstIdOf=li=>li.dataset.blockKey;
  function render({animate=false}={}){
-  for(const frame of [...closing])finalizeFrame(frame);
+  // A closing frame stays put through routine edits (typing, done toggles), so a focused field is never moved mid-edit;
+  // it is released early only when its members no longer sit together in the log in their current order.
+  for(const frame of [...closing]){
+   const at=[...frame.members.children].filter(el=>!el.classList.contains('is-removing')).map(el=>log.exercises.findIndex(e=>e.id===el.dataset.exerciseId));
+   if(at.some((v,i)=>v<0||(i&&v!==at[i-1]+1)))finalizeFrame(frame);
+  }
   const blocks=supersetBlocks(log.exercises),pairs=new Set(blocks.filter(b=>b.length===2).map(b=>log.exercises[b.start].id));
   for(const [id,frame] of frames)if(!pairs.has(id)){frames.delete(id);dissolveFrame(frame,animate);}
   for(const [id,card] of cards)if(!find(id)){cards.delete(id);card.picker?.destroy();collapseOut(card.li,animate);}
@@ -142,7 +151,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
     slots.push({element:ghost||card,exercises:[first]});continue;
    }
    let frame=frames.get(first.id);
-   if(!frame){frame=createLogSupersetFrame({editable:editable&&mode!=='finished'});frame.li.dataset.blockKey=first.id;frames.set(first.id,frame);}
+   if(!frame){frame=createLogSupersetFrame({editable,canUnlink:mode!=='finished'});frame.li.dataset.blockKey=first.id;frames.set(first.id,frame);}
    syncLogSupersetFrame(frame,first.superset);
    const letter=String.fromCharCode(65+pairNumber++);
    labels.set(first.id,`${letter}1`);labels.set(log.exercises[block.start+1].id,`${letter}2`);
@@ -252,7 +261,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   if(frameButton&&editable){
    const key=firstIdOf(frameButton.closest('.log-exercises > li'));
    if(frameButton.dataset.frameAction==='reorder')openMoveMenu(frameButton);
-   else if(commit(unlinkSuperset(log,key),{animate:true}))cards.get(key).reorder.focus({preventScroll:true});
+   else if(mode!=='finished'&&commit(unlinkSuperset(log,key),{animate:true}))cards.get(key).reorder.focus({preventScroll:true});
    return;
   }
   const button=event.target.closest('[data-card-action]');if(!button||!editable)return;

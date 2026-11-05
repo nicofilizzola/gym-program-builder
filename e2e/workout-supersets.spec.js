@@ -138,19 +138,92 @@ test('swap on A2 keeps the frame; add appends an unpaired card; removing A1 diss
  await context.close();
 });
 
-test('finished log shows the frame without Unlink or Reorder',async({browser})=>{
- const context=await browser.newContext({viewport:{width:1366,height:768},reducedMotion:'reduce'});const page=await context.newPage();
+async function finishedLog(page){
  await login(page);await resetWorkouts(page);
- const {template}=await makeTemplate(page);
+ const {template,names}=await makeTemplate(page);
  const log=createWorkoutLog({id:makeId(),now:new Date(Date.now()-3600000),makeId,template});
  log.status='finished';log.finishedAt=new Date().toISOString();
  for(const e of log.exercises)for(const s of e.sets){s.done=true;s.reps=8;}
  const r=await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}});
  expect(r.ok(),await r.text()).toBeTruthy();
+ return {log,names};
+}
+
+test('finished log keeps pair Reorder but hides Unlink',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:1366,height:768},reducedMotion:'reduce'});const page=await context.newPage();
+ const {log,names}=await finishedLog(page);
  await page.goto('/#/workouts/'+log.id);
  await expect(page.locator('li.log-superset')).toHaveCount(1);
  await expect(page.locator('.log-superset-head')).toContainText('Superset · 30 sec between');
  await expect(page.getByRole('button',{name:'Unlink superset'})).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Reorder superset'})).toHaveCount(0);
+ const handle=page.getByRole('button',{name:'Reorder superset',exact:true});
+ await expect(handle).toBeVisible();
+ await handle.focus();await page.keyboard.press('ArrowDown');
+ expect(await headings(page)).toEqual([names[2],`A1 ${names[0]}`,`A2 ${names[1]}`]);
+ await expect(handle).toBeFocused();
+ await handle.click();
+ await page.getByRole('group',{name:'Reorder options'}).getByRole('button',{name:'Move up'}).click();
+ expect(await headings(page)).toEqual([`A1 ${names[0]}`,`A2 ${names[1]}`,names[2]]);
+ await context.close();
+});
+
+test('read-only log shows the frame with no actions and no drag',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:1366,height:900},reducedMotion:'reduce'});const page=await context.newPage();
+ const {log,names}=await finishedLog(page);
+ await page.goto('/#/workouts/'+log.id);
+ await expect(page.locator('li.log-superset')).toHaveCount(1);
+ // Make the same screen read-only by going offline-free: the app marks another device's/unavailable logs read-only, so mount directly.
+ const result=await page.evaluate(async(id)=>{
+  const {mountWorkoutLogger}=await import('/src/workout-logger-view.js');
+  const record=(await (await fetch('/api/workouts/'+id)).json()).record;
+  const host=document.createElement('div');document.body.append(host);
+  const ctl=mountWorkoutLogger(host,{api:{},log:record.log,mode:'finished',readOnly:true});
+  const frame=host.querySelector('.log-superset'),title=frame.querySelector('.superset-title').getBoundingClientRect();
+  const visible=[...frame.querySelectorAll('.superset-actions button')].filter(b=>b.offsetParent).length;
+  const before=[...host.querySelectorAll('.log-exercise h2')].map(h=>h.textContent);
+  const down=(t,x,y)=>t.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:7,button:0,clientX:x,clientY:y,pointerType:'mouse'}));
+  down(frame.querySelector('.superset-title'),title.x+5,title.y+5);
+  window.dispatchEvent(new PointerEvent('pointermove',{pointerId:7,clientX:title.x+5,clientY:title.y+300}));
+  const dragging=!!document.querySelector('.sort-drag-copy');
+  window.dispatchEvent(new PointerEvent('pointerup',{pointerId:7,clientX:title.x+5,clientY:title.y+300}));
+  const after=[...host.querySelectorAll('.log-exercise h2')].map(h=>h.textContent);
+  ctl.destroy();host.remove();
+  return {visible,dragging,same:JSON.stringify(before)===JSON.stringify(after),before};
+ },log.id);
+ expect(result.visible).toBe(0);expect(result.dragging).toBe(false);expect(result.same).toBe(true);
+ expect(result.before).toEqual([`A1 ${names[0]}`,`A2 ${names[1]}`,names[2]]);
+ await context.close();
+});
+
+test('focus survives animated unlink and member removal; typing continues across the frame close',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:1366,height:900},reducedMotion:'no-preference'});const page=await context.newPage();
+ const {names}=await openActive(page);
+ await page.getByRole('button',{name:'Unlink superset',exact:true}).click();
+ await expect(page.locator('li.log-superset')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:`Reorder ${names[0]}`,exact:true})).toBeFocused();
+ await context.close();
+});
+
+test('typing into a member right after Unlink keeps focus and every digit',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:1366,height:900},reducedMotion:'no-preference'});const page=await context.newPage();
+ const {names}=await openActive(page);
+ const reps=page.getByLabel(`Set 1 reps, ${names[1]}`,{exact:true});
+ await expect(page.locator('#app')).not.toHaveAttribute('aria-busy','true');
+ await page.evaluate(label=>{document.querySelector('[data-frame-action="unlink"]').click();document.querySelector(`[aria-label="${label}"]`).focus();},`Set 1 reps, ${names[1]}`);
+ await page.keyboard.type('12',{delay:150});
+ await page.keyboard.type('3',{delay:150});
+ await expect(page.locator('li.log-superset')).toHaveCount(0);
+ await expect(reps).toBeFocused();
+ await expect(reps).toHaveValue('123');
+ await context.close();
+});
+
+test('removing A1 animates and leaves focus on A2',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:1366,height:900},reducedMotion:'no-preference'});const page=await context.newPage();
+ const {names}=await openActive(page);
+ await page.getByRole('button',{name:`Remove exercise ${names[0]}`,exact:true}).click();
+ await expect(page.locator('li.log-superset')).toHaveCount(0);
+ await expect(page.locator('.log-exercise h2').first()).toHaveText(names[1]);
+ await expect(page.locator('.log-exercise h2').first()).toBeFocused();
  await context.close();
 });
