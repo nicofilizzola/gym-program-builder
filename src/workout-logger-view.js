@@ -4,7 +4,7 @@ import {mountExercisePicker} from './exercise-picker.js';
 import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {validateWorkoutLog,WORKOUT_LIMITS} from './workout-log.js';
-import {setLogName,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,removeSet,updateSet,toggleSetDone,confirmFinish} from './workout-edit.js';
+import {setLogName,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogExercise,addSet,addWarmup,removeSet,updateSet,toggleSetDone,confirmFinish} from './workout-edit.js';
 import {formatLastTime,setPlaceholder,formatElapsed} from './workout-sets.js';
 import {createSetRow,updateSetRow} from './workout-set-row.js';
 
@@ -77,24 +77,27 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  function createCard(ex){
   const li=document.createElement('li');li.className='log-exercise collapsible';li.dataset.exerciseId=ex.id;
   const headingId='log-exercise-'+uid();li.setAttribute('aria-labelledby',headingId);
-  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><p class="log-last-time"><span class="log-last-label"></span><span class="log-last-value"></span></p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button></div></div>`;
+  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><p class="log-last-time"><span class="log-last-label"></span><span class="log-last-value"></span></p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><div class="log-set-actions"><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button><button type="button" class="secondary-btn log-add-warmup">${actionIcon('plus')}Add warm-up</button></div></div></div>`;
   const q=selector=>li.querySelector(selector);
   const card={li,rows:new Map(),picker:null,heading:q('h2'),equipment:q('.log-equipment'),label:q('.log-last-label'),value:q('.log-last-value'),
-   swap:q('[data-card-action="swap"]'),reorder:q('[data-card-action="reorder"]'),remove:q('[data-card-action="remove"]'),swapArea:q('.log-picker'),sets:q('.log-sets'),addSet:q('.log-add-set')};
+   swap:q('[data-card-action="swap"]'),reorder:q('[data-card-action="reorder"]'),remove:q('[data-card-action="remove"]'),swapArea:q('.log-picker'),sets:q('.log-sets'),addSet:q('.log-add-set'),addWarmup:q('.log-add-warmup'),setActions:q('.log-set-actions')};
   card.swapArea.lastElementChild.addEventListener('click',()=>{closeSwap(card);card.swap.focus();});
   card.swapArea.addEventListener('keydown',event=>{if(event.key==='Escape'&&event.target.getAttribute('aria-expanded')==='false'){closeSwap(card);card.swap.focus();}},true);
   card.addSet.addEventListener('click',()=>{const id=li.dataset.exerciseId;commit(addSet(log,id,uid,mode==='finished'?inheritedValues(id):{}),{animate:true});});
-  card.addSet.hidden=card.swap.parentElement.hidden=!editable;
+  card.addWarmup.addEventListener('click',()=>{const id=li.dataset.exerciseId;commit(addWarmup(log,id,uid,mode==='finished'?inheritedValues(id,'warmup'):{}),{animate:true});});
+  card.setActions.hidden=card.swap.parentElement.hidden=!editable;
   return card;
  }
  function updateCard(card,ex,animate){
   card.heading.textContent=ex.name;card.equipment.textContent=ex.equipment||'';card.equipment.hidden=!ex.equipment;
   const shown=lastText(ex);card.label.textContent=shown.label||'';card.label.hidden=!shown.label;card.value.textContent=shown.text;
   card.swap.setAttribute('aria-label',`Swap exercise ${ex.name}`);card.reorder.setAttribute('aria-label',`Reorder ${ex.name}`);card.remove.setAttribute('aria-label',`Remove exercise ${ex.name}`);
-  card.addSet.setAttribute('aria-label',`Add set, ${ex.name}`);card.addSet.disabled=ex.sets.length>=WORKOUT_LIMITS.sets;
+  card.addSet.setAttribute('aria-label',`Add set, ${ex.name}`);card.addWarmup.setAttribute('aria-label',`Add warm-up, ${ex.name}`);card.addSet.disabled=card.addWarmup.disabled=ex.sets.length>=WORKOUT_LIMITS.sets;
   for(const [id,row] of card.rows)if(!ex.sets.some(s=>s.id===id)){card.rows.delete(id);collapseOut(row,animate);}
+  const counts={warmup:0,working:0};
   ex.sets.forEach((set,index)=>{
-   const props={exerciseName:ex.name,set,index,placeholder:setPlaceholder(ex,index,lastSets(ex)),mode,readOnly:!editable};
+   const kindIndex=++counts[set.kind];
+   const props={exerciseName:ex.name,set,kind:set.kind,kindIndex,placeholder:setPlaceholder(ex,index,lastSets(ex)),mode,readOnly:!editable};
    let row=card.rows.get(set.id);const fresh=!row;
    if(fresh){
     row=createSetRow({...props,readOnly:!editable,onPatch:patch=>commit(updateSet(log,ex.id,set.id,patch)),onToggle:()=>toggle(ex.id,set.id),onMenu:button=>setMenu.toggle(button,[{label:'Remove set',run:()=>dropSet(ex.id,set.id)}])});
@@ -136,8 +139,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   commit(result.log);
  }
  /** The previous row's effective values (typed, else its placeholder) for a new done set in a finished log. */
- function inheritedValues(exerciseId){
-  const ex=find(exerciseId),index=ex.sets.length-1,previous=ex.sets[index];if(!previous)return {done:true};
+ function inheritedValues(exerciseId,kind='working'){
+  const ex=find(exerciseId),index=ex.sets.findLastIndex(s=>s.kind===kind),previous=ex.sets[index];if(!previous)return {done:true};
   const ph=setPlaceholder(ex,index,lastSets(ex))||{};
   // Recorded values only: a blank weight stays bodyweight and a blank RIR stays blank; reps may fall back to the placeholder.
   return {done:true,weightKg:previous.weightKg,reps:previous.reps??ph.reps??null,rir:previous.rir};
@@ -150,8 +153,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  }
  async function dropSet(exerciseId,setId){
   // The last set of a finished exercise removes the exercise (after confirming).
-  if(mode==='finished'&&find(exerciseId).sets.length===1)return dropExercise(exerciseId);
-  const index=find(exerciseId).sets.findIndex(s=>s.id===setId);
+  const exercise=find(exerciseId),index=exercise.sets.findIndex(s=>s.id===setId);
+  if(mode==='finished'&&exercise.sets[index]?.kind==='working'&&exercise.sets.filter(s=>s.kind==='working').length===1)return dropExercise(exerciseId);
   if(!commit(removeSet(log,exerciseId,setId),{animate:true}))return;
   const card=cards.get(exerciseId),sets=find(exerciseId).sets,target=sets[index]??sets[index-1];
   (target?card.rows.get(target.id).querySelector('.log-set-menu'):card.addSet).focus({preventScroll:true});

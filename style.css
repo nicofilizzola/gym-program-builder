@@ -2226,7 +2226,13 @@ p.limit-hint {display:flex}
 .log-set.is-done .log-set-number {color:var(--accent)}
 .log-set-error {grid-area:err;margin:4px 0 0;color:var(--error);font-size:.8125rem}
 .log-set-error:empty {display:none}
-.log-add-set {margin-top:6px}
+.log-set-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+/* Warm-up rows (W1, W2…) keep the working grid; a muted number, dashed fields and a softer done tint set them apart. */
+.log-set.is-warmup .log-set-number {font-size:.8125rem;letter-spacing:-.02em;white-space:nowrap}
+.log-set.is-warmup .log-stepper {border-style:dashed;background:transparent}
+.log-set.is-warmup:not(.is-done) .log-stepper input[type="text"] {color:var(--muted)}
+.log-set.is-warmup.is-done .log-set-row {background:color-mix(in srgb,var(--accent-soft) 55%,transparent)}
+.log-set.is-warmup.is-done .log-set-number {color:var(--muted)}
 .log-add-exercise {width:100%;justify-content:center}
 .workout-logger .log-empty {margin:0 0 12px;padding:16px}
 /* Cards under 22rem cannot fit six 44px segments between kg and reps: the group spans number to reps and the caption is dropped (the group keeps its accessible name). */
