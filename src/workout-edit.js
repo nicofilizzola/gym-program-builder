@@ -1,6 +1,7 @@
-import {logExerciseFromEntry,normalizeLogName,toLocalIso,validateWorkoutLog} from './workout-log.js';
+import {logExerciseFromEntry,normalizeLogName,toLocalIso,validateWorkoutLog,WORKOUT_LIMITS} from './workout-log.js';
+import {pairRole as supersetRole,moveBlockOrder,unpair,removeExercise as removePairMember} from './superset.js';
 
-export const NO_SETS='Log at least one set, or discard the workout.';
+export const NO_SETS='Log at least one working set, or discard the workout.';
 
 const mapExercise=(log,exerciseId,fn)=>{
  if(!log.exercises.some(e=>e.id===exerciseId))return log;
@@ -20,8 +21,24 @@ export const swapExercise=(log,exerciseId,entry)=>mapExercise(log,exerciseId,e=>
  variantId:entry.id,referenceId:entry.familyId,name:entry.name,equipment:entry.equipment??null,
  primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null}));
 
-export const removeExercise=(log,exerciseId)=>log.exercises.some(e=>e.id===exerciseId)
- ?{...log,exercises:log.exercises.filter(e=>e.id!==exerciseId)}:log;
+export const setExerciseNote=(log,exerciseId,text)=>mapExercise(log,exerciseId,e=>({...e,note:text}));
+export const setSetNote=(log,exerciseId,setId,text)=>mapSet(log,exerciseId,setId,s=>({...s,note:text}));
+
+export const removeExercise=(log,exerciseId)=>{
+ const i=log.exercises.findIndex(e=>e.id===exerciseId);
+ return i<0?log:{...log,exercises:removePairMember(log.exercises,i)};
+};
+
+export function unlinkSuperset(log,exerciseId){
+ const i=log.exercises.findIndex(e=>e.id===exerciseId);
+ return i<0?log:{...log,exercises:unpair(log.exercises,i)};
+}
+
+/** Moves a whole block (single exercise or superset pair) to another block position. */
+export function moveLogBlock(log,fromBlock,toBlock){
+ const order=moveBlockOrder(log.exercises,fromBlock,toBlock);
+ return order.every((v,i)=>v===i)?log:{...log,exercises:order.map(i=>log.exercises[i])};
+}
 
 export function moveLogExercise(log,from,to){
  const n=log.exercises.length;
@@ -31,8 +48,19 @@ export function moveLogExercise(log,from,to){
  return {...log,exercises};
 }
 
-export const addSet=(log,exerciseId,makeId,values={})=>mapExercise(log,exerciseId,e=>({...e,
- sets:[...e.sets,{id:makeId(),weightKg:null,reps:null,rir:null,done:false,...values}]}));
+const blankSet=(id,kind,values)=>({id,kind,weightKg:null,reps:null,rir:null,done:false,note:'',...values});
+
+const atLimit=(log,exerciseId)=>(log.exercises.find(e=>e.id===exerciseId)?.sets.length??0)>=WORKOUT_LIMITS.sets;
+
+export const addSet=(log,exerciseId,makeId,values={})=>atLimit(log,exerciseId)?log:mapExercise(log,exerciseId,e=>
+ ({...e,sets:[...e.sets,blankSet(makeId(),'working',values)]}));
+
+/** Inserts a warm-up after the last warm-up (first position when there is none). */
+export const addWarmup=(log,exerciseId,makeId,values={})=>atLimit(log,exerciseId)?log:mapExercise(log,exerciseId,e=>{
+ let at=0;e.sets.forEach((s,i)=>{if(s.kind==='warmup')at=i+1;});
+ const sets=[...e.sets];sets.splice(at,0,blankSet(makeId(),'warmup',{kind:'warmup',...values}));
+ return {...e,sets};
+});
 
 export const removeSet=(log,exerciseId,setId)=>{
  const ex=log.exercises.find(e=>e.id===exerciseId);
@@ -53,13 +81,35 @@ export function toggleSetDone(log,exerciseId,setId,placeholder){
  return {log:updateSet(log,exerciseId,setId,{...filled,done:true})};
 }
 
-export const undoneSetCount=log=>log.exercises.reduce((n,e)=>n+e.sets.filter(s=>!s.done).length,0);
+export const undoneSetCount=log=>log.exercises.reduce((n,e)=>n+e.sets.filter(s=>s.kind==='working'&&!s.done).length,0);
+
+const hasDoneWorking=e=>e.sets.some(s=>s.kind==='working'&&s.done);
 
 export function finishWorkout(log,now){
- const exercises=log.exercises.map(e=>({...e,sets:e.sets.filter(s=>s.done)})).filter(e=>e.sets.length);
+ let exercises=log.exercises.map(e=>({...e,sets:e.sets.filter(s=>s.done)}));
+ // Dissolve pairs that lose a member before removing exercises, so the survivor stays valid.
+ for(let i=exercises.length-1;i>=0;i--){
+  if(hasDoneWorking(exercises[i]))continue;
+  exercises=removePairMember(exercises,i);
+ }
+ exercises=exercises.filter(hasDoneWorking);
  if(!exercises.length)return {error:NO_SETS};
  const result=validateWorkoutLog({...log,status:'finished',finishedAt:toLocalIso(now),exercises});
  return result.error?{error:result.error}:{log:result.log};
+}
+
+/** Where focus goes after a working set of a paired exercise became done; null keeps focus. */
+export function nextGuidedSet(log,exerciseId,setId){
+ const i=log.exercises.findIndex(e=>e.id===exerciseId);
+ if(i<0)return null;
+ const ex=log.exercises[i],set=ex.sets.find(s=>s.id===setId);
+ if(!set||set.kind!=='working')return null;
+ const role=supersetRole(log.exercises,i);
+ if(!role)return null;
+ const partner=log.exercises[role==='first'?i+1:i-1];
+ const open=e=>e&&e.sets.find(s=>s.kind==='working'&&!s.done);
+ const p=open(partner);if(p)return {exerciseId:partner.id,setId:p.id};
+ const own=open(ex);return own?{exerciseId:ex.id,setId:own.id}:null;
 }
 
 /** The standard warning before finishing a log with undone sets, or null when every set is done. */
@@ -75,7 +125,7 @@ export function finishConfirmation(log){
 export async function confirmFinish(read,{confirm,now}){
  const before=read();
  if(!before)return {cancelled:true};
- if(!before.exercises.some(e=>e.sets.some(s=>s.done)))return {error:NO_SETS};
+ if(!before.exercises.some(hasDoneWorking))return {error:NO_SETS};
  const ask=finishConfirmation(before);
  if(ask&&!await confirm(ask))return {cancelled:true};
  const current=read();

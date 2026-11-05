@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper.js';
+import {login,resetWorkouts,createLinkedTemplate,removeSet,headers} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
 import {addExercise,finishWorkout} from '../src/workout-edit.js';
 
@@ -25,8 +25,8 @@ async function setup(page,{mutate=log=>log,history=true}={}){
   let past=createWorkoutLog({id:makeId(),now:hours(3),makeId,template});
   past=addExercise(past,spare,makeId);
   past={...past,exercises:[
-   {...past.exercises[0],sets:[{id:makeId(),weightKg:80,reps:8,rir:2,done:true}]},
-   {...past.exercises[2],sets:[{id:makeId(),weightKg:50,reps:10,rir:null,done:true}]}]};
+   {...past.exercises[0],sets:[{id:makeId(),kind:'working',weightKg:80,reps:8,rir:2,done:true}]},
+   {...past.exercises[2],sets:[{id:makeId(),kind:'working',weightKg:50,reps:10,rir:null,done:true}]}]};
   await put(page,finishWorkout(past,hours(2)).log);
  }
  const log=await openLog(page,template,mutate);
@@ -187,7 +187,7 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    // Nothing done: Finish is refused; Discard removes the log.
    const blank=await openLog(page,template);
    await page.getByRole('button',{name:'Finish',exact:true}).click();
-   await expect(page.getByText('Log at least one set, or discard the workout.')).toBeVisible();
+   await expect(page.getByText('Log at least one working set, or discard the workout.')).toBeVisible();
    await expect(page).toHaveURL(new RegExp(blank.id));
    await page.getByRole('button',{name:'Workout actions',exact:true}).click();
    await page.getByRole('button',{name:'Discard workout',exact:true}).click();
@@ -211,7 +211,7 @@ for(const width of [360,390]){
   const boxes=await rirBoxes(page,first);
   expect(boxes).toHaveLength(6);
   for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
-  for(const name of [`Mark set 1 done, ${first}`,`Remove set 1, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+  for(const name of [`Mark set 1 done, ${first}`,`Set 1 actions, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBe(0);
   await context.close();
  });
@@ -232,7 +232,7 @@ test('logger touch targets and reduced motion',async({browser})=>{
  const {names:[first]}=await setup(page);
  const targets=[page.getByLabel(`Set 1 weight, ${first}`,{exact:true}),page.getByLabel(`Set 1 reps, ${first}`,{exact:true}),
   page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true}),page.getByRole('button',{name:`Increase set 1 weight, ${first}`,exact:true}),
-  page.getByRole('button',{name:`Remove set 1, ${first}`,exact:true}),page.getByRole('button',{name:'Finish',exact:true})];
+  page.getByRole('button',{name:`Set 1 actions, ${first}`,exact:true}),page.getByRole('button',{name:'Finish',exact:true})];
  for(const target of targets){const box=await target.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);}
  for(const target of targets.slice(2)){const box=await target.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);}
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
@@ -249,16 +249,16 @@ test('logger touch targets and reduced motion',async({browser})=>{
  await page.getByRole('button',{name:`Add set, ${first}`}).click();
  await expect(sets).toHaveCount(5);
  expect(await sets.nth(4).evaluate(el=>el.getAnimations().length)).toBeGreaterThan(0);
- await page.getByRole('button',{name:`Remove set 5, ${first}`,exact:true}).click();
+ await removeSet(page,5,first);
  await expect(sets).toHaveCount(4);
  await context.close();
 });
 
-test('weight and reps inputs show their longest values unclipped at 360px',async({browser})=>{
+test('weight and reps inputs show 102.5 kg and 100 reps unclipped at 360px',async({browser})=>{
  const context=await browser.newContext({viewport:{width:360,height:800},hasTouch:true});
  const page=await context.newPage();
  const {names:[first]}=await setup(page,{history:false});
- await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('999.75');
+ await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('102.5');
  await page.getByLabel(`Set 1 reps, ${first}`,{exact:true}).fill('100');
  for(const name of ['weight','reps']){
   const clipped=await page.getByLabel(`Set 1 ${name}, ${first}`,{exact:true}).evaluate(el=>el.scrollWidth-el.clientWidth);

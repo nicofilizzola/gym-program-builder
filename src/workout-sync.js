@@ -1,4 +1,5 @@
 import {createAutosave} from './autosave.js';
+import {upgradeLog} from './workout-log.js';
 
 /** Local-first sync for the active workout: localStorage mirror + autosave with automatic retry. */
 export const MIRROR_KEY='gpb.activeWorkout';
@@ -40,7 +41,7 @@ export function recoveryDecision({mirror,server,reachable}){
 
 export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,timers=globalThis,events=globalThis,onStatus=()=>{},onRecord=()=>{},onConflict=()=>{}}){
  const id=record.id;
- let log=structuredClone(record.log),revision=record.revision,last=lastTime;
+ let log=upgradeLog(structuredClone(record.log)),revision=record.revision,last=lastTime;
  let lastError=null,reason=null,attempt=0,retryTimer=null,mirrorFailed=false,quiet=false,disposed=false;
 
  const mirror=isDirty=>{
@@ -144,7 +145,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
    reason=null;
    if(!server){clearMirror(storage);dispose();return null;}
    cancelRetry();lastError=null;attempt=0;
-   autosave.reload({id:server.id,revision:server.revision,document:structuredClone(server.log)});
+   autosave.reload({id:server.id,revision:server.revision,document:upgradeLog(structuredClone(server.log))});
    return server;
   },
   /** Replay after sign-in (401) or another paused non-conflict failure; no-op when not paused or in conflict. */

@@ -4,7 +4,7 @@ import {createWorkoutController,NO_SETS,OFFLINE_DISCARD,PENDING_FINISH,UNRECOVER
 import {readMirror,writeMirror} from '../src/workout-sync.js';
 
 const log=(over={})=>({id:'w1',logVersion:1,status:'active',name:'Push',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[],...over});
-const doneExercise={id:'e1',variantId:'v1',referenceId:'r1',name:'Bench',equipment:null,primaryMuscles:['Chest'],secondaryMuscles:[],target:null,sets:[{id:'s1',weightKg:50,reps:8,rir:null,done:true}]};
+const doneExercise={id:'e1',variantId:'v1',referenceId:'r1',name:'Bench',equipment:null,primaryMuscles:['Chest'],secondaryMuscles:[],target:null,sets:[{id:'s1',kind:'working',weightKg:50,reps:8,rir:null,done:true}]};
 const memoryStorage=()=>{const map=new Map();return {map,getItem:k=>map.has(k)?map.get(k):null,setItem:(k,v)=>{map.set(k,String(v));},removeItem:k=>{map.delete(k);}};};
 const offline=()=>new TypeError('Failed to fetch');
 const httpError=(status,reason)=>Object.assign(Error('HTTP '+status),{status,details:reason?{reason}:undefined});
@@ -180,7 +180,7 @@ test('start refuses while a dirty mirror is not owned after boot',async()=>{
  assert.equal(readMirror(storage).log.id,'stray');
 });
 
-const undoneExercise={...doneExercise,id:'e2',sets:[{id:'s2',weightKg:null,reps:null,rir:null,done:false}]};
+const undoneExercise={...doneExercise,id:'e2',sets:[{id:'s2',kind:'working',weightKg:null,reps:null,rir:null,done:false}]};
 const finishedAt='2026-11-03T19:30:00.000+01:00';
 /** Starts and syncs a log, then finishes the server copy elsewhere and makes a local edit that conflicts. */
 async function finishedElsewhere({exercises,choices,confirms}){

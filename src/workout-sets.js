@@ -5,28 +5,37 @@ const REPS_ERROR='Reps must be a whole number from 1 to 100.';
 const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 const num=value=>value===null||value===undefined?null:value;
 
+const isWarmup=set=>set?.kind==='warmup';
+export const workingLastSets=sets=>Array.isArray(sets)?sets.filter(set=>!isWarmup(set)):[];
+export const warmupLastSets=sets=>Array.isArray(sets)?sets.filter(isWarmup):[];
+
 export function formatLastTime(sets){
- if(!Array.isArray(sets)||!sets.length)return 'No history';
- return sets.map(set=>{
+ const working=workingLastSets(sets);
+ if(!working.length)return 'No history';
+ return working.map(set=>{
   const weight=set.weightKg===null||set.weightKg===0?'BW':String(set.weightKg);
   const reps=set.reps===null?'?':set.reps;
   return `${weight}×${reps}${set.rir===null?'':` @${set.rir}`}`;
  }).join(' · ');
 }
 
+/** index = position in exercise.sets; the rule applies to that set's kind and counts only sets of the same kind. */
 export function setPlaceholder(exercise,index,lastTimeSets){
- const last=lastTimeSets&&lastTimeSets[index];
+ const warm=isWarmup(exercise.sets[index]);
+ const same=exercise.sets.map((set,i)=>({set,i})).filter(item=>isWarmup(item.set)===warm);
+ const k=same.findIndex(item=>item.i===index);
+ const last=(warm?warmupLastSets(lastTimeSets):workingLastSets(lastTimeSets))[k];
  if(last)return {weightKg:num(last.weightKg),reps:num(last.reps),rir:num(last.rir)};
- if(index>0){
-  const previous=exercise.sets[index-1]||{};
-  const inherited=setPlaceholder(exercise,index-1,lastTimeSets);
+ if(k>0){
+  const previous=same[k-1];
+  const inherited=setPlaceholder(exercise,previous.i,lastTimeSets);
   return {
-   weightKg:num(previous.weightKg)??inherited.weightKg,
-   reps:num(previous.reps)??inherited.reps,
-   rir:num(previous.rir)??inherited.rir
+   weightKg:num(previous.set.weightKg)??inherited.weightKg,
+   reps:num(previous.set.reps)??inherited.reps,
+   rir:num(previous.set.rir)??inherited.rir
   };
  }
- return {weightKg:null,reps:exercise.target?.repRange.min??null,rir:null};
+ return {weightKg:null,reps:warm?null:exercise.target?.repRange.min??null,rir:null};
 }
 
 export function parseWeight(text){

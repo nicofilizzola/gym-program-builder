@@ -8,18 +8,19 @@ const rows=new WeakMap();
 
 const stepper=kind=>`<div class="log-stepper" data-kind="${kind}"><button type="button" class="log-step" data-step="-1">${actionIcon('minus')}</button><input type="text" inputmode="${kind==='weight'?'decimal':'numeric'}" autocomplete="off" spellcheck="false" data-field="${kind}"><button type="button" class="log-step" data-step="1">${actionIcon('plus')}</button></div>`;
 
-/** One set: kg and reps with steppers, RIR 0–5, done toggle and remove. Invalid typed text stays visible and is never stored. */
-export function createSetRow({exerciseName,set,index,placeholder,mode='active',readOnly=mode!=='active',onPatch,onToggle,onRemove}){
+/** One set: kg and reps with steppers, RIR 0–5, done toggle and a set menu (the logger owns its items). Invalid typed text stays visible and is never stored. */
+export function createSetRow({exerciseName,set,kind=set.kind||'working',kindIndex=1,placeholder,mode='active',readOnly=mode!=='active',onPatch,onToggle,onMenu}){
  const li=document.createElement('li');li.className='log-set collapsible';li.dataset.setId=set.id;
  const errorId='log-set-error-'+crypto.randomUUID();
- li.innerHTML=`<div class="log-set-clip"><div class="log-set-row"><span class="log-set-number" aria-hidden="true"></span>${stepper('weight')}${stepper('reps')}<div class="log-set-extra"><span class="log-rir-label" aria-hidden="true">RIR</span><div class="log-rir" role="group"></div><div class="log-set-actions"><button type="button" class="log-done" aria-pressed="false">${actionIcon('check')}</button><button type="button" class="action-button action-button--delete log-remove-set" data-action-tooltip="Remove set">${actionIcon('delete')}</button></div></div><p class="log-set-error" id="${errorId}" role="alert"></p></div></div>`;
+ li.innerHTML=`<div class="log-set-clip"><div class="log-set-row"><span class="log-set-number" aria-hidden="true"></span>${stepper('weight')}${stepper('reps')}<button type="button" class="log-done" aria-pressed="false">${actionIcon('check')}</button><span class="log-rir-label" aria-hidden="true">RIR</span><div class="log-rir" role="group"></div><button type="button" class="action-button log-set-menu" data-action-tooltip="Set actions" aria-haspopup="true" aria-expanded="false">${actionIcon('more')}</button><div class="log-set-note-slot"></div><p class="log-set-error" id="${errorId}" role="alert"></p></div></div>`;
  const $=selector=>li.querySelector(selector);
- const inputs={weight:$('[data-field="weight"]'),reps:$('[data-field="reps"]')},rir=$('.log-rir'),done=$('.log-done'),remove=$('.log-remove-set'),error=$('.log-set-error');
+ const inputs={weight:$('[data-field="weight"]'),reps:$('[data-field="reps"]')},rir=$('.log-rir'),done=$('.log-done'),menu=$('.log-set-menu'),error=$('.log-set-error');
  const keys={weight:'weightKg',reps:'reps'},parse={weight:parseWeight,reps:parseReps};
- let state={exerciseName,set,index,placeholder};const errors={weight:null,reps:null};let needsReps=mode==='finished'&&set.done&&set.reps===null;
+ let state={exerciseName,set,kind,kindIndex,placeholder};const errors={weight:null,reps:null};let needsReps=mode==='finished'&&set.done&&set.reps===null;
  for(let value=0;value<=WORKOUT_LIMITS.rirMax;value++){
   const button=document.createElement('button');button.type='button';button.className='log-rir-option';button.textContent=String(value);button.dataset.rir=String(value);button.disabled=readOnly;rir.append(button);
  }
+ menu.hidden=readOnly;
  for(const input of Object.values(inputs)){input.setAttribute('aria-describedby',errorId);input.readOnly=readOnly;}
 
  function showErrors(){
@@ -28,23 +29,24 @@ export function createSetRow({exerciseName,set,index,placeholder,mode='active',r
   inputs.reps.setAttribute('aria-invalid',String(Boolean(errors.reps||needsReps)));
  }
  function render(){
-  const {exerciseName:name,set:current,index:i,placeholder:ph}=state,n=i+1;
-  li.querySelector('.log-set-number').textContent=String(n);
+  const {exerciseName:name,set:current,kind:setKind,kindIndex:n,placeholder:ph}=state,warm=setKind==='warmup',label=warm?`Warm-up set ${n}`:`Set ${n}`;
+  li.classList.toggle('is-warmup',warm);li.dataset.kind=setKind;
+  li.querySelector('.log-set-number').textContent=warm?`W${n}`:String(n);
   for(const [kind,input] of Object.entries(inputs)){
-   input.setAttribute('aria-label',`Set ${n} ${kind}, ${name}`);
+   input.setAttribute('aria-label',`${label} ${kind}, ${name}`);
    input.placeholder=text(ph?.[keys[kind]]);
    if(document.activeElement!==input&&!errors[kind]&&!(kind==='reps'&&needsReps))input.value=text(current[keys[kind]]);
    const [down,up]=li.querySelectorAll(`[data-kind="${kind}"] .log-step`);
-   down.setAttribute('aria-label',`Decrease set ${n} ${kind}, ${name}`);up.setAttribute('aria-label',`Increase set ${n} ${kind}, ${name}`);
+   down.setAttribute('aria-label',`Decrease ${label.toLowerCase()} ${kind}, ${name}`);up.setAttribute('aria-label',`Increase ${label.toLowerCase()} ${kind}, ${name}`);
   }
-  rir.setAttribute('aria-label',`Set ${n} RIR, ${name}`);
+  rir.setAttribute('aria-label',`${label} RIR, ${name}`);
   for(const button of rir.children){
    const value=Number(button.dataset.rir);
    button.setAttribute('aria-pressed',String(current.rir===value));
    button.classList.toggle('is-placeholder',current.rir===null&&ph?.rir===value);
   }
-  done.setAttribute('aria-pressed',String(current.done));done.setAttribute('aria-label',`Mark set ${n} done, ${name}`);
-  remove.setAttribute('aria-label',`Remove set ${n}, ${name}`);
+  done.setAttribute('aria-pressed',String(current.done));done.setAttribute('aria-label',`Mark ${label.toLowerCase()} done, ${name}`);
+  menu.setAttribute('aria-label',`${label} actions, ${name}`);
   li.classList.toggle('is-done',current.done);
   showErrors();
  }
@@ -79,7 +81,7 @@ export function createSetRow({exerciseName,set,index,placeholder,mode='active',r
   const failure=onToggle();
   if(failure){needsReps=true;showErrors();inputs.reps.focus();}
  });
- remove.addEventListener('click',()=>onRemove());
+ menu.addEventListener('click',()=>onMenu(menu));
  rows.set(li,next=>{state={...state,...next};render();});
  render();
  return li;

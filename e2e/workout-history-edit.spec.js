@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper.js';
+import {login,resetWorkouts,createLinkedTemplate,removeSet,headers} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
 import {addExercise,finishWorkout} from '../src/workout-edit.js';
 
@@ -18,8 +18,8 @@ async function setup(page){
  let log=createWorkoutLog({id:makeId(),now:new Date(2026,9,5,10,0),makeId,template});
  log=addExercise(log,spare,makeId);
  log={...log,name:'Upper day',exercises:[
-  {...log.exercises[0],sets:[{id:makeId(),weightKg:80,reps:8,rir:2,done:true}]},
-  {...log.exercises[2],sets:[{id:makeId(),weightKg:50,reps:10,rir:null,done:true}]}]};
+  {...log.exercises[0],sets:[{id:makeId(),kind:'working',weightKg:80,reps:8,rir:2,done:true}]},
+  {...log.exercises[2],sets:[{id:makeId(),kind:'working',weightKg:50,reps:10,rir:null,done:true}]}]};
  log=finishWorkout(log,new Date(2026,9,5,10,45)).log;
  const response=await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}});
  expect(response.ok(),await response.text()).toBeTruthy();
@@ -78,7 +78,7 @@ test('a finished workout edits online with autosave',async({page})=>{
  await expect.poll(async()=>{const s=(await serverRecord(page,log.id)).log.exercises[0].sets;return s.length+':'+s[1]?.done;}).toBe('2:true');
 
  // Removing the last set of an exercise removes the exercise after confirming.
- await page.getByRole('button',{name:`Remove set 1, ${second}`,exact:true}).click();
+ await removeSet(page,1,second);
  const dialog=page.getByRole('dialog',{name:'Remove exercise?'});
  await expect(dialog).toContainText(`Remove ${second} and its logged sets?`);
  await dialog.getByRole('button',{name:'Remove exercise'}).click();
@@ -90,8 +90,8 @@ test('a finished workout edits online with autosave',async({page})=>{
  await page.getByRole('button',{name:`Remove exercise ${first}`,exact:true}).click();
  await expect(page.locator('.logger-message')).toHaveText('A workout needs at least one exercise. Delete the workout instead.');
  await expect(page.getByRole('dialog')).toHaveCount(0);
- await page.getByRole('button',{name:`Remove set 2, ${first}`,exact:true}).click();
- await page.getByRole('button',{name:`Remove set 1, ${first}`,exact:true}).click();
+ await removeSet(page,2,first);
+ await removeSet(page,1,first);
  await expect(page.locator('.logger-message')).toHaveText('A workout needs at least one exercise. Delete the workout instead.');
  await expect(page.getByRole('heading',{name:first,exact:true})).toBeVisible();
 });
