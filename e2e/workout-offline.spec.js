@@ -55,7 +55,7 @@ test('finishing offline shows a pending History row and syncs later',async({page
  await expect(page.getByText('Workouts could not be loaded. Connect to see your history.')).toBeVisible();
  await expect(page.locator('.workout-bar')).toBeHidden();
  // A new start waits for the finished workout to sync.
- await page.getByRole('button',{name:'Start blank workout',exact:true}).click();
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();await page.getByRole('button',{name:'Blank workout',exact:true}).click();
  await expect(page.locator('#app-message')).toHaveText('Your finished workout has not synced yet. Connect to sync it before starting a new workout.');
  await reconnect(page);
  await expect.poll(async()=>(await serverRecord(page,id))?.log.status).toBe('finished');
@@ -120,7 +120,7 @@ test('conflicts offer Keep this device’s version or Use saved version',async({
  await page.getByRole('dialog',{name:'Discard workout?'}).getByRole('button',{name:'Discard workout'}).click();
  await expect(page).toHaveURL(/#\/workouts$/);
  await blockApi(page);
- await page.getByRole('button',{name:'Start blank workout',exact:true}).click();
+ await page.getByRole('button',{name:'Start workout',exact:true}).click();await page.getByRole('button',{name:'Blank workout',exact:true}).click();
  await expect(page).toHaveURL(/#\/workouts\/[\w-]+$/);
  const local=new URL(page.url()).hash.split('/').at(-1);
  await expect(status(page)).toHaveText(OFFLINE);

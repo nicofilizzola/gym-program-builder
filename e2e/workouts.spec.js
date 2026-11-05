@@ -1,14 +1,14 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate,saveFinishedLog} from './workout-helper.js';
 
-test('Workouts nav shows History with empty state and Start blank workout',async({page})=>{
+test('Workouts nav shows History with empty state and Start workout',async({page})=>{
  await login(page);await resetWorkouts(page);
  await page.getByRole('link',{name:'Workouts',exact:true}).click();
  await expect(page).toHaveURL(/#\/workouts$/);
  await expect(page.getByRole('link',{name:'Workouts',exact:true})).toHaveAttribute('aria-current','page');
  await expect(page.getByRole('heading',{level:1,name:'Workouts'})).toBeVisible();
- await expect(page.getByRole('button',{name:'Start blank workout'})).toBeVisible();
- await expect(page.getByText('No workouts yet. Start one from a program, a session template or here.')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Start workout',exact:true})).toBeVisible();
+ await expect(page.getByText('No workouts yet. Start one from a program, a session template or a blank workout.')).toBeVisible();
  await expect(page.getByRole('button',{name:'Load more'})).toHaveCount(0);
 });
 

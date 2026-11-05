@@ -1,5 +1,15 @@
 # Gym Program Builder
 
+## Workout start sheet (2026-11-05)
+
+Design: docs/superpowers/specs/2026-11-05-workout-start-sheet-design.md; plan: docs/superpowers/plans/2026-11-05-workout-start-sheet.md. These approved requirements supersede the Workout tracker's "start blank from Workouts" entry point.
+
+- The Workouts header's **Start workout** opens one sheet (`src/workout-start-sheet.js`): a bottom sheet at ≤760px (85dvh, grab handle, swipe down past 80px or 0.5px/ms closes) and a centred dialog above (`min(480px, 100vw − 32px)`). It has `Program | Template` tabs and a **Blank workout** action; tapping the Up next card, any program session or any template starts it at once through the existing start flow (Resume/Finish/Discard prompt unchanged).
+- **Up next** (`src/workout-up-next.js`, pure): the program of the newest program log on the first history page that still exists, else the most recently edited program. Week: the first session from today through Sunday not logged this week (local Monday–Sunday, program order within a day, missed earlier days are never caught up), else next week's first scheduled session; Unscheduled sessions are never suggested. Sequence: the workout entry after the newest log still in the sequence (rests skipped, wrapping), else the first. Computed on open, never stored or exported; no server or schema change.
+- Lists come from the Workouts route; program sessions load on demand once per sheet (`api.programBundle`), templates load on tap (`api.get`). Failed lists, programs or templates show inline errors with Retry; Blank workout always works. Rows, tabs and Blank are disabled while a start is in progress.
+- Motion: bottom sheet 200ms translateY + backdrop, dialog 150ms catalog modal motion, program disclosures 200ms `.collapsible`, tabs instant; all instant with reduced motion. Focus goes to the Up next card (else the selected tab) and returns to Start workout on Close, Escape, backdrop or swipe.
+- Verification: docs/superpowers/verification/2026-11-05-workout-start-sheet.md. Never claim a pending deployment was verified.
+
 ## Warm-ups, supersets and training profile (2026-11-03)
 
 Design: docs/superpowers/specs/2026-11-03-warmups-supersets-training-profile-design.md; plan: docs/superpowers/plans/2026-11-03-warmups-supersets-training-profile.md. These approved requirements supersede the "Workout duration" estimation rules (and the original MVP domain model) where they conflict.

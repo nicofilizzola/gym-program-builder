@@ -1,4 +1,5 @@
 import {formatElapsed} from './workout-sets.js';
+import {actionIcon} from './action-controls.js';
 
 const pad=n=>String(n).padStart(2,'0');
 const localDate=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -20,9 +21,9 @@ export function groupByLocalDate(summaries) {
 const sourceText=source=>source?.kind==='program'?`${source.programName} · ${source.templateName}`:source?.kind==='template'?source.templateName:'Blank';
 
 /** History of finished workouts, newest first, with an optional unsynced local workout on top. */
-export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:initialError='',onLoadMore,onStartBlank,onOpen,workoutHref}) {
+export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:initialError='',onLoadMore,onStart,onOpen,workoutHref}) {
   const page=document.createElement('section');page.className='workout-history';
-  page.innerHTML='<header class="library-heading"><h1>Workouts</h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-start>Start blank workout</button></div></header><div data-pending></div><div data-groups></div><p class="empty" data-empty hidden>No workouts yet. Start one from a program, a session template or here.</p><p class="error" role="alert" data-error></p><div class="workout-history-more"><button type="button" class="secondary-btn" data-more hidden>Load more</button></div>';
+  page.innerHTML='<header class="library-heading"><h1>Workouts</h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-start>'+actionIcon('start')+'Start workout</button></div></header><div data-pending></div><div data-groups></div><p class="empty" data-empty hidden>No workouts yet. Start one from a program, a session template or a blank workout.</p><p class="error" role="alert" data-error></p><div class="workout-history-more"><button type="button" class="secondary-btn" data-more hidden>Load more</button></div>';
   const groupsHost=page.querySelector('[data-groups]'),pendingHost=page.querySelector('[data-pending]'),empty=page.querySelector('[data-empty]'),
     more=page.querySelector('[data-more]'),error=page.querySelector('[data-error]'),events=new AbortController(),{signal}=events;
   let loaded=[...records],more_=hasMore,destroyed=false,loading=false;
@@ -57,7 +58,7 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
     empty.hidden=Boolean(loaded.length||pending||initialError);more.hidden=!more_;
   }
 
-  page.querySelector('[data-start]').addEventListener('click',()=>onStartBlank?.(),{signal});
+  page.querySelector('[data-start]').addEventListener('click',()=>onStart?.(),{signal});
   more.addEventListener('click',async()=>{
     if(loading)return;loading=true;more.disabled=true;error.textContent='';
     try{

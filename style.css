@@ -1807,6 +1807,54 @@ p.limit-hint {display:flex}
 .catalog-dialog {background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);width:min(680px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:20px;overflow-y:auto}
 .catalog-dialog::backdrop {background:rgba(0,0,0,.6)}
 .catalog-dialog h2 {margin:0;font-size:1.5rem}
+/* Workout start sheet: a centred dialog from 761px, a bottom sheet below. Header and tabs stay put; the body scrolls. */
+.start-sheet {width:min(480px,calc(100vw - 32px));max-height:min(640px,calc(100dvh - 32px));overflow:hidden}
+/* Two classes: the later phone .catalog-dialog padding must not apply (taps in it would hit the backdrop handler). */
+.catalog-dialog.start-sheet {padding:0}
+.start-sheet[open] {display:flex;flex-direction:column}
+.start-sheet .start-sheet-form {display:flex;flex-direction:column;gap:0;flex:1;min-height:0}
+.start-sheet-grab {padding:12px 16px 0;touch-action:none;user-select:none}
+.start-sheet-handle {display:none;width:36px;height:4px;margin:0 auto 8px;border-radius:2px;background:var(--border)}
+.start-sheet-header {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.start-sheet-header h2 {font-size:1.25rem}
+.start-sheet-tabs {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.start-sheet-tablist {display:flex;gap:4px}
+.start-sheet-tablist [role=tab] {min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-weight:600;cursor:pointer;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.start-sheet-tablist [role=tab]:hover {color:var(--text)}
+.start-sheet-blank {padding:0 12px;font-size:.875rem}
+.start-sheet-tablist [role=tab][aria-selected=true] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
+.start-sheet-body {flex:1;min-height:0;overflow-y:auto;padding:12px 16px 16px}
+.start-sheet-body ul {list-style:none;margin:0;padding:0}
+.start-sheet-next,.start-sheet-session,.start-sheet-program-toggle {display:flex;width:100%;min-height:44px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere;transition:background-color 150ms ease-out,border-color 150ms ease-out}
+.start-sheet-next:hover:not(:disabled),.start-sheet-session:hover:not(:disabled),.start-sheet-program-toggle:hover {background:var(--surface-2)}
+.start-sheet-next {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;margin-bottom:12px;padding:10px 12px;border-color:var(--accent)}
+.start-sheet-next-label {grid-column:1;color:var(--accent);font-size:.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.start-sheet-next-name {grid-column:1;font-weight:700;font-size:1.0625rem}
+.start-sheet-next .start-sheet-meta {grid-column:1}
+.start-sheet-play {grid-column:2;grid-row:1/4;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:8px;background:var(--accent);color:var(--on-accent);font-family:var(--font-display);font-weight:700}
+.start-sheet-play svg {width:16px;height:16px;fill:currentColor}
+.start-sheet-programs {display:grid;gap:8px}
+.start-sheet-program-toggle {align-items:center;justify-content:space-between;gap:8px;padding:0 12px;font-weight:700}
+.start-sheet-program-name {min-width:0}
+.start-sheet-program-toggle svg {flex:none;transition:transform 200ms ease-out}
+.start-sheet-program-toggle[aria-expanded=true] svg {transform:rotate(180deg)}
+.start-sheet-program-region > .start-sheet-program-inner {padding:6px 4px 0}
+.start-sheet-sessions {display:grid;gap:6px}
+.start-sheet-session {flex-direction:column;justify-content:center;gap:2px;padding:6px 12px}
+.start-sheet-session-name {font-weight:600;min-width:0}
+.start-sheet-meta {color:var(--muted);font-size:.8125rem}
+.start-sheet-group {margin:6px 0 0;color:var(--muted);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.start-sheet-hint,.start-sheet-empty {margin:0 0 12px;color:var(--muted)}
+.start-sheet-error {margin:6px 0;color:var(--error)}
+.start-sheet button:disabled {cursor:default;opacity:.6}
+@media (max-width:760px) {
+ .start-sheet {width:100%;max-width:100%;max-height:85dvh;margin:auto 0 0;border-bottom:0;border-radius:var(--radius) var(--radius) 0 0}
+ .start-sheet-handle {display:block}
+ .start-sheet.catalog-modal-motion {transition:transform 200ms ease-out}
+ .start-sheet.catalog-modal-motion.is-entering,.start-sheet.catalog-modal-motion.is-closing {opacity:1;transform:translateY(100%)}
+ .start-sheet.catalog-modal-motion::backdrop {transition:opacity 200ms ease-out}
+}
+@media (prefers-reduced-motion:reduce) {.start-sheet.catalog-modal-motion,.start-sheet.catalog-modal-motion::backdrop,.start-sheet .collapsible,.start-sheet .collapsible>*,.start-sheet-program-toggle svg,.start-sheet-tablist [role=tab],.start-sheet-next,.start-sheet-session,.start-sheet-program-toggle {transition:none}}
 .catalog-dialog form {display:grid;gap:12px;min-width:0}
 .catalog-dialog form>p {margin:0}
 .catalog-muscles {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -2188,6 +2236,8 @@ p.limit-hint {display:flex}
 .logger-times input:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
 @media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {
  .logger-finish {min-height:var(--control-compact)}
+ .start-sheet-tablist [role=tab],.start-sheet-session,.start-sheet-program-toggle,.start-sheet .secondary-btn {min-height:var(--control-compact)}
+ .start-sheet-play {min-height:var(--control-compact)}
  .logger-title .logger-name {min-height:36px}
  .logger-times input {min-height:var(--control-compact)}
  .log-stepper input[type="text"],.log-step,.log-rir-option {min-height:var(--control-compact)}
