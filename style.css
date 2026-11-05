@@ -2146,9 +2146,10 @@ p.limit-hint {display:flex}
 .log-step:hover {color:var(--text)}
 .log-step:focus-visible {outline-offset:-2px}
 .log-step svg {width:18px;height:18px}
-/* Line two wraps: RIR options keep full touch targets and the done/remove pair moves to its own line when the card is narrow. */
+/* Line two wraps: RIR options keep full touch targets and the done/remove pair moves to its own line when the card is narrow. Done grows across the space left on its line; remove stays an icon at the end. */
 .log-set-extra {grid-area:extra;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
-.log-set-actions {display:flex;gap:6px;margin-left:auto}
+.log-set-actions {display:flex;flex:1 0 auto;gap:6px}
+.log-remove-set {margin-left:auto}
 .log-rir-label {color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em}
 .log-rir {display:flex;flex:none;gap:2px}
 .log-rir-option {flex:none;width:var(--control-touch);min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
@@ -2156,7 +2157,7 @@ p.limit-hint {display:flex}
 .log-rir-option.is-placeholder {border-style:dashed;color:var(--text)}
 .log-rir-option[aria-pressed="true"] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
 .log-rir-option:disabled {cursor:default}
-.log-done {display:grid;flex:none;place-items:center;width:44px;height:44px;margin-left:auto;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.log-done {display:grid;flex:1 1 auto;place-items:center;min-width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 .log-done:hover {border-color:var(--accent);color:var(--text)}
 .log-done[aria-pressed="true"] {border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
 .log-done svg {width:22px;height:22px}
@@ -2192,7 +2193,7 @@ p.limit-hint {display:flex}
  .log-stepper input[type="text"],.log-step,.log-rir-option {min-height:var(--control-compact)}
  .log-rir-option {width:var(--control-compact)}
  .log-step {width:var(--control-compact)}
- .log-done {width:var(--control-compact);height:var(--control-compact)}
+ .log-done {width:var(--control-compact);min-width:var(--control-compact);height:var(--control-compact)}
  .log-done svg {width:18px;height:18px}
  @container (min-width:34rem) {
   .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
