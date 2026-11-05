@@ -2156,8 +2156,9 @@ p.limit-hint {display:flex}
 @media(prefers-reduced-motion:reduce){.workout-history-row{transition:none}}
 
 /* Workout logger: one centered column, sticky header, compact set grid. Add/remove reuse .collapsible (200ms grid-row + fade). */
-.workout-logger {max-width:40rem;margin:0 auto;padding:0 16px 32px}
+.workout-logger {--log-pad:12px;max-width:40rem;margin:0 auto;padding:0 16px 32px}
 @media (min-width:761px) {.workout-logger {padding-inline:24px}}
+@media (max-width:760px) {.workout-logger {padding-inline:12px;--log-pad:10px}}
 .logger-header {position:sticky;top:0;z-index:5;margin-bottom:12px;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--border)}
 .logger-header-row {display:flex;align-items:center;gap:8px}
 .logger-title {flex:1 1 auto;min-width:0;margin:0;border-radius:8px}
@@ -2170,8 +2171,9 @@ p.limit-hint {display:flex}
 .logger-message {padding-inline:8px}
 .log-exercises,.log-sets {list-style:none;margin:0;padding:0}
 .workout-logger .collapsible > * {margin:0;padding:0}
+.workout-logger .log-set {margin-inline:calc(-1 * var(--log-pad))}
 .workout-logger .log-set > .log-set-clip {margin:0 -4px;padding:0 4px}
-.log-exercise-card {container-type:inline-size;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.log-exercise-card {container-type:inline-size;margin-bottom:12px;padding:var(--log-pad);border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
 .log-exercise-head {display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .log-exercise-identity {min-width:0;padding-top:4px}
 .log-exercise-identity h2 {margin:0;font-size:1.125rem;line-height:1.3;overflow-wrap:anywhere;border-radius:4px}
@@ -2182,11 +2184,13 @@ p.limit-hint {display:flex}
 .log-last-label {margin-right:6px;color:var(--text);font-weight:600}
 .log-picker {display:grid;gap:8px;margin:0 0 12px}
 .log-picker > .secondary-btn {justify-self:start}
-.log-set-head,.log-set-row {display:grid;grid-template-columns:1.25rem minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:center}
-.log-set-head {padding:0 4px 2px;color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+/* Set grid: # | kg (1.15fr) | reps (1fr) | 44px. Line 1 holds the steppers and done; line 2 the RIR caption (number column), the segmented RIR group (kg to reps) and the set menu; line 3 is the note slot. Rows run edge to edge so separators and the done tint span the card. */
+.log-set-head,.log-set-row {display:grid;grid-template-columns:1.5rem minmax(0,1.15fr) minmax(0,1fr) 44px;column-gap:4px;align-items:center}
+.log-set-head {padding:0 var(--log-pad) 2px;color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .log-set-head span {text-align:center}
 .log-set-head-rir {display:none}
-.log-set-row {grid-template-areas:"num weight reps" "extra extra extra";margin:2px 0;padding:4px;border-radius:8px;transition:background-color 150ms ease-out,color 150ms ease-out}
+.log-set-row {grid-template-areas:"num weight reps done" "cap rir rir menu" ". note note note" "err err err err";padding:8px var(--log-pad);transition:background-color 150ms ease-out,color 150ms ease-out}
+.log-set + .log-set .log-set-row {border-top:1px solid var(--border)}
 .log-set-number {grid-area:num;color:var(--muted);font-weight:600;text-align:center;transition:color 150ms ease-out}
 .log-stepper {display:flex;min-width:0;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);transition:border-color 150ms ease-out}
 .log-stepper[data-kind="weight"] {grid-area:weight}
@@ -2200,42 +2204,41 @@ p.limit-hint {display:flex}
 .log-step:hover {color:var(--text)}
 .log-step:focus-visible {outline-offset:-2px}
 .log-step svg {width:18px;height:18px}
-/* Line two wraps: RIR options keep full touch targets and the done/remove pair moves to its own line when the card is narrow. Done grows across the space left on its line; remove stays an icon at the end. */
-.log-set-extra {grid-area:extra;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
-.log-set-actions {display:flex;flex:1 0 auto;gap:6px}
-.log-remove-set {margin-left:auto}
-.log-rir-label {color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em}
-.log-rir {display:flex;flex:none;gap:2px}
-.log-rir-option {flex:none;width:var(--control-touch);min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+/* Line two: the RIR caption sits in the number column; the group fills kg to reps and its options share that width (44px tall). */
+.log-rir-label {grid-area:cap;margin-top:6px;color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:0;text-align:center;white-space:nowrap}
+.log-rir {grid-area:rir;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;margin-top:6px}
+.log-set-menu {grid-area:menu;margin-top:6px}
+.log-set-note-slot {grid-area:note}
+.log-set-note-slot:empty {display:none}
+.log-set-menu[hidden] {display:none}
+.log-rir-option {min-width:0;width:100%;min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 .log-rir-option:hover:not(:disabled) {color:var(--text);border-color:var(--muted)}
 .log-rir-option.is-placeholder {border-style:dashed;color:var(--text)}
 .log-rir-option[aria-pressed="true"] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
 .log-rir-option:disabled {cursor:default}
-.log-done {display:grid;flex:1 1 auto;place-items:center;min-width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
+.log-done {display:grid;grid-area:done;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 .log-done:hover {border-color:var(--accent);color:var(--text)}
 .log-done[aria-pressed="true"] {border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
 .log-done svg {width:22px;height:22px}
 .log-set.is-done .log-set-row {background:var(--accent-soft)}
 .log-set.is-done .log-set-number {color:var(--accent)}
-.log-set-error {grid-column:1/-1;margin:0;color:var(--error);font-size:.8125rem}
+.log-set-error {grid-area:err;margin:4px 0 0;color:var(--error);font-size:.8125rem}
 .log-set-error:empty {display:none}
 .log-add-set {margin-top:6px}
 .log-add-exercise {width:100%;justify-content:center}
 .workout-logger .log-empty {margin:0 0 12px;padding:16px}
-/* 360px phones: the RIR caption would wrap alone, so it is hidden; the group keeps its accessible name. */
-@container (max-width:19.5rem) {
- .log-rir-label {display:none}
- .log-set-head,.log-set-row {grid-template-columns:1.25rem minmax(0,1.15fr) minmax(0,1fr)}
-}
 /* Enlarged text: kg and reps stack so their inputs keep readable widths; units move inside the steppers. */
 @container (max-width:18rem) {
  .log-set-head {display:none}
- .log-set-row {grid-template-columns:2rem minmax(0,1fr);grid-template-areas:"num weight" "num reps" "extra extra"}
+ .log-set-row {grid-template-columns:2rem minmax(0,1fr) 44px;grid-template-areas:"num weight done" "num reps menu" "rir rir rir" "note note note" "err err err"}
+ .log-rir-label {display:none}
  .log-stepper::after {align-self:center;padding-right:8px;color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase}
  .log-stepper[data-kind="weight"]::after {content:"kg"}
  .log-stepper[data-kind="reps"]::after {content:"reps"}
 }
-.workout-logger[data-mode="finished"] .log-done,.workout-logger[data-readonly] :is(.log-step,.log-remove-set) {display:none}
+/* Phones: stepper buttons give up width (not height) so 999.75 kg and 100 reps stay fully visible. */
+@media (max-width:760px) {.log-step {width:36px}}
+.workout-logger[data-mode="finished"] .log-done,.workout-logger[data-readonly] :is(.log-step,.log-set-menu) {display:none}
 .logger-times {display:flex;flex-wrap:wrap;gap:8px 12px;margin:2px 0 0;padding-inline:8px}
 .logger-times label {display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:.8125rem;font-weight:600}
 .logger-times input {min-height:44px;padding:4px 8px;font:inherit;font-size:1rem;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:8px}
@@ -2251,15 +2254,14 @@ p.limit-hint {display:flex}
  .log-step {width:var(--control-compact)}
  .log-done {width:var(--control-compact);min-width:var(--control-compact);height:var(--control-compact)}
  .log-done svg {width:18px;height:18px}
- @container (min-width:34rem) {
-  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
-  .log-set-row {grid-template-areas:"num weight reps rir done remove"}
-  .log-set-extra,.log-set-actions {display:contents}
+ /* Wide cards (560px container; compact desktop only, where 32px targets leave the steppers room): one line # kg reps RIR done menu. */
+ @container (min-width:35rem) {
+  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.15fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
+  .log-set-row {grid-template-areas:"num weight reps rir done menu" ". note note note note note" "err err err err err err";padding-block:6px}
   .log-rir-label {display:none}
   .log-set-head-rir {display:block}
-  .log-rir {grid-area:rir;flex:none}
-  .log-done {grid-area:done;margin:0}
-  .log-remove-set {grid-area:remove}
+  .log-rir,.log-set-menu {margin-top:0}
+  .log-set-menu {width:var(--control-compact);height:var(--control-compact);flex-basis:var(--control-compact)}
  }
 }
 

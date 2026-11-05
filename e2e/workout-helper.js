@@ -48,3 +48,9 @@ export async function saveFinishedLog(page,{id=crypto.randomUUID(),name,startedA
  expect(response.ok(),await response.text()).toBeTruthy();
  return {id};
 }
+
+/** Removes set `n` of an exercise through its set menu. */
+export async function removeSet(page,n,exerciseName){
+ await page.getByRole('button',{name:`Set ${n} actions, ${exerciseName}`,exact:true}).click();
+ await page.getByRole('group',{name:'Set actions'}).getByRole('button',{name:'Remove set',exact:true}).click();
+}

@@ -37,7 +37,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  const $=selector=>page.querySelector(selector);
  const times=$('.logger-times'),dateInput=$('.logger-date'),startInput=$('.logger-start'),endInput=$('.logger-end'),title=$('.logger-title'),nameInput=$('.logger-name'),finish=$('.logger-finish'),more=$('.logger-more'),elapsed=$('.logger-elapsed'),statusText=$('.logger-status'),retryButton=$('.logger-retry'),message=$('.logger-message');
  const list=$('.log-exercises'),empty=$('.log-empty'),addArea=$('.log-picker'),addHost=addArea.firstElementChild,addCancel=addArea.lastElementChild,addButton=$('.log-add-exercise');
- const tooltips=mountActionTooltips(page),menu=mountReorderMenu({label:'Workout actions'}),moveMenu=mountReorderMenu();
+ const tooltips=mountActionTooltips(page),menu=mountReorderMenu({label:'Workout actions'}),moveMenu=mountReorderMenu(),setMenu=mountReorderMenu({label:'Set actions'});
  nameInput.readOnly=!editable;finish.hidden=!active;more.hidden=addButton.hidden=!editable;times.hidden=mode!=='finished'||readOnly;
 
  // In a finished log every set is a completed set; an added exercise starts with one that still needs reps.
@@ -97,7 +97,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
    const props={exerciseName:ex.name,set,index,placeholder:setPlaceholder(ex,index,lastSets(ex)),mode,readOnly:!editable};
    let row=card.rows.get(set.id);const fresh=!row;
    if(fresh){
-    row=createSetRow({...props,readOnly:!editable,onPatch:patch=>commit(updateSet(log,ex.id,set.id,patch)),onToggle:()=>toggle(ex.id,set.id),onRemove:()=>dropSet(ex.id,set.id)});
+    row=createSetRow({...props,readOnly:!editable,onPatch:patch=>commit(updateSet(log,ex.id,set.id,patch)),onToggle:()=>toggle(ex.id,set.id),onMenu:button=>setMenu.toggle(button,[{label:'Remove set',run:()=>dropSet(ex.id,set.id)}])});
     if(animate)row.classList.add('is-closed');card.rows.set(set.id,row);
    }else updateSetRow(row,props);
    const live=[...card.sets.children].filter(el=>!el.classList.contains('is-removing'));
@@ -154,7 +154,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   const index=find(exerciseId).sets.findIndex(s=>s.id===setId);
   if(!commit(removeSet(log,exerciseId,setId),{animate:true}))return;
   const card=cards.get(exerciseId),sets=find(exerciseId).sets,target=sets[index]??sets[index-1];
-  (target?card.rows.get(target.id).querySelector('.log-remove-set'):card.addSet).focus({preventScroll:true});
+  (target?card.rows.get(target.id).querySelector('.log-set-menu'):card.addSet).focus({preventScroll:true});
  }
  function requestLastTime(ids){
   ids=ids.filter(Boolean);if(!ids.length)return;
@@ -268,7 +268,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   hasUnsavedDraft(){return mode==='finished'&&editable&&[...page.querySelectorAll('.log-set-error')].some(e=>e.textContent==='Enter reps');},
   focusTitle(){title.focus({preventScroll:true});},
   destroy(){
-   destroyed=true;clearInterval(timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();tooltips.destroy();
+   destroyed=true;clearInterval(timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();setMenu.destroy();tooltips.destroy();
    for(const card of cards.values())card.picker?.destroy();addPicker?.destroy();page.remove();
   }
  };

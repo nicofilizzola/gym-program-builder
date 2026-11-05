@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper.js';
+import {login,resetWorkouts,createLinkedTemplate,removeSet,headers} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
 import {addExercise,finishWorkout} from '../src/workout-edit.js';
 
@@ -25,8 +25,8 @@ async function setup(page,{mutate=log=>log,history=true}={}){
   let past=createWorkoutLog({id:makeId(),now:hours(3),makeId,template});
   past=addExercise(past,spare,makeId);
   past={...past,exercises:[
-   {...past.exercises[0],sets:[{id:makeId(),weightKg:80,reps:8,rir:2,done:true}]},
-   {...past.exercises[2],sets:[{id:makeId(),weightKg:50,reps:10,rir:null,done:true}]}]};
+   {...past.exercises[0],sets:[{id:makeId(),kind:'working',weightKg:80,reps:8,rir:2,done:true}]},
+   {...past.exercises[2],sets:[{id:makeId(),kind:'working',weightKg:50,reps:10,rir:null,done:true}]}]};
   await put(page,finishWorkout(past,hours(2)).log);
  }
  const log=await openLog(page,template,mutate);
@@ -204,14 +204,14 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
 
 const rirBoxes=(page,name)=>page.getByRole('group',{name:`Set 1 RIR, ${name}`}).getByRole('button').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};}));
 for(const width of [360,390]){
- test(`RIR options keep 44px touch targets at ${width}px`,async({browser})=>{
+ test(`RIR options are 44px tall and share the kg-to-reps width at ${width}px`,async({browser})=>{
   const context=await browser.newContext({viewport:{width,height:800},hasTouch:true,reducedMotion:'reduce'});
   const page=await context.newPage();
   const {names:[first]}=await setup(page,{history:false});
   const boxes=await rirBoxes(page,first);
   expect(boxes).toHaveLength(6);
-  for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
-  for(const name of [`Mark set 1 done, ${first}`,`Remove set 1, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+  for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(36);expect(box.height).toBeGreaterThanOrEqual(44);}
+  for(const name of [`Mark set 1 done, ${first}`,`Set 1 actions, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBe(0);
   await context.close();
  });
@@ -232,9 +232,10 @@ test('logger touch targets and reduced motion',async({browser})=>{
  const {names:[first]}=await setup(page);
  const targets=[page.getByLabel(`Set 1 weight, ${first}`,{exact:true}),page.getByLabel(`Set 1 reps, ${first}`,{exact:true}),
   page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true}),page.getByRole('button',{name:`Increase set 1 weight, ${first}`,exact:true}),
-  page.getByRole('button',{name:`Remove set 1, ${first}`,exact:true}),page.getByRole('button',{name:'Finish',exact:true})];
+  page.getByRole('button',{name:`Set 1 actions, ${first}`,exact:true}),page.getByRole('button',{name:'Finish',exact:true})];
  for(const target of targets){const box=await target.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);}
- for(const target of targets.slice(2)){const box=await target.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);}
+ // Stepper buttons are 36px wide on phones (full 44px height) so 999.75 and 100 stay visible.
+ for(const target of targets.slice(2).filter((_,i)=>i!==1)){const box=await target.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);}
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
  expect(overflow).toBe(0);
  // Initial render has no running animations; reduced motion inserts a new set instantly.
@@ -249,7 +250,7 @@ test('logger touch targets and reduced motion',async({browser})=>{
  await page.getByRole('button',{name:`Add set, ${first}`}).click();
  await expect(sets).toHaveCount(5);
  expect(await sets.nth(4).evaluate(el=>el.getAnimations().length)).toBeGreaterThan(0);
- await page.getByRole('button',{name:`Remove set 5, ${first}`,exact:true}).click();
+ await removeSet(page,5,first);
  await expect(sets).toHaveCount(4);
  await context.close();
 });
