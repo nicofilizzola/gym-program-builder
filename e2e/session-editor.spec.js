@@ -142,15 +142,11 @@ test('session template has no Analyze action',async({page})=>{
 
 test('warm-up sets slider adds time, shows in the summary and leaves volume unchanged',async({page})=>{
  await page.goto('/');
- await page.waitForFunction(()=>!document.querySelector('#shell').hidden||document.querySelector('input[name="password"]'));
- if(await page.getByLabel('Password',{exact:true}).isVisible()){
-  await page.getByLabel('Password',{exact:true}).fill('test-password');
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();
- }
- await expect(page.locator('#shell')).toBeVisible();
+ // An isolated fixture like the other tests: mounting into the live #app raced the app's own route render, which replaced the editor.
  await page.evaluate(async()=>{
   const {mountSessionEditor}=await import('/src/session-editor.js');
-  mountSessionEditor(document.querySelector('#app'),{workout:{name:'Upper',goals:{},exercises:[{name:'Bench',sets:3,restSeconds:120,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}],extraMinutes:0,bufferPercent:0},onChange:()=>{}});
+  document.body.innerHTML='<div id="fixture"></div>';
+  mountSessionEditor(document.querySelector('#fixture'),{workout:{name:'Upper',goals:{},exercises:[{name:'Bench',sets:3,restSeconds:120,repRange:{min:8,max:12},primaryMuscles:['Chest'],secondaryMuscles:[]}],extraMinutes:0,bufferPercent:0},onChange:()=>{}});
  });
  const card=page.locator('.exercise').first();
  await card.locator('[data-action=toggle]').click();
