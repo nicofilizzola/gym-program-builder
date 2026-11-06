@@ -86,9 +86,12 @@ test('conflicts offer Keep this device’s version or Use saved version',async({
  const dialog=page.getByRole('dialog',{name:'Workout changed elsewhere'});
  const changeOnServer=async name=>{
   const record=await serverRecord(page,id);
-  const response=await page.request.put(`/api/workouts/${id}`,{headers,data:{revision:record.revision,log:{...record.log,name}}});
+  const response=await page.request.put(`/api/workouts/${id}`,{headers,data:{revision:record.revision,log:{...record.log,name,note:'Server workout note'}}});
   expect(response.ok()).toBeTruthy();
  };
+ await page.getByRole('button',{name:'Add workout note',exact:true}).click();
+ await page.getByLabel('Workout note',{exact:true}).fill('Local workout note');await page.getByLabel('Workout name',{exact:true}).focus();
+ await expect(status(page)).toHaveText('Saved');
  // Keep this device's version.
  await blockApi(page);
  await done(page,1,first).click();
@@ -101,6 +104,7 @@ test('conflicts offer Keep this device’s version or Use saved version',async({
  await expect(status(page)).toHaveText('Saved');
  await expect.poll(async()=>(await serverRecord(page,id)).log.exercises[0].sets[0].done).toBe(true);
  expect((await serverRecord(page,id)).log.name).toBe(`${T}`);
+ expect((await serverRecord(page,id)).log.note).toBe('Local workout note');
  // Use saved version, after a confirmation.
  await blockApi(page);
  await done(page,2,first).click();
@@ -112,6 +116,7 @@ test('conflicts offer Keep this device’s version or Use saved version',async({
  await expect(confirm).toContainText('Your changes on this device will be discarded.');
  await confirm.getByRole('button',{name:'Use saved version'}).click();
  await expect(page.getByLabel('Workout name',{exact:true})).toHaveValue('Server copy');
+ await expect(page.getByRole('button',{name:'Edit workout note',exact:true})).toHaveText('Server workout note');
  await expect(done(page,2,first)).toHaveAttribute('aria-pressed','false');
  await expect(status(page)).toHaveText('Saved');
  // An offline-started log while another device starts one.

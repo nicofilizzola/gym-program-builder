@@ -238,6 +238,8 @@ test('a note typed offline survives reload and syncs once restored',async({page}
 
 test('the read-only history view shows the note as text with no add button',async({page})=>{
  const {names:[first,second]}=await start(page);
+ await page.getByRole('button',{name:'Add workout note',exact:true}).click();
+ await page.getByLabel('Workout note',{exact:true}).fill('Whole workout read-only');await blur(page);
  await page.getByRole('button',{name:`Add note, ${first}`,exact:true}).click();
  await page.getByLabel(`Note, ${first}`,{exact:true}).fill('Seat 4');await blur(page);
  const input=await openSetNote(page,1,first);await input.fill('Felt heavy');await input.press('Enter');
@@ -247,6 +249,8 @@ test('the read-only history view shows the note as text with no add button',asyn
  await finish(page);
  await page.locator('.workout-history-row').first().click();
  await expect(page.getByLabel('Start time',{exact:true})).toBeHidden();
+ await expect(page.locator('.logger-note .log-note-static')).toHaveText('Whole workout read-only');
+ await expect(page.getByRole('button',{name:'Edit workout note',exact:true})).toHaveCount(0);
  await expect(page.locator('.log-note').filter({hasText:'Seat 4'})).toBeVisible();
  await expect(page.locator('.log-set-note-static')).toHaveText('✎ Felt heavy');
  await expect(page.locator('button.log-set-note-text,.log-set-menu:not([hidden]),.log-set-note-input')).toHaveCount(0);
@@ -274,4 +278,24 @@ test('the note editor animates under normal motion and survives rapid reversal',
  await page.getByRole('button',{name:`Add note, ${first}`,exact:true}).click();
  await expect(page.getByLabel(`Note, ${first}`,{exact:true})).toHaveCount(1);
  await expect(page.getByLabel(`Note, ${first}`,{exact:true})).toBeFocused();
+});
+
+
+test('workout note saves multiline text, preserves caret through ack and restores offline',async({page})=>{
+ const {id}=await start(page);
+ await page.getByRole('button',{name:'Add workout note',exact:true}).click();
+ const input=page.getByLabel('Workout note',{exact:true});await expect(input).toBeFocused();
+ await input.fill('  Whole workout\ncontext  ');await input.evaluate(el=>{window.noteNode=el;el.setSelectionRange(5,5);el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});
+ await expect(status(page)).toHaveText('Saved');
+ expect(await input.evaluate(el=>[el===window.noteNode,el.selectionStart,el.selectionEnd])).toEqual([true,5,5]);
+ await input.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));
+ await blur(page);await expect(page.getByRole('button',{name:'Edit workout note',exact:true})).toHaveText('Whole workout\ncontext');
+ await expect.poll(async()=>(await serverRecord(page,id)).log.note).toBe('Whole workout\ncontext');
+ await page.getByRole('button',{name:'Edit workout note',exact:true}).click();await expect(input).toBeFocused();
+ expect(await input.evaluate(el=>el.selectionStart)).toBe(21);
+ await page.route('**/api/**',route=>route.abort('internetdisconnected'));await input.fill('Offline workout context');await page.reload();
+ await expect(page.getByRole('button',{name:'Edit workout note',exact:true})).toHaveText('Offline workout context');
+ await page.unroute('**/api/**');await page.evaluate(()=>window.dispatchEvent(new Event('online')));await expect.poll(async()=>(await serverRecord(page,id)).log.note).toBe('Offline workout context');
+ await page.getByRole('button',{name:'Edit workout note',exact:true}).click();await input.fill('a'.repeat(2000));await expect(input).toHaveAttribute('maxlength','2000');
+ await input.fill('   ');await blur(page);await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeVisible();
 });

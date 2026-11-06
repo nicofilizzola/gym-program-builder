@@ -1,10 +1,12 @@
+import {mountWorkoutNote} from './workout-note.js';
+import {selectBestPerformance} from './workout-best.js';
 import {confirmAction} from './confirm-dialog.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {mountExercisePicker} from './exercise-picker.js';
 import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {validateWorkoutLog,WORKOUT_LIMITS,normalizeNote} from './workout-log.js';
-import {setLogName,setExerciseNote,setSetNote,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
+import {setLogName,setWorkoutNote,setExerciseNote,setSetNote,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
 import {formatLastTime,setPlaceholder,formatElapsed} from './workout-sets.js';
 import {createSetRow,updateSetRow} from './workout-set-row.js';
 import {supersetBlocks} from './superset.js';
@@ -30,15 +32,16 @@ function collapseOut(part,animate){
 const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],secondaryMuscles:[]};
 
 /** Active workout logger: sticky header, exercise cards with set rows, add/swap/remove/reorder and Finish. */
-export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onRetry=()=>{}}){
- let log=structuredClone(initial),last=lastTime,destroyed=false,busy=false,addPicker=null,sortable=null,relocatingFocus=false;
+export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{}}){
+ let log=structuredClone(initial),last=lastTime,best=bestPerformance,bestStatus=new Map(),destroyed=false,busy=false,addPicker=null,sortable=null,relocatingFocus=false;
  const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set(),openSetNotes=new Set();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
  const page=document.createElement('section');page.className='workout-logger';page.dataset.mode=mode;if(readOnly)page.dataset.readonly='true';
- page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
+ page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><div class="log-note logger-note"></div><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
  const $=selector=>page.querySelector(selector);
  const times=$('.logger-times'),dateInput=$('.logger-date'),startInput=$('.logger-start'),endInput=$('.logger-end'),title=$('.logger-title'),nameInput=$('.logger-name'),finish=$('.logger-finish'),more=$('.logger-more'),elapsed=$('.logger-elapsed'),statusText=$('.logger-status'),retryButton=$('.logger-retry'),message=$('.logger-message');
  const list=$('.log-exercises'),empty=$('.log-empty'),addArea=$('.log-picker'),addHost=addArea.firstElementChild,addCancel=addArea.lastElementChild,addButton=$('.log-add-exercise');
+ const workoutNote=mountWorkoutNote($('.logger-note'),{note:log.note??'',readOnly:!editable,onInput:text=>commit(setWorkoutNote(log,text)),onBlur:text=>{if(text!==log.note)commit(setWorkoutNote(log,text));}});
  const tooltips=mountActionTooltips(page),menu=mountReorderMenu({label:'Workout actions'}),moveMenu=mountReorderMenu(),setMenu=mountReorderMenu({label:'Set actions'});
  nameInput.readOnly=!editable;finish.hidden=!active;more.hidden=addButton.hidden=!editable;times.hidden=mode!=='finished'||readOnly;
 
@@ -79,9 +82,9 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  function createCard(ex){
   const li=document.createElement('li');li.className='log-exercise collapsible';li.dataset.exerciseId=ex.id;li.dataset.blockKey=ex.id;
   const headingId='log-exercise-'+uid();li.setAttribute('aria-labelledby',headingId);
-  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><p class="log-last-time"><span class="log-last-label"></span><span class="log-last-value"></span></p><p class="log-last-note" hidden></p><div class="log-note"></div><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><div class="log-set-actions"><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button><button type="button" class="secondary-btn log-add-warmup">${actionIcon('plus')}Add warm-up</button></div></div></div>`;
+  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><p class="log-last-time"><span class="log-last-label"></span><span class="log-last-value"></span></p><p class="log-last-note" hidden></p><p class="log-best"></p><div class="log-note"></div><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><div class="log-set-actions"><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button><button type="button" class="secondary-btn log-add-warmup">${actionIcon('plus')}Add warm-up</button></div></div></div>`;
   const q=selector=>li.querySelector(selector);
-  const card={li,rows:new Map(),picker:null,heading:q('h2'),equipment:q('.log-equipment'),label:q('.log-last-label'),value:q('.log-last-value'),lastNote:q('.log-last-note'),noteHost:q('.log-note'),notePart:null,noteKind:'none',editingNote:false,
+  const card={li,rows:new Map(),picker:null,heading:q('h2'),equipment:q('.log-equipment'),label:q('.log-last-label'),value:q('.log-last-value'),lastNote:q('.log-last-note'),best:q('.log-best'),noteHost:q('.log-note'),notePart:null,noteKind:'none',editingNote:false,
    swap:q('[data-card-action="swap"]'),reorder:q('[data-card-action="reorder"]'),remove:q('[data-card-action="remove"]'),swapArea:q('.log-picker'),sets:q('.log-sets'),addSet:q('.log-add-set'),addWarmup:q('.log-add-warmup'),setActions:q('.log-set-actions')};
   card.swapArea.lastElementChild.addEventListener('click',()=>{closeSwap(card);card.swap.focus();});
   card.swapArea.addEventListener('keydown',event=>{if(event.key==='Escape'&&event.target.getAttribute('aria-expanded')==='false'){closeSwap(card);card.swap.focus();}},true);
@@ -152,12 +155,25 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   const input=card.notePart?.querySelector('textarea');
   if(input){input.focus({preventScroll:false});input.setSelectionRange(input.value.length,input.value.length);}
  }
+ function updateBest(card,ex){
+  const range=ex.target?.repRange,label=range?`Best (${range.min}–${range.max} reps)`:'Best';
+  card.best.replaceChildren();
+  if(ex.variantId&&!Object.hasOwn(best||{},ex.variantId)){
+   const state=bestStatus.get(ex.variantId)||'loading';
+   card.best.textContent=state==='offline'?'Best unavailable offline':state==='error'?'Best unavailable':'Loading best…';return;
+  }
+  const winner=selectBestPerformance(ex.variantId?best?.[ex.variantId]??[]:[],range);
+  if(!winner){card.best.textContent=label+' · No qualifying performance';return;}
+  const date=document.createElement('time');date.dateTime=winner.finishedAt;date.textContent=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(winner.finishedAt));
+  card.best.append(`${label} · ${winner.weightKg===0?'BW':winner.weightKg+' kg'} × ${winner.reps} · `,date);
+ }
  function updateCard(card,ex,animate,label=''){
   card.heading.textContent=label?`${label} ${ex.name}`:ex.name;card.reorder.hidden=!!label;card.equipment.textContent=ex.equipment||'';card.equipment.hidden=!ex.equipment;
   const shown=lastText(ex);card.label.textContent=shown.label||'';card.label.hidden=!shown.label;card.value.textContent=shown.text;
   const lastNote=last&&ex.variantId&&!unavailable.has(ex.variantId)?last[ex.variantId]?.note:'';
   card.lastNote.hidden=!lastNote;card.lastNote.title=lastNote||'';
   if(lastNote){card.lastNote.replaceChildren();const hidden=document.createElement('span');hidden.className='visually-hidden';hidden.textContent='Last time note:';card.lastNote.append(hidden,`“${lastNote}”`);}
+  updateBest(card,ex);
   syncNote(card,ex);
   card.swap.setAttribute('aria-label',`Swap exercise ${ex.name}`);card.reorder.setAttribute('aria-label',`Reorder ${ex.name}`);card.remove.setAttribute('aria-label',`Remove exercise ${ex.name}`);
   card.addSet.setAttribute('aria-label',`Add set, ${ex.name}`);card.addWarmup.setAttribute('aria-label',`Add warm-up, ${ex.name}`);card.addSet.disabled=card.addWarmup.disabled=ex.sets.length>=WORKOUT_LIMITS.sets;
@@ -217,6 +233,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  }
  const firstIdOf=li=>li.dataset.blockKey;
  function render({animate=false}={}){
+  workoutNote.update({note:log.note??'',readOnly:!editable});
   // A closing frame stays put through routine edits (typing, done toggles), so a focused field is never moved mid-edit;
   // it is released early only when its members no longer sit together in the log in their current order.
   for(const frame of [...closing]){
@@ -315,6 +332,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  }
  function requestLastTime(ids){
   ids=ids.filter(Boolean);if(!ids.length)return;
+  Promise.resolve().then(()=>onBestPerformanceNeeded(ids)).catch(()=>{if(!destroyed){for(const id of ids)bestStatus.set(id,'offline');render();}});
   for(const id of ids)unavailable.delete(id);
   Promise.resolve().then(()=>onLastTimeNeeded(ids)).catch(()=>{if(destroyed)return;for(const id of ids)unavailable.add(id);render();});
  }
@@ -427,6 +445,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
 
  return {
   setLog(value){if(destroyed)return;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();},
+  setBestPerformance(map){if(destroyed)return;best={...(best||{}),...map};render();},
+  setBestStatus({variantIds,status}){if(destroyed)return;for(const id of variantIds)bestStatus.set(id,status);render();},
   setLastTime(map){if(destroyed)return;last=map;if(map)for(const id of Object.keys(map))unavailable.delete(id);render();},
   /** A paused non-network failure (`Couldn’t save`) shows Retry; other statuses retry by themselves or have their own flow. */
   setStatus(text){
@@ -440,7 +460,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   hasUnsavedDraft(){return mode==='finished'&&editable&&[...page.querySelectorAll('.log-set-error')].some(e=>e.textContent==='Enter reps');},
   focusTitle(){title.focus({preventScroll:true});},
   destroy(){
-   destroyed=true;clearInterval(timer);for(const frame of closing)clearTimeout(frame.timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();setMenu.destroy();tooltips.destroy();
+   destroyed=true;workoutNote.destroy();clearInterval(timer);for(const frame of closing)clearTimeout(frame.timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();setMenu.destroy();tooltips.destroy();
    for(const card of cards.values())card.picker?.destroy();addPicker?.destroy();page.remove();
   }
  };
