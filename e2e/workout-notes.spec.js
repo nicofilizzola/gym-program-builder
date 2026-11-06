@@ -285,8 +285,12 @@ test('workout note saves multiline text, preserves caret through ack and restore
  const {id}=await start(page);
  await page.getByRole('button',{name:'Add workout note',exact:true}).click();
  const input=page.getByLabel('Workout note',{exact:true});await expect(input).toBeFocused();
+ const shortHeight=await input.evaluate(el=>el.clientHeight);
+ await input.fill(('A line of workout context\n').repeat(20));
+ expect(await input.evaluate(el=>el.clientHeight)).toBeGreaterThan(shortHeight);
  await input.fill('  Whole workout\ncontext  ');await input.evaluate(el=>{window.noteNode=el;el.setSelectionRange(5,5);el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});
  await expect(status(page)).toHaveText('Saved');
+ await expect(input).toBeFocused();
  expect(await input.evaluate(el=>[el===window.noteNode,el.selectionStart,el.selectionEnd])).toEqual([true,5,5]);
  await input.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));
  await blur(page);await expect(page.getByRole('button',{name:'Edit workout note',exact:true})).toHaveText('Whole workout\ncontext');

@@ -307,3 +307,19 @@ test('Best failures leave Last time independent and cannot update replaced owner
  const {controller}=make({api});await controller.boot();const seen=[];controller.attach('w1',{setBestPerformance:m=>seen.push(m)});await settle();
  assert.deepEqual(controller.snapshot().lastTime,{v1:{sets:[]}});controller.signOut();resolveBest({v1:[]});await settle();assert.equal(seen.length,0);
 });
+
+
+test('stale Best HTTP errors cannot report or reopen login after reattach or newer success',async()=>{
+ const pending=[],errors=[],signIns=[],api=fakeApi({bestPerformance:()=>new Promise((resolve,reject)=>pending.push({resolve,reject}))});
+ api.records.set('w1',{id:'w1',revision:1,log:log({logVersion:2,exercises:[doneExercise]})});
+ const controller=createWorkoutController({api,storage:memoryStorage(),timers:idleTimers,events:new EventTarget(),onError:e=>errors.push(e),onSignIn:()=>signIns.push(true)});
+ await controller.boot();const first=controller.attach('w1',{});first.detach();const second=controller.attach('w1',{});
+ pending[1].resolve({v1:[]});await settle();pending[0].reject(httpError(401));await settle();
+ assert.equal(errors.length,0);assert.equal(signIns.length,0);
+ const old=second.onBestPerformanceNeeded(['v1']),latest=second.onBestPerformanceNeeded(['v1']);pending[3].resolve({v1:[]});await latest;pending[2].reject(httpError(403));await old;
+ assert.equal(errors.length,0);assert.deepEqual(controller.snapshot().bestPerformance,{v1:[]});
+ const detached=second.onBestPerformanceNeeded(['v1']);second.detach();pending[4].reject(httpError(401));await detached;
+ assert.equal(errors.length,0);assert.equal(signIns.length,0);
+ const third=controller.attach('w1',{});pending[5].reject(httpError(401));await settle();assert.equal(errors.length,1);assert.equal(signIns.length,1);
+ third.detach();controller.current.sync.dispose();
+});

@@ -269,7 +269,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
     const map=await api.bestPerformance({variantIds:ids,exclude:id}),valid=currentIds();if(!valid.length)return;
     const merged={...(target.sync.bestPerformance||{})};for(const variantId of valid)if(Object.hasOwn(map,variantId))merged[variantId]=map[variantId];
     target.sync.setBestPerformance(merged);if(view===mine)mine.setBestPerformance?.(merged);publish('ready');
-   }catch(error){if(owned!==target)return;publish(isNetworkError(error)?'offline':'error');if(!isNetworkError(error)){onError(error);if(error.status===401)onSignIn();}}
+   }catch(error){if(!currentIds().length||view!==mine)return;publish(isNetworkError(error)?'offline':'error');if(!isNetworkError(error)){onError(error);if(error.status===401)onSignIn();}}
   }
   if(entry){
    handlers.setStatus?.(entry.status);

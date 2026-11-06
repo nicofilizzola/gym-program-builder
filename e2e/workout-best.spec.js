@@ -67,6 +67,55 @@ test('workout note closes inertly, reverses safely and settles on reduced motion
  await expect(page.locator('.logger-note textarea')).toHaveCount(0);await expect(page.getByLabel('Workout name',{exact:true})).toBeFocused();
 });
 
+for(const status of ['active','finished'])test(`Best refreshes add and swap and ignores delayed old variant (${status})`,async({page})=>{
+ const {entries}=await (await page.request.get('/api/catalog')).json();
+ const [replacement,added]=entries.filter(e=>!e.archived&&e.equipment).slice(0,2);
+ await save(page,'current-fixture',{status});
+ let release;const gate=new Promise(r=>{release=r;});let oldRequested=false;
+ await page.route('**/api/workouts/best?**',async route=>{
+  const ids=new URL(route.request().url()).searchParams.get('variantIds').split(',');
+  if(ids.includes('v1')){oldRequested=true;await gate;}
+  const bestPerformance=Object.fromEntries(ids.map(id=>[id,[{weightKg:id===replacement.id?70:id===added.id?60:999,reps:8,logId:'old',finishedAt:'2026-11-01T11:00:00Z'}]]));
+  await route.fulfill({json:{bestPerformance}});
+ });
+ await page.goto('/#/workouts/current-fixture');await expect.poll(()=>oldRequested).toBe(true);
+ await page.getByRole('button',{name:'Swap exercise Bench e',exact:true}).click();const combo=page.getByRole('combobox',{name:'Exercise'});
+ await combo.fill(replacement.name);await page.getByRole('option').filter({hasText:replacement.name}).first().click();
+ await expect(page.locator('.log-best')).toContainText('70 kg × 8');
+ release();await expect(page.locator('.log-best')).toContainText('70 kg × 8');
+ await page.getByRole('button',{name:'Add exercise',exact:true}).click();await combo.fill(added.name);await page.getByRole('option').filter({hasText:added.name}).first().click();
+ await expect(page.locator('.log-best').nth(1)).toContainText('60 kg × 8');
+});
+
+test('finished-route navigation discards a delayed Best rejection',async({page})=>{
+ await save(page,'first');await save(page,'next');let release;const gate=new Promise(r=>{release=r;});let requested=false;
+ await page.route('**/api/workouts/best?**',async route=>{
+  if(new URL(route.request().url()).searchParams.get('exclude')==='first'){
+   requested=true;await gate;await route.fulfill({status:403,json:{error:{message:'Obsolete history denied'}}});
+  }else await route.fulfill({json:{bestPerformance:{v1:[]}}});
+ });
+ await page.goto('/#/workouts/first');await expect.poll(()=>requested).toBe(true);
+ await page.evaluate(()=>{location.hash='#/workouts/next';});await expect(page.locator('.log-best')).toHaveText('Best · No qualifying performance');
+ release();await page.waitForResponse(response=>response.url().includes('/workouts/best?')&&response.status()===403);
+ await expect(page.locator('#app-message')).not.toContainText('Obsolete history denied');await expect(page.locator('.log-best')).toHaveText('Best · No qualifying performance');
+});
+
+test('a delayed finish acknowledgement preserves the edited note until navigation',async({page})=>{
+ await save(page,'current-fixture',{status:'active',note:'Initial context'});await page.goto('/#/workouts/current-fixture');
+ let releaseFirst,releaseSecond;const firstGate=new Promise(r=>{releaseFirst=r;}),secondGate=new Promise(r=>{releaseSecond=r;});let saves=0;
+ await page.route('**/api/workouts/current-fixture',async route=>{
+  if(route.request().method()!=='PUT'||route.request().postDataJSON().log.status!=='finished')return route.continue();
+  const number=++saves,response=await route.fetch();await(number===1?firstGate:secondGate);await route.fulfill({response});
+ });
+ await page.getByRole('button',{name:'Finish',exact:true}).click();
+ await expect.poll(()=>saves).toBe(1);await page.getByRole('button',{name:'Edit workout note',exact:true}).click();
+ const input=page.getByRole('textbox',{name:'Workout note',exact:true});await input.fill('Edited while finishing');
+ await input.evaluate(el=>{window.finishingNote=el;el.setSelectionRange(4,4);});releaseFirst();await expect.poll(()=>saves).toBe(2);
+ await expect(input).toBeFocused();expect(await input.evaluate(el=>[el===window.finishingNote,el.selectionStart,el.selectionEnd])).toEqual([true,4,4]);
+ releaseSecond();await expect(page).toHaveURL(/#\/workouts$/);
+ expect((await (await page.request.get('/api/workouts/current-fixture')).json()).record.log.note).toBe('Edited while finishing');
+});
+
 for(const [width,height,touch,zoom] of [[360,800,true,1],[390,844,true,1],[768,1024,true,1],[1366,768,false,1],[1440,900,false,1],[1440,900,true,1],[1920,1080,false,1],[390,844,true,2]]){
  test.describe(`viewport ${width} text ${zoom} touch ${touch}`,()=>{
  test.use({viewport:{width,height},hasTouch:touch});
