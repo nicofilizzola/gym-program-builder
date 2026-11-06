@@ -4,7 +4,7 @@ import {mountExercisePicker} from './exercise-picker.js';
 import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {validateWorkoutLog,WORKOUT_LIMITS,normalizeNote} from './workout-log.js';
-import {setLogName,setExerciseNote,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
+import {setLogName,setExerciseNote,setSetNote,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
 import {formatLastTime,setPlaceholder,formatElapsed} from './workout-sets.js';
 import {createSetRow,updateSetRow} from './workout-set-row.js';
 import {supersetBlocks} from './superset.js';
@@ -32,7 +32,7 @@ const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],seco
 /** Active workout logger: sticky header, exercise cards with set rows, add/swap/remove/reorder and Finish. */
 export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onRetry=()=>{}}){
  let log=structuredClone(initial),last=lastTime,destroyed=false,busy=false,addPicker=null,sortable=null;
- const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set();
+ const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set(),openSetNotes=new Set();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
  const page=document.createElement('section');page.className='workout-logger';page.dataset.mode=mode;if(readOnly)page.dataset.readonly='true';
  page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
@@ -161,20 +161,37 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   syncNote(card,ex);
   card.swap.setAttribute('aria-label',`Swap exercise ${ex.name}`);card.reorder.setAttribute('aria-label',`Reorder ${ex.name}`);card.remove.setAttribute('aria-label',`Remove exercise ${ex.name}`);
   card.addSet.setAttribute('aria-label',`Add set, ${ex.name}`);card.addWarmup.setAttribute('aria-label',`Add warm-up, ${ex.name}`);card.addSet.disabled=card.addWarmup.disabled=ex.sets.length>=WORKOUT_LIMITS.sets;
-  for(const [id,row] of card.rows)if(!ex.sets.some(s=>s.id===id)){card.rows.delete(id);collapseOut(row,animate);}
+  for(const [id,row] of card.rows)if(!ex.sets.some(s=>s.id===id)){card.rows.delete(id);openSetNotes.delete(id);collapseOut(row,animate);}
   const counts={warmup:0,working:0};
   ex.sets.forEach((set,index)=>{
    const kindIndex=++counts[set.kind];
-   const props={exerciseName:ex.name,set,kind:set.kind,kindIndex,placeholder:setPlaceholder(ex,index,lastSets(ex)),mode,readOnly:!editable};
+   const props={exerciseName:ex.name,set,kind:set.kind,kindIndex,placeholder:setPlaceholder(ex,index,lastSets(ex)),mode,readOnly:!editable,noteOpen:openSetNotes.has(set.id)};
    let row=card.rows.get(set.id);const fresh=!row;
    if(fresh){
-    row=createSetRow({...props,readOnly:!editable,onPatch:patch=>commit(updateSet(log,ex.id,set.id,patch)),onToggle:()=>toggle(ex.id,set.id),onMenu:button=>setMenu.toggle(button,[{label:'Remove set',run:()=>dropSet(ex.id,set.id)}])});
+    row=createSetRow({...props,onPatch:patch=>commit(updateSet(log,ex.id,set.id,patch)),onToggle:()=>toggle(ex.id,set.id),
+     onNote:text=>commit(setSetNote(log,ex.id,set.id,text)),
+     onNoteBlur:()=>{
+      const current=find(ex.id)?.sets.find(s=>s.id===set.id);if(!current)return;
+      openSetNotes.delete(set.id);const value=normalizeNote(current.note);
+      if(value!==current.note)commit(setSetNote(log,ex.id,set.id,value));else render();
+     },
+     onNoteOpen:()=>openSetNote(ex.id,set.id),
+     onMenu:button=>{
+      const current=find(ex.id)?.sets.find(s=>s.id===set.id);if(!current)return;
+      setMenu.toggle(button,[{label:current.note?'Edit note':'Add note',run:()=>openSetNote(ex.id,set.id)},{label:'Remove set',run:()=>dropSet(ex.id,set.id)}]);
+     }});
     if(animate&&!reducedMotion.matches)row.classList.add('is-closed');card.rows.set(set.id,row);
    }else updateSetRow(row,props);
    const live=[...card.sets.children].filter(el=>!el.classList.contains('is-removing'));
    if(live[index]!==row)card.sets.insertBefore(row,live[index]||null);
    if(fresh&&animate)reveal(row);
   });
+ }
+ function openSetNote(exerciseId,setId){
+  if(!find(exerciseId)?.sets.some(s=>s.id===setId))return;
+  openSetNotes.add(setId);render();
+  const input=cards.get(exerciseId)?.rows.get(setId)?.querySelector('.log-set-note-part:not(.is-removing) .log-set-note-input');
+  if(input){input.focus();input.setSelectionRange(input.value.length,input.value.length);}
  }
  /** Hoist a frame's remaining members into the list in its place and drop the frame. */
  function finalizeFrame(frame){
@@ -203,7 +220,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   }
   const blocks=supersetBlocks(log.exercises),pairs=new Set(blocks.filter(b=>b.length===2).map(b=>log.exercises[b.start].id));
   for(const [id,frame] of frames)if(!pairs.has(id)){frames.delete(id);dissolveFrame(frame,animate);}
-  for(const [id,card] of cards)if(!find(id)){cards.delete(id);card.picker?.destroy();collapseOut(card.li,animate);}
+  for(const [id,card] of cards)if(!find(id)){cards.delete(id);for(const setId of card.rows.keys())openSetNotes.delete(setId);card.picker?.destroy();collapseOut(card.li,animate);}
   const fresh=[];
   for(const ex of log.exercises){
    let card=cards.get(ex.id);

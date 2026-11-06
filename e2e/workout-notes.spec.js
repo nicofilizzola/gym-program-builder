@@ -23,6 +23,13 @@ const done=(page,n,name)=>page.getByRole('button',{name:`Mark set ${n} done, ${n
 const noteOf=async(page,id)=>(await serverRecord(page,id)).log.exercises[0].note;
 const editName=exercise=>new RegExp('^Edit note, '+exercise.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+': ');
 const blur=page=>page.getByLabel('Workout name',{exact:true}).focus();
+const setMenu=(page,n,name,warm=false)=>page.getByRole('button',{name:`${warm?'Warm-up set':'Set'} ${n} actions, ${name}`,exact:true});
+const setInput=(page,n,name,warm=false)=>page.getByRole('textbox',{name:`Note, ${warm?'warm-up set':'set'} ${n}, ${name}`,exact:true});
+async function openSetNote(page,n,name,{warm=false,edit=false}={}){
+ await setMenu(page,n,name,warm).click();
+ await page.getByRole('group',{name:'Set actions',exact:true}).getByRole('button',{name:edit?'Edit note':'Add note',exact:true}).click();
+ const input=setInput(page,n,name,warm);await expect(input).toBeFocused();return input;
+}
 const finish=async page=>{
  await page.getByRole('button',{name:'Finish',exact:true}).click();
  await page.getByRole('dialog',{name:'Finish workout?'}).getByRole('button',{name:'Finish workout'}).click();
@@ -37,7 +44,7 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
    const {id,names:[first]}=await start(page);
    const add=page.getByRole('button',{name:`Add note, ${first}`,exact:true});
    await expect(add).toHaveText('✎ Add note');
-   expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(31.5);
+   expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(hasTouch?43.5:31.5);
    await add.click();
    const input=page.getByLabel(`Note, ${first}`,{exact:true});
    await expect(input).toBeFocused();
@@ -96,8 +103,126 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
    expect((await text.boundingBox()).width).toBeLessThanOrEqual(360);
   });
+
+  test('set notes save on input, finish on Enter, reopen and clear in the aligned note slot',async({page})=>{
+   const {id,names:[first]}=await start(page);
+   const input=await openSetNote(page,2,first);
+   const row=setMenu(page,2,first).locator('xpath=ancestor::li[contains(@class,"log-set")][1]');
+   const kg=await row.locator('[data-kind="weight"]').boundingBox(),menu=await setMenu(page,2,first).boundingBox(),box=await input.boundingBox();
+   expect(Math.abs(box.x-kg.x)).toBeLessThanOrEqual(1);
+   expect(Math.abs(box.x+box.width-menu.x-menu.width)).toBeLessThanOrEqual(1);
+   expect(box.height).toBeGreaterThanOrEqual(hasTouch?43.5:31.5);
+   await input.fill('  Felt easy  ');
+   // Input must synchronously mirror the untrimmed value without replacing the focused field.
+   expect(await input.evaluate(el=>({focused:el===document.activeElement,note:JSON.parse(localStorage.getItem('gpb.activeWorkout')).log.exercises[0].sets[1].note}))).toEqual({focused:true,note:'  Felt easy  '});
+   await input.press('Enter');
+   const text=row.locator('button.log-set-note-text');
+   await expect(text).toHaveText('✎ Felt easy');
+   await expect(input).toHaveCount(0);
+   await expect(text).toBeFocused();
+   expect((await text.boundingBox()).height).toBeGreaterThanOrEqual(hasTouch?43.5:31.5);
+   await expect.poll(async()=>(await serverRecord(page,id)).log.exercises[0].sets[1].note).toBe('Felt easy');
+   await openSetNote(page,2,first,{edit:true});
+   expect(await input.evaluate(el=>[el.selectionStart,el.selectionEnd])).toEqual([9,9]);
+   await input.fill('x'.repeat(279));await input.pressSequentially('xyz');
+   await expect(input).toHaveValue('x'.repeat(280));
+   await input.fill('   ');await blur(page);
+   await expect(row.locator('.log-set-note-slot')).toBeEmpty();
+   await setMenu(page,2,first).click();
+   await expect(page.getByRole('group',{name:'Set actions'}).getByRole('button',{name:'Add note',exact:true})).toBeVisible();
+  });
+
+  test('warm-up notes use distinct labels and resume as saved text',async({page})=>{
+   const {names:[first]}=await start(page);
+   await page.getByRole('button',{name:`Add warm-up, ${first}`,exact:true}).click();
+   const input=await openSetNote(page,1,first,{warm:true});
+   await input.fill('Light and controlled');await input.press('Enter');
+   const text=page.locator('.log-set.is-warmup .log-set-note-text');
+   await expect(text).toHaveText('✎ Light and controlled');
+   await text.click();await expect(input).toBeFocused();await blur(page);
+   await expect(status(page)).toHaveText('Saved');await page.reload();
+   await expect(text).toHaveText('✎ Light and controlled');
+   await expect(page.locator('.log-set-note-input')).toHaveCount(0);
+   await expect(page.locator('.log-set-note-part.is-closed')).toHaveCount(0);
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+   await page.screenshot({path:`.superpowers/sdd/2026-11-05-tracker-polish-supersets-notes/task-9-${label.replace(' ','-')}.png`,fullPage:true});
+  });
+
+  test('removing a set with an open note restores the next menu and leaves no orphan input',async({page})=>{
+   const {names:[first]}=await start(page);
+   const input=await openSetNote(page,2,first);await input.fill('Remove with this set');
+   const row=input.locator('xpath=ancestor::li[contains(@class,"log-set")][1]'),id=await row.getAttribute('data-set-id');
+   // Invoke the same menu actions in one browser turn while the note starts focused.
+   await input.evaluate(el=>{el.closest('.log-set').querySelector('.log-set-menu').click();[...document.querySelectorAll('.reorder-menu button')].find(b=>b.textContent==='Remove set'&&b.closest(':popover-open')).click();});
+   await expect(page.locator(`[data-set-id="${id}"]`)).toHaveCount(0);
+   await expect(page.locator('.log-set-note-input')).toHaveCount(0);
+   await expect(setMenu(page,2,first)).toBeFocused();
+   // The last row focuses Add set when no rows remain.
+   for(const n of [2,1]){await setMenu(page,n,first).click();await page.getByRole('group',{name:'Set actions'}).getByRole('button',{name:'Remove set',exact:true}).click();}
+   await expect(page.getByRole('button',{name:`Add set, ${first}`,exact:true})).toBeFocused();
+  });
  });
 }
+
+test('finished set notes autosave',async({page})=>{
+ const {id,names:[first]}=await start(page);
+ await done(page,1,first).click();await expect(status(page)).toHaveText('Saved');await finish(page);
+ await page.goto('/#/workouts/'+id);
+ const input=await openSetNote(page,1,first);await input.fill('Felt heavy');await input.press('Enter');
+ await expect.poll(async()=>(await serverRecord(page,id)).log.exercises[0].sets[0].note).toBe('Felt heavy');
+});
+
+test('set note close retains inert content through the collapse and rapid reopen keeps the new input',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ const {names:[first]}=await start(page);
+ const input=await openSetNote(page,2,first);
+ await expect(input).toBeVisible();
+ // Sample a real closing frame immediately, then later animation frames: DOM retention and geometry both matter.
+ const samples=await input.evaluate(async el=>{
+  const part=el.closest('.log-set-note-part'),row=el.closest('.log-set');
+  await new Promise(resolve=>setTimeout(resolve,240));
+  const height=part.getBoundingClientRect().height;el.blur();
+  const immediately={connected:el.isConnected,inert:part.inert,hidden:part.getAttribute('aria-hidden'),closed:part.classList.contains('is-closed')};
+  el.focus();const refocused=document.activeElement===el;
+  await new Promise(resolve=>setTimeout(resolve,70));const middle=part.getBoundingClientRect().height;
+  row.querySelector('.log-set-menu').click();
+  [...document.querySelectorAll('.reorder-menu button')].find(b=>b.textContent==='Add note'&&b.closest(':popover-open')).click();
+  return {height,middle,immediately,refocused};
+ });
+ expect(samples.immediately).toEqual({connected:true,inert:true,hidden:'true',closed:true});
+ expect(samples.refocused).toBe(false);expect(samples.middle).toBeGreaterThan(0);expect(samples.middle).toBeLessThan(samples.height);
+ await expect(input).toBeFocused();
+ await input.fill('Still here');await page.waitForTimeout(350);
+ await expect(input).toHaveValue('Still here');await expect(input).toBeFocused();
+ await input.press('Enter');await expect(page.locator('.log-set-note-text')).toHaveText('✎ Still here');
+});
+
+test('reduced motion settles set note open and close in the same turn',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ const {names:[first]}=await start(page);
+ const input=await openSetNote(page,2,first);
+ expect(await input.evaluate(el=>({height:el.getBoundingClientRect().height,transition:getComputedStyle(el.closest('.log-set-note-part')).transitionDuration}))).toEqual({height:44,transition:'0s'});
+ const closed=await input.evaluate(el=>{const slot=el.closest('.log-set-note-slot');el.blur();return {connected:el.isConnected,children:slot.childElementCount};});
+ expect(closed).toEqual({connected:false,children:0});
+});
+
+test('removing a noted row retains inert content through its closing animation',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ const {names:[first]}=await start(page);
+ const input=await openSetNote(page,2,first);await input.fill('Remove this note');
+ const result=await input.evaluate(async el=>{
+  await new Promise(resolve=>setTimeout(resolve,240));
+  const row=el.closest('.log-set'),height=row.getBoundingClientRect().height,id=row.dataset.setId;
+  row.querySelector('.log-set-menu').click();
+  [...document.querySelectorAll('.reorder-menu button')].find(b=>b.textContent==='Remove set'&&b.closest(':popover-open')).click();
+  const retained=row.isConnected&&row.inert&&row.classList.contains('is-removing');
+  await new Promise(resolve=>setTimeout(resolve,70));return {id,height,middle:row.getBoundingClientRect().height,retained};
+ });
+ expect(result.retained).toBe(true);expect(result.middle).toBeGreaterThan(0);expect(result.middle).toBeLessThan(result.height);
+ await expect(page.locator(`[data-set-id="${result.id}"]`)).toHaveCount(0);
+ await expect(page.locator('.log-set-note-input')).toHaveCount(0);
+ await expect(setMenu(page,2,first)).toBeFocused();
+});
 
 test('a note typed offline survives reload and syncs once restored',async({page})=>{
  const {id,names:[first]}=await start(page);
@@ -115,6 +240,7 @@ test('the read-only history view shows the note as text with no add button',asyn
  const {names:[first,second]}=await start(page);
  await page.getByRole('button',{name:`Add note, ${first}`,exact:true}).click();
  await page.getByLabel(`Note, ${first}`,{exact:true}).fill('Seat 4');await blur(page);
+ const input=await openSetNote(page,1,first);await input.fill('Felt heavy');await input.press('Enter');
  await expect(status(page)).toHaveText('Saved');
  await done(page,1,first).click();
  await page.route('**/api/**',route=>route.abort('internetdisconnected'));
@@ -122,6 +248,8 @@ test('the read-only history view shows the note as text with no add button',asyn
  await page.locator('.workout-history-row').first().click();
  await expect(page.getByLabel('Start time',{exact:true})).toBeHidden();
  await expect(page.locator('.log-note').filter({hasText:'Seat 4'})).toBeVisible();
+ await expect(page.locator('.log-set-note-static')).toHaveText('✎ Felt heavy');
+ await expect(page.locator('button.log-set-note-text,.log-set-menu:not([hidden]),.log-set-note-input')).toHaveCount(0);
  await expect(page.getByRole('button',{name:/^(Add|Edit) note/})).toHaveCount(0);
  await expect(page.locator('.log-exercise').filter({hasText:second}).locator('.log-note')).toBeHidden();
 });
@@ -131,7 +259,14 @@ test('the note editor animates under normal motion and survives rapid reversal',
  const {names:[first]}=await start(page);
  await page.getByRole('button',{name:`Add note, ${first}`,exact:true}).click();
  await expect(page.getByLabel(`Note, ${first}`,{exact:true})).toBeFocused();
- await blur(page);
+ const closing=await page.getByLabel(`Note, ${first}`,{exact:true}).evaluate(async input=>{
+  const part=input.closest('.log-note-part');await new Promise(resolve=>setTimeout(resolve,240));
+  const height=part.getBoundingClientRect().height;input.blur();
+  const retained=input.isConnected&&part.inert&&part.getAttribute('aria-hidden')==='true';
+  await new Promise(resolve=>setTimeout(resolve,70));
+  return {retained,height,middle:part.getBoundingClientRect().height};
+ });
+ expect(closing.retained).toBe(true);expect(closing.middle).toBeGreaterThan(0);expect(closing.middle).toBeLessThan(closing.height);
  await expect(page.getByLabel(`Note, ${first}`,{exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:`Add note, ${first}`,exact:true})).toBeVisible();
  await page.getByRole('button',{name:`Add note, ${first}`,exact:true}).click();
