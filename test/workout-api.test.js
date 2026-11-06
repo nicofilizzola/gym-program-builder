@@ -16,8 +16,11 @@ test('workouts API requires auth and round trips',async t=>{
  const api=createApi({origin,auth:{session:async()=>auth},workouts:createWorkoutRepository(db)});
  const call=(path,method='GET',body,headers={})=>api(new Request(origin+'/api/workouts'+path,{method,headers:{origin,'content-type':'application/json',...headers},...(body===undefined?{}:{body:typeof body==='string'?body:JSON.stringify(body)})}));
  auth=false;
- for(const [path,method,body] of [['','GET'],['/active','GET'],['/last?variantIds=v1','GET'],['/a','GET'],['/a','PUT',{revision:0,log:mk()}],['/a?revision=1','DELETE']])assert.equal((await call(path,method,body)).status,401,method+path);
+ for(const [path,method,body] of [['','GET'],['/active','GET'],['/best?variantIds=v1','GET'],['/last?variantIds=v1','GET'],['/a','GET'],['/a','PUT',{revision:0,log:mk()}],['/a?revision=1','DELETE']])assert.equal((await call(path,method,body)).status,401,method+path);
  auth=true;
+ assert.deepEqual(await (await call('/best')).json(),{bestPerformance:{}});
+ assert.equal((await call('/best','POST',{})).status,405);
+ assert.equal((await call('/best?variantIds='+Array(41).fill('v1').join(','))).status,400);
  const log={...mk(),note:'Workout context'};
  let response=await call('/a','PUT',{revision:0,log});assert.equal(response.status,200);
  assert.deepEqual(await response.json(),{record:{id:'a',revision:1,log}});
@@ -30,6 +33,8 @@ test('workouts API requires auth and round trips',async t=>{
  const done=mk({status:'finished',finishedAt:'2026-11-03T11:00:00.000+00:00'});
  assert.equal((await call('/a','PUT',{revision:1,log:done})).status,200);
  assert.equal((await (await call('/active')).json()).record,null);
+ assert.equal((await (await call('/best?variantIds=v1')).json()).bestPerformance.v1[0].weightKg,80);
+ assert.deepEqual((await (await call('/best?variantIds=v1&exclude=a')).json()).bestPerformance,{v1:[]});
  const list=await (await call('')).json();assert.equal(list.hasMore,false);assert.equal(list.records.length,1);
  assert.equal((await call('?before=nope')).status,400);
  assert.deepEqual((await (await call('/last?variantIds=v1')).json()).lastTime.v1.sets,[{weightKg:80,reps:8,rir:null,kind:'working'}]);

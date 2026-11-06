@@ -67,10 +67,11 @@ export function createApi({repository,commands,catalog,auth,origin,analysis,prof
           return respond(await workouts.list({before:url.searchParams.get('before')??undefined,beforeId:url.searchParams.get('beforeId')??undefined}));
         }
         const id=path[1];
-        if(id==='active'||id==='last'){
+        if(id==='active'||id==='last'||id==='best'){
           if(method!=='GET')throw domainError('METHOD','Method not allowed.');
           if(id==='active')return respond({record:await workouts.active()});
           const ids=url.searchParams.get('variantIds');
+          if(id==='best')return respond({bestPerformance:ids?await workouts.bestPerformance({variantIds:ids.split(','),exclude:url.searchParams.get('exclude')??undefined}):{}});
           return respond({lastTime:ids?await workouts.lastTime({variantIds:ids.split(','),exclude:url.searchParams.get('exclude')??undefined}):{}});
         }
         if(method==='GET')return respond({record:await workouts.get(id)});

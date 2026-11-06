@@ -24,6 +24,7 @@ export function createApiClient({fetch:request=globalThis.fetch}={}) {
     getWorkout:async id=>(await call('workouts/'+encodeURIComponent(id))).record,
     saveWorkout:async({id,revision,log})=>(await call('workouts/'+encodeURIComponent(id),'PUT',{revision,log})).record,
     deleteWorkout:({id,revision})=>call('workouts/'+encodeURIComponent(id)+'?revision='+encodeURIComponent(revision),'DELETE'),
+    bestPerformance:async({variantIds,exclude})=>(await call('workouts/best?'+new URLSearchParams({variantIds:variantIds.join(','),...(exclude?{exclude}:{})}))).bestPerformance,
     lastTime:async({variantIds,exclude})=>(await call('workouts/last?'+new URLSearchParams({variantIds:variantIds.join(','),...(exclude?{exclude}:{})}))).lastTime,
     catalog:()=>call('catalog'),
     listTags:async()=>(await call('catalog/tags')).tags,

@@ -1,3 +1,4 @@
+import {bestPerRep} from '../src/workout-best.js';
 import {upgradeLog,validateWorkoutLog,workoutSummary,WORKOUT_LIMITS} from '../src/workout-log.js';
 import {domainError} from './repository.js';
 
@@ -99,6 +100,30 @@ export function createWorkoutRepository(db,{now=()=>new Date().toISOString()}={}
     await tx.execute({sql:'DELETE FROM workout_log_variants WHERE log_id=?',args:[id]});
     await tx.execute({sql:'DELETE FROM workout_logs WHERE id=?',args:[id]});
     await tx.commit();
+   }finally{tx.close();}
+  },
+  async bestPerformance({variantIds,exclude}={}){
+   if(!Array.isArray(variantIds)||variantIds.some(v=>typeof v!=='string'))throw domainError('INVALID','Invalid variant ids.');
+   if(variantIds.length>WORKOUT_LIMITS.lastTimeIds)throw domainError('INVALID','Too many variant ids.');
+   const ids=[...new Set(variantIds)],result=Object.fromEntries(ids.map(id=>[id,[]]));
+   if(!ids.length)return result;
+   const wanted=new Set(ids),tx=await db.transaction('read');
+   try{
+    let cursor=null;
+    while(true){
+     const rows=(await tx.execute({sql:`SELECT l.id,l.log_json FROM workout_logs l WHERE l.status='finished' AND l.id<>? ${cursor===null?'':'AND l.id>?'} AND EXISTS (SELECT 1 FROM workout_log_variants v WHERE v.log_id=l.id AND v.variant_id IN (${ids.map(()=>'?').join(',')})) ORDER BY l.id LIMIT 100`,args:[typeof exclude==='string'?exclude:'',...(cursor===null?[]:[cursor]),...ids]})).rows;
+     for(const row of rows){
+      const log=upgradeLog(JSON.parse(row.log_json));
+      for(const ex of log.exercises){
+       if(!wanted.has(ex.variantId))continue;
+       const candidates=ex.sets.filter(s=>s.kind!=='warmup'&&s.done&&Number.isInteger(s.reps)&&s.reps>=1&&s.reps<=100).map(s=>({weightKg:s.weightKg??0,reps:s.reps,logId:log.id,finishedAt:log.finishedAt}));
+       result[ex.variantId]=bestPerRep([...result[ex.variantId],...candidates]);
+      }
+     }
+     if(rows.length<100)break;
+     cursor=rows.at(-1).id;
+    }
+    return result;
    }finally{tx.close();}
   },
   async lastTime({variantIds,exclude}={}){

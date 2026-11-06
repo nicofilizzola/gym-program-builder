@@ -160,3 +160,31 @@ test('workout note round trips and rejects invalid notes',async t=>{
  assert.equal((await repo.get(log.id)).log.note,log.note);
  await assert.rejects(repo.save({id:log.id,revision:1,log:{...log,note:'a'.repeat(2001)}}),{code:'INVALID',message:'Workout note must be at most 2,000 characters.'});
 });
+
+
+test('bestPerformance scans all history and repeated variants, refreshes edits and deletes',async t=>{
+ const {repo}=await setup(t);
+ const old=fin('000','2026-10-01T10:00:00Z','2026-10-01T11:00:00Z',[exercise('e1','v1',[set('a',90,8)]),exercise('e2','v1',[set('b',100,8),set('c',null,12)])]);
+ await repo.save({id:old.id,revision:0,log:old});
+ for(let i=0;i<105;i++){const id='L'+String(i).padStart(3,'0');await repo.save({id,revision:0,log:fin(id,'2026-11-02T10:00:00Z','2026-11-02T11:00:00Z',[exercise('e','v1',[set('s',80,8)])])});}
+ await repo.save({id:'active',revision:0,log:mk({id:'active',exercises:[exercise('e','v1',[set('s',999,8)])]})});
+ assert.deepEqual(await repo.bestPerformance({variantIds:['v1','v2','v1']}),{v1:[{weightKg:100,reps:8,logId:'000',finishedAt:old.finishedAt},{weightKg:0,reps:12,logId:'000',finishedAt:old.finishedAt}],v2:[]});
+ assert.equal((await repo.bestPerformance({variantIds:['v1'],exclude:'000'})).v1[0].weightKg,80);
+ const changed=structuredClone(old);changed.exercises[1].sets[0].weightKg=70;
+ await repo.save({id:'000',revision:1,log:changed});assert.equal((await repo.bestPerformance({variantIds:['v1']})).v1[0].weightKg,90);
+ await repo.remove({id:'000',revision:2});assert.equal((await repo.bestPerformance({variantIds:['v1']})).v1[0].weightKg,80);
+ assert.deepEqual(await repo.bestPerformance({variantIds:[]}),{});
+ for(const variantIds of [null,[1],Array(41).fill('v1')])await assert.rejects(repo.bestPerformance({variantIds}),{code:'INVALID'});
+});
+
+test('bestPerformance excludes warmups and incomplete sets and upgrades legacy working sets',async t=>{
+ const {repo,db}=await setup(t);
+ const log=fin('legacy','2026-11-01T10:00:00Z','2026-11-01T11:00:00Z');
+ await repo.save({id:log.id,revision:0,log});
+ const raw=structuredClone(log);raw.logVersion=1;for(const s of raw.exercises[0].sets)delete s.kind;
+ await db.execute({sql:'UPDATE workout_logs SET log_json=? WHERE id=?',args:[JSON.stringify(raw),log.id]});
+ assert.equal((await repo.bestPerformance({variantIds:['v1']})).v1[0].weightKg,80);
+ raw.logVersion=2;raw.exercises[0].sets=[{...set('w',200,8),kind:'warmup'},{...set('s',90,8),kind:'working'},{...set('u',300,8),kind:'working',done:false},{...set('missing',400,null),kind:'working'}];
+ await db.execute({sql:'UPDATE workout_logs SET log_json=? WHERE id=?',args:[JSON.stringify(raw),log.id]});
+ assert.equal((await repo.bestPerformance({variantIds:['v1']})).v1[0].weightKg,90);
+});
