@@ -22,7 +22,7 @@ The first combined browser run passed 103/104; its single failure was a test sel
 
 ## Release status and operation
 
-Local implementation and verification only. Preview and production deployment: **not performed or verified**. The configured host is Vercel (`vercel.json`); no release target or merge/push was authorized in this implementation request. Prepare/review the branch, then use the selected release workflow. Server and client must deploy together; no new SQL migration, seed run or environment variable is required.
+Local integration: the user selected option 1, and `feat/workout-notes-best` was fast-forward merged into `main` at `f5e35f9` on 2026-11-06 after `git pull --ff-only` confirmed main was current. On the merged result, `npm.cmd test` passed all 413 tests, `npm.cmd run build` passed, and `git diff --check` passed. The host-managed feature worktree is retained. Nothing was pushed. Preview and production deployment: **not performed or verified**. The configured host is Vercel (`vercel.json`); a deployment target and release action remain unselected. Server and client must deploy together; no new SQL migration, seed run or environment variable is required.
 
 In the actual target environment check authenticated/unauthenticated Best access, range/exclusion and empty-history behavior, note save/reload and finished edits, and Last time placeholders. Use designated disposable fixtures for offline/conflict/history-mutation checks and record the deployment identity and actual outcomes before marking that environment verified.
 
