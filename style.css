@@ -2307,7 +2307,7 @@ p.limit-hint {display:flex}
   .log-done {width:var(--control-compact);min-width:var(--control-compact);height:var(--control-compact)}
   .log-done svg {width:18px;height:18px}
   .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.2fr) minmax(0,1fr) calc(6 * var(--control-compact) + 5 * 2px) var(--control-compact) var(--control-compact)}
-  .log-set-row {grid-template-areas:"num weight reps rir done menu" ". note note note note note" "err err err err err err";padding-block:6px}
+  .log-set-row {grid-template-areas:"num weight reps rir done menu" ". note note note note note" "err err err err err err"}
   .log-rir-label {display:none}
   .log-set-head-rir {display:block}
   .log-rir {gap:2px}
