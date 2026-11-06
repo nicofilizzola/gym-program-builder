@@ -1,5 +1,16 @@
 # Gym Program Builder
 
+## Workout notes and best performance (2026-11-06)
+
+Design: docs/superpowers/specs/2026-11-06-workout-notes-best-performance-design.md; plan: docs/superpowers/plans/2026-11-06-workout-notes-best-performance.md.
+
+- Logs retain version 2 and gain top-level `note` (default empty, at most 2,000 UTF-16 units, `WORKOUT_LIMITS.workoutNoteMax`). Missing v1/v2 fields normalize without a migration. Notes autosave/mirror with the workout, never copy forward, and stay outside exports, AI review and analytics.
+- Workout Add note lives below the sticky header. Reuse note controls, input commits/blur trimming, multiline Enter, focus/caret preservation, read-only plain text, 200ms collapses and instant reduced motion.
+- Best uses completed working sets in every other finished log for the exact variant, including repeated occurrences. Filter by the current exercise snapshot's inclusive rep range; absent range allows all reps. Rank weight, reps, finish instant, then descending log ID; null/0 weight is BW. Warm-ups and the viewed log never qualify. Last time placeholders/notes remain unchanged.
+- Authenticated `GET /api/workouts/best` returns one winning candidate per exact rep count (at most 100 per requested variant), with the existing 40-ID bound. Each requested variant gets an array, including empty history. Use shared pure `src/workout-best.js` selection; no persisted PR table or SQL migration.
+- Keep `bestPerformance` outside the log and separate from Last time in the active mirror. Old mirrors default to unknown; cached data remains visible offline. Refresh on logger attachment and add/swap; successful empties replace old records. Guard stale responses by owner, view lifetime and per-variant request order.
+- Verification: docs/superpowers/verification/2026-11-06-workout-notes-best-performance.md. Never claim a pending deployment was verified.
+
 ## Tracker set rows and notes (2026-11-05)
 
 Design: docs/superpowers/specs/2026-11-05-mobile-polish-tracker-notes-design.md (§B1–B3); plan: docs/superpowers/plans/2026-11-05-tracker-polish-supersets-notes.md. Supersedes the tracker V1 notes out-of-scope item and set-row layout. Retained implementation decisions and their costs are recorded in docs/superpowers/verification/2026-11-05-mobile-polish-tracker-notes.md (Plan 3).

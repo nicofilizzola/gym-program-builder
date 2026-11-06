@@ -1,6 +1,6 @@
 # Workout notes and best performance
 
-Date: 2026-11-06. Product scope approved in conversation. This records the agreed scope for the requested implementation plan; implementation has not started.
+Date: 2026-11-06. Product scope approved in conversation. This records the agreed scope; implementation status and actual checks are recorded in the corresponding plan and verification document.
 
 ## Intent and boundaries
 
