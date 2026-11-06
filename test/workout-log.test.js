@@ -6,7 +6,7 @@ import {WORKOUT_LIMITS,toLocalIso,validateWorkoutLog,createWorkoutLog,logExercis
 const seq=()=>{let n=0;return()=>'id'+(++n);};
 const set=(over={})=>({id:'s1',kind:'working',weightKg:80,reps:8,rir:2,done:true,note:'',...over});
 const exercise=(over={})=>({id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:['Biceps'],target:null,note:'',sets:[set()],...over});
-const active=(over={})=>({id:'l1',logVersion:2,status:'active',name:'Workout',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[exercise()],...over});
+const active=(over={})=>({id:'l1',logVersion:2,status:'active',name:'Workout',note:'',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[exercise()],...over});
 const finished=(over={})=>active({status:'finished',finishedAt:'2026-11-03T19:00:00.000+01:00',...over});
 const bad=(log,part)=>{const r=validateWorkoutLog(log);assert.ok(r.error,'expected error');if(part)assert.match(r.error,part);};
 
@@ -22,7 +22,7 @@ test('supported v2 ingest defaults missing notes without mutating input or accep
 
 test('limits are frozen',()=>{
  assert.ok(Object.isFrozen(WORKOUT_LIMITS));
- assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280});
+ assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280,workoutNoteMax:2000});
 });
 
 test('exercise names follow the catalog limit (200), separate from the workout name limit (120)',()=>{
@@ -121,7 +121,7 @@ test('validateWorkoutLog enforces structure and limits',()=>{
  // Z accepted, unknown keys dropped, canonical key order
  const r=validateWorkoutLog(finished({startedAt:'2026-11-03T17:00:00Z',finishedAt:'2026-11-03T18:00:00.000Z',junk:1,source:{kind:'blank',junk:2},exercises:[exercise({junk:3,sets:[set({junk:4})]})]}));
  assert.ok(r.log);
- assert.deepEqual(Object.keys(r.log),['id','logVersion','status','name','startedAt','finishedAt','source','exercises']);
+ assert.deepEqual(Object.keys(r.log),['id','logVersion','status','name','note','startedAt','finishedAt','source','exercises']);
  assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','sets']);
  assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]),['id','kind','weightKg','reps','rir','done','note']);
  assert.deepEqual(r.log.source,{kind:'blank'});
@@ -217,4 +217,13 @@ test('created logs and exercises carry empty notes',()=>{
  const template={id:'t1',document:{name:'Pull',exercises:[{name:'Row',sets:1,warmupSets:1,repRange:{min:8,max:12},restSeconds:90,primaryMuscles:['Lats'],secondaryMuscles:[]}]}};
  const log=createWorkoutLog({id:'l',now:new Date(),makeId:seq(),template});
  assert.equal(log.exercises[0].note,'');assert.deepEqual(log.exercises[0].sets.map(s=>s.note),['','']);
+});
+
+
+test('workout note defaults and UTF-16 boundaries',()=>{
+ for(const logVersion of [1,2]){const raw=active({logVersion});delete raw.note;if(logVersion===1)delete raw.exercises[0].sets[0].kind;assert.equal(validateWorkoutLog(raw).log.note,'');}
+ assert.equal(createWorkoutLog({id:'new',now:new Date(),makeId:seq()}).note,'');
+ for(const note of ['a'.repeat(2000),'\u{1F600}'.repeat(1000),' raw\n note '])assert.equal(validateWorkoutLog(active({note})).log.note,note);
+ for(const note of ['a'.repeat(2001),'\u{1F600}'.repeat(1000)+'a'])assert.equal(validateWorkoutLog(active({note})).error,'Workout note must be at most 2,000 characters.');
+ for(const note of [null,12,{}])assert.equal(validateWorkoutLog(active({note})).error,'Invalid workout note.');
 });

@@ -2,7 +2,7 @@ import {MUSCLE_GROUPS} from './muscles.js';
 import {EQUIPMENT,CATALOG_NAME_MAX} from './catalog.js';
 import {supersetIssue} from './validate.js';
 
-export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:CATALOG_NAME_MAX,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280});
+export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:CATALOG_NAME_MAX,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280,workoutNoteMax:2000});
 
 const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,3})?(Z|[+-]\d\d:\d\d)$/;
 const pad=(n,w=2)=>String(n).padStart(w,'0');
@@ -35,7 +35,7 @@ export function createWorkoutLog({id,now,makeId,template,program,occurrenceId}){
   ...(ex.superset?{superset:{restBetweenSeconds:ex.superset.restBetweenSeconds,restAfterRoundSeconds:ex.superset.restAfterRoundSeconds}}:{}),
   note:'',sets:[...Array.from({length:ex.warmupSets??0},()=>emptySet(makeId,'warmup')),...Array.from({length:ex.sets},()=>emptySet(makeId,'working'))]
  }));
- return {id,logVersion:LOG_VERSION,status:'active',name,startedAt:toLocalIso(now),finishedAt:null,source,exercises};
+ return {id,logVersion:LOG_VERSION,status:'active',name,note:'',startedAt:toLocalIso(now),finishedAt:null,source,exercises};
 }
 
 export function logExerciseFromEntry(entry,makeId){
@@ -160,6 +160,9 @@ export function validateWorkoutLog(value){
   if(!isDate(value.finishedAt))return fail('Finish time must be an ISO 8601 date with a UTC offset.');
   if(Date.parse(value.finishedAt)<=Date.parse(value.startedAt))return fail('Finish time must be after start time.');
  }else if(value.finishedAt!==null)return fail('An active workout has no finish time.');
+ const note=value.note===undefined?'':value.note;
+ if(typeof note!=='string')return fail('Invalid workout note.');
+ if(note.length>WORKOUT_LIMITS.workoutNoteMax)return fail('Workout note must be at most 2,000 characters.');
  const source=validateSource(value.source);
  if(!source)return fail('Invalid source.');
  if(!Array.isArray(value.exercises))return fail('Exercises must be a list.');
@@ -173,5 +176,5 @@ export function validateWorkoutLog(value){
  const issue=supersetIssue(exercises);
  if(issue)return fail(issue.message);
  for(const e of exercises)if(e.superset)e.superset={restBetweenSeconds:e.superset.restBetweenSeconds,restAfterRoundSeconds:e.superset.restAfterRoundSeconds};
- return {log:{id:value.id,logVersion:LOG_VERSION,status:value.status,name:value.name,startedAt:value.startedAt,finishedAt:value.finishedAt,source,exercises}};
+ return {log:{id:value.id,logVersion:LOG_VERSION,status:value.status,name:value.name,note,startedAt:value.startedAt,finishedAt:value.finishedAt,source,exercises}};
 }

@@ -173,3 +173,13 @@ test('note transforms',()=>{
  assert.equal(addWarmup(log,ex.id,seq()).exercises[0].sets[0].note,'');
  assert.equal(normalizeNote('  \n '),'');assert.equal(normalizeNote(' a b '),'a b');
 });
+
+
+test('workout note edit preserves raw text, is immutable and survives finishing',async()=>{
+ const {setWorkoutNote}=await import('../src/workout-edit.js');
+ const log=makeLog(),before=copy(log),note=' raw\n note ';
+ const next=setWorkoutNote(log,note);
+ assert.equal(next.note,note);assert.deepEqual(log,before);
+ assert.equal(finishWorkout(next,new Date('2026-11-03T20:00:00Z')).log.note,note);
+ assert.equal(removeExercise(next,'e2').note,note);
+});

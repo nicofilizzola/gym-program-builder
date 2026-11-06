@@ -152,3 +152,11 @@ test('lastTime returns the exercise note, empty for version 1 logs',async t=>{
  assert.equal(r.v2.note,'Seat 4');
  assert.equal(r.v1.note,'');
 });
+
+
+test('workout note round trips and rejects invalid notes',async t=>{
+ const {repo}=await setup(t),log={...mk(),note:'Whole workout context'};
+ await repo.save({id:log.id,revision:0,log});
+ assert.equal((await repo.get(log.id)).log.note,log.note);
+ await assert.rejects(repo.save({id:log.id,revision:1,log:{...log,note:'a'.repeat(2001)}}),{code:'INVALID',message:'Workout note must be at most 2,000 characters.'});
+});

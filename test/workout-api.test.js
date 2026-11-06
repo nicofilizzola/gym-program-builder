@@ -18,7 +18,7 @@ test('workouts API requires auth and round trips',async t=>{
  auth=false;
  for(const [path,method,body] of [['','GET'],['/active','GET'],['/last?variantIds=v1','GET'],['/a','GET'],['/a','PUT',{revision:0,log:mk()}],['/a?revision=1','DELETE']])assert.equal((await call(path,method,body)).status,401,method+path);
  auth=true;
- const log=mk();
+ const log={...mk(),note:'Workout context'};
  let response=await call('/a','PUT',{revision:0,log});assert.equal(response.status,200);
  assert.deepEqual(await response.json(),{record:{id:'a',revision:1,log}});
  assert.deepEqual(await (await call('/a')).json(),{record:{id:'a',revision:1,log}});

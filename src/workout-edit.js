@@ -21,6 +21,8 @@ export const swapExercise=(log,exerciseId,entry)=>mapExercise(log,exerciseId,e=>
  variantId:entry.id,referenceId:entry.familyId,name:entry.name,equipment:entry.equipment??null,
  primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null}));
 
+export const setWorkoutNote=(log,text)=>({...log,note:text});
+
 export const setExerciseNote=(log,exerciseId,text)=>mapExercise(log,exerciseId,e=>({...e,note:text}));
 export const setSetNote=(log,exerciseId,setId,text)=>mapSet(log,exerciseId,setId,s=>({...s,note:text}));
 
