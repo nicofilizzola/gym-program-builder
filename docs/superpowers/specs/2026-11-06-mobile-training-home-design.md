@@ -1,6 +1,6 @@
 # Mobile training home
 
-Date: 2026-11-06. Product direction approved in conversation; this written spec awaits review. Implementation and release verification are separate work.
+Date: 2026-11-06. Product direction and written spec approved in conversation; the user requested the implementation plan. Implementation and release verification are separate work.
 
 ## Intent and agreed direction
 
