@@ -221,9 +221,14 @@ test('fine pointer keeps a one-line set row with 32px RIR options at 1366px',asy
  const {names:[first]}=await setup(page,{history:false});
  for(const box of await rirBoxes(page,first)){expect(box.width).toBeGreaterThanOrEqual(32);expect(box.height).toBeGreaterThanOrEqual(32);}
  const row=page.locator('.log-set-row').first();
- const rowBox=await row.boundingBox(),done=await page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true}).boundingBox();
- expect(rowBox.height).toBeLessThan(48);
- expect(done.height).toBeGreaterThanOrEqual(32);
+ const layout=await row.evaluate(el=>{
+  const style=getComputedStyle(el),controls=[...el.querySelectorAll('[data-kind="weight"],[data-kind="reps"],.log-rir,.log-done,.log-set-menu')].map(control=>{const box=control.getBoundingClientRect();return {height:box.height,center:box.y+box.height/2};});
+  return {height:el.getBoundingClientRect().height,padding:[parseFloat(style.paddingTop),parseFloat(style.paddingBottom)],border:parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth),controls};
+ });
+ expect(layout.padding).toEqual([8,8]);
+ for(const control of layout.controls)expect(Math.abs(control.center-layout.controls[0].center)).toBeLessThanOrEqual(1);
+ expect(Math.abs(layout.height-Math.max(...layout.controls.map(control=>control.height))-layout.padding[0]-layout.padding[1]-layout.border)).toBeLessThanOrEqual(1);
+ expect((await page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(32);
 });
 
 test('logger touch targets and reduced motion',async({browser})=>{
