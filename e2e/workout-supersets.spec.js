@@ -50,6 +50,11 @@ test('member card content stays at least 300px at 360px',async({browser})=>{
  const widths=await page.evaluate(()=>[...document.querySelectorAll('.log-superset-members .log-exercise-card')].map(c=>{const s=getComputedStyle(c);return c.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight);}));
  expect(widths).toHaveLength(2);
  for(const w of widths)expect(w).toBeGreaterThanOrEqual(300);
+ const first=page.locator('.log-superset-members .log-exercise-card').first();
+ await first.locator('[data-field="weight"]').first().fill('102.5');await first.locator('[data-field="reps"]').first().fill('100');
+ const fields=await first.locator('.log-set').first().locator('.log-stepper input').evaluateAll(inputs=>inputs.map(el=>({kind:el.dataset.field,width:el.clientWidth,scroll:el.scrollWidth,font:getComputedStyle(el).font,fontSize:parseFloat(getComputedStyle(el).fontSize)})));
+ for(const field of fields){expect(field.fontSize).toBeGreaterThanOrEqual(16);expect(field.scroll,`${field.kind} numeric clipping`).toBeLessThanOrEqual(field.width);}
+ for(const button of await first.locator('.log-stepper button').all()){const box=await button.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
  await context.close();
 });

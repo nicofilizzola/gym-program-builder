@@ -2272,6 +2272,9 @@ p.limit-hint {display:flex}
 /* Phones under 390px: a 1.1 kg:reps ratio and 2px column gaps (with the condensed digits, still 16px) keeps values up to 102.5 kg and 100 reps visible between 44px step buttons. */
 @media (max-width:389px) {
  .log-set-head,.log-set-row {grid-template-columns:1.5rem minmax(0,1.1fr) minmax(0,1fr) 44px;column-gap:2px}
+ /* A paired card needs seven more pixels for both numeric values without shrinking the controls or W20 label. */
+ .log-superset .log-set-head,.log-superset .log-set-row {column-gap:0}
+ .log-superset:not(.is-closed) {padding-left:9px}
 }
 /* Enlarged text: kg and reps stack so their inputs keep readable widths; units move inside the steppers. */
 @container (max-width:18rem) {
