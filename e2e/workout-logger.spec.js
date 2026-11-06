@@ -249,6 +249,8 @@ test('logger touch targets and reduced motion',async({browser})=>{
  await page.getByRole('button',{name:`Add set, ${first}`}).click();
  await expect(sets).toHaveCount(5);
  expect(await sets.nth(4).evaluate(el=>el.getAnimations().length)).toBeGreaterThan(0);
+ // Settle insertion before opening a menu that dismisses when its anchor scrolls.
+ await expect.poll(()=>sets.nth(4).evaluate(el=>el.getAnimations().length)).toBe(0);
  await removeSet(page,5,first);
  await expect(sets).toHaveCount(4);
  await context.close();
