@@ -39,3 +39,11 @@ Editable finished logs deliberately retain pair Reorder and hide Unlink; read-on
 - Chromium emulation cannot verify real iOS/Android keyboards, safe areas, iOS input zoom, platform font rendering, VoiceOver/TalkBack or physical hybrid hardware.
 - The full-run result and any targeted reruns must be read independently; a targeted pass does not replace a failed full suite.
 - No deployed environment, migration rollout or paid-provider response was tested.
+
+## Final review follow-up (2026-11-06, base `63293ad`)
+
+The single final fix wave corrected supported-v2 missing-note normalization, note editing state/focus lost during frame release, 15px phone exercise-note text and the extra header inset. Shared strict canonicalization now handles accepted v1/v2 without write-on-read or revision changes. Frame release distinguishes its synchronous internal blur from genuine user completion, preserving the same exercise/set note node, value and selection across Unlink and either member removal. Initial/resume/reduced-motion behavior and all 12 retained rulings remain unchanged.
+
+Fresh sequential required checks on final production code: `npm.cmd test` **398/398** (0 fail/skip), `npm.cmd run test:e2e` **448/448 (11.6m)**, `npm.cmd run build` **Built public assets.**; all native exits0. The count is the prior 436 permanent browser cases plus 12 permanent regressions, without a temporary matrix. Affected browser checks passed 52/52. Actual RED evidence and the first GREEN attempt's one unexplained startup timeout plus six corrected test-assertion typos remain recorded in [the shared final fix record](2026-11-05-mobile-polish-tracker-notes.md#final-review-fix-wave-2026-11-06-base-63293ad); targeted passes were not substituted for the full run.
+
+The controller and implementer inspected refreshed 390/1366 screenshots as layout-only evidence. Physical hardware, assistive technology and deployment remain unverified. No personal/remote database or paid AI was used. Nonblocking follow-ups remain the unused pair-unaware move helper, permissive blank-set helper API and older loose history/swap assertions; duplicate CSS width and stale ratio comment were cleaned only where already touched. Historical startup/offline/EBUSY failures retain their original evidence without an asserted cause or unrelated fix.

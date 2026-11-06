@@ -127,6 +127,28 @@ Screenshots were opened and visually inspected with `view_image`, including all 
 - Earlier tasks recorded initial Saved/Saving and offline-reload status timeouts, plus the now-fixed animated-add/menu race. This verification preserves full-run results and investigation evidence rather than labeling unexplained failures as load flakes.
 - No preview/production environment or rollout was tested. Task 10 does not verify unrelated earlier deferred items or physical assistive technology.
 
+### Final review fix wave (2026-11-06, base `63293ad`)
+
+The whole-branch review identified three Important findings and one Minor alignment finding. The final wave preserves all 12 retained rulings below; it introduces no new layout exception.
+
+- **I1: optional v2 notes:** `upgradeLog` now canonicalizes accepted version 2 as well as version 1. Repository reads, sync adoption and saved-conflict adoption therefore receive empty note defaults before editing. Invalid/unsupported input still returns unchanged for existing validation handling. Read normalization does not write the database, change revisions or loosen conflict checks; the next ordinary save persists the canonical record. Defensive empty DOM values supplement this boundary. Permanent units exercise raw stored-v2 reads/revision conflicts, mirror recovery/save and saved-version adoption; four browser cases open exercise/set notes independently as the first edit from a server record or an offline mirror and assert canonical empty notes on the next save.
+- **I2: frame release blur:** moving cards out of an unlinking frame fires synchronous blur. A scope limited to that internal move and focus restoration prevents note blur from changing editor state. The same node, typed value, focus and selection survive; real blur still trims/closes and set-note Enter still completes. Six deterministic browser cases open a note after Unlink or either member removal and signal the actual transition completion in the same browser turn, then continue typing and finish normally. They assert the closing header remains inert. Existing normal-motion/reversal and instant reduced-motion coverage remains in the affected suites.
+- **I3: mobile note font:** exercise-note textarea now computes to at least 16px on phone/touch/hybrid paths; the previous 15px compact size is confined to the existing fine-pointer desktop rule. A computed-font assertion runs at 390px touch. This is Chromium CSS evidence, not physical iOS zoom verification.
+- **M1: header alignment:** removed the second horizontal padding inset from the header. Permanent 390px touch / 1366px fine-pointer checks compare the bounds and centers of all first three header tracks with their row counterparts within 1px. Existing full-width tint, separators, padding, numeric fit and touch-target assertions remain unchanged.
+- **M2: bounded cleanup/debt:** removed the duplicate note-text width and updated the stale 1.15 grid comment to the retained 1.2 ratio. The unused pair-unaware `moveLogExercise` export, permissive `blankSet` optional-value helper and older loose history/swap assertions remain explicit nonblocking follow-ups; no broad helper/test refactor was included.
+
+Actual preimplementation RED: focused units failed three new assertions (`undefined !== ''`); all 12 browser regressions failed on missing-note `"undefined"`, lost focus/inert note editor, computed 15px text or the 12px desktop header offset. First GREEN attempt: focused units 53/53; browser 5/12 passed, with six continuation assertions containing a test typo (`Typed` instead of the deliberately edited `Typ!ed`) and one 20-second startup timeout in `workout-helper.js:5` (`page.goto('/')`, waiting for load). The typo was corrected; the startup cause remains unestablished, and no timeout or production startup change was made. The mirror case was strengthened to reload while the active-workout request is unreachable, ensuring it really resumes locally. The corrected affected browser run passed **52/52**, native exit 0 (the new 12 plus existing notes, supersets and set-row suites). Refreshed `task-9-390-touch.png` and `task-9-1366.png` were opened with `view_image`; the implementer and controller confirmed aligned header labels and compact notes without visible overflow. This is layout-only evidence, not a new broad visual matrix.
+
+Final required checks on the final production code, run sequentially:
+
+| Command | Result | Full scratch log |
+| --- | --- | --- |
+| `npm.cmd test` | **398 passed**, 0 failed, 0 skipped; native exit 0 | `final-fix-full-unit.log` |
+| `npm.cmd run test:e2e` | **448 passed (11.6m)**; native exit 0 | `final-fix-full-e2e.log` |
+| `npm.cmd run build` | `Built public assets.`; native exit 0 | `final-fix-full-build.log` |
+
+All 448 browser cases are permanent (prior 436 plus 12 new regressions); no temporary matrix is included in that count. Logs and the complete `final-fix-report.md` are in ignored `.superpowers/sdd/2026-11-05-tracker-polish-supersets-notes/`. These fresh full results do not erase the earlier failed runs. No further broad repeat was needed after green. Physical keyboard/zoom/safe-area/font behavior, physical hybrid hardware and assistive technology remain unverified; preview/production deployment remains unverified. No personal database, remote migration, paid AI or deployment was used. The historical unexplained startup/offline timeouts and EBUSY remain unattributed; this wave does not claim to resolve them.
+
 ### Decisions retained
 
 These are the implementation ledger’s decisions, retained in their original order with their stated costs. They document prior rulings and do not introduce new requirements.

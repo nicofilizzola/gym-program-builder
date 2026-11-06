@@ -10,6 +10,16 @@ const active=(over={})=>({id:'l1',logVersion:2,status:'active',name:'Workout',st
 const finished=(over={})=>active({status:'finished',finishedAt:'2026-11-03T19:00:00.000+01:00',...over});
 const bad=(log,part)=>{const r=validateWorkoutLog(log);assert.ok(r.error,'expected error');if(part)assert.match(r.error,part);};
 
+test('supported v2 ingest defaults missing notes without mutating input or accepting invalid records',()=>{
+ const raw=active();delete raw.exercises[0].note;delete raw.exercises[0].sets[0].note;
+ const got=upgradeLog(raw);
+ assert.equal(got.exercises[0].note,'');assert.equal(got.exercises[0].sets[0].note,'');
+ assert.equal(raw.exercises[0].note,undefined);
+ const invalid=structuredClone(raw);invalid.exercises[0].sets[0].note=null;
+ assert.equal(upgradeLog(invalid),invalid);assert.match(validateWorkoutLog(invalid).error,/Invalid set/);
+ const unsupported={...raw,logVersion:3};assert.equal(upgradeLog(unsupported),unsupported);
+});
+
 test('limits are frozen',()=>{
  assert.ok(Object.isFrozen(WORKOUT_LIMITS));
  assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280});

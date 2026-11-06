@@ -72,7 +72,7 @@ export function createSetRow({exerciseName,set,kind=set.kind||'working',kindInde
   const label=`${setKind==='warmup'?'warm-up set':'set'} ${n}, ${name}`;
   if(kind==='edit'){
    field.setAttribute('aria-label',`Note, ${label}`);
-   if(document.activeElement!==field)field.value=current.note;
+   if(document.activeElement!==field)field.value=current.note??'';
   }else{
    field.textContent=`✎ ${current.note}`;
    if(kind==='text')field.setAttribute('aria-label',`Edit note, ${label}: ${current.note}`);

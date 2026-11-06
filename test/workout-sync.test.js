@@ -26,6 +26,21 @@ const make=(over={})=>{
 };
 const echoApi=()=>{const calls=[];let rev=0;return {calls,saveWorkout:async({id,revision,log:l})=>{calls.push({id,revision,log:structuredClone(l)});rev=revision+1;return {id,revision:rev,log:structuredClone(l)};}};};
 
+test('raw v2 mirror recovery and saved conflict adoption default notes before any edit',async()=>{
+ const raw=log({logVersion:2,exercises:[{id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:[],target:null,sets:[{id:'s1',kind:'working',weightKg:null,reps:null,rir:null,done:false}]}]});
+ const storage=memoryStorage();writeMirror(storage,{log:raw,baseRevision:3,dirty:true,lastTime:null});
+ const mirror=readMirror(storage),api=echoApi();
+ const local=make({api,storage,record:{id:'w1',revision:mirror.baseRevision,log:mirror.log},dirty:mirror.dirty});
+ assert.equal(local.sync.log.exercises[0].note,'');assert.equal(readMirror(storage).log.exercises[0].sets[0].note,'');
+ await local.sync.flush();assert.equal(api.calls[0].revision,3);assert.equal(api.calls[0].log.exercises[0].note,'');local.sync.dispose();
+ const saved={id:'w1',revision:9,log:raw};
+ const adopted=make({api:{getWorkout:async()=>saved},record:{id:'w1',revision:3,log:log()}});
+ await adopted.sync.useSaved();
+ assert.equal(adopted.sync.revision,9);assert.equal(adopted.sync.log.exercises[0].note,'');
+ assert.equal(adopted.records.at(-1).log.exercises[0].sets[0].note,'');
+ assert.equal(readMirror(adopted.storage).baseRevision,9);assert.equal(readMirror(adopted.storage).dirty,false);adopted.sync.dispose();
+});
+
 test('backoff schedule',()=>{assert.deepEqual([0,1,2,3,4,9].map(backoffDelay),[2000,4000,8000,16000,30000,30000]);});
 
 test('error classification',()=>{

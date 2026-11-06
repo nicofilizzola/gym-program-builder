@@ -132,9 +132,9 @@ function upgradeV1(value){
  return {...value,exercises};
 }
 
-/** Version 1 logs come back as canonical version 2; anything else (including invalid input) is returned unchanged. */
+/** Supported logs come back canonical (including optional defaults); invalid/unsupported input is unchanged. */
 export function upgradeLog(log){
- if(!isObject(log)||log.logVersion!==1)return log;
+ if(!isObject(log)||(log.logVersion!==1&&log.logVersion!==2))return log;
  return validateWorkoutLog(log).log??log;
 }
 

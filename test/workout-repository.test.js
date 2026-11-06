@@ -16,6 +16,20 @@ async function setup(t){
 }
 const count=async(db,table)=>Number((await db.execute(`SELECT COUNT(*) c FROM ${table}`)).rows[0].c);
 
+test('stored v2 without notes reads canonically while retaining revision and raw storage',async t=>{
+ const {db,repo}=await setup(t),raw=mk();
+ delete raw.exercises[0].note;delete raw.exercises[0].sets[0].note;
+ const json=JSON.stringify(raw);
+ await db.execute({sql:'INSERT INTO workout_logs(id,revision,status,started_at,finished_at,log_json,created_at,updated_at) VALUES(?,7,?,?,?,?,?,?)',args:[raw.id,'active',raw.startedAt,null,json,'x','x']});
+ for(const got of [await repo.get(raw.id),await repo.active()]){
+  assert.equal(got.revision,7);assert.equal(got.log.exercises[0].note,'');assert.equal(got.log.exercises[0].sets[0].note,'');
+ }
+ assert.equal((await db.execute({sql:'SELECT log_json FROM workout_logs WHERE id=?',args:[raw.id]})).rows[0].log_json,json);
+ await assert.rejects(repo.save({id:raw.id,revision:6,log:raw}),{code:'CONFLICT'});
+ const saved=await repo.save({id:raw.id,revision:7,log:raw});assert.equal(saved.revision,8);
+ assert.equal(saved.log.exercises[0].sets[0].note,'');
+});
+
 test('save creates, updates and replays idempotently',async t=>{
  const {repo}=await setup(t);
  const log=mk();

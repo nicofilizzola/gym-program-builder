@@ -31,7 +31,7 @@ const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],seco
 
 /** Active workout logger: sticky header, exercise cards with set rows, add/swap/remove/reorder and Finish. */
 export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onRetry=()=>{}}){
- let log=structuredClone(initial),last=lastTime,destroyed=false,busy=false,addPicker=null,sortable=null;
+ let log=structuredClone(initial),last=lastTime,destroyed=false,busy=false,addPicker=null,sortable=null,relocatingFocus=false;
  const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set(),openSetNotes=new Set();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
  const page=document.createElement('section');page.className='workout-logger';page.dataset.mode=mode;if(readOnly)page.dataset.readonly='true';
@@ -112,7 +112,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
    const input=document.createElement('textarea');input.className='log-note-input';input.rows=2;input.maxLength=WORKOUT_LIMITS.exerciseNoteMax;
    input.addEventListener('input',()=>{growNote(input);commit(setExerciseNote(log,card.li.dataset.exerciseId,input.value));});
    input.addEventListener('blur',()=>{
-    if(card.notePart!==part)return;
+    if(relocatingFocus||card.notePart!==part)return;
     const id=card.li.dataset.exerciseId,current=find(id);
     if(current){const value=normalizeNote(input.value);if(value!==current.note)commit(setExerciseNote(log,id,value));}
     card.editingNote=false;syncNote(card,find(id),true);
@@ -130,7 +130,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
    field.replaceChildren();const mark=document.createElement('span');mark.setAttribute('aria-hidden','true');mark.textContent='✎ ';
    const text=document.createElement('span');text.textContent=ex.note;field.append(mark,text);field.setAttribute('aria-label',`Edit note, ${ex.name}: ${ex.note}`);
   }else if(card.noteKind==='static')field.textContent=ex.note;
-  else{field.setAttribute('aria-label',`Note, ${ex.name}`);if(document.activeElement!==field)field.value=ex.note;growNote(field);}
+  else{field.setAttribute('aria-label',`Note, ${ex.name}`);if(document.activeElement!==field)field.value=ex.note??'';growNote(field);}
  }
  function syncNote(card,ex,animate=false){
   if(!ex)return;
@@ -171,6 +171,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
     row=createSetRow({...props,onPatch:patch=>commit(updateSet(log,ex.id,set.id,patch)),onToggle:()=>toggle(ex.id,set.id),
      onNote:text=>commit(setSetNote(log,ex.id,set.id,text)),
      onNoteBlur:()=>{
+      if(relocatingFocus)return;
       const current=find(ex.id)?.sets.find(s=>s.id===set.id);if(!current)return;
       openSetNotes.delete(set.id);const value=normalizeNote(current.note);
       if(value!==current.note)commit(setSetNote(log,ex.id,set.id,value));else render();
@@ -199,9 +200,13 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   // Moving a node blurs it, so remember the focused control (and its caret) and restore it afterwards.
   const focused=frame.li.contains(document.activeElement)&&!document.activeElement.closest('.is-removing')?document.activeElement:null;
   const range=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd,focused.selectionDirection]:null;
-  for(const child of [...frame.members.children])if(!child.classList.contains('is-removing'))frame.li.before(child);
-  frame.li.remove();
-  if(focused&&focused.isConnected){focused.focus({preventScroll:true});if(range)try{focused.setSelectionRange(...range);}catch{}}
+  // Reparenting emits blur synchronously. It is not completion of the user's note edit.
+  relocatingFocus=true;
+  try{
+   for(const child of [...frame.members.children])if(!child.classList.contains('is-removing'))frame.li.before(child);
+   frame.li.remove();
+   if(focused&&focused.isConnected){focused.focus({preventScroll:true});if(range)try{focused.setSelectionRange(...range);}catch{}}
+  }finally{relocatingFocus=false;}
  }
  /** An unpaired frame closes (rail fades, header collapses) and only then releases its cards. */
  function dissolveFrame(frame,animate){
