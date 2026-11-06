@@ -28,11 +28,11 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   else bar.hide({animate});
  }
  function release(entry=owned){if(!entry||owned!==entry)return;owned=null;entry.sync?.dispose();}
- function own(record,{lastTime=null,dirty=false}={}){
+ function own(record,{lastTime=null,bestPerformance=null,dirty=false}={}){
   release();
-  const entry={sync:null,status:'',conflict:null};
+  const entry={sync:null,status:'',conflict:null,bestRequests:new Map()};
   owned=entry;
-  entry.sync=createWorkoutSync({api,storage,record,lastTime,dirty,timers,events,
+  entry.sync=createWorkoutSync({api,storage,record,lastTime,bestPerformance,dirty,timers,events,
    onStatus:text=>{if(owned!==entry)return;entry.status=text;if(view?.id===record.id)view.setStatus?.(text);if(text==='Sign in to sync')onSignIn();},
    onRecord:value=>{
     // A finished snapshot acknowledged with nothing pending is done: the sync already cleared the mirror.
@@ -248,8 +248,8 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   if(owned||mine!==session)return;
   if(mirror){
    const {action}=recoveryDecision({mirror,server,reachable});
-   if(action==='use-server'){own(server,{lastTime:mirror.lastTime});return;}
-   if(action==='resume-local'||action==='conflict'){own({id:mirror.log.id,revision:mirror.baseRevision,log:mirror.log},{lastTime:mirror.lastTime,dirty:mirror.dirty});return;}
+   if(action==='use-server'){own(server,{lastTime:mirror.lastTime,bestPerformance:mirror.bestPerformance});return;}
+   if(action==='resume-local'||action==='conflict'){own({id:mirror.log.id,revision:mirror.baseRevision,log:mirror.log},{lastTime:mirror.lastTime,bestPerformance:mirror.bestPerformance,dirty:mirror.dirty});return;}
    if(action==='clear-mirror')clearMirror(storage);
   }
   if(reachable&&active)own(active);
@@ -259,8 +259,21 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
  function attach(id,handlers){
   const mine={id,...handlers};view=mine;
   const entry=owned?.sync?.log.id===id?owned:null;
+  async function refreshBest(ids){
+   const target=owned?.sync?.log.id===id?owned:null;if(!target||!ids.length)return;
+   const generations=new Map(ids.map(variantId=>{const generation=(target.bestRequests.get(variantId)||0)+1;target.bestRequests.set(variantId,generation);return [variantId,generation];}));
+   const currentIds=()=>owned===target?ids.filter(variantId=>target.bestRequests.get(variantId)===generations.get(variantId)):[];
+   const publish=status=>{const variantIds=currentIds();if(variantIds.length&&view===mine)mine.setBestStatus?.({variantIds,status});};
+   publish('loading');
+   try{
+    const map=await api.bestPerformance({variantIds:ids,exclude:id}),valid=currentIds();if(!valid.length)return;
+    const merged={...(target.sync.bestPerformance||{})};for(const variantId of valid)if(Object.hasOwn(map,variantId))merged[variantId]=map[variantId];
+    target.sync.setBestPerformance(merged);if(view===mine)mine.setBestPerformance?.(merged);publish('ready');
+   }catch(error){if(owned!==target)return;publish(isNetworkError(error)?'offline':'error');if(!isNetworkError(error)){onError(error);if(error.status===401)onSignIn();}}
+  }
   if(entry){
    handlers.setStatus?.(entry.status);
+   void refreshBest(linkedVariantIds(entry.sync.log));
    if(entry.conflict&&!resolving)queueMicrotask(()=>{if(owned===entry&&entry.conflict)resolveConflict(entry,entry.conflict);});
    if(entry.sync.lastTime===null){
     const ids=linkedVariantIds(entry.sync.log);
@@ -274,6 +287,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
    async onDiscard(){if(forMe()&&await discard())await navigate('#/workouts');},
    /** Retry after a paused non-network failure (`Couldn’t save`). */
    onRetry(){return forMe()?.sync.resume().catch(()=>{});},
+   onBestPerformanceNeeded:refreshBest,
    async onLastTimeNeeded(ids){
     const target=forMe();if(!target)return;
     const wanted=target.sync.lastTime===null?linkedVariantIds(target.sync.log):ids;
@@ -290,7 +304,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
 
  return {
   boot,start,finish,discard,attach,refreshBar,
-  get current(){return isActive()?{sync:owned.sync,log:owned.sync.log,lastTime:owned.sync.lastTime}:null;},
+  get current(){return isActive()?{sync:owned.sync,log:owned.sync.log,lastTime:owned.sync.lastTime,bestPerformance:owned.sync.bestPerformance}:null;},
   /** Adopts an active server log (from another device) unless unsynced local changes are owned; true when this log is owned. */
   adopt(record){
    if(ownedId()===record.id)return true;
@@ -303,7 +317,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
    own(record);return true;
   },
   owns:id=>ownedId()===id,
-  snapshot(){return owned?.sync?{log:owned.sync.log,lastTime:owned.sync.lastTime}:null;},
+  snapshot(){return owned?.sync?{log:owned.sync.log,lastTime:owned.sync.lastTime,bestPerformance:owned.sync.bestPerformance}:null;},
   /** Best effort before Log out: saves pending workout edits while still signed in. */
   flush(){return owned?.sync?owned.sync.flush().catch(()=>{}):Promise.resolve();},
   /** After Log out: stop syncing and hide the bar. The mirror stays, so signing in again recovers the workout. */

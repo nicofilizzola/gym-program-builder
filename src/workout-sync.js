@@ -11,7 +11,7 @@ export function readMirror(storage){
  try {
   const value=JSON.parse(storage.getItem(MIRROR_KEY));
   if(!value||typeof value!=='object'||!value.log||typeof value.log!=='object'||!isRevision(value.baseRevision)||typeof value.dirty!=='boolean')return null;
-  return {log:value.log,baseRevision:value.baseRevision,dirty:value.dirty,lastTime:value.lastTime??null};
+  return {log:value.log,baseRevision:value.baseRevision,dirty:value.dirty,lastTime:value.lastTime??null,bestPerformance:value.bestPerformance??null};
  }catch {return null;}
 }
 export function writeMirror(storage,mirror){
@@ -39,13 +39,13 @@ export function recoveryDecision({mirror,server,reachable}){
  return decide(server.revision===mirror.baseRevision?'resume-local':'conflict');
 }
 
-export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,timers=globalThis,events=globalThis,onStatus=()=>{},onRecord=()=>{},onConflict=()=>{}}){
+export function createWorkoutSync({api,storage,record,lastTime=null,bestPerformance=null,dirty=false,timers=globalThis,events=globalThis,onStatus=()=>{},onRecord=()=>{},onConflict=()=>{}}){
  const id=record.id;
- let log=upgradeLog(structuredClone(record.log)),revision=record.revision,last=lastTime;
+ let log=upgradeLog(structuredClone(record.log)),revision=record.revision,last=lastTime,best=bestPerformance;
  let lastError=null,reason=null,attempt=0,retryTimer=null,mirrorFailed=false,quiet=false,disposed=false;
 
  const mirror=isDirty=>{
-  if(writeMirror(storage,{log,baseRevision:revision,dirty:isDirty,lastTime:last}))return true;
+  if(writeMirror(storage,{log,baseRevision:revision,dirty:isDirty,lastTime:last,bestPerformance:best}))return true;
   // Never leave a copy older than memory behind: on reload it could pass for this device's version.
   clearMirror(storage);mirrorFailed=true;return false;
  };
@@ -103,6 +103,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
 
  return {
   change,
+  setBestPerformance(map){if(disposed)return;best=map;const pending=autosave.isDirty();if(pending||log.status!=='finished')mirror(pending);},
   setLastTime(map){if(disposed)return;last=map;const pending=autosave.isDirty();if(pending||log.status!=='finished')mirror(pending);},
   flush:()=>autosave.flush(),
   /** The server's copy of this log (null when it is gone), after any in-flight save settles. */
@@ -157,6 +158,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,dirty=false,
   isDirty:()=>autosave.isDirty(),
   get log(){return structuredClone(log);},
   get revision(){return revision;},
-  get lastTime(){return last;}
+  get lastTime(){return last;},
+  get bestPerformance(){return best;}
  };
 }

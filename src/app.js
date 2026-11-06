@@ -295,10 +295,10 @@ async function prepareWorkout(route){
  const editFinished=log.status==='finished'&&!local;
  const lastTime=local?local.lastTime:await (linkedVariantIds(log).length?api.lastTime({variantIds:linkedVariantIds(log),exclude:route.id}).catch(error=>{if(isNetworkError(error))return null;report(error);return {};}):Promise.resolve({}));
  const commit=()=>{
-  let logger=null,binding=null,change=null;
+  let logger=null,binding=null,change=null,disposed=false;const bestRequests=new Map();
   if(editFinished)change=track(workoutRecord(record));
-  const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map)};
-  logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
+  const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map),setBestPerformance:map=>logger?.setBestPerformance(map),setBestStatus:value=>logger?.setBestStatus(value)};
+  logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,bestPerformance:local?.bestPerformance??null,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
    onChange:value=>(change||binding?.onChange)?.(value),
    onDelete:async()=>{
     await queue.flush();
@@ -309,13 +309,23 @@ async function prepareWorkout(route){
    onFinish:()=>binding?.onFinish(),
    onDiscard:()=>binding?.onDiscard(),
    onRetry:()=>binding?.onRetry(),
+   onBestPerformanceNeeded:ids=>binding?binding.onBestPerformanceNeeded(ids):finishedBest(ids),
    onLastTimeNeeded:ids=>binding?binding.onLastTimeNeeded(ids):editFinished?finishedLastTime(ids):Promise.resolve()});
   const finishedLastTime=async ids=>{
    const map=await api.lastTime({variantIds:ids,exclude:route.id});
    if(mounted?.setLog&&logger)logger.setLastTime(map);
   };
+  const finishedBest=async ids=>{
+   if(!ids.length||disposed)return;
+   const versions=new Map(ids.map(id=>{const n=(bestRequests.get(id)||0)+1;bestRequests.set(id,n);return [id,n];}));
+   const validIds=()=>disposed?[]:ids.filter(id=>bestRequests.get(id)===versions.get(id));
+   logger.setBestStatus({variantIds:ids,status:'loading'});
+   try{const map=await api.bestPerformance({variantIds:ids,exclude:route.id});const valid=validIds();if(valid.length){logger.setBestPerformance(Object.fromEntries(valid.filter(id=>Object.hasOwn(map,id)).map(id=>[id,map[id]])));logger.setBestStatus({variantIds:valid,status:'ready'});}}
+   catch(error){const valid=validIds();if(!valid.length)return;logger.setBestStatus({variantIds:valid,status:isNetworkError(error)?'offline':'error'});if(!isNetworkError(error))report(error);}
+  };
   if(owned)binding=workouts.attach(route.id,handlers);
-  mounted={destroy(){binding?.detach();logger.destroy();},setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft()};
+  else void finishedBest(linkedVariantIds(log));
+  mounted={destroy(){disposed=true;binding?.detach();logger.destroy();},setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft()};
  };
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;

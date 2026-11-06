@@ -24,7 +24,7 @@ function fakeApi(over={}){
    if(l.status==='active'&&[...records.values()].some(r=>r.id!==id&&r.log.status==='active'))throw httpError(409,'active_exists');
    const r={id,revision:revision+1,log:structuredClone(l)};records.set(id,r);return structuredClone(r);},
   deleteWorkout:async({id,revision})=>{calls.push(['delete',id,revision]);const stored=records.get(id);if(!stored)return;if(stored.revision!==revision)throw httpError(409,'revision_conflict');records.delete(id);},
-  lastTime:async()=>({}),
+  lastTime:async()=>({}),bestPerformance:async()=>({}),
   ...over};
  return api;
 }
@@ -281,4 +281,29 @@ test('signOut releases the sync and hides the bar but keeps the mirror; the next
  await settle();assert.equal(api.records.has(id),false,'a released sync never saves');
  await controller.boot();
  assert.equal(controller.current.log.name,'Unsynced');controller.current.sync.dispose();
+});
+
+
+test('Best refreshes every attach, replaces empties, retains failures and rejects late requests',async()=>{
+ const pending=[],api=fakeApi({bestPerformance:()=>new Promise((resolve,reject)=>pending.push({resolve,reject}))});
+ api.records.set('w1',{id:'w1',revision:1,log:log({logVersion:2,exercises:[doneExercise],note:'keep'})});
+ const {controller,storage}=make({api});await controller.boot();
+ const seen=[],states=[];const first=controller.attach('w1',{setBestPerformance:m=>seen.push(m),setBestStatus:s=>states.push(s)});
+ assert.equal(pending.length,1);
+ const candidate={weightKg:100,reps:8,logId:'old',finishedAt:'2026-11-01T11:00:00Z'};
+ const newer=first.onBestPerformanceNeeded(['v1']);pending[1].resolve({v1:[candidate]});await newer;
+ pending[0].resolve({v1:[]});await settle();assert.deepEqual(controller.snapshot().bestPerformance,{v1:[candidate]});
+ assert.equal(readMirror(storage).log.note,'keep');assert.equal(api.calls.filter(x=>x[0]==='save').length,0);
+ const failed=first.onBestPerformanceNeeded(['v1']);pending[2].reject(offline());await failed;assert.equal(controller.snapshot().bestPerformance.v1[0].weightKg,100);
+ first.detach();const second=controller.attach('w1',{setBestPerformance:m=>seen.push(m)});assert.equal(pending.length,4);
+ pending[3].resolve({v1:[]});await settle();assert.deepEqual(controller.snapshot().bestPerformance,{v1:[]});
+ const count=seen.length,late=second.onBestPerformanceNeeded(['v1']);second.detach();pending[4].resolve({v1:[candidate]});await late;assert.equal(seen.length,count);
+ assert.ok(states.some(s=>s.status==='loading'));controller.current.sync.dispose();
+});
+
+test('Best failures leave Last time independent and cannot update replaced owners',async()=>{
+ let resolveBest;const api=fakeApi({bestPerformance:()=>new Promise(r=>{resolveBest=r;}),lastTime:async()=>({v1:{sets:[]}})});
+ api.records.set('w1',{id:'w1',revision:1,log:log({logVersion:2,exercises:[doneExercise]})});
+ const {controller}=make({api});await controller.boot();const seen=[];controller.attach('w1',{setBestPerformance:m=>seen.push(m)});await settle();
+ assert.deepEqual(controller.snapshot().lastTime,{v1:{sets:[]}});controller.signOut();resolveBest({v1:[]});await settle();assert.equal(seen.length,0);
 });

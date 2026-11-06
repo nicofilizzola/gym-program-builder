@@ -57,7 +57,7 @@ test('error classification',()=>{
 });
 
 test('mirror helpers read, write and clear; corrupt or failing storage reads as null',()=>{
- const s=memoryStorage();const m={log:log(),baseRevision:2,dirty:true,lastTime:{v:{sets:[]}}};
+ const s=memoryStorage();const m={log:log(),baseRevision:2,dirty:true,lastTime:{v:{sets:[]}},bestPerformance:null};
  assert.equal(readMirror(s),null);
  assert.equal(writeMirror(s,m),true);assert.deepEqual(readMirror(s),m);assert.ok(s.map.has(MIRROR_KEY));
  clearMirror(s);assert.equal(readMirror(s),null);
@@ -343,4 +343,14 @@ test('a version 1 mirror snapshot recovers with notes',()=>{
  assert.equal(recoveryDecision({mirror,server:{id:'w1',revision:3,log:v1},reachable:true}).action,'resume-local');
  const r=validateWorkoutLog(mirror.log);
  assert.equal(r.log.exercises[0].note,'');assert.equal(r.log.exercises[0].sets[0].note,'');
+});
+
+
+test('best cache defaults legacy mirrors, survives dirty note sync and does not save history',async()=>{
+ const api=echoApi(),{sync,storage}=make({api,record:{id:'w1',revision:3,log:log({note:'Pending note'})},dirty:true});
+ assert.equal(sync.bestPerformance,null);
+ sync.setBestPerformance({v1:[]});assert.deepEqual(readMirror(storage).bestPerformance,{v1:[]});assert.equal(readMirror(storage).dirty,true);
+ assert.equal(sync.log.note,'Pending note');await sync.flush();assert.equal(api.calls[0].revision,3);assert.equal(api.calls[0].log.note,'Pending note');
+ sync.setBestPerformance({v1:[]});assert.equal(sync.isDirty(),false);assert.equal(api.calls.length,1);sync.dispose();
+ const old=memoryStorage();writeMirror(old,{log:log(),baseRevision:4,dirty:true});assert.equal(readMirror(old).bestPerformance,null);
 });
