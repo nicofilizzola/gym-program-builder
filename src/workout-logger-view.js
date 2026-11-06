@@ -3,8 +3,8 @@ import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {mountExercisePicker} from './exercise-picker.js';
 import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
-import {validateWorkoutLog,WORKOUT_LIMITS} from './workout-log.js';
-import {setLogName,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
+import {validateWorkoutLog,WORKOUT_LIMITS,normalizeNote} from './workout-log.js';
+import {setLogName,setExerciseNote,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
 import {formatLastTime,setPlaceholder,formatElapsed} from './workout-sets.js';
 import {createSetRow,updateSetRow} from './workout-set-row.js';
 import {supersetBlocks} from './superset.js';
@@ -79,9 +79,9 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
  function createCard(ex){
   const li=document.createElement('li');li.className='log-exercise collapsible';li.dataset.exerciseId=ex.id;li.dataset.blockKey=ex.id;
   const headingId='log-exercise-'+uid();li.setAttribute('aria-labelledby',headingId);
-  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><p class="log-last-time"><span class="log-last-label"></span><span class="log-last-value"></span></p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><div class="log-set-actions"><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button><button type="button" class="secondary-btn log-add-warmup">${actionIcon('plus')}Add warm-up</button></div></div></div>`;
+  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><p class="log-last-time"><span class="log-last-label"></span><span class="log-last-value"></span></p><p class="log-last-note" hidden></p><div class="log-note"></div><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><div class="log-set-actions"><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button><button type="button" class="secondary-btn log-add-warmup">${actionIcon('plus')}Add warm-up</button></div></div></div>`;
   const q=selector=>li.querySelector(selector);
-  const card={li,rows:new Map(),picker:null,heading:q('h2'),equipment:q('.log-equipment'),label:q('.log-last-label'),value:q('.log-last-value'),
+  const card={li,rows:new Map(),picker:null,heading:q('h2'),equipment:q('.log-equipment'),label:q('.log-last-label'),value:q('.log-last-value'),lastNote:q('.log-last-note'),noteHost:q('.log-note'),notePart:null,noteKind:'none',editingNote:false,
    swap:q('[data-card-action="swap"]'),reorder:q('[data-card-action="reorder"]'),remove:q('[data-card-action="remove"]'),swapArea:q('.log-picker'),sets:q('.log-sets'),addSet:q('.log-add-set'),addWarmup:q('.log-add-warmup'),setActions:q('.log-set-actions')};
   card.swapArea.lastElementChild.addEventListener('click',()=>{closeSwap(card);card.swap.focus();});
   card.swapArea.addEventListener('keydown',event=>{if(event.key==='Escape'&&event.target.getAttribute('aria-expanded')==='false'){closeSwap(card);card.swap.focus();}},true);
@@ -90,9 +90,75 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,mode='act
   card.setActions.hidden=card.swap.parentElement.hidden=!editable;
   return card;
  }
+ const growNote=input=>{input.style.height='auto';input.style.height=input.scrollHeight+'px';};
+ /** The note control for the card's current state: add button, textarea, saved text or (read-only) plain text. */
+ function noteKind(card,ex){
+  if(!editable)return ex.note?'static':'none';
+  return card.editingNote?'edit':ex.note?'text':'add';
+ }
+ function buildNotePart(card,kind,ex){
+  const part=document.createElement('div');part.className='log-note-part collapsible';
+  const inner=document.createElement('div');part.append(inner);
+  if(kind==='add'){
+   const button=document.createElement('button');button.type='button';button.className='log-note-add';
+   button.textContent='✎ Add note';button.setAttribute('aria-label',`Add note, ${ex.name}`);
+   button.addEventListener('click',()=>openNote(card));inner.append(button);
+  }else if(kind==='text'){
+   const button=document.createElement('button');button.type='button';button.className='log-note-text';
+   button.addEventListener('click',()=>openNote(card));inner.append(button);
+  }else if(kind==='static'){
+   const text=document.createElement('p');text.className='log-note-static';inner.append(text);
+  }else{
+   const input=document.createElement('textarea');input.className='log-note-input';input.rows=2;input.maxLength=WORKOUT_LIMITS.exerciseNoteMax;
+   input.addEventListener('input',()=>{growNote(input);commit(setExerciseNote(log,card.li.dataset.exerciseId,input.value));});
+   input.addEventListener('blur',()=>{
+    if(card.notePart!==part)return;
+    const id=card.li.dataset.exerciseId,current=find(id);
+    if(current){const value=normalizeNote(input.value);if(value!==current.note)commit(setExerciseNote(log,id,value));}
+    card.editingNote=false;syncNote(card,find(id),true);
+   });
+   inner.append(input);
+  }
+  return part;
+ }
+ /** Fill the visible part from the exercise; a focused textarea keeps what is being typed. */
+ function fillNote(card,ex){
+  const part=card.notePart;if(!part)return;
+  const field=part.querySelector('button,textarea,p');
+  if(card.noteKind==='add')field.setAttribute('aria-label',`Add note, ${ex.name}`);
+  else if(card.noteKind==='text'){
+   field.replaceChildren();const mark=document.createElement('span');mark.setAttribute('aria-hidden','true');mark.textContent='✎ ';
+   const text=document.createElement('span');text.textContent=ex.note;field.append(mark,text);field.setAttribute('aria-label',`Edit note, ${ex.name}: ${ex.note}`);
+  }else if(card.noteKind==='static')field.textContent=ex.note;
+  else{field.setAttribute('aria-label',`Note, ${ex.name}`);if(document.activeElement!==field)field.value=ex.note;growNote(field);}
+ }
+ function syncNote(card,ex,animate=false){
+  if(!ex)return;
+  const kind=noteKind(card,ex);
+  if(kind!==card.noteKind){
+   if(card.notePart)collapseOut(card.notePart,animate);
+   card.noteKind=kind;card.notePart=null;
+   if(kind!=='none'){
+    const part=buildNotePart(card,kind,ex);card.notePart=part;
+    if(animate&&!reducedMotion.matches)part.classList.add('is-closed');
+    card.noteHost.append(part);fillNote(card,ex);
+    if(animate)reveal(part);
+   }
+  }else fillNote(card,ex);
+  card.noteHost.hidden=kind==='none';
+ }
+ function openNote(card){
+  card.editingNote=true;syncNote(card,find(card.li.dataset.exerciseId),true);
+  const input=card.notePart?.querySelector('textarea');
+  if(input){input.focus({preventScroll:false});input.setSelectionRange(input.value.length,input.value.length);}
+ }
  function updateCard(card,ex,animate,label=''){
   card.heading.textContent=label?`${label} ${ex.name}`:ex.name;card.reorder.hidden=!!label;card.equipment.textContent=ex.equipment||'';card.equipment.hidden=!ex.equipment;
   const shown=lastText(ex);card.label.textContent=shown.label||'';card.label.hidden=!shown.label;card.value.textContent=shown.text;
+  const lastNote=last&&ex.variantId&&!unavailable.has(ex.variantId)?last[ex.variantId]?.note:'';
+  card.lastNote.hidden=!lastNote;card.lastNote.title=lastNote||'';
+  if(lastNote){card.lastNote.replaceChildren();const hidden=document.createElement('span');hidden.className='visually-hidden';hidden.textContent='Last time note:';card.lastNote.append(hidden,`“${lastNote}”`);}
+  syncNote(card,ex);
   card.swap.setAttribute('aria-label',`Swap exercise ${ex.name}`);card.reorder.setAttribute('aria-label',`Reorder ${ex.name}`);card.remove.setAttribute('aria-label',`Remove exercise ${ex.name}`);
   card.addSet.setAttribute('aria-label',`Add set, ${ex.name}`);card.addWarmup.setAttribute('aria-label',`Add warm-up, ${ex.name}`);card.addSet.disabled=card.addWarmup.disabled=ex.sets.length>=WORKOUT_LIMITS.sets;
   for(const [id,row] of card.rows)if(!ex.sets.some(s=>s.id===id)){card.rows.delete(id);collapseOut(row,animate);}

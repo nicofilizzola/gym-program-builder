@@ -2192,6 +2192,20 @@ p.limit-hint {display:flex}
 @media (prefers-reduced-motion:reduce) {.log-superset,.log-superset::before {transition:none}}
 .log-last-time {margin:6px 0 8px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
 .log-last-label {margin-right:6px;color:var(--text);font-weight:600}
+.log-last-note {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:-4px 0 8px;color:var(--muted);font-size:.8125rem;font-style:italic;overflow-wrap:anywhere}
+/* Exercise note: quiet button, auto-growing textarea or saved text, each in a .collapsible part (200ms). Padding gives focus rings room inside the clip. */
+.log-note {margin:0 0 8px}
+.workout-logger .log-note-part > * {margin:0 -4px;padding:4px}
+.workout-logger .log-note-part.is-closed > * {padding-top:0;padding-bottom:0}
+.log-note-add,.log-note-text {display:block;box-sizing:border-box;width:auto;max-width:100%;min-height:44px;margin:0;padding:6px 8px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-size:.875rem;line-height:1.4;text-align:left;cursor:pointer;overflow-wrap:anywhere;white-space:pre-wrap}
+.log-note-add {margin-left:-8px}
+.log-note-text {width:100%;margin-left:-8px;width:calc(100% + 8px)}
+.log-note-add:hover,.log-note-text:hover {color:var(--text);background:var(--surface-2)}
+.log-note-add:focus-visible,.log-note-text:focus-visible,.log-note-input:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+.log-note-input {box-sizing:border-box;display:block;width:100%;min-height:3.5rem;max-height:14rem;resize:none;overflow-y:auto;padding:8px 10px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;font:inherit;font-size:.9375rem;line-height:1.4}
+.log-note-static {margin:0;color:var(--muted);font-size:.875rem;white-space:pre-wrap;overflow-wrap:anywhere}
+@media (min-width:1100px) and (pointer:fine) and (not (any-pointer:coarse)) {.log-note-add,.log-note-text {min-height:32px;padding-block:4px}}
+@media (prefers-reduced-motion:reduce) {.log-note-part,.log-note-part > * {transition:none}}
 .log-picker {display:grid;gap:8px;margin:0 0 12px}
 .log-picker > .secondary-btn {justify-self:start}
 /* Set grid: # | kg (1.15fr) | reps (1fr) | 44px. Line 1 holds the steppers and done; line 2 the RIR caption (number column), the segmented RIR group (kg to reps) and the set menu; line 3 is the note slot. Rows run edge to edge so separators and the done tint span the card. */
