@@ -4,6 +4,20 @@ Date: 2026-11-07. Branch: `feat/mobile-training-home`. Implements the approved
 [design](../specs/2026-11-06-mobile-training-home-design.md) and
 [plan](../plans/2026-11-06-mobile-training-home.md).
 
+## Verified local integration
+
+On 2026-11-07, the user selected local merge into `main`. The main checkout was
+clean, `git pull --ff-only` reported Already up to date, and
+`git merge --ff-only feat/mobile-training-home` advanced `main` from `c3ea0ba`
+to `81c8d2b` without conflicts.
+
+Post-merge checks in the main checkout passed: `npm.cmd test` (431/431),
+`npm.cmd run build`, `git diff --check`, and the focused Home, Home view,
+cover and mobile-navigation Playwright suites (16/16 in 20.5 seconds).
+The host-managed worktree and its feature branch remain attached for the host
+to manage; no workspace-exit/removal tool is available. Nothing was pushed or
+deployed, and deployment/device limitations below remain unchanged.
+
 ## Local evidence
 
 - Baseline: `npm.cmd test`, 413 passing tests.
