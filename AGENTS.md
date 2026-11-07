@@ -1,5 +1,16 @@
 # Gym Program Builder
 
+## Mobile Library navigation and swiping (2026-11-07)
+
+Design: docs/superpowers/specs/2026-11-07-mobile-library-navigation-design.md; plan: docs/superpowers/plans/2026-11-07-mobile-library-navigation.md; evidence: docs/superpowers/verification/2026-11-07-mobile-library-navigation.md. Supersedes older mobile header/tab rules where they conflict.
+
+- At ≤760px the bottom destinations are Home, Library, History and User. User is a full page at `#/user`, with Training profile and Log out. Desktop keeps its four original links and header account controls; explicit routes survive resize.
+- Library groups existing `#/programs`, `#/templates` and `#/catalog` roots with Programs/Templates/Exercises links. Remember the last section in memory only. Nested routes keep breadcrumbs and grouping; no new data model or export format.
+- Touch swipes traverse Home ↔ Library ↔ History ↔ User, one destination at a time, without wrapping. Enable only on root pages, never editors, Profile, loggers, open modals or interactive controls. Preserve native vertical scrolling, browser edge gestures, typing and reorder ownership. Content and one indicator track the finger; settle 220ms, cancel 180ms, reduced motion instant.
+- Gesture/load previews are inert, aria-hidden and free of duplicate IDs/live announcements. Never mount extra live Home/logger controllers. Commit through guarded navigation, restore list extent before scroll, reject stale responses, and clear session memory on auth changes.
+- Mobile shared save/recovery nodes move into explicit page-heading slots and retain identity/focus; desktop keeps its header placement. Active logging retains its own sync feedback. Required load failure retains the source, except offline Finish may show the local pending finish with an explicit History load error.
+- Preserve workout mirrors, controller/bar reservations, first-page recommendation semantics and pending-finish deduplication. No migration, new offline creation or PWA support. Never claim a pending deployment was verified.
+
 ## Mobile training home (2026-11-07)
 
 Design: docs/superpowers/specs/2026-11-06-mobile-training-home-design.md; plan: docs/superpowers/plans/2026-11-06-mobile-training-home.md; evidence: docs/superpowers/verification/2026-11-06-mobile-training-home.md.

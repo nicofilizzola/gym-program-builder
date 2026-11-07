@@ -1,7 +1,7 @@
 # Mobile Library navigation, User page and swiping
 
 Date: 2026-11-07
-Status: Approved, including swipe navigation and the full-page User amendments. The user requested implementation planning on 2026-11-07. Native implementation started on branch `feat/mobile-library-navigation`.
+Status: Approved, including swipe navigation and the full-page User amendments. Implemented on branch `feat/mobile-library-navigation`; local evidence recorded on 2026-11-08. Physical-device and deployment checks remain unverified.
 
 ## Intent and agreed direction
 

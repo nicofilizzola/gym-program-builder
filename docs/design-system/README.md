@@ -12,8 +12,8 @@ is a collapsed disclosure with four labeled native radios; choices use the exist
 border/radius and focus colors. Covers are local WebP assets with bundled credits.
 The disclosure follows the shared 200ms collapsible pattern and is inert when closed.
 
-At ≤760px the five bottom tabs are Programs, Templates, Home, History and Catalog;
-Home is centered and is the empty-entry landing page. Desktop retains its four
+At ≤760px the four bottom destinations are Home, Library, History and User;
+Home is the empty-entry landing page. Desktop retains its four
 navigation items and Programs entry. Home shows no history. Use 12px gutters,
 about 20px cover inset, condensed session type around 48px, a ≥54px Start/Resume
 button and ≥44px secondary actions. Fit normal phone heights with a flexible
@@ -27,9 +27,7 @@ controls. A removed focused setup action transfers focus to the surviving action
 - **Colour never stands alone.** Every body map colour is paired with the heat legend and the volume list's numbers (and the readout), the direct/indirect bar segments with the split as text (readout, row accessible name), every status colour with the `volume / goal` value, the met checkmark and the hidden status word, and every highlight with a text tag.
 - **Simple over clever.** Hand-written CSS, inline SVG, no icon fonts, no emoji as icons.
 
-## Feature design and review checklist
-
-### Mobile navigation (2026-11-07)
+## Mobile navigation (2026-11-07)
 
 At 760px and below, use four fixed, labeled destinations: Home, Library,
 History and User. Library groups Programs, Templates and Exercises using
@@ -37,6 +35,8 @@ the existing canonical routes. User is a full page with Training profile
 and a separated Log out action. Keep the existing typography, surfaces,
 orange accent, safe-area padding and 44px targets. Desktop retains its
 four navigation links and account controls.
+
+## Feature design and review checklist
 
 Use this checklist while designing, implementing and reviewing every UI change. Record decisions in the feature's existing spec/plan or short design note; a separate document is unnecessary. This is guidance for future changes, not a claim that every existing component already meets it.
 
