@@ -9,7 +9,7 @@ test.afterEach(async({page})=>{await resetWorkouts(page).catch(()=>{});});
 
 test('tab bar navigates with short accessible names',async({page})=>{
  await login(page);
- for(const name of ['Programs','Templates','Home','History','Catalog'])await expect(nav(page).getByRole('link',{name,exact:true})).toBeVisible();
+ for(const name of ['Home','Library','History','User'])await expect(nav(page).getByRole('link',{name,exact:true})).toBeVisible();
  const box=await nav(page).boundingBox();
  expect(box.y+box.height).toBeCloseTo(844,0);expect(box.height).toBeGreaterThanOrEqual(56);
  for(const link of await nav(page).getByRole('link').all()){const b=await link.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
@@ -25,7 +25,7 @@ test('resume bar stacks above the tab bar and both hide while typing',async({pag
  await page.getByRole('button',{name:'Start workout'}).first().click();
  await page.getByRole('button',{name:'Blank workout'}).click();
  const name=page.getByRole('textbox',{name:'Workout name'});await expect(name).toBeVisible();
- await nav(page).getByRole('link',{name:'Programs'}).click();
+ await nav(page).getByRole('link',{name:'Library'}).click();
  const bar=page.locator('.workout-bar');await expect(bar).toBeVisible();
  const barBox=await bar.boundingBox(),navBox=await nav(page).boundingBox();
  expect(barBox.y+barBox.height).toBeCloseTo(navBox.y,0);
@@ -42,7 +42,7 @@ test('resume bar stacks above the tab bar and both hide while typing',async({pag
 
 test('a focused slider keeps the tab bar',async({page})=>{
  await login(page);
- await page.getByRole('button',{name:'Profile'}).click();
+ await nav(page).getByRole('link',{name:'User',exact:true}).click();await page.getByRole('link',{name:'Training profile',exact:true}).click();
  await page.getByRole('slider').first().focus();
  await page.waitForTimeout(250);
  const box=await nav(page).boundingBox();expect(box.y+box.height).toBeCloseTo(844,0);
@@ -57,7 +57,7 @@ test('desktop keeps the full header labels',async({page})=>{
 
 test('the session editor volume panel stays pinned above the tab bar',async({page})=>{
  await login(page);
- await nav(page).getByRole('link',{name:'Templates'}).click();
+ await nav(page).getByRole('link',{name:'Library',exact:true}).click();await page.getByRole('navigation',{name:'Library sections'}).getByRole('link',{name:'Templates',exact:true}).click();
  await page.getByRole('button',{name:'New session template',exact:true}).click();
  const panel=page.locator('.panel');await expect(panel).toBeVisible();
  const panelBox=await panel.boundingBox(),navBox=await nav(page).boundingBox();

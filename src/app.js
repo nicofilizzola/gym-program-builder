@@ -19,6 +19,10 @@ import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
+import {createMobileNavigationState} from './mobile-navigation-state.js';
+import {mountMobileNavigation} from './mobile-navigation.js';
+import {mountLibraryNavigation} from './library-navigation.js';
+import {mountUserView} from './user-view.js';
 import {normalizeProfile} from './profile.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
@@ -30,7 +34,8 @@ import {parseDocument,serializeDocument,documentFileName} from './document-file.
 
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
-let breadcrumb,updateCurrentBreadcrumb=()=>{};
+let breadcrumb,libraryNavigation,updateCurrentBreadcrumb=()=>{};
+const mobileNavigationState=createMobileNavigationState();
 const entryHash=hash=>resolveEntryHash(hash,{mobile:matchMedia('(max-width:760px)').matches});
 let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=entryHash(location.hash),authenticated=false,transitioning=false,creation=null,mountedVersion=0;
 const retryCreation=document.querySelector('#retry-creation');
@@ -69,7 +74,7 @@ const startWorkout=action(options=>workouts.start(options));
 const SIGNED_OUT_KEY='gpb.signedOut';
 function signedOut(){try{return localStorage.getItem(SIGNED_OUT_KEY)==='1';}catch{return false;}}
 function setSignedOut(value){try{if(value)localStorage.setItem(SIGNED_OUT_KEY,'1');else localStorage.removeItem(SIGNED_OUT_KEY);}catch{/* storage unavailable */}}
-function clearView(){limitView=null;cancelConfirmations();breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
+function clearView(){limitView=null;cancelConfirmations();libraryNavigation?.destroy();libraryNavigation=null;breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
  const invoker=document.activeElement;
@@ -114,21 +119,8 @@ async function navigate(hash,{push=true}={}){
  }finally{idle(version);}
 }
 mountTypingState(app);
-const NAV_ICONS={programs:'calendar',templates:'template',home:'home',catalog:'catalog',workouts:'history'};
-document.querySelectorAll('[data-nav]').forEach(link=>link.insertAdjacentHTML('afterbegin',actionIcon(NAV_ICONS[link.dataset.nav])));
 const mobileNavigation=matchMedia('(max-width:760px)'),mainNavigation=document.querySelector('nav[aria-label="Main"]');
-const navigationLinks=new Map([...mainNavigation.querySelectorAll('[data-nav]')].map(link=>[link.dataset.nav,link]));
-function arrangeNavigation(){
- const focused=document.activeElement,hadFocus=mainNavigation.contains(focused);
- const order=mobileNavigation.matches?['programs','templates','home','workouts','catalog']:['programs','templates','catalog','workouts','home'];
- for(const key of order)mainNavigation.append(navigationLinks.get(key));
- if(hadFocus){if(focused.getClientRects().length)focused.focus({preventScroll:true});else focusHeading();}
-}
-arrangeNavigation();mobileNavigation.addEventListener('change',arrangeNavigation);
-document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('click',event=>{
- if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
- event.preventDefault();action(()=>navigate(link.hash))();
-}));
+const mobileNav=mountMobileNavigation(mainNavigation,{state:mobileNavigationState,onNavigate:hash=>action(()=>navigate(hash))()});
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
@@ -155,7 +147,8 @@ function showLogin(resuming=false){
  });
  form.elements.password.focus();
 }
-document.querySelector('#logout').addEventListener('click',action(()=>transition(async()=>{if(!await leave())return;await workouts.flush();await api.logout();setSignedOut(true);workouts.signOut();queue?.dispose();queue=null;active=null;clearView();showLogin();})));
+async function logout(){return transition(async()=>{if(!await leave())return false;await workouts.flush();await api.logout();setSignedOut(true);workouts.signOut();queue?.dispose();queue=null;active=null;clearView();showLogin();return true;});}
+document.querySelector('#logout').addEventListener('click',action(logout));
 profileButton.addEventListener('click',action(()=>navigate('#/profile')));
 retry.addEventListener('click',action(async()=>{await queue?.retry();}));
 reloadSaved.addEventListener('click',action(()=>transition(async()=>{if(!active||!await confirmCurrent({title:'Reload saved version?',message:'Discard local edits and reload the saved version?',confirmLabel:'Reload saved version',destructive:true}))return;if(active.kind==='workout'){const owned=queue,saved=await api.getWorkout(active.id);if(queue!==owned)return;owned.reload(workoutRecord(saved));message.textContent='';mounted?.setLog?.(saved.log);return;}if(active.kind==='profile'){const owned=queue,saved=await api.getProfile();if(queue!==owned)return;owned.reload(profileRecord(saved));message.textContent='';mounted?.setProfile?.(saved.profile);return;}const record=await api.get(active.id);await openRecord(record,++routeVersion);})));
@@ -283,7 +276,8 @@ async function renderRoute(version=++routeVersion){
   const commit=await prepareRoute(route,version);if(version!==routeVersion)return;
   await viewTransition.swap(()=>{
    clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
-   document.querySelectorAll('[data-nav]').forEach(a=>a.setAttribute('aria-current',route.view.startsWith(a.dataset.nav.slice(0,-1))?'page':'false'));
+   mobileNav.commit(currentHash);
+   if(['programs','templates','catalog'].includes(route.view))libraryNavigation=mountLibraryNavigation(app,{hash:currentHash,onNavigate:hash=>action(()=>navigate(hash))()});
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,0);
    workouts.refreshBar({animate:barRendered});barRendered=true;
@@ -371,7 +365,8 @@ async function prepareRoute(route,version){
   if(data&&reference&&(!route.variantId||variant)){commit.canonicalHash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');commit.focus=()=>mounted?.focusTarget?.();}
   return commit;
  }
- if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved));mounted=mountProfileView(createViewHost(),{profile:active.document,onChange});};}
+ if(route.view==='user')return ()=>{mounted=mountUserView(createViewHost(),{onNavigate:hash=>action(()=>navigate(hash))(),onLogout:logout});};
+ if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange});};}
  if(route.view==='workouts'){
   let page,error='';
   // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.

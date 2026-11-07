@@ -41,7 +41,7 @@ test('profile conflict offers Reload saved version only',async({page})=>{
 
 test('profile touch layout keeps 44px targets without horizontal overflow',async({browser})=>{
  const context=await browser.newContext({baseURL:'http://127.0.0.1:3199',viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'}),page=await context.newPage();
- await login(page);const button=page.getByRole('button',{name:'Profile',exact:true});await button.click();await expect(field(page)).toBeVisible();
+ await login(page);const button=page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'User',exact:true});await button.click();await page.getByRole('link',{name:'Training profile',exact:true}).click();await expect(field(page)).toBeVisible();
  const box=await button.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await context.close();
@@ -52,7 +52,7 @@ async function resetProfile(page){
  expect((await page.request.put('/api/profile',{headers,data:{revision,profile:{}}})).ok()).toBeTruthy();
 }
 async function openProfile(page){
- await login(page);await resetProfile(page);await page.getByRole('button',{name:'Profile',exact:true}).click();await expect(field(page)).toBeVisible();
+ await login(page);await resetProfile(page);if(await page.locator('#profile').isVisible())await page.locator('#profile').click();else {await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'User',exact:true}).click();await page.getByRole('link',{name:'Training profile',exact:true}).click();}await expect(field(page)).toBeVisible();
 }
 const savedProfile=async page=>(await (await page.request.get('/api/profile')).json()).profile;
 const slider=(page,name)=>page.getByRole('slider',{name,exact:true});
@@ -152,7 +152,7 @@ test('profile controls use two columns on desktop and keep 44px touch targets',a
  const a=await slider(page,'Max training days per week').boundingBox(),b=await page.getByRole('group',{name:'Available days',exact:true}).boundingBox();
  expect(Math.abs(a.y-b.y)).toBeLessThan(40);expect(b.x).toBeGreaterThan(a.x+a.width-1);
  const context=await browser.newContext({baseURL:'http://127.0.0.1:3199',viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'}),touch=await context.newPage();
- await login(touch);await touch.getByRole('button',{name:'Profile',exact:true}).click();await expect(field(touch)).toBeVisible();
+ await login(touch);await touch.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'User',exact:true}).click();await touch.getByRole('link',{name:'Training profile',exact:true}).click();await expect(field(touch)).toBeVisible();
  for(const target of [touch.getByRole('button',{name:'Monday',exact:true}),touch.getByRole('button',{name:'Barbell',exact:true}),touch.locator('label').filter({has:touch.getByRole('radio',{name:'Beginner (<1 yr)',exact:true})}),sessionsGroup(touch).locator('label').filter({has:touch.getByRole('radio',{name:'1',exact:true})}),slider(touch,'Max session length')]){
   const box=await target.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);expect(box.width).toBeGreaterThanOrEqual(44);
  }

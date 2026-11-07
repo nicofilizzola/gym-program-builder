@@ -14,12 +14,12 @@ async function program(page){
  await page.request.put('/api/settings/active-program',{headers,data:{programId:id}});
  return {id,templateId};
 }
-test('mobile defaults to center Home, history stays separate and explicit routes survive resize',async({page})=>{
+test('mobile defaults to Home, history stays separate and explicit routes survive resize',async({page})=>{
  await page.goto('/');await expect(page.getByRole('heading',{name:'Your training'})).toBeVisible();
  const names=await nav(page).getByRole('link').evaluateAll(links=>links.map(link=>link.innerText.trim()));
- expect(names).toEqual(['Programs','Templates','Home','History','Catalog']);
+ expect(names).toEqual(['Home','Library','History','User']);
  await expect(nav(page).getByRole('link',{name:'Home',exact:true})).toHaveAttribute('aria-current','page');
- const box=await nav(page).getByRole('link',{name:'Home',exact:true}).boundingBox();expect(box.x+box.width/2).toBeCloseTo(195,0);
+ const box=await nav(page).getByRole('link',{name:'Home',exact:true}).boundingBox();expect(box.x+box.width/2).toBeCloseTo(390/8,0);
  await expect(page.locator('.workout-home').getByText(/history/i)).toHaveCount(0);
  await nav(page).getByRole('link',{name:'History',exact:true}).click();await expect(page).toHaveURL(/#\/workouts$/);
  await page.setViewportSize({width:1366,height:768});await expect(page).toHaveURL(/#\/workouts$/);
@@ -45,7 +45,7 @@ test('recommended session starts directly once and Resume keeps its snapshot cov
  await page.context().setOffline(true);await page.getByRole('button',{name:'Resume workout',exact:true}).click();
  await expect(page.getByRole('textbox',{name:'Workout name'})).toBeVisible();
  await nav(page).getByRole('link',{name:'Home',exact:true}).click();await expect(page.getByRole('button',{name:'Resume workout',exact:true})).toBeVisible();
- await page.context().setOffline(false);await nav(page).getByRole('link',{name:'Programs',exact:true}).click();await expect(page.locator('.workout-bar')).toBeVisible();
+ await page.context().setOffline(false);await nav(page).getByRole('link',{name:'Library',exact:true}).click();await expect(page.locator('.workout-bar')).toBeVisible();
 });
 test('fallback opens picker and setup forces Program, then adopts successful activation',async({page})=>{
  await program(page);await page.request.put('/api/settings/active-program',{headers,data:{programId:null}});

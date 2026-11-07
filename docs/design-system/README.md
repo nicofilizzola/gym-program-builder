@@ -29,6 +29,15 @@ controls. A removed focused setup action transfers focus to the surviving action
 
 ## Feature design and review checklist
 
+### Mobile navigation (2026-11-07)
+
+At 760px and below, use four fixed, labeled destinations: Home, Library,
+History and User. Library groups Programs, Templates and Exercises using
+the existing canonical routes. User is a full page with Training profile
+and a separated Log out action. Keep the existing typography, surfaces,
+orange accent, safe-area padding and 44px targets. Desktop retains its
+four navigation links and account controls.
+
 Use this checklist while designing, implementing and reviewing every UI change. Record decisions in the feature's existing spec/plan or short design note; a separate document is unnecessary. This is guidance for future changes, not a claim that every existing component already meets it.
 
 - **Fit the existing screen.** Identify the nearest existing component and reuse its layout, spacing, typography and controls. Put related fields on aligned rows when space allows. Use disclosures for secondary settings. Avoid introducing a new card, heading or vertical section when an existing row or toolbar can hold the control. Let content wrap at narrow widths and enlarged text.
