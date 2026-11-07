@@ -421,7 +421,9 @@ async function prepareRoute(route,version){
   const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
   const lists=Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
   const [historyResult,listResult]=await Promise.allSettled([api.listWorkouts(),lists]);
-  if(historyResult.status==='rejected'){if(mounted||!isNetworkError(historyResult.reason))throw historyResult.reason;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
+  const pendingFinish=workouts.pendingSummary(),sourceRoute=parseRoute(currentHash);
+  const leavingPendingFinish=sourceRoute.view==='workout'&&pendingFinish?.id===sourceRoute.id;
+  if(historyResult.status==='rejected'){if((mounted&&!leavingPendingFinish)||!isNetworkError(historyResult.reason))throw historyResult.reason;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
   else page=historyResult.value;
   if(listResult.status==='rejected')throw listResult.reason;
   const firstHistoryPage=page.records;
