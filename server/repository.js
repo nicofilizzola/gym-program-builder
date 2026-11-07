@@ -1,11 +1,12 @@
 import {validateDocument} from '../src/document-validation.js';
 import {normalizeWorkoutTiming} from '../src/duration.js';
+import {normalizeWorkoutCover} from '../src/workout-cover.js';
 import {resolveCatalogLinks} from './catalog-links.js';
 import {syncProgramLinks,readProgramBundle,templateUsage} from './program-links.js';
 export const domainError=(code,message)=>Object.assign(new Error(message),{code});
 const decode=row=>{
   const saved=JSON.parse(row.document_json);
-  const document=row.kind==='template'?normalizeWorkoutTiming(saved):saved;
+  const document=row.kind==='template'?{...normalizeWorkoutTiming(saved),coverId:normalizeWorkoutCover(saved.coverId)}:saved;
   return {id:row.id,kind:row.kind,revision:Number(row.revision),document,createdAt:row.created_at,updatedAt:row.updated_at};
 };
 export function createRepository(db,{now=()=>new Date().toISOString(),inTransaction=false}={}) {
