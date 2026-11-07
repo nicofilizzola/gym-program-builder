@@ -1,7 +1,19 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {weekStart,upNextProgram,upNextOccurrence,occurrenceLabels,sessionOrder,activeProgram} from '../src/workout-up-next.js';
+import {weekStart,upNextProgram,upNextOccurrence,occurrenceLabels,sessionOrder,activeProgram,recommendationTiming} from '../src/workout-up-next.js';
 import {toLocalIso} from '../src/workout-log.js';
+import {execFileSync} from 'node:child_process';
+
+test('timing distinguishes today, future dates, year changes and sequence',()=>{
+ assert.deepEqual(recommendationTiming({scheduledDate:'2026-11-06'},new Date(2026,10,6)),{text:"Today's session",date:'2026-11-06'});
+ assert.deepEqual(recommendationTiming({scheduledDate:'2026-11-09'},new Date(2026,10,6)),{text:'Up next · Mon, 9 Nov',date:'2026-11-09'});
+ assert.match(recommendationTiming({scheduledDate:'2027-01-04'},new Date(2026,11,31)).text,/2027/);
+ assert.deepEqual(recommendationTiming({scheduledDate:null},new Date()),{text:'Up next',date:null});
+});
+test('Paris DST rollover selects the real next Monday date',()=>{
+ const script=`import {upNextOccurrence} from './src/workout-up-next.js'; console.log(upNextOccurrence({id:'p',mode:'schedule',workouts:[{id:'a',day:0}]},[],new Date(2026,9,25,23,30)).scheduledDate)`;
+ assert.equal(execFileSync(process.execPath,['--input-type=module','-e',script],{env:{...process.env,TZ:'Europe/Paris'},encoding:'utf8'}).trim(),'2026-10-26');
+});
 
 // Local dates so the rules are checked in whatever timezone the tests run in. 2026-11-02 is a Monday.
 const at=(day,hour=10,minute=0)=>new Date(2026,10,day,hour,minute);
@@ -20,7 +32,7 @@ test('weekStart is local Monday 00:00 of the week',()=>{
 });
 
 test('week: nothing logged suggests today or later, never missed days',()=>{
- assert.deepEqual(upNextOccurrence(ppl(),[],at(4)),{occurrenceId:'legs',label:'Thu'});
+ assert.deepEqual(upNextOccurrence(ppl(),[],at(4)),{occurrenceId:'legs',label:'Thu',scheduledDate:'2026-11-05'});
 });
 test('week: earlier days logged',()=>{
  assert.equal(upNextOccurrence(ppl(),[logAt('pull',at(3)),logAt('push',at(2))],at(4)).occurrenceId,'legs');
@@ -29,7 +41,7 @@ test('week: today pending',()=>{
  assert.equal(upNextOccurrence(ppl(),[],at(5)).occurrenceId,'legs');
 });
 test('week: week done wraps to next Monday',()=>{
- assert.deepEqual(upNextOccurrence(ppl(),[logAt('legs',at(5,8))],at(5)),{occurrenceId:'push',label:'Mon'});
+ assert.deepEqual(upNextOccurrence(ppl(),[logAt('legs',at(5,8))],at(5)),{occurrenceId:'push',label:'Mon',scheduledDate:'2026-11-09'});
  assert.equal(upNextOccurrence(ppl(),[logAt('legs',at(4,8))],at(4)).occurrenceId,'push');
 });
 test('week: same-day program order',()=>{
@@ -61,10 +73,10 @@ test('offset in startedAt counts by absolute time',()=>{
 });
 
 test('sequence: no logs suggests the first entry',()=>{
- assert.deepEqual(upNextOccurrence(cycle(),[],at(4)),{occurrenceId:'a',label:'Day 1'});
+ assert.deepEqual(upNextOccurrence(cycle(),[],at(4)),{occurrenceId:'a',label:'Day 1',scheduledDate:null});
 });
 test('sequence: next after the last log, skipping rests',()=>{
- assert.deepEqual(upNextOccurrence(cycle(),[logAt('b',at(3))],at(4)),{occurrenceId:'c',label:'Day 3'});
+ assert.deepEqual(upNextOccurrence(cycle(),[logAt('b',at(3))],at(4)),{occurrenceId:'c',label:'Day 3',scheduledDate:null});
 });
 test('sequence: wraps to the first entry',()=>{
  assert.equal(upNextOccurrence(cycle(),[logAt('c',at(3))],at(4)).occurrenceId,'a');

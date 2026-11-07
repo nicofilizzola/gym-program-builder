@@ -3,6 +3,7 @@ import {getSequence} from './program-sequence.js';
 const SHORT=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const LONG=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const weekday=date=>(date.getDay()+6)%7;
+const localDate=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 const isWeek=program=>program.mode!=='simple';
 const sequenceIds=program=>getSequence(program).filter(e=>e.type==='workout').map(e=>e.workoutId);
 const programLogs=(logs,programId)=>logs.filter(l=>l.source?.kind==='program'&&(programId===null||l.source.programId===programId));
@@ -33,7 +34,7 @@ export function upNextProgram(programs,logs){
 /** `program.id` identifies the program in log sources (set it on a resolved document); logs are newest first. */
 export function upNextOccurrence(program,logs,now){
  const own=programLogs(logs,program.id),labels=occurrenceLabels(program);
- const pick=id=>id===undefined?null:{occurrenceId:id,label:labels.get(id).short};
+ const pick=(id,date=null)=>id===undefined?null:{occurrenceId:id,label:labels.get(id).short,scheduledDate:date&&localDate(date)};
  if(!isWeek(program)){
   const ids=sequenceIds(program);if(!ids.length)return null;
   const last=own.find(l=>ids.includes(l.source.occurrenceId));
@@ -44,7 +45,17 @@ export function upNextOccurrence(program,logs,now){
  const start=weekStart(now).getTime(),end=new Date(now.getFullYear(),now.getMonth(),now.getDate()-weekday(now)+7).getTime();
  const logged=new Set(own.filter(l=>{const t=new Date(l.startedAt).getTime();return t>=start&&t<end;}).map(l=>l.source.occurrenceId));
  const today=weekday(now);
- return pick(scheduled.find(w=>w.day>=today&&!logged.has(w.id))?.id??scheduled[0].id);
+ const remaining=scheduled.find(w=>w.day>=today&&!logged.has(w.id)),selected=remaining??scheduled[0];
+ return pick(selected.id,new Date(now.getFullYear(),now.getMonth(),now.getDate()-today+selected.day+(remaining?0:7)));
+}
+
+export function recommendationTiming(next,now){
+ const date=next.scheduledDate;
+ if(!date)return {text:'Up next',date:null};
+ if(date===localDate(now))return {text:"Today's session",date};
+ const [year,month,day]=date.split('-').map(Number),value=new Date(year,month-1,day);
+ const weekday=value.toLocaleDateString('en-GB',{weekday:'short'}),monthName=value.toLocaleDateString('en-GB',{month:'short'});
+ return {text:`Up next · ${weekday}, ${day} ${monthName}${year===now.getFullYear()?'':' '+year}`,date};
 }
 
 /** The listed program named by the active-program setting, or null when unset or no longer listed. */
