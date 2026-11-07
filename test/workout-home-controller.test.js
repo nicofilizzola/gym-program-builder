@@ -74,3 +74,20 @@ test('new refresh wins out of order and focus/midnight listeners clean up',async
  s.controller.destroy();s.events.dispatchEvent(new Event('focus'));await tick();
  assert.equal(loads,2);assert.equal(s.tasks.size,0);
 });
+test('releasing an active workout with retained recommendation never emits Resume without a log',async()=>{
+ const s=setup();await tick();
+ s.emit({activeLog:{id:'running',status:'active',name:'Running',exercises:[]},pending:null},'ownership');
+ assert.equal(s.states.at(-1).kind,'resume');
+ const wait=deferred();s.api.getSettings=()=>wait.promise;
+ s.emit({activeLog:null,pending:null},'ownership');
+ assert.ok(s.states.every(state=>state.kind!=='resume'||state.activeLog),'Resume always has an active snapshot');
+ wait.resolve({activeProgramId:'p'});await tick();s.controller.destroy();
+});
+test('successful activation arriving after sheet close refreshes the new active program',async()=>{
+ let activeProgramId=null;const s=setup({api:{getSettings:async()=>({activeProgramId})}});await tick();
+ s.controller.choose({setup:true});const sheet=s.sheets.at(-1);
+ sheet.onClosed();await tick();assert.equal(s.states.at(-1).kind,'empty');
+ activeProgramId='p';sheet.onSettingsChanged({activeProgramId:'p'});await tick();
+ assert.equal(s.states.at(-1).kind,'recommendation');assert.equal(s.states.at(-1).canStart,true);
+ s.controller.destroy();
+});

@@ -2,7 +2,6 @@ export const SESSION_MARKUP = `
   <main class="layout">
     <section class="builder">
       <header class="editor-heading"><h1>Session template</h1><label class="field template-name">Session template name <input type="text" data-template-name></label><div data-duration-controls></div></header>
-      <div class="workout-cover-controls" data-workout-cover-controls></div>
       <div class="toolbar">
         <div class="file-actions">
           <button id="start-workout" type="button" class="add-btn" hidden>Start workout</button>
@@ -16,6 +15,7 @@ export const SESSION_MARKUP = `
           </button>
           <input id="import-file" type="file" accept=".json,application/json" hidden>
         </div>
+        <div class="workout-cover-controls" data-workout-cover-controls></div>
         <div id="list-actions" class="list-actions" hidden>
           <button id="expand-all" type="button" class="secondary-btn">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>

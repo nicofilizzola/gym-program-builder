@@ -25,6 +25,7 @@ test('mobile defaults to center Home, history stays separate and explicit routes
  await page.setViewportSize({width:1366,height:768});await expect(page).toHaveURL(/#\/workouts$/);
  await expect(nav(page).getByRole('link',{name:'Workouts',exact:true})).toBeVisible();await expect(nav(page).getByRole('link',{name:'Home',exact:true})).toBeHidden();
  await page.goto('/');await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
+ expect(await nav(page).getByRole('link').evaluateAll(links=>links.filter(link=>link.getBoundingClientRect().width).map(link=>link.innerText.trim()))).toEqual(['Programs','Session templates','Exercise catalog','Workouts']);
 });
 test('recommended session starts directly once and Resume keeps its snapshot cover offline',async({page})=>{
  const {templateId}=await program(page);await page.goto('/#/home');await page.reload();
@@ -50,9 +51,13 @@ test('fallback opens picker and setup forces Program, then adopts successful act
  await program(page);await page.request.put('/api/settings/active-program',{headers,data:{programId:null}});
  await page.goto('/#/home');await page.reload();await page.getByRole('button',{name:'Set active program',exact:true}).click();
  await expect(page.getByRole('tab',{name:'Program',exact:true})).toHaveAttribute('aria-selected','true');
- await page.getByRole('button',{name:/Make .* active/}).click();await page.getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByRole('button',{name:/Make .* active/}).click();
+ await expect(page.locator('.workout-home .home-start')).toBeEnabled();
+ await expect(page.locator('.workout-home [data-setup]')).toBeHidden();
+ await page.getByRole('button',{name:'Close',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Upper body A'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Start workout',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'Start workout',exact:true})).toBeFocused();
 });
 test('populated Home stays reachable across phone, breakpoint, desktop and enlarged text layouts',async({page})=>{
  await program(page);await page.goto('/#/home');await page.reload();
@@ -76,11 +81,14 @@ test('populated Home stays reachable across phone, breakpoint, desktop and enlar
    const style=getComputedStyle(element);element.style.fontSize=parseFloat(style.fontSize)*2+'px';
   }
   document.querySelector('.home-cover h2').textContent='A very long workout session name that must remain readable';
+  document.querySelector('.home-program').textContent='A long active program name with several training priorities and a detailed weekly schedule';
  });
  await page.getByRole('button',{name:'Choose another workout'}).scrollIntoViewIfNeeded();
  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
  const alternative=await page.getByRole('button',{name:'Choose another workout'}).boundingBox(),tabs=await nav(page).boundingBox();
  expect(alternative.y+alternative.height).toBeLessThanOrEqual(tabs.y);
+ const programBox=await page.locator('.home-program').boundingBox(),timingBox=await page.locator('.home-timing').boundingBox();
+ expect(programBox.y+programBox.height).toBeLessThan(timingBox.y);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'.superpowers/sdd/2026-11-06-mobile-training-home/layout-390-enlarged.png',fullPage:true});
 });

@@ -21,7 +21,7 @@ const exerciseCount=n=>`${n} ${n===1?'exercise':'exercises'}`;
  * Opens the Start workout sheet: a bottom sheet at ≤760px, a dialog above. Lists come from the caller
  * (null = failed to load); program sessions load on demand once per sheet. `onStart` runs after the sheet closed.
  */
-export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,activeProgramId=null,onActivate=async id=>({activeProgramId:id}),now=new Date(),initialTab}){
+export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,activeProgramId=null,onActivate=async id=>({activeProgramId:id}),now=new Date(),initialTab,focusFallback=()=>null}){
  const invoker=document.activeElement,uid=`start-sheet-${++sheets}`;
  const dialog=document.createElement('dialog');
  dialog.className='catalog-dialog start-sheet';dialog.setAttribute('aria-labelledby',`${uid}-title`);
@@ -43,7 +43,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
  const field=$('[data-search]'),expanded=new Map();
  const closed=new Promise(resolve=>{resolveClosed=resolve;});
  const tips=mountActionTooltips(dialog);
- const motion=mountDialogMotion(dialog,{duration:()=>narrow()?200:150,onClosed:()=>{tips?.destroy?.();if(invoker?.isConnected)invoker.focus({preventScroll:true});resolveClosed();}});
+ const motion=mountDialogMotion(dialog,{duration:()=>narrow()?200:150,onClosed:()=>{tips?.destroy?.();const target=invoker?.isConnected&&invoker.getClientRects().length?invoker:focusFallback();target?.focus({preventScroll:true});resolveClosed();}});
  const close=()=>{dismissed=true;dialog.style.transform='';dialog.style.transition='';motion.close();};
 
  // Programs load once per sheet; a failed load is forgotten so Retry asks again.

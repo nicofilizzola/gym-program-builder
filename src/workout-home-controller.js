@@ -27,7 +27,7 @@ export function createWorkoutHomeController({api,workouts,launcher,onNavigate,on
  async function refresh(){
   if(disposed)return;
   const mine=++generation,valid=()=>!disposed&&mine===generation;
-  publish({refreshing:true,canStart:false,error:'',...(!state.recommendation&&!snapshot.activeLog?{kind:'loading'}:{})});
+  publish({kind:snapshot.activeLog?'resume':state.recommendation?'recommendation':'loading',refreshing:true,canStart:false,error:''});
   armRollover();
   // Templates are optional for the main cover and may settle after the recommendation.
   Promise.resolve().then(()=>api.list('template')).then(list=>{if(valid())data.templates=list;},error=>{if(valid()){data.templates=null;if(error?.status===401)onError(error);}});
@@ -56,9 +56,10 @@ export function createWorkoutHomeController({api,workouts,launcher,onNavigate,on
  }
  function choose({setup=false}={}){
   if(disposed||state.starting)return;
+  let activated=false;
   return launcher.open({data:{...data,logs:mergedHistory(data.logs,snapshot.pending)},initialTab:setup?'program':undefined,
-   onSettingsChanged:settings=>{if(!disposed){data.activeProgramId=settings.activeProgramId;generation++;publish({canStart:false,refreshing:true});}},
-   onClosed:()=>{if(!disposed)refresh();}});
+   onSettingsChanged:settings=>{if(!disposed){activated=true;data.activeProgramId=settings.activeProgramId;refresh();}},
+   onClosed:()=>{if(!disposed&&!activated)refresh();}});
  }
  async function start(){
   if(disposed||!state.canStart||state.starting||snapshot.activeLog)return false;

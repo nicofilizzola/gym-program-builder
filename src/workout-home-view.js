@@ -64,5 +64,5 @@ export function mountWorkoutHome(root,{state,onStart,onResume,onChoose,onSetup,o
   }
  }
  update(state);
- return {update,destroy(){events.abort();observer?.disconnect();page.remove();}};
+ return {update,focusTarget:()=>[primary,alternative,retry,setup].find(button=>!button.disabled&&!button.closest('[hidden]')),destroy(){events.abort();observer?.disconnect();page.remove();}};
 }

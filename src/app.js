@@ -116,6 +116,15 @@ async function navigate(hash,{push=true}={}){
 mountTypingState(app);
 const NAV_ICONS={programs:'calendar',templates:'template',home:'home',catalog:'catalog',workouts:'history'};
 document.querySelectorAll('[data-nav]').forEach(link=>link.insertAdjacentHTML('afterbegin',actionIcon(NAV_ICONS[link.dataset.nav])));
+const mobileNavigation=matchMedia('(max-width:760px)'),mainNavigation=document.querySelector('nav[aria-label="Main"]');
+const navigationLinks=new Map([...mainNavigation.querySelectorAll('[data-nav]')].map(link=>[link.dataset.nav,link]));
+function arrangeNavigation(){
+ const focused=document.activeElement,hadFocus=mainNavigation.contains(focused);
+ const order=mobileNavigation.matches?['programs','templates','home','workouts','catalog']:['programs','templates','catalog','workouts','home'];
+ for(const key of order)mainNavigation.append(navigationLinks.get(key));
+ if(hadFocus){if(focused.getClientRects().length)focused.focus({preventScroll:true});else focusHeading();}
+}
+arrangeNavigation();mobileNavigation.addEventListener('change',arrangeNavigation);
 document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('click',event=>{
  if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
  event.preventDefault();action(()=>navigate(link.hash))();
@@ -339,7 +348,7 @@ async function prepareWorkout(route){
 async function prepareRoute(route,version){
  if(route.view==='home')return ()=>{
   let view,latest;
-  const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
+  const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report,focusFallback:()=>view?.focusTarget()});
   const controller=createWorkoutHomeController({api,workouts,launcher,onNavigate:hash=>action(()=>navigate(hash))(),onError:report,
    onState:state=>{latest=state;view?.update(state);}});
   view=mountWorkoutHome(createViewHost(),{state:latest,onStart:()=>controller.start(),onResume:()=>controller.resume(),onChoose:()=>controller.choose(),
