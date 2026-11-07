@@ -1,5 +1,16 @@
 # Gym Program Builder
 
+## Mobile training home (2026-11-07)
+
+Design: docs/superpowers/specs/2026-11-06-mobile-training-home-design.md; plan: docs/superpowers/plans/2026-11-06-mobile-training-home.md; evidence: docs/superpowers/verification/2026-11-06-mobile-training-home.md.
+
+- At ≤760px, empty entry resolves to `#/home`; tabs are Programs, Templates, Home (center), History, Catalog. Desktop keeps Programs default and its existing four navigation items. Explicit routes survive resize; `#/workouts` remains history.
+- Home has one immersive cover and Start/Resume/Choose actions, never a history section. Local active Resume wins over network recommendations, counts working sets only and suppresses the floating bar through scoped controller tokens. Preserve logger ownership and offline sync.
+- Use shared `workout-up-next.js` selection and nullable local `scheduledDate`; Week labels distinguish today from future dates, Sequence never invents weekdays. Keep first-page history behavior, deduplicate locally pending finishes, and never turn failed required loads into empty history.
+- Templates and new log snapshots carry `coverId`: gym (default), dumbbells, barbell, machines. Invalid present values reject with `Invalid workout cover.`; retain portable v4/log v2, legacy defaults, revision/conflict behavior and independent snapshots. No SQL migration. Keep covers outside AI facts, volume and analytics.
+- Bundle optimized local WebP images with credits. Cover changes autosave on the shared template. No uploads, runtime photo service, new offline creation or PWA support.
+- Guard Home responses by view/auth lifetime and request order. Preserve focus, release subscriptions/timers/bar reservations, and keep controls reachable with enlarged text. Never claim a pending deployment was verified.
+
 ## Workout notes and best performance (2026-11-06)
 
 Design: docs/superpowers/specs/2026-11-06-workout-notes-best-performance-design.md; plan: docs/superpowers/plans/2026-11-06-workout-notes-best-performance.md.
