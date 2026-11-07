@@ -4,6 +4,14 @@ Implementation: 2026-11-07–08. Verification date: 2026-11-08. Branch: `feat/mo
 Design: [approved specification](../specs/2026-11-07-mobile-library-navigation-design.md).
 Plan: [implementation steps](../plans/2026-11-07-mobile-library-navigation.md).
 
+## Verified local merge
+
+On 2026-11-08 the user selected a local merge into `main`. Both checkouts were clean; `git pull --ff-only` reported Already up to date. `git merge --ff-only feat/mobile-library-navigation` advanced main from `d2e6e1b` to `35728b8` without conflicts.
+
+Fresh checks on the merged main checkout passed: all 437 unit cases with the documented Windows GC preload, the static build, `git diff --check`, and 19 focused browser cases covering navigation, swipes, route memory and page-heading save controls.
+
+The host-managed worktree and its checked-out feature branch remain attached for the host to manage; no workspace-exit tool is available. Nothing was pushed or deployed.
+
 ## Local checks
 
 - Baseline unit suite: 431 passed.
@@ -86,6 +94,6 @@ Root route/list state and decorative previews remain in memory only. Authenticat
 
 Browser evidence uses local Chromium with CDP touch input, plus keyboard, reduced-motion and enlarged-text checks. Physical iOS Safari and Android Chrome testing has not been performed. Browser/system edge behavior and physical keyboard/viewport behavior still need device coverage.
 
-Nothing has been pushed, merged into main or deployed. Deployment has not been verified.
+The feature has been merged locally into main. Nothing has been pushed or deployed. Deployment has not been verified.
 
 The host's automatic approval policy rejected recursive removal of this plan's ignored execution scratch directory with “blocked by policy.” The directory was retained; no alternate deletion mechanism was attempted.
