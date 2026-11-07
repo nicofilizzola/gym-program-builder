@@ -121,7 +121,7 @@ test('validateWorkoutLog enforces structure and limits',()=>{
  // Z accepted, unknown keys dropped, canonical key order
  const r=validateWorkoutLog(finished({startedAt:'2026-11-03T17:00:00Z',finishedAt:'2026-11-03T18:00:00.000Z',junk:1,source:{kind:'blank',junk:2},exercises:[exercise({junk:3,sets:[set({junk:4})]})]}));
  assert.ok(r.log);
- assert.deepEqual(Object.keys(r.log),['id','logVersion','status','name','note','startedAt','finishedAt','source','exercises']);
+ assert.deepEqual(Object.keys(r.log),['id','logVersion','status','name','coverId','note','startedAt','finishedAt','source','exercises']);
  assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','sets']);
  assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]),['id','kind','weightKg','reps','rir','done','note']);
  assert.deepEqual(r.log.source,{kind:'blank'});

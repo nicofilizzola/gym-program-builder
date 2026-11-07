@@ -3,6 +3,7 @@ import { LIMITS, validateExercise, validateGoalFor, timingError, supersetError }
 import { normalizeWorkoutTiming } from './duration.js';
 import {EQUIPMENT} from './catalog.js';
 import {normalizeProgramContext,hasProgramContext} from './program-context.js';
+import {normalizeWorkoutCover} from './workout-cover.js';
 
 const object = value => value !== null && typeof value==='object' && !Array.isArray(value);
 const fail = message => { throw new Error(message); };
@@ -64,7 +65,7 @@ function workout(value,draft) {
     } catch(error) {fail(`Exercise ${i+1}: ${error.message}`);}
   });
   const pairError=supersetError(exercises);if(pairError)fail(pairError);
-  return {name:title,exercises,goals:goals(value.goals,LIMITS.goal),extraMinutes:value.extraMinutes,bufferPercent:value.bufferPercent};
+  return {name:title,coverId:normalizeWorkoutCover(value.coverId),exercises,goals:goals(value.goals,LIMITS.goal),extraMinutes:value.extraMinutes,bufferPercent:value.bufferPercent};
 }
 function validate(kind,value,{draft=false,embedded=false}={}) {
   try {

@@ -26,7 +26,7 @@ export function parseDocument(text,{makeId=()=>crypto.randomUUID()}={}) {
   if(data?.version===1) {
     const result=parseSession(text);
     if(result.error)return result;
-    const validated=validateDocument('template',{name:'Imported session template',...result.session});
+    const validated=validateDocument('template',{name:'Imported session template',...result.session,...(Object.hasOwn(data,'coverId')?{coverId:data.coverId}:{})});
     return validated.error?validated:{kind:'template',document:validated.document};
   }
   if(data?.version!==2) return {error:'Unsupported file version.'};

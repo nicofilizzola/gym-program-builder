@@ -9,7 +9,7 @@ import {reconcileSequence} from './program-sequence.js';
 /** @typedef {{name:string, mode:'simple'|'schedule', workouts:ProgramWorkout[], goals:Record<string,number>, sequence?:SequenceEntry[]}} Program */
 /** @typedef {{id:string,kind:'template'|'program',revision:number,createdAt:string,updatedAt:string,document:SessionTemplate|Program}} DocumentRecord */
 
-export const createTemplate = () => ({name:'Untitled template',exercises:[],goals:{},extraMinutes:5,bufferPercent:10});
+export const createTemplate = () => ({name:'Untitled template',coverId:'gym',exercises:[],goals:{},extraMinutes:5,bufferPercent:10});
 export const createProgram = () => ({name:'Untitled program',mode:'schedule',workouts:[],goals:{}});
 export function copyWorkout(template,id,sourceId) {
   const copy=normalizeWorkoutTiming(structuredClone(template));
