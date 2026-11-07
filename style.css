@@ -2431,6 +2431,7 @@ body {padding-bottom:var(--tab-bar-height)}
 #mobile-save-fallback {padding:8px 12px;font-size:.875rem}
 .profile-heading {display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 @media(max-width:760px){
+ #app {min-height:calc(100dvh - var(--tab-bar-height))}
  .app-header {min-height:0;height:0;padding:0;border:0}
  .app-header .app-brand {display:none}
  .app-header>.save-controls {display:none}

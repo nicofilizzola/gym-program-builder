@@ -19,11 +19,13 @@ import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
-import {createMobileNavigationState,isSwipeRoot} from './mobile-navigation-state.js';
+import {createMobileNavigationState,isSwipeRoot,destinationFor,adjacentDestination,MOBILE_DESTINATIONS} from './mobile-navigation-state.js';
 import {mountMobileNavigation} from './mobile-navigation.js';
 import {mountLibraryNavigation} from './library-navigation.js';
 import {mountUserView} from './user-view.js';
 import {mountSaveControlsHost} from './save-controls-host.js';
+import {createMobilePageTransition} from './mobile-page-transition.js';
+import {mountMobileSwipe} from './mobile-swipe.js';
 import {normalizeProfile} from './profile.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
@@ -111,23 +113,50 @@ async function leave(){
  if(!queue?.isDirty())return true;
  try{await queue.flush();return true;}catch(error){report(error);if(error.status===401)return false;if(!await confirmCurrent({title:'Discard unsaved changes?',message:'Changes could not be saved. Discard them and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;return true;}
 }
-async function navigate(hash,{push=true}={}){
+async function navigate(hash,{push=true,gesture=null}={}){
  hash=entryHash(hash);
  if(mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash))mobileNavigationState.writePage(currentHash,{scrollY:window.scrollY,state:mounted.getNavigationState?.()??null});
+ if(!gesture){mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;}
+ let mobileTransition=gesture;
+ if(!mobileTransition&&push&&mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash)&&isSwipeRoot(hash)&&destinationFor(currentHash)!==destinationFor(hash)){
+  mobileTransition={fromHash:currentHash,toHash:hash,direction:MOBILE_DESTINATIONS.indexOf(destinationFor(hash))>MOBILE_DESTINATIONS.indexOf(destinationFor(currentHash))?'next':'previous',offset:0,width:innerWidth};
+  if(!mobilePager.begin(mobileTransition))mobileTransition=null;
+ }
  const version=++routeVersion;busy(version);
  try{
-  if(!await leave()){if(version===routeVersion)history.replaceState(null,'',currentHash);return;}
-  if(version!==routeVersion)return;
+  if(!await leave()){if(version===routeVersion){history.replaceState(null,'',currentHash);if(mobileTransition)await mobilePager.rollback();}return {status:'blocked',hash:currentHash};}
+  if(version!==routeVersion)return {status:'superseded',hash:currentHash};
   if(push&&entryHash(location.hash)!==hash)history.pushState(null,'',hash);
-  await renderRoute(version);
+  return await renderRoute(version,{mobileTransition});
  }finally{idle(version);}
 }
 mountTypingState(app);
 const mobileNavigation=matchMedia('(max-width:760px)'),mainNavigation=document.querySelector('nav[aria-label="Main"]');
 const mobileNav=mountMobileNavigation(mainNavigation,{state:mobileNavigationState,onNavigate:hash=>action(()=>navigate(hash))()});
+const mobilePager=createMobilePageTransition({app,stage:document.querySelector('#mobile-page-stage'),navigation:mobileNav,media:mobileNavigation,reduced:matchMedia('(prefers-reduced-motion:reduce)')});
+let swipeContext=null,gestureSettling=false;
+const mobileSwipe=mountMobileSwipe(app,{
+ enabled:()=>authenticated&&mobileNavigation.matches&&isSwipeRoot(currentHash)&&!transitioning&&!gestureSettling&&app.getAttribute('aria-busy')!=='true'&&!document.body.classList.contains('is-typing')&&!document.querySelector('dialog[open],.sort-drag-host'),
+ canStart:()=>!app.inert,
+ begin(direction){
+  const destination=adjacentDestination(destinationFor(currentHash),direction);if(!destination)return false;
+  swipeContext={fromHash:currentHash,toHash:mobileNavigationState.href(destination),direction,offset:0,width:innerWidth};
+  return mobilePager.begin(swipeContext);
+ },
+ update(offset){if(swipeContext)swipeContext.offset=offset;mobilePager.update(offset);},
+ release(result){
+  const context=swipeContext;swipeContext=null;if(!context)return;
+  gestureSettling=true;
+  const operation=result.commit?navigate(context.toHash,{gesture:context}):mobilePager.rollback();
+  operation.catch(report).finally(()=>{gestureSettling=false;});
+ },
+ cancel(){swipeContext=null;void mobilePager.rollback();}
+});
+mobileNavigation.addEventListener('change',()=>{mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;});
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
+ mobileSwipe.cancel();mobilePager.clear();swipeContext=null;
  mobileNavigationState.clear();
  mounted?.onAuthHidden?.();
  cancelActiveConfirmation();
@@ -274,23 +303,36 @@ async function openRecord(record,version){
  busy(version);
  try{const commit=await prepareRecord(record);if(version!==routeVersion)return;await viewTransition.swap(()=>{clearView();mountedVersion=version;commit();});}finally{idle(version);}
 }
-async function renderRoute(version=++routeVersion){
+async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
  busy(version);const targetHash=entryHash(location.hash),route=parseRoute(targetHash),changed=targetHash!==currentHash;message.textContent='';
  if(location.hash!==targetHash)history.replaceState(null,'',targetHash);
  try{
-  const commit=await prepareRoute(route,version);if(version!==routeVersion)return;
-  await viewTransition.swap(()=>{
-   clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
+  const commit=await prepareRoute(route,version);if(version!==routeVersion)return {status:'superseded',hash:currentHash};
+  let committed=false;
+  const commitView=()=>{
+   if(version!==routeVersion)return;
+   clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;committed=true;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
    mobileNav.commit(currentHash);
    if(['programs','templates','catalog'].includes(route.view))libraryNavigation=mountLibraryNavigation(app,{hash:currentHash,onNavigate:hash=>action(()=>navigate(hash))()});
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,mobileNavigation.matches?mobileNavigationState.readPage(currentHash)?.scrollY??0:0);
    workouts.refreshBar({animate:barRendered});barRendered=true;
-  },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-workout-title="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
+  };
+  const focus=()=>{
+   if(version!==routeVersion)return;
+   app.inert=false;if(commit.focus){commit.focus();return;}
+   if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector('[data-workout-title="'+CSS.escape(returning.id)+'"]')?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}
+  };
+  const finished=mobileTransition?await mobilePager.complete({commit:commitView,restore:async()=>{await new Promise(requestAnimationFrame);if(version===routeVersion)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);},focus,isCurrent:()=>version===routeVersion}):await viewTransition.swap(commitView,{focus});
+  if(version!==routeVersion)return {status:'superseded',hash:currentHash};
+  if(committed&&!finished)focus();
+  return {status:committed?'committed':'superseded',hash:currentHash};
  }catch(error){
-  if(version!==routeVersion)return;
+  if(version!==routeVersion)return {status:'superseded',hash:currentHash};
   history.replaceState(null,'',currentHash);report(error);
+  if(mobileTransition&&version===routeVersion)await mobilePager.rollback();
   if(!mounted&&error.status!==401){app.textContent='This page could not be opened. ';const retry=document.createElement('button');retry.type='button';retry.className='secondary-btn';retry.textContent='Retry';retry.onclick=action(()=>navigate(targetHash,{push:false}));app.append(retry);}
+  return {status:'failed',hash:currentHash};
  }finally{idle(version);}
 }
 async function prepareWorkout(route){
