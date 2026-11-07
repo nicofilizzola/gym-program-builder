@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 async function savedEditor(page,kind){
- await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.goto('/#/programs');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('button',{name:'New program',exact:true})).toBeVisible();
  const id=await page.evaluate(async kind=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient();

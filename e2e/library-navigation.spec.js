@@ -1,7 +1,7 @@
 import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 async function login(page){
- await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');
+ await page.goto('/#/programs');await page.getByLabel('Password',{exact:true}).fill('test-password');
  await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
 }

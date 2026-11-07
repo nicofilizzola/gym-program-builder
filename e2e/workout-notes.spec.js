@@ -9,7 +9,7 @@ let T='Push A';
 async function start(page,{fresh=true}={}){
  if(fresh){
   await login(page);await resetWorkouts(page);
-  await page.reload();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
+  await page.goto('/#/programs');await page.reload();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
   T='Push '+crypto.randomUUID().slice(0,6);
   await createLinkedTemplate(page,T);
  }

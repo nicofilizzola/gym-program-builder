@@ -4,7 +4,7 @@ import {mkdir} from 'node:fs/promises';
 const screens='.superpowers/sdd/2026-10-26-inline-exercise-actions/screens';
 
 async function setup(page,kind='template'){
- await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
+ await page.goto('/#/programs');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
  const fixture=await page.evaluate(async kind=>{
   const {createApiClient}=await import('/src/api-client.js');const api=createApiClient();
   const reference=await api.createReference({equipment:'Barbell',id:crypto.randomUUID(),name:'Inline reference '+crypto.randomUUID(),exerciseType:'compound'});

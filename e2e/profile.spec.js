@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 const headers={origin:'http://127.0.0.1:3199'};
-async function login(page){await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();}
+async function login(page){await page.goto('/#/programs');await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();}
 const field=page=>page.getByLabel('Training background and approach',{exact:true});
 
 test('header Profile button opens the profile page with its labeled field and note',async({page})=>{

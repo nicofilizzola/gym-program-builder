@@ -2,7 +2,7 @@ import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
 
 async function openProgram(page) {
-  await page.goto('/');
+  await page.goto('/#/programs');
   await page.getByLabel('Password',{exact:true}).fill('test-password');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.getByRole('button',{name:'New program',exact:true}).click();

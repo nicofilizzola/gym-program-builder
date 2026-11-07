@@ -15,7 +15,7 @@ async function load(page){
 }
 test('exercise info supports focus pin outside Escape and rapid reversal without stale content',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});const fixture=await load(page),first=page.getByRole('button',{name:'About '+fixture.variants[0].name,exact:true}),second=page.getByRole('button',{name:'About '+fixture.variants[1].name,exact:true});
- await first.focus();const tip=page.getByRole('tooltip').filter({hasText:'Pause and breathe'});await expect(tip).toBeVisible();await expect(first).toHaveAttribute('aria-expanded','true');await expect(tip).toContainText('Reference notes <img onerror="bad">');await expect(page.locator('img')).toHaveCount(0);
+ await first.focus();const tip=page.getByRole('tooltip').filter({hasText:'Pause and breathe'});await expect(tip).toBeVisible();await expect(first).toHaveAttribute('aria-expanded','true');await expect(tip).toContainText('Reference notes <img onerror="bad">');await expect(tip.locator('img')).toHaveCount(0);
  await first.click();await page.getByLabel('Session template name').evaluate(el=>el.focus({preventScroll:true}));await expect(tip).toBeVisible();await page.keyboard.press('Escape');await expect(tip).toBeHidden();
  await first.click();await first.evaluate(b=>{b.click();b.click();});await expect(first).toHaveAttribute('aria-expanded','true');await expect(tip).toBeVisible();
  await second.hover();await expect(page.getByRole('tooltip')).toHaveCount(1);await expect(page.getByRole('tooltip')).toContainText('Different technique');
