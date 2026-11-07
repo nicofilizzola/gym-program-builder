@@ -2,6 +2,7 @@ import {confirmAction,cancelActiveConfirmation} from './confirm-dialog.js';
 import {duplicateName} from './duplicate-name.js';
 import {hasProgramContext} from './program-context.js';
 import {mountBreadcrumbs} from './breadcrumbs.js';
+import {createWorkoutStartLauncher} from './workout-start-launcher.js';
 import {resolveProgram,programArrangement} from './program-links.js';
 import {createSharedSessionController} from './shared-session-controller.js';
 import {parseDocumentBundle,serializeDocumentBundle} from './document-bundle.js';
@@ -356,14 +357,13 @@ async function prepareRoute(route,version){
   try{page=await api.listWorkouts();}catch(failure){if(!isNetworkError(failure))throw failure;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
   let [programs,templates,settings]=await lists;
   const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
-  return ()=>{mounted=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
+  return ()=>{const data={programs,templates,logs:page.records,activeProgramId:settings?.activeProgramId??null};
+   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
+   const historyView=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
    onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
-   onStart:()=>openWorkoutStartSheet({programs,templates,logs:page.records,activeProgramId:settings?.activeProgramId??null,
-    onActivate:async id=>{const saved=await api.setActiveProgram(id);settings=saved;return saved;},
-    loadProgram:async id=>{const bundle=await api.programBundle(id);return resolveProgram(bundle.record.document,bundle.templates);},
-    loadTemplate:id=>api.get(id),onStart:options=>startWorkout(options),
-    onNavigate:hash=>action(()=>navigate(hash))(),onRetryList:async kind=>{const list=await api.list(kind);if(kind==='program')programs=list;else templates=list;return list;}}),
-   onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});};
+   onStart:()=>launcher.open({data}),
+   onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});
+   mounted={destroy(){historyView.destroy();launcher.destroy();}};};
  }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='workout')return prepareWorkout(route);

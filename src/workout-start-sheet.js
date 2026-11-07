@@ -21,7 +21,7 @@ const exerciseCount=n=>`${n} ${n===1?'exercise':'exercises'}`;
  * Opens the Start workout sheet: a bottom sheet at ≤760px, a dialog above. Lists come from the caller
  * (null = failed to load); program sessions load on demand once per sheet. `onStart` runs after the sheet closed.
  */
-export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,activeProgramId=null,onActivate=async id=>({activeProgramId:id}),now=new Date()}){
+export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,activeProgramId=null,onActivate=async id=>({activeProgramId:id}),now=new Date(),initialTab}){
  const invoker=document.activeElement,uid=`start-sheet-${++sheets}`;
  const dialog=document.createElement('dialog');
  dialog.className='catalog-dialog start-sheet';dialog.setAttribute('aria-labelledby',`${uid}-title`);
@@ -291,7 +291,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
  });
 
  renderPrograms();renderTemplates();
- select(programs===null||programs.length?'program':'template');
+ select(initialTab??(programs===null||programs.length?'program':'template'));
  document.body.append(dialog);motion.open();
  const card=$('.start-sheet-next');(card&&!panels.program.hidden?card:selectedTab()).focus();
  return {close,closed};
