@@ -70,7 +70,7 @@ test('new refresh wins out of order and focus/midnight listeners clean up',async
  assert.equal([...s.tasks.values()][0].ms,43200000);
  let loads=0;s.api.getSettings=async()=>{loads++;return {activeProgramId:null};};
  s.events.dispatchEvent(new Event('focus'));await tick();assert.equal(loads,1);
- [...s.tasks.values()][0].fn();await tick();assert.equal(loads,2);
+ const [timerId,timer]=[...s.tasks][0];s.tasks.delete(timerId);timer.fn();await tick();assert.equal(loads,2);
  s.controller.destroy();s.events.dispatchEvent(new Event('focus'));await tick();
  assert.equal(loads,2);assert.equal(s.tasks.size,0);
 });
