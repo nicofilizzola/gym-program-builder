@@ -10,6 +10,7 @@ export function parseRoute(hash) {
   if(workout)return {view:'program-workout',id:workout[1],occurrenceId:workout[2]};
   if(/^#?\/catalog$/.test(hash))return {view:'catalog'};
   if(/^#?\/profile$/.test(hash))return {view:'profile'};
+  if(/^#?\/user$/.test(hash))return {view:'user'};
   if(/^#?\/home$/.test(hash))return {view:'home'};
   if(/^#?\/workouts$/.test(hash))return {view:'workouts'};
   const log=/^#?\/workouts\/([\w-]+)$/.exec(hash);
