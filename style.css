@@ -2442,6 +2442,10 @@ body {padding-bottom:var(--tab-bar-height)}
  .logger-header>.page-save-slot {margin-top:6px}
 }
 @media(max-width:760px){.user-page{padding:20px 12px}}
+.mobile-page-stage {position:fixed;inset:0;z-index:19;overflow:hidden;pointer-events:none;background:var(--bg)}
+.mobile-page-layer {position:absolute;inset:0;overflow:hidden;background:var(--bg);will-change:transform}
+.mobile-page-loading {padding:24px 12px;color:var(--muted)}
+.mobile-page-loading h2 {color:var(--text)}
 @media (max-width:760px) and (hover:hover) {.app-header nav a:hover:not([aria-current=page]) {color:var(--text)}}
 @media (max-width:760px) and (prefers-reduced-motion:reduce) {.app-header nav {transition:none}}
 
