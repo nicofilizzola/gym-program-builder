@@ -43,6 +43,7 @@ export function createMobilePageTransition({app,stage,navigation,media,reduced})
   });
  }
  media.addEventListener('change',cancel,{signal:events.signal});reduced.addEventListener('change',cancel,{signal:events.signal});
+ window.addEventListener('resize',cancel,{signal:events.signal});
  return {
   capture,
   begin({fromHash,toHash,direction,width}){

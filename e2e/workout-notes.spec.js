@@ -1,3 +1,4 @@
+import {openLibrarySection} from './navigation-helper.js';
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate} from './workout-helper.js';
 
@@ -13,7 +14,7 @@ async function start(page,{fresh=true}={}){
   T='Push '+crypto.randomUUID().slice(0,6);
   await createLinkedTemplate(page,T);
  }
- await page.getByRole('link',{name:/^(Session templates|Templates)$/}).click();
+ await openLibrarySection(page,'templates');
  await page.getByRole('button',{name:`Start workout ${T}`,exact:true}).click();
  await expect(page).toHaveURL(/#\/workouts\/[\w-]+$/);
  await expect(status(page)).toHaveText('Saved');

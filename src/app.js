@@ -116,7 +116,7 @@ async function leave(){
 async function navigate(hash,{push=true,gesture=null}={}){
  hash=entryHash(hash);
  if(mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash))mobileNavigationState.writePage(currentHash,{scrollY:window.scrollY,state:mounted.getNavigationState?.()??null});
- if(!gesture){mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;}
+ if(!gesture){gestureGeneration++;gestureSettling=false;mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;}
  let mobileTransition=gesture;
  if(!mobileTransition&&push&&mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash)&&isSwipeRoot(hash)&&destinationFor(currentHash)!==destinationFor(hash)){
   mobileTransition={fromHash:currentHash,toHash:hash,direction:MOBILE_DESTINATIONS.indexOf(destinationFor(hash))>MOBILE_DESTINATIONS.indexOf(destinationFor(currentHash))?'next':'previous',offset:0,width:innerWidth};
@@ -132,9 +132,11 @@ async function navigate(hash,{push=true,gesture=null}={}){
 }
 mountTypingState(app);
 const mobileNavigation=matchMedia('(max-width:760px)'),mainNavigation=document.querySelector('nav[aria-label="Main"]');
+const browserScrollRestoration=history.scrollRestoration;
+history.scrollRestoration=mobileNavigation.matches?'manual':browserScrollRestoration;
 const mobileNav=mountMobileNavigation(mainNavigation,{state:mobileNavigationState,onNavigate:hash=>action(()=>navigate(hash))()});
 const mobilePager=createMobilePageTransition({app,stage:document.querySelector('#mobile-page-stage'),navigation:mobileNav,media:mobileNavigation,reduced:matchMedia('(prefers-reduced-motion:reduce)')});
-let swipeContext=null,gestureSettling=false;
+let swipeContext=null,gestureSettling=false,gestureGeneration=0;
 const mobileSwipe=mountMobileSwipe(app,{
  enabled:()=>authenticated&&mobileNavigation.matches&&isSwipeRoot(currentHash)&&!transitioning&&!gestureSettling&&app.getAttribute('aria-busy')!=='true'&&!document.body.classList.contains('is-typing')&&!document.querySelector('dialog[open],.sort-drag-host'),
  canStart:()=>!app.inert,
@@ -146,17 +148,19 @@ const mobileSwipe=mountMobileSwipe(app,{
  update(offset){if(swipeContext)swipeContext.offset=offset;mobilePager.update(offset);},
  release(result){
   const context=swipeContext;swipeContext=null;if(!context)return;
-  gestureSettling=true;
+  const generation=++gestureGeneration;gestureSettling=true;
   const operation=result.commit?navigate(context.toHash,{gesture:context}):mobilePager.rollback();
-  operation.catch(report).finally(()=>{gestureSettling=false;});
+  operation.catch(report).finally(()=>{if(generation===gestureGeneration)gestureSettling=false;});
  },
- cancel(){swipeContext=null;void mobilePager.rollback();}
+ cancel(){swipeContext=null;const generation=++gestureGeneration;gestureSettling=true;void mobilePager.rollback().finally(()=>{if(generation===gestureGeneration)gestureSettling=false;});}
 });
-mobileNavigation.addEventListener('change',()=>{mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;});
+function cancelMobileGesture(){gestureGeneration++;mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;gestureSettling=false;}
+mobileNavigation.addEventListener('change',()=>{history.scrollRestoration=mobileNavigation.matches?'manual':browserScrollRestoration;cancelMobileGesture();});
+window.addEventListener('resize',cancelMobileGesture);
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
- mobileSwipe.cancel();mobilePager.clear();swipeContext=null;
+ cancelMobileGesture();mobilePager.clear();
  mobileNavigationState.clear();
  mounted?.onAuthHidden?.();
  cancelActiveConfirmation();

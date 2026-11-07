@@ -28,3 +28,18 @@ test('History restores loaded extent before scroll and keeps required-load failu
  await main(page).getByRole('link',{name:'History',exact:true}).click();
  await expect(page.getByRole('heading',{name:'User',exact:true})).toBeVisible();await expect(page.locator('#app-message')).toContainText('History unavailable');
 });
+test('Back and Forward preserve each root departure scroll independently',async({page})=>{
+ await login(page);
+ const programs=Array.from({length:30},(_,i)=>({id:'scroll-program-'+i,name:'Program '+i,revision:1}));
+ const records=Array.from({length:30},(_,i)=>({id:'scroll-log-'+i,name:'Log '+i,startedAt:new Date(Date.UTC(2026,10,6,12)-i*3600000).toISOString(),finishedAt:new Date(Date.UTC(2026,10,6,13)-i*3600000).toISOString(),source:{kind:'blank'},doneSets:3}));
+ await page.route('**/api/documents?kind=program',r=>r.fulfill({json:{records:programs}}));
+ await page.route('**/api/workouts',r=>r.fulfill({json:{records,hasMore:false}}));
+ await page.goto('/#/programs');await expect(page.locator('.library-item')).toHaveCount(30);
+ await page.evaluate(()=>scrollTo(0,1000));
+ await main(page).getByRole('link',{name:'History',exact:true}).click();await expect(page.locator('.workout-history-row')).toHaveCount(30);
+ await page.evaluate(()=>scrollTo(0,500));
+ await page.goBack();await expect(page).toHaveURL(/#\/programs$/);await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
+ await expect.poll(()=>page.evaluate(()=>Math.abs(scrollY-1000))).toBeLessThanOrEqual(2);
+ await page.goForward();await expect(page).toHaveURL(/#\/workouts$/);await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
+ await expect.poll(()=>page.evaluate(()=>Math.abs(scrollY-500))).toBeLessThanOrEqual(2);
+});

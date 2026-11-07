@@ -7,7 +7,9 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
  const icons={programs:'calendar',templates:'template',home:'home',workouts:'history',catalog:'catalog',library:'template',user:'profile'};
  for(const [key,a] of links)a.insertAdjacentHTML('afterbegin',actionIcon(icons[key]));
  const indicator=document.createElement('span');indicator.className='mobile-nav-indicator';indicator.setAttribute('aria-hidden','true');nav.append(indicator);
- let current=location.hash;
+ let current=location.hash,lastMobile=media.matches,lastFocused=null;
+ document.addEventListener('focusin',event=>{lastFocused=nav.contains(event.target)?event.target:null;},{signal:events.signal});
+ nav.addEventListener('focusout',()=>{if(lastMobile===media.matches)lastFocused=null;},{signal:events.signal});
  const key=dest=>dest==='history'?'workouts':dest;
  function position(dest){const a=links.get(key(dest)),r=a?.getBoundingClientRect(),n=nav.getBoundingClientRect();return r?{left:r.left-n.left+r.width*.25,width:r.width*.5}:null;}
  function preview({from,to,progress}){
@@ -26,10 +28,15 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
   resetPreview();
  }
  function arrange(){
-  const focused=document.activeElement,had=nav.contains(focused);
+  const changed=lastMobile!==media.matches;lastMobile=media.matches;
+  const focused=changed&&document.activeElement===document.body?lastFocused:document.activeElement,had=Boolean(focused&&nav.contains(focused));
   for(const name of media.matches?['home','library','workouts','user','programs','templates','catalog']:['programs','templates','catalog','workouts','home','library','user'])nav.append(links.get(name));
   nav.append(indicator);commit(current);
-  if(had&&!focused.getClientRects().length){const target=nav.querySelector('[aria-current=page]')||links.get(media.matches?'home':'programs');target?.focus({preventScroll:true});}
+  if(had){
+   const target=focused.getClientRects().length?focused:[...nav.querySelectorAll('[aria-current=page]')].find(a=>a.getClientRects().length)||document.querySelector('#app h1')||links.get(media.matches?'home':'programs');
+   if(target?.matches('h1'))target.tabIndex=-1;
+   target?.focus({preventScroll:true});
+  }
  }
  nav.addEventListener('click',event=>{
   const a=event.target.closest('[data-nav]');if(!a||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;

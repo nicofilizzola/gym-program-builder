@@ -82,3 +82,13 @@ test('keyboard destinations and enlarged labels stay usable with reduced motion'
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+test('a superseding tap enables fresh swipes before the obsolete request resolves',async({page})=>{
+ await login(page);await resetWorkouts(page);await page.goto('/#/user');await ready(page,'#/user');
+ let release,seen;const held=new Promise(r=>release=r),requested=new Promise(r=>seen=r);
+ await page.route('**/api/workouts',async r=>{seen();await held;await r.continue();});
+ try{
+  await dragDestination(page,{direction:'previous'});await requested;
+  await main(page).getByRole('link',{name:'Home',exact:true}).click();await ready(page,'#/home');
+  await dragDestination(page);await ready(page,'#/programs');
+ }finally{release();}
+});

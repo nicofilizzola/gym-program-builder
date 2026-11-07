@@ -33,3 +33,10 @@ test('completion and cancellation guard commit focus and reduced motion',async({
  })).toBe(true);
  expect(await page.locator('#mobile-page-stage').evaluate(el=>el.getAnimations({subtree:true}).length)).toBe(0);
 });
+test('resizing inside the mobile breakpoint cancels an unfinished drag',async({page})=>{
+ await mount(page);await page.evaluate(()=>window.pager.update(-100));
+ await expect(page.locator('#mobile-page-stage')).toBeVisible();
+ await page.setViewportSize({width:390,height:800});
+ await expect(page.locator('#mobile-page-stage')).toBeHidden();
+ expect(await page.evaluate(()=>window.source===document.querySelector('#source'))).toBe(true);
+});

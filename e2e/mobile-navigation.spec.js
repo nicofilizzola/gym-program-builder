@@ -87,3 +87,11 @@ test('focus moved by script into a text field keeps the bars',async({page})=>{
  await page.getByLabel('Session template name').tap();
  await expect.poll(async()=>(await nav(page).boundingBox()).y).toBeGreaterThanOrEqual(843);
 });
+test('breakpoint navigation reordering restores visible focus and uses heading for hidden Home',async({page})=>{
+ await login(page);await nav(page).getByRole('link',{name:'History',exact:true}).click();await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
+ const history=page.locator('[data-nav=workouts]');await history.focus();
+ await page.setViewportSize({width:1440,height:900});await expect(history).toBeFocused();
+ await page.setViewportSize({width:390,height:844});
+ await nav(page).getByRole('link',{name:'Home',exact:true}).click();await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');await page.locator('[data-nav=home]').focus();
+ await page.setViewportSize({width:1440,height:900});await expect(page.locator('#app h1')).toBeFocused();
+});

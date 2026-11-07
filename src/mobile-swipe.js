@@ -31,6 +31,7 @@ export function mountMobileSwipe(root,{enabled,canStart,begin,update,release,can
   if(was)release(result);
  },{signal});
  window.addEventListener('touchcancel',cancel,{signal});
+ window.addEventListener('resize',cancel,{signal});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel();},{signal});
  return {cancel,destroy(){cancel();events.abort();}};
 }
