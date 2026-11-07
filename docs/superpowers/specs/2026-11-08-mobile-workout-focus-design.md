@@ -2,7 +2,7 @@
 
 Date: 2026-11-08.
 
-Status: Interaction direction and mobile/desktop scope approved in conversation. This written specification is ready for user review; implementation planning has not started. Detailed integration and edge-case rules below are proposals for that review, rather than claims that the prototype implemented them.
+Status: Written specification approved in conversation on 2026-11-08. The user requested implementation planning with the writing-plans skill. The implementation plan is `docs/superpowers/plans/2026-11-08-mobile-workout-focus.md`; plan review and execution-method selection precede implementation. The integration and edge-case rules below are requirements, rather than claims that the prototype implemented them.
 
 ## Purpose and agreed direction
 
@@ -31,7 +31,7 @@ This extends the workout tracker, tracker notes, warm-up/superset logging, and B
 - [Workout notes and Best performance](2026-11-06-workout-notes-best-performance-design.md).
 - [Mobile Library navigation](2026-11-07-mobile-library-navigation-design.md).
 
-Where they conflict, this specification proposes replacing the active mobile logger layout and its paired-set focus guidance, and adding a recap after a successful explicit Finish. Existing desktop and finished-log layouts, domain validation, snapshots, API contracts, conflict handling, and offline ownership remain authoritative.
+Where they conflict, this specification replaces the active mobile logger layout and its paired-set focus guidance, and adds a recap after a successful explicit Finish. Existing desktop and finished-log layouts, domain validation, snapshots, API contracts, conflict handling, and offline ownership remain authoritative.
 
 Use the existing vanilla JS/CSS stack and design-system palette and typography. Logs retain version 2. No SQL migration, API endpoint, export format, persistent reward model, new offline creation, or new offline editing of finished logs is introduced. No rest timer, sound, haptics, streaks, points, or verified-PR celebration is in scope. Rest durations remain useful context, with the existing elapsed workout time retained.
 
@@ -224,4 +224,4 @@ Implementation verification must cover:
 
 Run meaningful focused unit/controller/browser tests, the required repository suite, and build. Record actual evidence in a dedicated verification document during implementation. Production/preview verification is separate and must name the deployed environment; never claim a pending deployment was verified.
 
-Self-review: scope is active mobile presentation plus its recap; desktop/finished-record editing and server/domain formats remain compatible. The proposed pending-finish note rule intentionally preserves existing offline limits rather than treating the prototype's sample memory as persistence. Remaining stage is the user's review of this written specification, followed by an implementation plan and execution-method choice.
+Self-review: scope is active mobile presentation plus its recap; desktop/finished-record editing and server/domain formats remain compatible. The pending-finish note rule intentionally preserves existing offline limits rather than treating the prototype's sample memory as persistence. Written-spec review is complete; implementation starts only after implementation-plan review and an execution-method choice.
