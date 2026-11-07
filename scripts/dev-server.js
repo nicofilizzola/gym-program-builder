@@ -25,7 +25,7 @@ const analysis=testing?{enabled:true,analyze:async()=>{
  return new Response('event: start\ndata: '+JSON.stringify({requestId:'test',promptVersion:'test-program'})+'\n\nevent: delta\ndata: '+JSON.stringify({text:report})+'\n\nevent: complete\ndata: {}\n\n',{headers:{'content-type':'text/event-stream'}});
 }}:createAnalysisService({apiKey:process.env.OPENROUTER_API_KEY,model:process.env.OPENROUTER_MODEL});
 const api=createApi({repository:createRepository(db),commands:createDocumentCommands(db),catalog:createCatalogRepository(db),profile:createProfileRepository(db),settings:createSettingsRepository(db),workouts:createWorkoutRepository(db),analysis,auth:createAuth({db,passwordHash:testing?await hashPassword('test-password'):process.env.APP_PASSWORD_HASH,authSecret:testing?'test-only-secret':process.env.AUTH_SECRET}),origin});
-const root=resolve('.'),mime={'.js':'text/javascript','.css':'text/css','.html':'text/html'};
+const root=resolve('.'),mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.webp':'image/webp','.md':'text/markdown; charset=utf-8'};
 const server=createServer(async(req,res)=>{
  try {
   // Keep the host the browser used (localhost or 127.0.0.1) so same-host writes pass; other Host values (DNS rebinding) fall back to the configured origin.
@@ -38,7 +38,7 @@ const server=createServer(async(req,res)=>{
    finally{req.off('aborted',disconnect);res.off('close',disconnect);}return;
   }
   const path=decodeURIComponent(url.pathname),file=path==='/'?'/index.html':path;
-  if(!['/index.html','/style.css'].includes(file)&&!/^\/src\/[\w-]+\.js$/.test(file)){res.writeHead(404);res.end('Not found');return;}
+  if(!['/index.html','/style.css'].includes(file)&&!/^\/src\/[\w-]+\.js$/.test(file)&&!/^\/src\/assets\/workout-covers\/(?:(?:gym|dumbbells|barbell|machines)\.webp|CREDITS\.md)$/.test(file)){res.writeHead(404);res.end('Not found');return;}
   const target=resolve(root,`.${file}`);if(!target.startsWith(root+sep))throw Error('Invalid path');
   res.writeHead(200,{'content-type':mime[file.slice(file.lastIndexOf('.'))]||'text/plain','cache-control':'no-store'});res.end(await readFile(target));
  }catch {if(!res.headersSent)res.writeHead(404);res.end('Not found');}

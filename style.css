@@ -1,5 +1,6 @@
 
 :root {
+  --home-shell-height: 56px;
   --catalog-overlay-width: 520px;
   --review-width: 340px;
   --bg: #0e131a;
@@ -45,6 +46,18 @@
   --panel-width: 460px;
   --figure-height: 180px;
 }
+
+/* A shared template's optional photographic identity. */
+.workout-cover-controls { margin: 0 0 12px; }
+.workout-cover-toggle { min-height:44px; }
+.workout-cover-options { border:0; padding:0; margin:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.workout-cover-choice { position:relative; display:grid; grid-template-columns:20px 1fr; align-items:center; gap:8px; min-width:0; min-height:44px; padding:8px; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; }
+.workout-cover-choice img { width:100%; height:90px; grid-column:1 / -1; grid-row:1; object-fit:cover; border-radius:6px; }
+.workout-cover-choice input { width:18px; height:18px; margin:0; accent-color:var(--accent); }
+.workout-cover-choice:has(:checked) { border-color:var(--accent); }
+.workout-cover-choice:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
+.workout-cover-choice span { min-width:0; overflow-wrap:anywhere; font-size:14px; }
+@media(max-width:480px) { .workout-cover-options { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
 * {
   box-sizing: border-box;

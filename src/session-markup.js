@@ -2,6 +2,7 @@ export const SESSION_MARKUP = `
   <main class="layout">
     <section class="builder">
       <header class="editor-heading"><h1>Session template</h1><label class="field template-name">Session template name <input type="text" data-template-name></label><div data-duration-controls></div></header>
+      <div class="workout-cover-controls" data-workout-cover-controls></div>
       <div class="toolbar">
         <div class="file-actions">
           <button id="start-workout" type="button" class="add-btn" hidden>Start workout</button>

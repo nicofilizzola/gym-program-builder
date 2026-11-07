@@ -1,4 +1,6 @@
 import {confirmAction} from './confirm-dialog.js';
+import {mountWorkoutCoverControls} from './workout-cover-controls.js';
+import {normalizeWorkoutCover} from './workout-cover.js';
 import {mountSliderPresentation} from './slider-presentation.js';
 import {renderVariantMetadata,mountExerciseInfo} from './catalog-metadata.js';
 import {mountReorderMenu} from './reorder-menu.js';
@@ -36,13 +38,14 @@ if(api)getCatalogStore(api).load(true).catch(()=>{});
  * `goals` has a key only for muscles with a valid goal.
  */
 const confirmationController=new AbortController();
-let session = normalizeWorkoutTiming(structuredClone(workout));
+let session = {...normalizeWorkoutTiming(structuredClone(workout)),coverId:normalizeWorkoutCover(workout.coverId)};
 let lastDocument = JSON.stringify(session);
 const exerciseCards=new Map(),exercisePickers=new Map(),exerciseInfos=new Map();
 const nameInput=root.querySelector("[data-template-name]");
 nameInput.value=session.name;
 nameInput.addEventListener("input",()=>{session.name=nameInput.value;refresh();});
 const durationControls=mountDurationControls(root.querySelector('[data-duration-controls]'),{workout:session,maxSessionMinutes,onChange:settings=>{Object.assign(session,settings);refresh();}});
+const coverControls=mountWorkoutCoverControls(root.querySelector('[data-workout-cover-controls]'),{coverId:session.coverId,onChange:coverId=>{session.coverId=coverId;refresh();}});
 
 /** View state for the volume panel: the clicked muscle, and the one under the mouse. */
 let selectedMuscle = null;
@@ -834,8 +837,9 @@ fileInput.addEventListener('change',async()=>{
   if(destroyed||before!==JSON.stringify(session))return;
   setWorkout(result.document);onImport?.(result.document);
 });
-function setWorkout(value,{silent=false}={}){session=normalizeWorkoutTiming(structuredClone(value));if(silent)lastDocument=JSON.stringify(session);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
+function setWorkout(value,{silent=false}={}){session={...normalizeWorkoutTiming(structuredClone(value)),coverId:normalizeWorkoutCover(value.coverId)};coverControls.setCoverId(session.coverId);if(silent)lastDocument=JSON.stringify(session);nameInput.value=session.name;collapsed=session.exercises.map(()=>true);renderExercises();syncGoalFields();refresh();}
 function syncSaved(value){
+ session.coverId=normalizeWorkoutCover(value.coverId);coverControls.setCoverId(session.coverId);
  let changed=false;
  const definition=ex=>JSON.stringify([ex.name,ex.catalogId,ex.catalogRevision,ex.familyId,ex.equipment,ex.primaryMuscles,ex.secondaryMuscles,ex.referenceDescription,ex.variantDescription,ex.brand,ex.focusTags]);
  session.exercises.forEach((ex,i)=>{
@@ -974,6 +978,7 @@ refresh();
 
 const panelLayout=mountPanelLayout(panel);
 return {setWorkout,syncSaved,focusFirstError,setMaxSessionMinutes:durationControls.setMaxSessionMinutes,destroy(){
+  coverControls.destroy();
   confirmationController.abort();destroyed=true;frameToken++;supersetFrames.clear();sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();
   exercisePickers.forEach(picker=>picker.destroy());exercisePickers.clear();exerciseCards.clear();
