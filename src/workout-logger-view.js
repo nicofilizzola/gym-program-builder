@@ -32,7 +32,7 @@ function collapseOut(part,animate){
 const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],secondaryMuscles:[]};
 
 /** Active workout logger: sticky header, exercise cards with set rows, add/swap/remove/reorder and Finish. */
-export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{}}){
+export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{},sharedSaveStatus=false,onSaveStatusSlotChange=()=>{}}){
  let log=structuredClone(initial),last=lastTime,best=bestPerformance,bestStatus=new Map(),destroyed=false,busy=false,addPicker=null,sortable=null,relocatingFocus=false;
  const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set(),openSetNotes=new Set();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
@@ -442,6 +442,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  const timer=active?setInterval(tick,60000):null;
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')tick();},{signal});
  render();tick();root.append(page);
+ if(sharedSaveStatus){statusText.hidden=true;retryButton.hidden=true;const slot=document.createElement('div');slot.className='page-save-slot';page.querySelector('.logger-header').append(slot);onSaveStatusSlotChange(slot);}
 
  return {
   setLog(value){if(destroyed)return;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();},
@@ -460,6 +461,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   hasUnsavedDraft(){return mode==='finished'&&editable&&[...page.querySelectorAll('.log-set-error')].some(e=>e.textContent==='Enter reps');},
   focusTitle(){title.focus({preventScroll:true});},
   destroy(){
+   if(sharedSaveStatus)onSaveStatusSlotChange(null);
    destroyed=true;workoutNote.destroy();clearInterval(timer);for(const frame of closing)clearTimeout(frame.timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();setMenu.destroy();tooltips.destroy();
    for(const card of cards.values())card.picker?.destroy();addPicker?.destroy();page.remove();
   }

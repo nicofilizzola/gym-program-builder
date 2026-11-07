@@ -46,11 +46,11 @@ const section=(title,body)=>`<div class="profile-section"><h2>${title}</h2><div 
  * base, and only touch controls whose value differs, so focus, caret and slider drags are never disturbed.
  * `setProfile` (Reload saved version) replaces the draft and every control.
  */
-export function mountProfileView(root,{profile,onChange}){
+export function mountProfileView(root,{profile,onChange,onSaveStatusSlotChange=()=>{}}){
  const page=document.createElement('section');page.className='profile-page';
  const days=DAYS.map((day,i)=>`<button type="button" class="toggle-pill" data-value="${i}" aria-label="${day}" aria-pressed="false">${day.slice(0,3)}</button>`);
  const equipment=EQUIPMENT.map(item=>`<button type="button" class="toggle-pill" data-value="${item}" aria-pressed="false">${equipmentIcon(item)}<span>${item}</span></button>`);
- page.innerHTML=`<h1>Profile</h1>`
+ page.innerHTML=`<header class="profile-heading"><h1>Profile</h1><div class="page-save-slot" data-save-slot></div></header>`
   +section('Schedule',sliderField('maxTrainingDaysPerWeek')+pillField('availableWeekdays','Available days',days,'None selected means not specified.')+radioField('maxSessionsPerDay'))
   +section('Session length',sliderField('maxSessionMinutes'))
   +section('Experience',radioField('experienceLevel')+sliderField('typicalRepsInReserve'))
@@ -61,7 +61,7 @@ export function mountProfileView(root,{profile,onChange}){
  const control=key=>page.querySelector(`[data-profile-key="${key}"]`);
  const composing=new Set();
  let base=normalizeProfile(profile),draft=structuredClone(base);
- root.append(page);
+ root.append(page);onSaveStatusSlotChange(page.querySelector('[data-save-slot]'));
  const sliders=mountSliderPresentation(page);
 
  function render(key){
@@ -119,5 +119,5 @@ export function mountProfileView(root,{profile,onChange}){
   draft=merged;changed.forEach(render);
  }
  renderAll();
- return {setProfile,syncSaved,destroy(){sliders.destroy();events.abort();page.remove();}};
+ return {setProfile,syncSaved,destroy(){onSaveStatusSlotChange(null);sliders.destroy();events.abort();page.remove();}};
 }

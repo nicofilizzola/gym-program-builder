@@ -24,8 +24,9 @@ import {canPairWithNext,moveBlockOrder,pairRole,pairWithNext,removeExercise,supe
 import {createSupersetFrame,syncSupersetFrame} from './superset-frame.js';
 
 
-export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,onStartWorkout,maxSessionMinutes=null}={}) {
+export function mountSessionEditor(root,{workout,onChange=()=>{},onExport,onImport,onImportFile,api,onStartWorkout,maxSessionMinutes=null,onSaveStatusSlotChange=()=>{}}={}) {
 root.innerHTML=SESSION_MARKUP;
+onSaveStatusSlotChange(root.querySelector('[data-save-slot]'));
 const sliderPresentation=mountSliderPresentation(root);
 const disclosureTooltips=mountActionTooltips(root,{selector:'.card-head [data-action-tooltip], .superset-head [data-action-tooltip]'});
 root.querySelector('#export-session svg').outerHTML=actionIcon('export');
@@ -978,6 +979,7 @@ refresh();
 
 const panelLayout=mountPanelLayout(panel);
 return {setWorkout,syncSaved,focusFirstError,setMaxSessionMinutes:durationControls.setMaxSessionMinutes,destroy(){
+  onSaveStatusSlotChange(null);
   coverControls.destroy();
   confirmationController.abort();destroyed=true;frameToken++;supersetFrames.clear();sliderPresentation.destroy();disclosureTooltips.destroy();durationControls.destroy();panelLayout.destroy();sortable.destroy();moveMenu.destroy();
   exerciseInfos.forEach(info=>info.controller.destroy());exerciseInfos.clear();

@@ -23,6 +23,7 @@ import {createMobileNavigationState} from './mobile-navigation-state.js';
 import {mountMobileNavigation} from './mobile-navigation.js';
 import {mountLibraryNavigation} from './library-navigation.js';
 import {mountUserView} from './user-view.js';
+import {mountSaveControlsHost} from './save-controls-host.js';
 import {normalizeProfile} from './profile.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
@@ -39,6 +40,8 @@ const mobileNavigationState=createMobileNavigationState();
 const entryHash=hash=>resolveEntryHash(hash,{mobile:matchMedia('(max-width:760px)').matches});
 let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=entryHash(location.hash),authenticated=false,transitioning=false,creation=null,mountedVersion=0;
 const retryCreation=document.querySelector('#retry-creation');
+const saveControls=mountSaveControlsHost({controls:document.querySelector('[data-save-feedback]'),desktopHost:document.querySelector('.save-controls'),mobileFallback:document.querySelector('#mobile-save-fallback'),media:matchMedia('(max-width:760px)')});
+const onSaveStatusSlotChange=slot=>saveControls.setSlot(slot);
 const viewTransition=createViewTransition(app),navigationStatus=document.querySelector('#navigation-status');
 let loadingTimer,limitView=null;
 const pendingConfirmations=new Set();
@@ -74,7 +77,7 @@ const startWorkout=action(options=>workouts.start(options));
 const SIGNED_OUT_KEY='gpb.signedOut';
 function signedOut(){try{return localStorage.getItem(SIGNED_OUT_KEY)==='1';}catch{return false;}}
 function setSignedOut(value){try{if(value)localStorage.setItem(SIGNED_OUT_KEY,'1');else localStorage.removeItem(SIGNED_OUT_KEY);}catch{/* storage unavailable */}}
-function clearView(){limitView=null;cancelConfirmations();libraryNavigation?.destroy();libraryNavigation=null;breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
+function clearView(){saveControls.park();limitView=null;cancelConfirmations();libraryNavigation?.destroy();libraryNavigation=null;breadcrumb?.destroy();breadcrumb=null;updateCurrentBreadcrumb=()=>{};shellTooltips.hide();mounted?.destroy();mounted=null;app.replaceChildren();}
 async function transition(work){
  if(transitioning)return;
  const invoker=document.activeElement;
@@ -248,13 +251,13 @@ async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
   if(record.kind==='template'){
    const editorHost=contentHost;
    const programSource=context?{program:{id:context.program.id,name:context.program.document.name.trim()||'Untitled program'},occurrenceId:context.occurrence.id}:{};
-   mounted=mountSessionEditor(editorHost,{api,workout:active.document,onChange,onStartWorkout:session=>startWorkout({template:{id:record.id,document:session},...programSource}),onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
+   mounted=mountSessionEditor(editorHost,{api,onSaveStatusSlotChange,workout:active.document,onChange,onStartWorkout:session=>startWorkout({template:{id:record.id,document:session},...programSource}),onImportFile:file=>importFile('template',file,mountedVersion,{replace:true}),onExport:action(()=>exportActive('template'))});
    limitView=mounted;applyLimitLoad(mounted,profileLoad);
    if(context){const shared=document.createElement('a');shared.className='shared-template-link';shared.href=`#/templates/${record.id}`;shared.textContent='Shared template';shared.onclick=event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey){event.preventDefault();action(()=>navigate(shared.hash))();}};editorHost.querySelector('.editor-heading').append(shared);}
   }else{
    let attachRequest;
    host.classList.add('program-route');const reviewDock=document.createElement('aside');reviewDock.className='review-dock';host.append(reviewDock);
-   mounted=mountProgramView(contentHost,{api,reviewDock,analysisEnabled:null,onStartWorkout:workout=>startWorkout({template:{id:workout.templateId,document:workout},program:{id:record.id,name:active.document.name.trim()||'Untitled program'},occurrenceId:workout.id}),program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
+   mounted=mountProgramView(contentHost,{api,onSaveStatusSlotChange,reviewDock,analysisEnabled:null,onStartWorkout:workout=>startWorkout({template:{id:workout.templateId,document:workout},program:{id:record.id,name:active.document.name.trim()||'Untitled program'},occurrenceId:workout.id}),program:resolveProgram(active.document,programTemplates),templates,onLoadTemplate:async id=>{const t=await api.get(id);programTemplates=[...programTemplates.filter(old=>old.id!==id),t];return t;},onChange:document=>onChange(programArrangement(document)),workoutHref:id=>`#/programs/${record.id}/workouts/${id}`,onOpenWorkout:async(id,{focusError=false}={})=>{programReturn.set(record.id,{id,scroll:window.scrollY});await navigate(`#/programs/${record.id}/workouts/${id}`);if(focusError)mounted?.focusFirstError?.();},onExport:action(()=>exportActive('program')),onImportFile:file=>importFile('program',file,mountedVersion,{replace:true}),onCreateEmpty:()=>transition(async()=>{
     const owned=queue,version=mountedVersion;await owned.flush();if(owned!==queue)return;
     attachRequest??={operationId:uid(),programId:record.id,revision:active.revision,templateId:uid(),occurrenceId:uid(),template:{...createTemplate(),name:'Untitled workout'}};
     const result=await api.createAndAttach(attachRequest);attachRequest=null;if(owned!==queue||version!==mountedVersion)return;
@@ -308,6 +311,7 @@ async function prepareWorkout(route){
   if(editFinished)change=track(workoutRecord(record));
   const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map),setBestPerformance:map=>logger?.setBestPerformance(map),setBestStatus:value=>logger?.setBestStatus(value)};
   logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,bestPerformance:local?.bestPerformance??null,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
+   sharedSaveStatus:editFinished,onSaveStatusSlotChange,
    onChange:value=>(change||binding?.onChange)?.(value),
    onDelete:async()=>{
     await queue.flush();
@@ -366,7 +370,7 @@ async function prepareRoute(route,version){
   return commit;
  }
  if(route.view==='user')return ()=>{mounted=mountUserView(createViewHost(),{onNavigate:hash=>action(()=>navigate(hash))(),onLogout:logout});};
- if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange});};}
+ if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange,onSaveStatusSlotChange});};}
  if(route.view==='workouts'){
   let page,error='';
   // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.

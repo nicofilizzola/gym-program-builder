@@ -23,7 +23,7 @@ import {limitHint,LONG_SESSION_TOOLTIP} from './limit-hint.js';
 
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const id=()=>crypto.randomUUID();
-export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest,reviewDock,onStartWorkout,profile=null}={}) {
+export function mountProgramView(root,{program,templates,onLoadTemplate,onChange=()=>{},onExport,api,onExportWorkout,onOpenWorkout,workoutHref,onCreateEmpty,onImportFile,analysisEnabled=false,analysisRequest,reviewDock,onStartWorkout,profile=null,onSaveStatusSlotChange=()=>{}}={}) {
   let confirmationController=new AbortController();
   const weekHelpId='program-reorder-hint';
   const viewTransition=createViewTransition(root);
@@ -38,7 +38,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   let value=structuredClone(program),panel,editor,tooltips,disposed=false,viewGeneration=0,selectedMuscle=null,sortable,analysisPanel,contextDialog;
   const reorderMenu=mountReorderMenu();
-  function cleanup(){confirmationController.abort();confirmationController=new AbortController();reorderMenu.close();cancelLayoutTransition();layoutTransition?.destroy();layoutTransition=null;tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;analysisPanel?.destroy();contextDialog?.destroy();analysisPanel=contextDialog=null;}
+  function cleanup(){onSaveStatusSlotChange(null);confirmationController.abort();confirmationController=new AbortController();reorderMenu.close();cancelLayoutTransition();layoutTransition?.destroy();layoutTransition=null;tooltips?.destroy();tooltips=null;sortable?.destroy();sortable=null;viewGeneration++;panel?.destroy();editor?.destroy();panel=editor=null;analysisPanel?.destroy();contextDialog?.destroy();analysisPanel=contextDialog=null;}
   function emit(){onChange(structuredClone(value));updateVolume();analysisPanel?.refresh();contextDialog?.refresh();}
   function updateVolume(){panel?.update({volume:computeProgramVolume(value),split:computeProgramVolumeSplit(value),goals:value.goals,contributorCount:m=>contributingWorkouts(value,m)});}
   function updateWorkoutHighlights(){
@@ -75,7 +75,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
     const workout=value.workouts.find(w=>w.id===workoutId);if(!workout)return;editingWorkoutId=workoutId;
     await changeView(()=>{cleanup();root.innerHTML='<div class="program-context"><button type="button" class="secondary-btn" data-back>Back to program</button><p class="error" role="alert" data-program-error></p></div><div data-editor></div>';
     root.querySelector('[data-back]').onclick=run(()=>renderOverview(workoutId));
-    editor=mountSessionEditor(root.querySelector('[data-editor]'),{api,workout,onExport:onExportWorkout?document=>onExportWorkout(document,workoutId):undefined,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
+    editor=mountSessionEditor(root.querySelector('[data-editor]'),{api,workout,onSaveStatusSlotChange,onExport:onExportWorkout?document=>onExportWorkout(document,workoutId):undefined,onChange:updated=>{value={...value,workouts:value.workouts.map(w=>w.id===workoutId?{...updated,id:w.id,day:w.day}:w)};emit();}});
     },()=>{window.scrollTo(0,0);root.querySelector('[data-template-name]')?.focus({preventScroll:true});});
   }
   function renderWorkouts(focusId,focusAction,transitionCommit=false){
@@ -251,7 +251,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
   }
   function buildOverview(){
     selectedMuscle=null;
-    cleanup();root.innerHTML=`<section class="program-page"><header class="program-heading"><h1>Program</h1>
+    cleanup();root.innerHTML=`<section class="program-page"><header class="program-heading"><h1>Program</h1><div class="page-save-slot" data-save-slot></div>
       <div class="program-identity">
         <label class="field">Program name<input type="text" data-program-name></label>
         <fieldset class="program-layout"><legend class="visually-hidden">Program layout</legend>
@@ -268,6 +268,7 @@ export function mountProgramView(root,{program,templates,onLoadTemplate,onChange
         </div>
       </header><p class="error" role="alert" data-program-error></p>
       <div class="program-grid"><div><div class="template-picker"><label class="field">Session template<select data-template aria-label="Session template"><option value="">Choose a template</option></select></label><button type="button" class="secondary-btn" data-add-template disabled>Add template</button><span class="add-alternative">or</span><button type="button" class="secondary-btn" data-add-empty>${actionIcon('plus')}Empty workout</button></div><div class="sequence-toolbar"><button type="button" class="secondary-btn" data-add-rest>${actionIcon('plus')}Add rest day</button></div><p class="reorder-hint" id="${weekHelpId}" data-week-help>Drag a card to reorder. On touch, press and hold. Use Reorder for movement options. In Week, Up/Down reorders and Alt+Up/Down changes day.</p><div data-workouts></div><p data-workout-order class="visually-hidden" aria-live="polite"></p></div><div data-weekly-panel></div></div></section>`;
+    onSaveStatusSlotChange(root.querySelector('[data-save-slot]'));
     const dock=reviewDock??root.appendChild(Object.assign(document.createElement('aside'),{className:'review-dock'}));
     tooltips=mountActionTooltips(root.querySelector('.program-page'));
     layoutTransition=createViewTransition(root.querySelector('[data-workouts]'));

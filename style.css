@@ -2426,6 +2426,21 @@ body {padding-bottom:var(--tab-bar-height)}
 .user-account-actions {padding-top:24px}
 .user-logout {display:inline-flex;align-items:center;gap:10px;min-height:44px}
 .user-profile:focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+[data-save-feedback] {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.page-save-slot {display:none}
+#mobile-save-fallback {padding:8px 12px;font-size:.875rem}
+.profile-heading {display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+@media(max-width:760px){
+ .app-header {min-height:0;height:0;padding:0;border:0}
+ .app-header .app-brand {display:none}
+ .app-header>.save-controls {display:none}
+ .page-save-slot {display:flex;align-items:center;min-width:0;max-width:100%;font-size:.875rem;color:var(--muted)}
+ .page-save-slot:empty {display:none}
+ .page-save-slot [data-save-feedback] {max-width:100%}
+ .page-save-slot button {min-height:44px;white-space:normal}
+ .editor-heading,.profile-heading {flex-wrap:wrap}
+ .logger-header>.page-save-slot {margin-top:6px}
+}
 @media(max-width:760px){.user-page{padding:20px 12px}}
 @media (max-width:760px) and (hover:hover) {.app-header nav a:hover:not([aria-current=page]) {color:var(--text)}}
 @media (max-width:760px) and (prefers-reduced-motion:reduce) {.app-header nav {transition:none}}
