@@ -64,7 +64,7 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
     try{
       const result=await onLoadMore(loaded.at(-1));
       if(destroyed)return;
-      loaded=[...loaded,...result.records];more_=result.hasMore;
+      loaded=[...new Map([...loaded,...result.records].map(record=>[record.id,record])).values()];more_=result.hasMore;
       const had=document.activeElement===more;render();
       if(had&&!more.hidden)more.focus();else if(had)page.querySelector('[data-start]').focus();
     }catch(e){if(!destroyed)error.textContent=e.message||'Could not load more workouts.';}
@@ -72,5 +72,5 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
   },{signal});
 
   error.textContent=initialError;render();root.append(page);
-  return {destroy(){destroyed=true;events.abort();page.remove();}};
+  return {getNavigationState:()=>({visibleCount:loaded.length}),destroy(){destroyed=true;events.abort();page.remove();}};
 }

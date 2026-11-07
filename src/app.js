@@ -19,7 +19,7 @@ import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
-import {createMobileNavigationState} from './mobile-navigation-state.js';
+import {createMobileNavigationState,isSwipeRoot} from './mobile-navigation-state.js';
 import {mountMobileNavigation} from './mobile-navigation.js';
 import {mountLibraryNavigation} from './library-navigation.js';
 import {mountUserView} from './user-view.js';
@@ -113,6 +113,7 @@ async function leave(){
 }
 async function navigate(hash,{push=true}={}){
  hash=entryHash(hash);
+ if(mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash))mobileNavigationState.writePage(currentHash,{scrollY:window.scrollY,state:mounted.getNavigationState?.()??null});
  const version=++routeVersion;busy(version);
  try{
   if(!await leave()){if(version===routeVersion)history.replaceState(null,'',currentHash);return;}
@@ -127,6 +128,7 @@ const mobileNav=mountMobileNavigation(mainNavigation,{state:mobileNavigationStat
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
+ mobileNavigationState.clear();
  mounted?.onAuthHidden?.();
  cancelActiveConfirmation();
  cancelConfirmations();
@@ -282,13 +284,13 @@ async function renderRoute(version=++routeVersion){
    mobileNav.commit(currentHash);
    if(['programs','templates','catalog'].includes(route.view))libraryNavigation=mountLibraryNavigation(app,{hash:currentHash,onNavigate:hash=>action(()=>navigate(hash))()});
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
-   if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,0);
+   if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,mobileNavigation.matches?mobileNavigationState.readPage(currentHash)?.scrollY??0:0);
    workouts.refreshBar({animate:barRendered});barRendered=true;
   },{focus:()=>{app.inert=false;if(commit.focus){commit.focus();return;}if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector(`[data-workout-title="${CSS.escape(returning.id)}"]`)?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}}});
  }catch(error){
   if(version!==routeVersion)return;
   history.replaceState(null,'',currentHash);report(error);
-  if(!mounted&&error.status!==401){app.textContent='This page could not be opened. Choose Programs or Session templates to retry.';}
+  if(!mounted&&error.status!==401){app.textContent='This page could not be opened. ';const retry=document.createElement('button');retry.type='button';retry.className='secondary-btn';retry.textContent='Retry';retry.onclick=action(()=>navigate(targetHash,{push:false}));app.append(retry);}
  }finally{idle(version);}
 }
 async function prepareWorkout(route){
@@ -355,13 +357,13 @@ async function prepareRoute(route,version){
  };
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
-  const data=route.view==='catalog'?undefined:await api.catalog();
+  const data=await api.catalog();
   const variant=route.variantId?data.entries.find(e=>e.id===route.variantId):null,reference=data?.families.find(r=>r.id===(variant?.familyId||route.referenceId));
   const commit=()=>{
    const host=createViewHost(),content=host.appendChild(document.createElement('div'));
-   if(data&&(!reference||(route.variantId&&!variant))){breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Not found'}],onNavigate:hash=>action(()=>navigate(hash))()});const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='This reference exercise or variant is unavailable. Return to Exercise catalog.';content.append(p);return;}
-   if(data)breadcrumb=mountBreadcrumbs(host,{items:[],onNavigate:hash=>action(()=>navigate(hash))()});
-   mounted=mountCatalog(content,{api,initialData:data,target:data?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
+   if(route.view!=='catalog'&&(!reference||(route.variantId&&!variant))){breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Not found'}],onNavigate:hash=>action(()=>navigate(hash))()});const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='This reference exercise or variant is unavailable. Return to Exercise catalog.';content.append(p);return;}
+   if(route.view!=='catalog')breadcrumb=mountBreadcrumbs(host,{items:[],onNavigate:hash=>action(()=>navigate(hash))()});
+   mounted=mountCatalog(content,{api,initialData:data,navigationState:route.view==='catalog'&&mobileNavigation.matches?mobileNavigationState.readPage('#/catalog')?.state:null,target:reference?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
     breadcrumb?.update([{label:'Exercise catalog',href:'#/catalog'},...(variant?[{label:reference.name,href:'#/catalog/references/'+reference.id},{label:variant.name}]:[{label:reference.name}])]);
     const hash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;}
    }});
@@ -376,16 +378,29 @@ async function prepareRoute(route,version){
   // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.
   const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
   const lists=Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
-  try{page=await api.listWorkouts();}catch(failure){if(!isNetworkError(failure))throw failure;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
-  let [programs,templates,settings]=await lists;
+  const [historyResult,listResult]=await Promise.allSettled([api.listWorkouts(),lists]);
+  if(historyResult.status==='rejected'){if(mounted||!isNetworkError(historyResult.reason))throw historyResult.reason;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
+  else page=historyResult.value;
+  if(listResult.status==='rejected')throw listResult.reason;
+  const firstHistoryPage=page.records;
+  const wanted=mobileNavigation.matches?mobileNavigationState.readPage('#/workouts')?.state?.visibleCount??0:0;
+  while(page.hasMore&&page.records.length<wanted){
+   const last=page.records.at(-1);if(!last)break;
+   const more=await api.listWorkouts({before:last.startedAt,beforeId:last.id});
+   if(version!==routeVersion)return ()=>{};
+   const records=[...new Map([...page.records,...more.records].map(record=>[record.id,record])).values()];
+   if(records.length===page.records.length)break;
+   page={records,hasMore:more.hasMore};
+  }
+  let [programs,templates,settings]=listResult.value;
   const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
-  return ()=>{const data={programs,templates,logs:page.records,activeProgramId:settings?.activeProgramId??null};
+  return ()=>{const data={programs,templates,logs:firstHistoryPage,activeProgramId:settings?.activeProgramId??null};
    const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
    const historyView=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
    onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
    onStart:()=>launcher.open({data}),
    onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});
-   mounted={destroy(){historyView.destroy();launcher.destroy();}};};
+   mounted={getNavigationState:()=>historyView.getNavigationState(),destroy(){historyView.destroy();launcher.destroy();}};};
  }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='workout')return prepareWorkout(route);

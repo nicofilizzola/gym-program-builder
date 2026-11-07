@@ -1,0 +1,30 @@
+import {test,expect} from '@playwright/test';
+import {login,resetWorkouts} from './workout-helper.js';
+test.use({viewport:{width:390,height:844},hasTouch:true});
+const main=page=>page.getByRole('navigation',{name:'Main'});
+test('Catalog restores filters and deliberate disclosure choices',async({page})=>{
+ await login(page);await page.goto('/#/catalog');
+ const search=page.getByRole('searchbox',{name:'Search catalog'});await search.fill('curl');
+ const toggle=page.locator('.reference-toggle').first();await expect(toggle).toBeVisible();
+ const name=await toggle.getAttribute('aria-label');await toggle.click();await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await search.blur();await main(page).getByRole('link',{name:'User',exact:true}).click();
+ await main(page).getByRole('link',{name:'Library',exact:true}).click();
+ await expect(search).toHaveValue('curl');await expect(page.locator('.reference-toggle').first()).toHaveAttribute('aria-expanded','false');
+ expect(await page.locator('.reference-toggle').first().getAttribute('aria-label')).toContain(name.replace('Collapse','Expand'));
+});
+test('History restores loaded extent before scroll and keeps required-load failures on source',async({page})=>{
+ await login(page);await resetWorkouts(page);
+ const records=Array.from({length:50},(_,i)=>({id:'memory-'+i,name:'History row '+i,startedAt:new Date(Date.UTC(2026,10,6,12)-i*3600000).toISOString(),finishedAt:new Date(Date.UTC(2026,10,6,13)-i*3600000).toISOString(),source:{kind:'blank'},doneSets:3}));
+ await page.route('**/api/workouts',r=>r.fulfill({json:{records:records.slice(0,25),hasMore:true}}));
+ await page.route('**/api/workouts?*',r=>r.fulfill({json:{records:records.slice(25),hasMore:false}}));
+ await main(page).getByRole('link',{name:'History',exact:true}).click();await page.getByRole('button',{name:'Load more',exact:true}).click();
+ await page.getByRole('link',{name:'History row 40',exact:true}).scrollIntoViewIfNeeded();
+ const saved=await page.evaluate(()=>scrollY);
+ await main(page).getByRole('link',{name:'User',exact:true}).click();await main(page).getByRole('link',{name:'History',exact:true}).click();
+ await expect(page.getByRole('link',{name:'History row 40',exact:true})).toBeVisible();
+ expect(Math.abs(await page.evaluate(()=>scrollY)-saved)).toBeLessThanOrEqual(2);
+ await main(page).getByRole('link',{name:'User',exact:true}).click();
+ await page.unroute('**/api/workouts');await page.route('**/api/workouts',r=>r.fulfill({status:503,json:{error:{message:'History unavailable'}}}));
+ await main(page).getByRole('link',{name:'History',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'User',exact:true})).toBeVisible();await expect(page.locator('#app-message')).toContainText('History unavailable');
+});
