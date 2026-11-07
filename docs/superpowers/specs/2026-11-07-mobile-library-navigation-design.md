@@ -1,7 +1,7 @@
 # Mobile Library navigation, User page and swiping
 
 Date: 2026-11-07
-Status: Approved, including swipe navigation and the full-page User amendments. The user requested implementation planning on 2026-11-07. Implementation has not started.
+Status: Approved, including swipe navigation and the full-page User amendments. The user requested implementation planning on 2026-11-07. Native implementation started on branch `feat/mobile-library-navigation`.
 
 ## Intent and agreed direction
 
@@ -88,7 +88,7 @@ Remember each root route's scroll position and relevant list state in memory for
 
 Swiping is an additional input to the existing guarded navigation flow. A canceled gesture must not change URLs, browser history, selection, current view ownership or scroll. On acceptance, create one navigation entry, just as for a tap. Keep the committed `aria-current` state until the destination successfully opens; the moving indicator is visual preview only.
 
-Incoming content can use a previously rendered visual preview from this signed-in session. On first visit show an honest destination-labeled loading preview until its data is ready. Previews are inert, hidden from assistive technology and free of live announcements or duplicate DOM IDs. Never mount a second live logger or Home controller to create a preview. Prepare the actual destination through the existing loading flow; if required data is pending, show Opening feedback and finish the transition when it is ready. A failed load returns to the source with its scroll and selection intact and a visible error; never present failure as an empty list or history.
+Incoming content can use a previously rendered visual preview from this signed-in session. On first visit show an honest destination-labeled loading preview until its data is ready. Previews are inert, hidden from assistive technology and free of live announcements or duplicate DOM IDs. Never mount a second live logger or Home controller to create a preview. Prepare the actual destination through the existing loading flow; if required data is pending, show Opening feedback and finish the transition when it is ready. A failed load returns to the source with its scroll and selection intact and a visible error; never present failure as an empty list or history. Preserve the existing offline Finish exception: leaving the just-finished logger may open History with its local pending finish and an explicit history-load error. This is a failed-load surface, not successful empty history.
 
 Cancel obsolete animation and preparation work on route/auth lifetime changes, viewport changes, pointer cancellation and superseding navigation. Ignore additional gestures during settlement/loading, while still allowing a deliberate navigation link or browser Back to supersede pending work. Delayed responses cannot commit an obsolete route. Dispose previews, listeners and animation effects when no longer needed. Preserve Home request-order guards, workout ownership/offline sync and existing dirty-edit confirmations.
 
