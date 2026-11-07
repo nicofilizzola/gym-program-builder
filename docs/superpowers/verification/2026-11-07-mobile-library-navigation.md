@@ -87,3 +87,5 @@ Root route/list state and decorative previews remain in memory only. Authenticat
 Browser evidence uses local Chromium with CDP touch input, plus keyboard, reduced-motion and enlarged-text checks. Physical iOS Safari and Android Chrome testing has not been performed. Browser/system edge behavior and physical keyboard/viewport behavior still need device coverage.
 
 Nothing has been pushed, merged into main or deployed. Deployment has not been verified.
+
+The host's automatic approval policy rejected recursive removal of this plan's ignored execution scratch directory with “blocked by policy.” The directory was retained; no alternate deletion mechanism was attempted.
