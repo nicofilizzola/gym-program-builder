@@ -16,6 +16,18 @@ export const linkedVariantIds=log=>[...new Set(log.exercises.map(e=>e.variantId)
 export function createWorkoutController({api,storage=globalThis.localStorage,choose=chooseAction,confirm=confirmAction,navigate=async()=>{},bar=null,
  onError=()=>{},onSignIn=()=>{},now=()=>new Date(),makeId=()=>crypto.randomUUID(),timers=globalThis,events=globalThis}){
  let owned=null,view=null,booted=false,booting=null,resolving=false,starting=false,session=0;
+ const observers=new Set(),barSuppression=new Set();
+ let lastPublished='';
+ function homeSnapshot(){
+  const log=owned?.sync?.log;
+  return {activeLog:log?.status==='active'?log:null,pending:log?.status==='finished'&&owned.sync.isDirty()?workoutSummary(log):null};
+ }
+ function notify(reason='change'){
+  const snapshot=homeSnapshot(),key=JSON.stringify(snapshot);
+  if(reason==='change'&&key===lastPublished)return;
+  lastPublished=key;
+  for(const listener of observers){try{listener({reason,snapshot:structuredClone(snapshot)});}catch{/* observers cannot interrupt workout sync */}}
+ }
 
  const ownedId=()=>owned?.sync?.log.id??null;
  /** A dirty mirror this controller does not own (a failed or pending boot): never overwrite it. */
@@ -24,22 +36,23 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
  function refreshBar({animate=true}={}){
   if(!bar)return;
   const log=owned?.sync?.log;
-  if(log&&log.status==='active'&&view?.id!==log.id)bar.show({id:log.id,name:log.name,startedAt:log.startedAt},{animate});
+  if(log&&log.status==='active'&&view?.id!==log.id&&!barSuppression.size)bar.show({id:log.id,name:log.name,startedAt:log.startedAt},{animate});
   else bar.hide({animate});
  }
- function release(entry=owned){if(!entry||owned!==entry)return;owned=null;entry.sync?.dispose();}
+ function release(entry=owned){if(!entry||owned!==entry)return;owned=null;entry.sync?.dispose();notify('ownership');}
  function own(record,{lastTime=null,bestPerformance=null,dirty=false}={}){
   release();
   const entry={sync:null,status:'',conflict:null,bestRequests:new Map()};
   owned=entry;
   entry.sync=createWorkoutSync({api,storage,record,lastTime,bestPerformance,dirty,timers,events,
+   onLogChange:()=>{if(owned===entry&&entry.sync)notify(entry.sync.log.status==='finished'?'finish':'change');},
    onStatus:text=>{if(owned!==entry)return;entry.status=text;if(view?.id===record.id)view.setStatus?.(text);if(text==='Sign in to sync')onSignIn();},
    onRecord:value=>{
     // A finished snapshot acknowledged with nothing pending is done: the sync already cleared the mirror.
     if(owned===entry&&value.log.status==='finished')queueMicrotask(()=>{if(owned===entry&&!entry.sync.isDirty()){release(entry);refreshBar();}});
    },
    onConflict:reason=>{if(owned===entry)resolveConflict(entry,reason);}});
-  return entry;
+  notify('ownership');return entry;
  }
 
  /** Last time for linked variants: network failures give null (offline copy); other errors are reported and left absent. */
@@ -181,7 +194,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
    }
   }
   if(owned!==entry)return false;
-  release(entry);clearMirror(storage);refreshBar();
+  release(entry);clearMirror(storage);refreshBar();notify('discard');
   return true;
  }
 
@@ -303,6 +316,9 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
  }
 
  return {
+  homeSnapshot,
+  subscribe(listener){observers.add(listener);try{listener({reason:'ownership',snapshot:homeSnapshot()});}catch{}return ()=>observers.delete(listener);},
+  suppressBar(){const token={};barSuppression.add(token);refreshBar({animate:false});return ()=>{if(barSuppression.delete(token))refreshBar({animate:false});};},
   boot,start,finish,discard,attach,refreshBar,
   get current(){return isActive()?{sync:owned.sync,log:owned.sync.log,lastTime:owned.sync.lastTime,bestPerformance:owned.sync.bestPerformance}:null;},
   /** Adopts an active server log (from another device) unless unsynced local changes are owned; true when this log is owned. */
@@ -321,7 +337,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   /** Best effort before Log out: saves pending workout edits while still signed in. */
   flush(){return owned?.sync?owned.sync.flush().catch(()=>{}):Promise.resolve();},
   /** After Log out: stop syncing and hide the bar. The mirror stays, so signing in again recovers the workout. */
-  signOut(){session++;booted=false;booting=null;view=null;release();refreshBar({animate:false});},
+  signOut(){session++;booted=false;booting=null;view=null;release();refreshBar({animate:false});notify('signout');},
   pendingSummary(){const log=owned?.sync?.log;return log&&log.status==='finished'&&owned.sync.isDirty()?workoutSummary(log):null;},
   resume(){return owned?.sync?.resume().catch(()=>{});}
  };

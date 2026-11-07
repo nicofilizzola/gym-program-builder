@@ -3,6 +3,37 @@ import assert from 'node:assert/strict';
 import {createWorkoutController,NO_SETS,OFFLINE_DISCARD,PENDING_FINISH,UNRECOVERED,linkedVariantIds} from '../src/workout-controller.js';
 import {readMirror,writeMirror} from '../src/workout-sync.js';
 
+test('home observers retain logger ownership and publish cloned edits, finish and signout',async()=>{
+ const {controller,api}=make();await controller.boot();
+ const seen=[],unsubscribe=controller.subscribe(event=>seen.push(event));
+ assert.equal(seen[0].snapshot.activeLog,null);
+ await controller.start();
+ const id=controller.current.log.id,binding=controller.attach(id,{});
+ const changed={...controller.current.log,name:'Edited',exercises:[structuredClone(doneExercise)]};
+ binding.onChange(changed);
+ assert.equal(seen.at(-1).snapshot.activeLog.name,'Edited');
+ seen.at(-1).snapshot.activeLog.name='Mutation';
+ assert.equal(controller.homeSnapshot().activeLog.name,'Edited');
+ const stop=controller.subscribe(()=>{throw Error('observer bug');});
+ binding.onChange({...changed,name:'Still saves'});stop();
+ assert.equal(controller.homeSnapshot().activeLog.name,'Still saves');
+ api.saveWorkout=async()=>{throw new TypeError('offline');};
+ assert.equal(await controller.finish(),true);
+ assert.equal(controller.homeSnapshot().activeLog,null);assert.equal(controller.homeSnapshot().pending.id,id);
+ assert.ok(seen.some(e=>e.reason==='finish'));
+ controller.signOut();assert.equal(seen.at(-1).reason,'signout');
+ const count=seen.length;unsubscribe();controller.signOut();assert.equal(seen.length,count);
+});
+test('bar suppression scopes are independent and never detach the logger',async()=>{
+ const {controller,bar}=make();await controller.boot();await controller.start();controller.refreshBar();
+ const releaseA=controller.suppressBar(),releaseB=controller.suppressBar();
+ assert.equal(bar.shown,null);releaseA();releaseA();controller.refreshBar();assert.equal(bar.shown,null);
+ releaseB();assert.equal(bar.shown.id,controller.current.log.id);
+ const binding=controller.attach(controller.current.log.id,{}),release=controller.suppressBar();
+ release();assert.equal(bar.shown,null);binding.detach();controller.refreshBar();assert.ok(bar.shown);
+ controller.signOut();
+});
+
 const log=(over={})=>({id:'w1',logVersion:1,status:'active',name:'Push',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[],...over});
 const doneExercise={id:'e1',variantId:'v1',referenceId:'r1',name:'Bench',equipment:null,primaryMuscles:['Chest'],secondaryMuscles:[],target:null,sets:[{id:'s1',kind:'working',weightKg:50,reps:8,rir:null,done:true}]};
 const memoryStorage=()=>{const map=new Map();return {map,getItem:k=>map.has(k)?map.get(k):null,setItem:(k,v)=>{map.set(k,String(v));},removeItem:k=>{map.delete(k);}};};

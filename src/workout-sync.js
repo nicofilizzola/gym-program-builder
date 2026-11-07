@@ -39,7 +39,7 @@ export function recoveryDecision({mirror,server,reachable}){
  return decide(server.revision===mirror.baseRevision?'resume-local':'conflict');
 }
 
-export function createWorkoutSync({api,storage,record,lastTime=null,bestPerformance=null,dirty=false,timers=globalThis,events=globalThis,onStatus=()=>{},onRecord=()=>{},onConflict=()=>{}}){
+export function createWorkoutSync({api,storage,record,lastTime=null,bestPerformance=null,dirty=false,timers=globalThis,events=globalThis,onStatus=()=>{},onRecord=()=>{},onConflict=()=>{},onLogChange=()=>{}}){
  const id=record.id;
  let log=upgradeLog(structuredClone(record.log)),revision=record.revision,last=lastTime,best=bestPerformance;
  let lastError=null,reason=null,attempt=0,retryTimer=null,mirrorFailed=false,quiet=false,disposed=false;
@@ -71,7 +71,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,bestPerforma
   // Each ack rewrites the mirror; the warning lasts until a write succeeds again.
   if(log.status==='finished'&&!pending){clearMirror(storage);mirrorFailed=false;}
   else mirrorFailed=!mirror(pending);
-  if(!disposed)onRecord({id:value.id,revision:value.revision,log:structuredClone(value.document)});
+  if(!disposed){onLogChange(structuredClone(log));onRecord({id:value.id,revision:value.revision,log:structuredClone(value.document)});}
  };
  const autosave=createAutosave({
   record:{id,revision,document:structuredClone(log)},delay:400,timers,
@@ -86,7 +86,7 @@ export function createWorkoutSync({api,storage,record,lastTime=null,bestPerforma
 
  function change(value){
   if(disposed)return;
-  log=structuredClone(value);mirror(true);autosave.change(log);
+  log=structuredClone(value);mirror(true);autosave.change(log);onLogChange(structuredClone(log));
  }
  /** Replace the autosave base without a server ack, keeping the mirror untouched. */
  function rebase(nextRevision,document){
