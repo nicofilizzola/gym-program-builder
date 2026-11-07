@@ -1,7 +1,7 @@
 # Mobile Library navigation, User page and swiping
 
 Date: 2026-11-07
-Status: Original written design approved; swipe navigation and full-page User amendments reflect the approved conversational direction and await written review. Implementation has not started.
+Status: Approved, including swipe navigation and the full-page User amendments. The user requested implementation planning on 2026-11-07. Implementation has not started.
 
 ## Intent and agreed direction
 
