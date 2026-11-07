@@ -123,3 +123,7 @@ served locally; the app has no runtime photo-service dependency.
   excluded by the approved design. Existing limits remain; no new guarantee is made.
 - Preview/production deployment and physical-device verification remain pending.
   Deploy server validation and client together; no SQL migration is needed.
+- Automatic approval review rejected removal of the plan's ignored
+  `.superpowers/sdd/2026-11-06-mobile-training-home/` scratch directory with
+  `blocked by policy`. It remains locally with the raw test logs and review
+  package. Tracked changes are committed; no product work depends on this cleanup.
