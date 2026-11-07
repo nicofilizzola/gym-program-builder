@@ -35,11 +35,13 @@ test('empty, unknown, future and sequence states have usable actions and safe te
  await mount(page,'empty',{recommendation:null,program:null,setupAction:'set-active',canStart:false});
  await expect(page.getByRole('button',{name:'Choose a workout',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Set active program'})).toBeVisible();
+ await page.getByRole('button',{name:'Set active program'}).focus();
  await expect(page.getByRole('button',{name:'Choose another workout'})).toBeHidden();
  await page.evaluate(()=>window.home.update({...window.state,kind:'error',recommendation:null,error:'offline'}));
  await expect(page.getByRole('button',{name:'Retry',exact:true})).toBeVisible();
- await page.evaluate(()=>window.home.update({...window.state,recommendation:{...window.state.recommendation,workout:{name:'<img src=x>',coverId:'gym',exercises:[],extraMinutes:5,bufferPercent:10},next:{scheduledDate:'2026-11-09'}},kind:'recommendation'}));
+ await page.evaluate(()=>window.home.update({...window.state,setupAction:null,canStart:true,recommendation:{...window.state.recommendation,workout:{name:'<img src=x>',coverId:'gym',exercises:[],extraMinutes:5,bufferPercent:10},next:{scheduledDate:'2026-11-09'}},kind:'recommendation'}));
  await expect(page.getByRole('heading',{name:'<img src=x>'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Start workout',exact:true})).toBeFocused();
  await expect(page.getByText('Up next · Mon, 9 Nov',{exact:true})).toBeVisible();
  await page.evaluate(()=>window.home.update({...window.state,recommendation:{...window.state.recommendation,next:{scheduledDate:null}},kind:'recommendation'}));
  await expect(page.getByText('Up next',{exact:true})).toBeVisible();

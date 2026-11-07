@@ -28,6 +28,8 @@ const paths={
  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
  minus:'<path d="M5 12h14"/>',
  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4m8-4v4"/>',
+ home:'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
+ history:'<path d="M3 11a9 9 0 1 1 2.7 7M3 4v7h7m2-4v6l4 2"/>',
  template:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
  dumbbell:'<path d="M6 7v10M3 9v6m15-8v10m3-8v6M6 12h12"/>',
  star:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z"/>',

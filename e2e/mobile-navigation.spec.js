@@ -9,19 +9,19 @@ test.afterEach(async({page})=>{await resetWorkouts(page).catch(()=>{});});
 
 test('tab bar navigates with short accessible names',async({page})=>{
  await login(page);
- for(const name of ['Programs','Templates','Catalog','Workouts'])await expect(nav(page).getByRole('link',{name,exact:true})).toBeVisible();
+ for(const name of ['Programs','Templates','Home','History','Catalog'])await expect(nav(page).getByRole('link',{name,exact:true})).toBeVisible();
  const box=await nav(page).boundingBox();
  expect(box.y+box.height).toBeCloseTo(844,0);expect(box.height).toBeGreaterThanOrEqual(56);
  for(const link of await nav(page).getByRole('link').all()){const b=await link.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
- await nav(page).getByRole('link',{name:'Workouts'}).click();
- await expect(nav(page).getByRole('link',{name:'Workouts'})).toHaveAttribute('aria-current','page');
+ await nav(page).getByRole('link',{name:'History'}).click();
+ await expect(nav(page).getByRole('link',{name:'History'})).toHaveAttribute('aria-current','page');
  const header=await page.locator('.app-header').boundingBox();
  expect(header.height).toBeLessThanOrEqual(56);
 });
 
 test('resume bar stacks above the tab bar and both hide while typing',async({page})=>{
  await login(page);await resetWorkouts(page);
- await nav(page).getByRole('link',{name:'Workouts'}).click();
+ await nav(page).getByRole('link',{name:'History'}).click();
  await page.getByRole('button',{name:'Start workout'}).first().click();
  await page.getByRole('button',{name:'Blank workout'}).click();
  const name=page.getByRole('textbox',{name:'Workout name'});await expect(name).toBeVisible();

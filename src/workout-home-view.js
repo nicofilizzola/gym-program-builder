@@ -28,6 +28,7 @@ export function mountWorkoutHome(root,{state,onStart,onResume,onChoose,onSetup,o
  const size=()=>page.style.setProperty('--home-shell-height',(shell?.getBoundingClientRect().height||0)+'px');
  const observer=typeof ResizeObserver==='function'?new ResizeObserver(size):null;if(shell)observer?.observe(shell);size();
  function update(value){
+  const focused=document.activeElement;
   current=value;
   const resume=value.kind==='resume',recommended=value.kind==='recommendation',loading=value.kind==='loading';
   const workout=resume?value.activeLog:recommended?value.recommendation.workout:null;
@@ -57,6 +58,10 @@ export function mountWorkoutHome(root,{state,onStart,onResume,onChoose,onSetup,o
   setup.hidden=!value.setupAction;setup.disabled=value.starting;
   text(setup,{'set-active':'Set active program',programs:'Go to Programs','open-program':'Open program'}[value.setupAction]||'');
   $('.home-feedback').hidden=!value.error&&!value.setupAction&&!status.textContent;
+  if(page.contains(focused)&&focused.closest('[hidden]')){
+   const destination=[primary,alternative,retry,setup].find(button=>!button.disabled&&!button.closest('[hidden]'));
+   destination?.focus({preventScroll:true});
+  }
  }
  update(state);
  return {update,destroy(){events.abort();observer?.disconnect();page.remove();}};

@@ -4,7 +4,8 @@ export const headers={origin:'http://127.0.0.1:3199'};
 export async function login(page){
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');
  await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();
+ await expect(page.locator('#shell')).toBeVisible();
+ await expect(page.locator('#app h1').first()).toBeVisible();
 }
 
 /** Deletes every workout log through the API and clears the local mirror. */

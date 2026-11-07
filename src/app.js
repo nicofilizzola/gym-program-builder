@@ -12,14 +12,15 @@ import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {createApiClient} from './api-client.js';
 import {createAutosave} from './autosave.js';
 import {createTemplate,createProgram,duplicateProgram} from './program.js';
-import {parseRoute} from './router.js';
+import {parseRoute,resolveEntryHash} from './router.js';
+import {createWorkoutHomeController} from './workout-home-controller.js';
+import {mountWorkoutHome} from './workout-home-view.js';
 import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
 import {normalizeProfile} from './profile.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
-import {openWorkoutStartSheet} from './workout-start-sheet.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
 import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
@@ -30,7 +31,8 @@ import {parseDocument,serializeDocument,documentFileName} from './document-file.
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
 let breadcrumb,updateCurrentBreadcrumb=()=>{};
-let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=location.hash||'#/programs',authenticated=false,transitioning=false,creation=null,mountedVersion=0;
+const entryHash=hash=>resolveEntryHash(hash,{mobile:matchMedia('(max-width:760px)').matches});
+let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=entryHash(location.hash),authenticated=false,transitioning=false,creation=null,mountedVersion=0;
 const retryCreation=document.querySelector('#retry-creation');
 const viewTransition=createViewTransition(app),navigationStatus=document.querySelector('#navigation-status');
 let loadingTimer,limitView=null;
@@ -102,24 +104,26 @@ async function leave(){
  try{await queue.flush();return true;}catch(error){report(error);if(error.status===401)return false;if(!await confirmCurrent({title:'Discard unsaved changes?',message:'Changes could not be saved. Discard them and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;return true;}
 }
 async function navigate(hash,{push=true}={}){
+ hash=entryHash(hash);
  const version=++routeVersion;busy(version);
  try{
   if(!await leave()){if(version===routeVersion)history.replaceState(null,'',currentHash);return;}
   if(version!==routeVersion)return;
-  if(push&&(location.hash||'#/programs')!==hash)history.pushState(null,'',hash);
+  if(push&&entryHash(location.hash)!==hash)history.pushState(null,'',hash);
   await renderRoute(version);
  }finally{idle(version);}
 }
 mountTypingState(app);
-const NAV_ICONS={programs:'calendar',templates:'template',catalog:'catalog',workouts:'dumbbell'};
+const NAV_ICONS={programs:'calendar',templates:'template',home:'home',catalog:'catalog',workouts:'history'};
 document.querySelectorAll('[data-nav]').forEach(link=>link.insertAdjacentHTML('afterbegin',actionIcon(NAV_ICONS[link.dataset.nav])));
 document.querySelectorAll('[data-nav]').forEach(link=>link.addEventListener('click',event=>{
  if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
  event.preventDefault();action(()=>navigate(link.hash))();
 }));
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
-window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(location.hash||'#/programs',{push:false});}));
+window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
+ mounted?.onAuthHidden?.();
  cancelActiveConfirmation();
  cancelConfirmations();
  routeVersion++;viewTransition.cancel();idle(routeVersion);
@@ -264,7 +268,8 @@ async function openRecord(record,version){
  try{const commit=await prepareRecord(record);if(version!==routeVersion)return;await viewTransition.swap(()=>{clearView();mountedVersion=version;commit();});}finally{idle(version);}
 }
 async function renderRoute(version=++routeVersion){
- busy(version);const targetHash=location.hash||'#/programs',route=parseRoute(targetHash),changed=targetHash!==currentHash;message.textContent='';
+ busy(version);const targetHash=entryHash(location.hash),route=parseRoute(targetHash),changed=targetHash!==currentHash;message.textContent='';
+ if(location.hash!==targetHash)history.replaceState(null,'',targetHash);
  try{
   const commit=await prepareRoute(route,version);if(version!==routeVersion)return;
   await viewTransition.swap(()=>{
@@ -332,6 +337,15 @@ async function prepareWorkout(route){
  return commit;
 }
 async function prepareRoute(route,version){
+ if(route.view==='home')return ()=>{
+  let view,latest;
+  const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
+  const controller=createWorkoutHomeController({api,workouts,launcher,onNavigate:hash=>action(()=>navigate(hash))(),onError:report,
+   onState:state=>{latest=state;view?.update(state);}});
+  view=mountWorkoutHome(createViewHost(),{state:latest,onStart:()=>controller.start(),onResume:()=>controller.resume(),onChoose:()=>controller.choose(),
+   onRetry:()=>controller.refresh(),onSetup:kind=>kind==='set-active'?controller.choose({setup:true}):action(()=>navigate(kind==='open-program'?'#/programs/'+latest.program.id:'#/programs'))()});
+  mounted={onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
+ };
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
   const data=route.view==='catalog'?undefined:await api.catalog();

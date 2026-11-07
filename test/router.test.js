@@ -1,6 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseRoute} from '../src/router.js';
+import {parseRoute,resolveEntryHash} from '../src/router.js';
+test('empty entry chooses device home without changing explicit deep links',()=>{
+ for(const hash of ['','#','/','#/']){
+  assert.equal(resolveEntryHash(hash,{mobile:true}),'#/home');
+  assert.equal(resolveEntryHash(hash,{mobile:false}),'#/programs');
+ }
+ for(const hash of ['#/templates/t','#/programs','#/workouts/w'])assert.equal(resolveEntryHash(hash,{mobile:true}),hash);
+ assert.deepEqual(parseRoute('#/home'),{view:'home'});
+});
 test('nested routes preserve stable program catalog and tag context',()=>{
  assert.deepEqual(parseRoute('#/programs/p/workouts/w'),{view:'program-workout',id:'p',occurrenceId:'w'});
  assert.deepEqual(parseRoute('#/catalog/references/r'),{view:'catalog-reference',referenceId:'r'});
