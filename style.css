@@ -2489,3 +2489,88 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-title-track {display:inline-flex;gap:48px;white-space:nowrap;vertical-align:top}
 .workout-title-copy {display:block;flex-shrink:0}
 .workout-title-copy[hidden] {display:none}
+.focus-only {display:none}
+.workout-focus .focus-only {display:block}
+.workout-focus {--focus-feed-height:calc(100dvh - 270px);min-width:0}
+.workout-focus[hidden],.workout-focus [hidden] {display:none!important}
+.workout-logger.is-focus {max-width:42rem;padding-bottom:0}
+.workout-logger.is-focus>.log-exercises,.workout-logger.is-focus>.log-empty,.workout-logger.is-focus>.log-add-exercise {display:none}
+.focus-progress {margin:0 0 8px}
+.focus-progress-meta {display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:.6875rem;line-height:1.4;margin-bottom:7px}
+.focus-progress-segments {display:flex;gap:3px;height:4px;overflow:hidden}
+.focus-progress-segment {flex:1;min-width:0;background:var(--border);overflow:hidden}
+.focus-progress-fill {display:block;height:100%;background:var(--accent);transform:scaleX(0);transform-origin:left}
+.focus-progress-segment.is-done .focus-progress-fill {transform:scaleX(1)}
+.focus-feed {position:relative;height:var(--focus-feed-height);overflow-y:auto;overflow-x:hidden;list-style:none;margin:0;padding:0;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain}
+.focus-feed::-webkit-scrollbar {display:none}
+.focus-feed.is-unsnapped {scroll-snap-type:none}
+.workout-focus .focus-card {position:relative;display:grid;grid-template-rows:1fr;min-height:max(0px,calc(var(--focus-feed-height) - 60px));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out,min-height 200ms ease-out}
+.workout-focus .focus-card.is-closed {min-height:0;grid-template-rows:0fr}
+.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;min-height:0;overflow:hidden;margin:0;padding:0}
+.workout-focus .focus-context {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 0}
+.focus-context-text {min-width:0}
+.focus-eyebrow {margin:0;color:var(--muted);font-size:.625rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;overflow-wrap:anywhere}
+.focus-set-label {margin:3px 0 0;color:var(--text);font-size:.8125rem;line-height:1.35}
+.focus-complete-marker {position:relative;display:grid;place-items:center;flex:none;min-width:32px;min-height:32px;border:1px solid var(--border);border-radius:50%;font-size:.75rem;color:var(--muted)}
+.workout-focus .focus-complete-marker .log-set-number {grid-area:auto;color:inherit;font-size:inherit;transition:none}
+.focus-complete-marker svg {display:none;width:18px;height:18px;fill:none;stroke:currentColor}
+.focus-card.is-done .focus-complete-marker {background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.focus-card.is-done .focus-complete-marker svg {display:block}
+.focus-card.is-done .focus-complete-marker .log-set-number {display:none}
+.focus-identity {min-width:0;margin:3px 0 8px}
+.focus-exercise-title {margin:0;color:var(--text);font-family:var(--font-display);font-size:2rem;font-weight:600;letter-spacing:-.02em;line-height:1.1;text-transform:none}
+.focus-exercise-meta {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.focus-muted {color:var(--muted);font-size:.6875rem;line-height:1.4;overflow-wrap:anywhere}
+.focus-exercise-note,.focus-set-note {display:flex;align-items:center;gap:7px;min-height:44px;max-width:100%;padding:6px 0;border:0;border-radius:0;background:transparent;color:var(--muted);font:inherit;font-size:.75rem;text-align:left;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}
+.focus-exercise-note {flex-shrink:0;max-width:55%}
+.focus-exercise-note svg,.focus-set-note svg {width:15px;height:15px;flex-shrink:0;fill:none;stroke:currentColor}
+.focus-exercise-note:hover,.focus-set-note:hover {color:var(--text)}
+.focus-history {border-top:1px solid var(--border);padding-top:8px;margin-bottom:12px}
+.focus-history .log-last-time,.focus-history .log-best {margin:0 0 4px;font-size:.75rem;line-height:1.4;overflow-wrap:anywhere}
+.focus-history .log-last-note {margin:0 0 5px}
+.workout-logger .workout-focus .log-set-row {display:flex;flex-direction:column;align-items:stretch;gap:0;border:0;padding:0;background:none;transition:none;margin-top:auto}
+.workout-focus .focus-number-controls {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.workout-focus .log-stepper {grid-area:auto;display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;background:var(--surface);min-width:0;padding:8px 0 0}
+.workout-focus .log-stepper .log-step,.workout-focus .log-stepper::after {display:none}
+.workout-focus .log-stepper .focus-control-label {display:block;padding:0 4px;margin:0 0 5px;color:var(--muted);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+.workout-focus .log-stepper input[type="text"] {flex:none;font-size:2.75rem;line-height:1;min-height:46px;padding:0 4px;border-radius:0;font-family:var(--font-display);font-weight:600}
+.workout-focus .workout-ruler {height:42px;flex:none}
+.workout-focus .workout-ruler-track {height:42px}
+.workout-focus .workout-ruler-tick {top:22px;font-size:.625rem}
+.workout-focus .is-outside-range {border-color:var(--accent-deep)}
+.workout-focus .focus-input-help {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.workout-focus .workout-rep-guidance {flex:1;min-width:0;max-width:70%;margin:0;font-size:.6875rem}
+.focus-increment {max-width:125px;min-height:44px;margin-left:auto;padding:4px;background:transparent;color:var(--muted);border:0;font:inherit;font-size:.6875rem}
+.workout-focus .focus-rir-strip {display:grid;grid-template-columns:36px minmax(0,1fr);gap:4px;align-items:center;margin:1px 0}
+.workout-focus .log-rir-label {display:block;grid-area:auto;margin:0;font-size:.8125rem;line-height:1.2;text-align:left;color:var(--text)}
+.workout-focus .log-rir-label small {display:block;margin-top:5px;font-size:.5rem;font-weight:400;color:var(--muted)}
+.workout-focus .log-rir {grid-area:auto;margin:0;gap:2px}
+.workout-focus .log-rir-option {margin:0!important;min-width:44px;min-height:44px;padding:4px;border:1px solid var(--border);border-radius:5px;color:var(--muted);background:var(--surface);font-size:1rem}
+.workout-focus .log-rir-option[aria-pressed=true] {border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.workout-focus .focus-note-area {min-width:0;min-height:44px}
+.workout-focus .log-set-note-slot {grid-area:auto;min-width:0}
+.workout-focus .focus-note-area .log-set-note-text {padding-left:0;border:0;background:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.workout-focus .log-set-menu {display:none}
+.workout-focus .focus-complete {margin-top:3px}
+.workout-focus .log-done {display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;padding:8px 12px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 1rem/1.3 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
+.workout-focus .log-done::after {content:attr(data-label)}
+.workout-focus .log-done svg {width:17px;height:17px}
+.workout-focus .is-done .log-done {background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-deep)}
+.workout-focus .log-done:active {transform:scale(.98)}
+.workout-focus .focus-feedback {margin:0;min-height:28px;padding:7px 0;color:var(--muted);font-size:.625rem;line-height:1.3;text-align:center}
+.focus-toolbar {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:50px;border-top:1px solid var(--border);background:var(--bg)}
+.focus-toolbar button {min-height:44px;padding:5px 0;background:none;border:0;font:inherit;font-size:.75rem;color:var(--text)}
+.focus-toolbar .focus-current {color:var(--accent);font-size:.6875rem}
+.focus-auto {display:flex;align-items:center;gap:6px;min-height:44px;color:var(--muted);font-size:.625rem;white-space:nowrap}
+.focus-auto input {width:20px;height:20px;accent-color:var(--accent)}
+.focus-review {display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:var(--focus-feed-height);list-style:none;padding:20px 0;scroll-snap-align:start;scroll-snap-stop:always}
+.focus-review h2 {margin:0;font-family:var(--font-display);font-size:2rem;text-transform:none}
+.focus-review-copy,.focus-empty p {color:var(--muted);font-size:.875rem}
+.focus-empty {padding:24px 0}
+@media(max-height:780px){.workout-focus .focus-context {min-height:44px}.focus-exercise-title {font-size:1.75rem}.focus-history {margin-bottom:8px}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}.workout-focus .focus-feedback {min-height:24px;padding:5px 0}}
+@media(max-width:350px){.workout-focus .focus-rir-strip {grid-template-columns:minmax(0,1fr)}.workout-focus .log-rir-label {display:flex;align-items:center;gap:8px;min-height:28px}.workout-focus .log-rir-label small {margin:0;font-size:.625rem}}
+@media(prefers-reduced-motion:reduce){.workout-focus .focus-card,.workout-focus .log-done {transition:none}.workout-focus .log-done:active {transform:none}}
+
+.is-focus .focus-number-controls .log-stepper {position:relative}
+.focus-bodyweight {position:absolute;top:26px;left:0;right:0;line-height:46px;text-align:center;font-size:2rem;font-variant-numeric:tabular-nums;pointer-events:none;color:var(--muted)}
+.log-stepper:focus-within>.focus-bodyweight {visibility:hidden}

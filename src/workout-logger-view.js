@@ -454,7 +454,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
     case 'patch':return {accepted:commit(updateSet(log,id,ref.setId,action.patch),{action})};
     case 'toggle':{const row=presentationPort.row(ref);if(row)setRowBindings(row).done.click();break;}
     case 'set-note':openSetNote(id,ref.setId);return {accepted:true};
-    case 'exercise-note':{const card=cards.get(id);if(!card)return {accepted:false};if(action.host){if(!noteOrigins.has(id)){const marker=document.createComment('exercise-note');card.noteHost.before(marker);noteOrigins.set(id,marker);}relocate(()=>action.host.append(card.noteHost));}openNote(card);return {accepted:true};}
+    case 'exercise-note':{const card=cards.get(id);if(!card)return {accepted:false};if(action.host){if(!noteOrigins.has(id)){const marker=document.createComment('exercise-note');card.noteHost.before(marker);noteOrigins.set(id,marker);}relocate(()=>action.host.append(card.noteHost));}if(!card.editingNote)openNote(card);return {accepted:true};}
     case 'add-set':return {accepted:commit(addSet(log,id,uid),{animate:true,action})};
     case 'add-warmup':return {accepted:commit(addWarmup(log,id,uid),{animate:true,action})};
     case 'remove-set':await dropSet(id,ref.setId);break;
