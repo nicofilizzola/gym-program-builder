@@ -13,6 +13,7 @@ import {createApiClient} from './api-client.js';
 import {createRootResourceCache} from './root-resource-cache.js';
 import {createRootPageSession} from './root-page-session.js';
 import {mountRootPageSurface} from './root-page-surface.js';
+import {createHistoryPageData} from './history-page-data.js';
 import {createAutosave} from './autosave.js';
 import {createTemplate,createProgram,duplicateProgram} from './program.js';
 import {parseRoute,resolveEntryHash} from './router.js';
@@ -399,6 +400,7 @@ async function prepareWorkout(route){
  return commit;
 }
 function prepareMobileRoot(route,version){
+ if(route.view==='workouts')return prepareMobileHistory(version);
  return ()=>{
   const key=({programs:'programs',templates:'templates',catalog:'catalog',workouts:'history:first'})[route.view];
   let live=null,destroyed=false,mounting=false,lastData,interacted=false;
@@ -416,12 +418,31 @@ function prepareMobileRoot(route,version){
    void prepareRoute(route,version,prepared).then(commit=>{
     if(!current())return;
     surface.setContent(host=>{hydrationHost=host;try{commit();live=mounted;}finally{hydrationHost=null;mounted=owner;}});
-    requestAnimationFrame(()=>{if(current()&&!interacted)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);});
+    if(current()&&!interacted)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);
     if(route.view==='programs')void rootCache.load('settings',()=>api.getSettings()).then(result=>{if(current()&&result.status==='accepted')live?.setSettings?.(result.snapshot.value);}).catch(error=>{if(current()&&error.status===401)report(error);});
    }).catch(report).finally(()=>{mounting=false;});
   }});
   const owner=new Proxy({settled:()=>session.settled(),onAuthHidden:()=>session.destroy(),destroy(){destroyed=true;events.abort();session.destroy();live?.destroy();surface.destroy();}}, {get(target,name){return name in target?target[name]:live?.[name];}});
   mounted=owner;session.start();
+ };
+}
+function prepareMobileHistory(version){
+ return ()=>{
+  let destroyed=false,interacted=false,restored=false;
+  const current=()=>!destroyed&&version===routeVersion&&authenticated,events=new AbortController();
+  for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,()=>interacted=true,{passive:true,signal:events.signal});
+  const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
+  const surface=mountRootPageSurface(createViewHost(),{title:'Workouts',onRetry:()=>data.refresh()});
+  let view;
+  surface.setContent(host=>{view=mountWorkoutHistory(host,{records:[],hasMore:false,error:'Loading...',onLoadMore:()=>data.loadMore(),onStart:()=>launcher.open({data:{programs:null,templates:null,logs:rootCache.read('history:first')?.value.records??null,activeProgramId:null}}),onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});});
+  const saved=mobileNavigationState.readPage('#/workouts');
+  const data=createHistoryPageData({api,cache:rootCache,pendingSummary:()=>workouts.pendingSummary(),isCurrent:current,onAuthError:report,onState:state=>{
+   surface.show(state);
+   view.setData({records:state.data?.records??[],hasMore:state.data?.hasMore??false,pending:state.pending,error:state.error?(state.data?"Couldn't refresh. Showing previously loaded data.":'Workouts could not be loaded. Connect to see your history.'):state.data?'':'Loading...'});
+   if(state.data&&!restored){restored=true;if(current()&&!interacted)window.scrollTo(0,saved?.scrollY??0);}
+  }});
+  mounted={getNavigationState:()=>view.getNavigationState(),settled:()=>data.settled(),onAuthHidden:()=>data.destroy(),destroy(){destroyed=true;events.abort();data.destroy();view.destroy();surface.destroy();launcher.destroy();}};
+  data.start({visibleCount:saved?.state?.visibleCount??0});
  };
 }
 async function prepareRoute(route,version,prepared=null){

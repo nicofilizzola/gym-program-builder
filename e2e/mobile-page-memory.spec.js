@@ -12,7 +12,7 @@ test('Catalog restores filters and deliberate disclosure choices',async({page})=
  await expect(search).toHaveValue('curl');await expect(page.locator('.reference-toggle').first()).toHaveAttribute('aria-expanded','false');
  expect(await page.locator('.reference-toggle').first().getAttribute('aria-label')).toContain(name.replace('Collapse','Expand'));
 });
-test('History restores loaded extent before scroll and keeps required-load failures on source',async({page})=>{
+test('History restores cached extent before scroll and retains it when refresh fails',async({page})=>{
  await login(page);await resetWorkouts(page);
  const records=Array.from({length:50},(_,i)=>({id:'memory-'+i,name:'History row '+i,startedAt:new Date(Date.UTC(2026,10,6,12)-i*3600000).toISOString(),finishedAt:new Date(Date.UTC(2026,10,6,13)-i*3600000).toISOString(),source:{kind:'blank'},doneSets:3}));
  await page.route('**/api/workouts',r=>r.fulfill({json:{records:records.slice(0,25),hasMore:true}}));
@@ -26,7 +26,7 @@ test('History restores loaded extent before scroll and keeps required-load failu
  await main(page).getByRole('link',{name:'User',exact:true}).click();
  await page.unroute('**/api/workouts');await page.route('**/api/workouts',r=>r.fulfill({status:503,json:{error:{message:'History unavailable'}}}));
  await main(page).getByRole('link',{name:'History',exact:true}).click();
- await expect(page.getByRole('heading',{name:'User',exact:true})).toBeVisible();await expect(page.locator('#app-message')).toContainText('History unavailable');
+ await expect(page.getByRole('heading',{name:'Workouts',exact:true})).toBeVisible();await expect(page.locator('.root-page-feedback')).toContainText("Couldn't refresh. Showing previously loaded data.");await expect(page.getByRole('link',{name:'History row 40',exact:true})).toBeVisible();
 });
 test('Back and Forward preserve each root departure scroll independently',async({page})=>{
  await login(page);

@@ -48,6 +48,7 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
   }
 
   function render() {
+    const focused=document.activeElement,href=groupsHost.contains(focused)||pendingHost.contains(focused)?focused.closest('a')?.getAttribute('href'):null;
     groupsHost.replaceChildren();pendingHost.replaceChildren();
     if(pending){const list=document.createElement('ul');list.className='workout-history-list';list.append(row(pending,{unsynced:true}));pendingHost.append(list);}
     for(const group of groupByLocalDate(loaded)){
@@ -56,6 +57,7 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
       list.append(...group.items.map(item=>row(item)));section.append(heading,list);groupsHost.append(section);
     }
     empty.hidden=Boolean(loaded.length||pending||initialError);more.hidden=!more_;
+    if(href)(page.querySelector('a[href="'+CSS.escape(href)+'"]')||page.querySelector('[data-start]')).focus({preventScroll:true});
   }
 
   page.querySelector('[data-start]').addEventListener('click',()=>onStart?.(),{signal});
@@ -64,6 +66,7 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
     try{
       const result=await onLoadMore(loaded.at(-1));
       if(destroyed)return;
+      if(!result)return;
       loaded=[...new Map([...loaded,...result.records].map(record=>[record.id,record])).values()];more_=result.hasMore;
       const had=document.activeElement===more;render();
       if(had&&!more.hidden)more.focus();else if(had)page.querySelector('[data-start]').focus();
@@ -72,5 +75,5 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
   },{signal});
 
   error.textContent=initialError;render();root.append(page);
-  return {getNavigationState:()=>({visibleCount:loaded.length}),destroy(){destroyed=true;events.abort();page.remove();}};
+  return {setData({records,hasMore,pending:nextPending=null,error:nextError=''}){const same=JSON.stringify([loaded,more_,pending,initialError])===JSON.stringify([records,hasMore,nextPending,nextError]);loaded=records;more_=hasMore;pending=nextPending;initialError=nextError;error.textContent=nextError;if(!same)render();},getNavigationState:()=>({visibleCount:loaded.length}),destroy(){destroyed=true;events.abort();page.remove();}};
 }
