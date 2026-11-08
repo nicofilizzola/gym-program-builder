@@ -15,6 +15,8 @@ export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDup
     if(Object.hasOwn(options,'activeProgramId'))activeId=options.activeProgramId;
     tooltips.hide();
     const container=root.querySelector('[data-items]'),focusedStar=container.contains(document.activeElement)&&document.activeElement.closest('.active-program-toggle')?.dataset.recordId;
+    const focused=document.activeElement,focusedRow=focused?.closest('article[data-record-id]'),focusedId=focusedRow?.dataset.recordId;
+    const focusIndex=focusedRow?[...focusedRow.querySelectorAll('a,button')].indexOf(focused):-1;
     const before=[...container.children].map(article=>article.dataset.recordId);
     const active=items.find(item=>item.id===activeId);
     if(active)items=[active,...items.filter(item=>item!==active)];
@@ -47,7 +49,7 @@ export function mountLibrary(root,{kind,records,recordHref,onCreate,onOpen,onDup
       container.append(article);
     }
     // Rebuilding removed the focused star: focus that record's new star.
-    if(focusedStar)container.querySelector(`.active-program-toggle[data-record-id="${CSS.escape(focusedStar)}"]`)?.focus();
+    if(focusedId){const row=container.querySelector(`article[data-record-id="${CSS.escape(focusedId)}"]`);(row?.querySelectorAll('a,button')[focusIndex]||create).focus({preventScroll:true});}
   }
   update(records);return {update,destroy(){tooltips.destroy();root.replaceChildren();}};
 }

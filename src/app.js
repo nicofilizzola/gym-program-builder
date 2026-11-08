@@ -401,20 +401,26 @@ async function prepareWorkout(route){
 function prepareMobileRoot(route,version){
  return ()=>{
   const key=({programs:'programs',templates:'templates',catalog:'catalog',workouts:'history:first'})[route.view];
-  let live=null,destroyed=false,mounting=false,lastData;
+  let live=null,destroyed=false,mounting=false,lastData,interacted=false;
+  const events=new AbortController();
+  for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,()=>interacted=true,{passive:true,signal:events.signal});
   const current=()=>!destroyed&&version===routeVersion&&authenticated;
   const load=()=>route.view==='catalog'?api.catalog():route.view==='workouts'?api.listWorkouts():api.list(route.view==='programs'?'program':'template');
   const surface=mountRootPageSurface(createViewHost(),{title:({programs:'Programs',templates:'Session templates',catalog:'Exercise catalog',workouts:'Workouts'})[route.view],onRetry:()=>session.refresh()});
   const session=createRootPageSession({key,cache:rootCache,load,isCurrent:current,onAuthError:report,onState:state=>{
-   surface.show(state);if(state.phase!=='ready'||state.data===undefined||live||mounting)return;
+   surface.show(state);if(state.phase!=='ready'||state.data===undefined)return;
+   if(live){if(JSON.stringify(lastData)!==JSON.stringify(state.data)){lastData=state.data;live.setData?.(state.data);}return;}
+   if(mounting)return;
    mounting=true;lastData=state.data;
    const prepared=route.view==='catalog'?{catalog:state.data}:route.view==='workouts'?{page:state.data}:{records:state.data,settings:null};
    void prepareRoute(route,version,prepared).then(commit=>{
     if(!current())return;
     surface.setContent(host=>{hydrationHost=host;try{commit();live=mounted;}finally{hydrationHost=null;mounted=owner;}});
+    requestAnimationFrame(()=>{if(current()&&!interacted)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);});
+    if(route.view==='programs')void rootCache.load('settings',()=>api.getSettings()).then(result=>{if(current()&&result.status==='accepted')live?.setSettings?.(result.snapshot.value);}).catch(error=>{if(current()&&error.status===401)report(error);});
    }).catch(report).finally(()=>{mounting=false;});
   }});
-  const owner=new Proxy({settled:()=>session.settled(),onAuthHidden:()=>session.destroy(),destroy(){destroyed=true;session.destroy();live?.destroy();surface.destroy();}}, {get(target,name){return name in target?target[name]:live?.[name];}});
+  const owner=new Proxy({settled:()=>session.settled(),onAuthHidden:()=>session.destroy(),destroy(){destroyed=true;events.abort();session.destroy();live?.destroy();surface.destroy();}}, {get(target,name){return name in target?target[name]:live?.[name];}});
   mounted=owner;session.start();
  };
 }
@@ -437,7 +443,7 @@ async function prepareRoute(route,version,prepared=null){
    const host=createViewHost(),content=host.appendChild(document.createElement('div'));
    if(route.view!=='catalog'&&(!reference||(route.variantId&&!variant))){breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Not found'}],onNavigate:hash=>action(()=>navigate(hash))()});const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='This reference exercise or variant is unavailable. Return to Exercise catalog.';content.append(p);return;}
    if(route.view!=='catalog')breadcrumb=mountBreadcrumbs(host,{items:[],onNavigate:hash=>action(()=>navigate(hash))()});
-   mounted=mountCatalog(content,{api,initialData:data,navigationState:route.view==='catalog'&&mobileNavigation.matches?mobileNavigationState.readPage('#/catalog')?.state:null,target:reference?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
+   mounted=mountCatalog(content,{api,loadCatalog:prepared?async()=>{const result=await rootCache.load('catalog',()=>api.catalog());return result.status==='accepted'?result.snapshot.value:rootCache.read('catalog')?.value;}:undefined,initialData:data,navigationState:route.view==='catalog'&&mobileNavigation.matches?mobileNavigationState.readPage('#/catalog')?.state:null,target:reference?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
     breadcrumb?.update([{label:'Exercise catalog',href:'#/catalog'},...(variant?[{label:reference.name,href:'#/catalog/references/'+reference.id},{label:variant.name}]:[{label:reference.name}])]);
     const hash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;}
    }});
@@ -484,7 +490,7 @@ async function prepareRoute(route,version,prepared=null){
  if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
  const kind=route.view==='programs'?'program':'template';
  // A settings failure on the network just shows no active program; anything else is reported.
- const [records,settings]=prepared?[prepared.records,prepared.settings]:await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
+ let [records,settings]=prepared?[prepared.records,rootCache.read('settings')?.value??prepared.settings]:await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
  return ()=>{
  // Star taps apply at once; one request is in flight at a time and only the latest choice is sent next.
  let confirmed=settings?.activeProgramId??null,wanted=confirmed,sending=false;
@@ -523,7 +529,11 @@ async function prepareRoute(route,version,prepared=null){
    }
   }),
   onImport:action(file=>importFile(kind,file,version))
- });};
+ });
+ const view=mounted;
+ view.setData=items=>{records=items;view.update(records,{activeProgramId:wanted});};
+ view.setSettings=value=>{if(sending)return;confirmed=wanted=value?.activeProgramId??null;view.update(records,{activeProgramId:wanted});};
+ }; 
 }
 async function start(){
  try{await api.passwordSession();}catch(error){

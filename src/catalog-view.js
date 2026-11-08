@@ -6,7 +6,7 @@ import {openCatalogForm} from './catalog-form.js';
 import {openReferenceForm,openReferenceArchive,openVariantMove} from './reference-form.js';
 import {invalidateCatalog} from './catalog-store.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
-export function mountCatalog(root,{api,initialData,target,onNavigate,navigationState=null,onTargetChange=()=>{}}){
+export function mountCatalog(root,{api,initialData,target,onNavigate,navigationState=null,onTargetChange=()=>{},loadCatalog=()=>api.catalog()}){
  root.innerHTML='<section class="catalog-page"><header class="catalog-header"><div><h1>Exercise catalog</h1><p class="catalog-intro">Reference exercises and their variants.</p></div><button class="add-btn" data-new>New reference exercise</button></header><div class="catalog-toolbar"><a class="secondary-btn manage-tags" href="#/catalog/tags">Manage tags</a><label class="field">Search catalog<input type="search" autocomplete="off" data-search></label><label class="field">Equipment<select data-equipment aria-label="Equipment"><option value="">All equipment</option></select></label><label class="field">Primary muscle<select data-primary-muscle aria-label="Primary muscle"><option value="">All primary muscles</option></select></label><label class="field">Secondary muscle<select data-secondary-muscle aria-label="Secondary muscle"><option value="">All secondary muscles</option></select></label><label class="field">Exercise type<select data-exercise-type aria-label="Exercise type"><option value="">All types</option><option value="compound">Compound</option><option value="isolation">Isolation</option></select></label><label class="catalog-archived"><input type="checkbox" data-archived>Show archived</label></div><p class="error" role="alert" data-error></p><button class="secondary-btn" data-retry hidden>Retry</button><p data-count role="status"></p><div class="catalog-list"></div></section>';
  let data=initialData||{entries:[],families:[]},targetResolved=false,lastTargetReference=null,disposed=false,form,retryAction,generation=0,filterKey='',searchExpanded=new Set(),searchSeen=new Set();
  const expanded=new Set(),list=root.querySelector('.catalog-list'),error=root.querySelector('[data-error]'),retry=root.querySelector('[data-retry]'),search=root.querySelector('[data-search]'),equipment=root.querySelector('[data-equipment]'),archived=root.querySelector('[data-archived]');
@@ -31,7 +31,13 @@ export function mountCatalog(root,{api,initialData,target,onNavigate,navigationS
  }
  function report(e,fn){if(disposed)return;error.textContent=e.message;retryAction=fn;retry.hidden=false;}
  retry.onclick=()=>{error.textContent='';retry.hidden=true;retryAction?.();};
- async function load(){const reading=++generation;invalidateCatalog(api);try{const next=await api.catalog();if(disposed||reading!==generation)return;data=next;error.textContent='';retry.hidden=true;render();}catch(e){report(e,load);}}
+ let queuedData=null,composing=false;
+ const isEditing=()=>Boolean(document.querySelector('dialog[open]'))||composing;
+ function setData(next){if(!next||disposed)return;if(isEditing()){queuedData=next;return;}const focused=document.activeElement,id=focused?.closest('[data-reference]')?.dataset.reference,variant=focused?.closest('[data-variant]')?.dataset.variant,key=focused?.dataset.catalogAction,toggle=focused?.classList.contains('reference-toggle');data=next;render();if(list.contains(focused)||id){const group=findReference(id),row=variant?group?.querySelector('[data-variant="'+CSS.escape(variant)+'"]'):group;const control=toggle?group?.querySelector('.reference-toggle'):row?.querySelector('[data-catalog-action="'+CSS.escape(key||'')+'"]');(control||search).focus({preventScroll:true});}}
+ function flushPending(){if(queuedData&&!isEditing()){const next=queuedData;queuedData=null;setData(next);}}
+ const updates=new AbortController();document.addEventListener('close',()=>queueMicrotask(flushPending),{capture:true,signal:updates.signal});
+ root.addEventListener('compositionstart',()=>composing=true,{signal:updates.signal});root.addEventListener('compositionend',()=>{composing=false;flushPending();},{signal:updates.signal});
+ async function load(){const reading=++generation;invalidateCatalog(api);try{const next=await loadCatalog();if(!next||disposed||reading!==generation)return;queuedData=null;data=next;error.textContent='';retry.hidden=true;render();}catch(e){report(e,load);}}
  function findReference(id){return [...list.querySelectorAll('.reference-group')].find(row=>row.dataset.reference===id);}
  function focusVisible(button){
   button.focus({preventScroll:true});
@@ -128,5 +134,5 @@ export function mountCatalog(root,{api,initialData,target,onNavigate,navigationS
  }
  root.querySelector('[data-new]').onclick=()=>referenceForm();
  search.oninput=equipment.onchange=primaryMuscle.onchange=secondaryMuscle.onchange=exerciseType.onchange=archived.onchange=render;root.querySelector('[data-count]').textContent='Loading reference exercises\u2026';if(initialData)render();else load();
- return {focusTarget,getNavigationState:()=>({query:search.value,equipment:equipment.value,primaryMuscle:primaryMuscle.value,secondaryMuscle:secondaryMuscle.value,exerciseType:exerciseType.value,showArchived:archived.checked,expanded:[...expanded],searchExpanded:[...searchExpanded],searchSeen:[...searchSeen],filterKey}),destroy(){disposed=true;generation++;form?.destroy();tooltips.destroy();root.replaceChildren();}};
+ return {focusTarget,setData,isEditing,getNavigationState:()=>({query:search.value,equipment:equipment.value,primaryMuscle:primaryMuscle.value,secondaryMuscle:secondaryMuscle.value,exerciseType:exerciseType.value,showArchived:archived.checked,expanded:[...expanded],searchExpanded:[...searchExpanded],searchSeen:[...searchSeen],filterKey}),destroy(){disposed=true;generation++;updates.abort();form?.destroy();tooltips.destroy();root.replaceChildren();}};
 }
