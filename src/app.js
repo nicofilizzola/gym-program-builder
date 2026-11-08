@@ -10,6 +10,9 @@ import {mountTagView} from './tag-view.js';
 import {createViewTransition} from './view-transition.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {createApiClient} from './api-client.js';
+import {createRootResourceCache} from './root-resource-cache.js';
+import {createRootPageSession} from './root-page-session.js';
+import {mountRootPageSurface} from './root-page-surface.js';
 import {createAutosave} from './autosave.js';
 import {createTemplate,createProgram,duplicateProgram} from './program.js';
 import {parseRoute,resolveEntryHash} from './router.js';
@@ -35,7 +38,9 @@ import {mountWorkoutBar} from './workout-bar.js';
 import {mountTypingState} from './typing-state.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
+const rootCache=createRootResourceCache();
 const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
+let hydrationHost=null;
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
 let breadcrumb,libraryNavigation,updateCurrentBreadcrumb=()=>{};
 const mobileNavigationState=createMobileNavigationState();
@@ -70,7 +75,7 @@ const programReturn=new Map();
 const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
-function createViewHost(){return app.appendChild(document.createElement('div'));}
+function createViewHost(){return (hydrationHost||app).appendChild(document.createElement('div'));}
 const workoutBar=mountWorkoutBar(document.querySelector('#workout-bar-host'),{onResume:id=>action(()=>navigate('#/workouts/'+id))()});
 const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
 let barRendered=false;
@@ -162,6 +167,7 @@ window.addEventListener('hashchange',action(()=>{if(authenticated)return navigat
 function showLogin(resuming=false){
  cancelMobileGesture();mobilePager.clear();
  mobileNavigationState.clear();
+ rootCache.clear();
  mounted?.onAuthHidden?.();
  cancelActiveConfirmation();
  cancelConfirmations();
@@ -329,6 +335,7 @@ async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
   };
   const finished=mobileTransition?await mobilePager.complete({commit:commitView,restore:async()=>{await new Promise(requestAnimationFrame);if(version===routeVersion)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);},focus,isCurrent:()=>version===routeVersion}):await viewTransition.swap(commitView,{focus});
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
+  mounted?.settled?.();
   if(committed&&!finished)focus();
   return {status:committed?'committed':'superseded',hash:currentHash};
  }catch(error){
@@ -391,19 +398,40 @@ async function prepareWorkout(route){
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;
 }
-async function prepareRoute(route,version){
+function prepareMobileRoot(route,version){
+ return ()=>{
+  const key=({programs:'programs',templates:'templates',catalog:'catalog',workouts:'history:first'})[route.view];
+  let live=null,destroyed=false,mounting=false,lastData;
+  const current=()=>!destroyed&&version===routeVersion&&authenticated;
+  const load=()=>route.view==='catalog'?api.catalog():route.view==='workouts'?api.listWorkouts():api.list(route.view==='programs'?'program':'template');
+  const surface=mountRootPageSurface(createViewHost(),{title:({programs:'Programs',templates:'Session templates',catalog:'Exercise catalog',workouts:'Workouts'})[route.view],onRetry:()=>session.refresh()});
+  const session=createRootPageSession({key,cache:rootCache,load,isCurrent:current,onAuthError:report,onState:state=>{
+   surface.show(state);if(state.phase!=='ready'||state.data===undefined||live||mounting)return;
+   mounting=true;lastData=state.data;
+   const prepared=route.view==='catalog'?{catalog:state.data}:route.view==='workouts'?{page:state.data}:{records:state.data,settings:null};
+   void prepareRoute(route,version,prepared).then(commit=>{
+    if(!current())return;
+    surface.setContent(host=>{hydrationHost=host;try{commit();live=mounted;}finally{hydrationHost=null;mounted=owner;}});
+   }).catch(report).finally(()=>{mounting=false;});
+  }});
+  const owner=new Proxy({settled:()=>session.settled(),onAuthHidden:()=>session.destroy(),destroy(){destroyed=true;session.destroy();live?.destroy();surface.destroy();}}, {get(target,name){return name in target?target[name]:live?.[name];}});
+  mounted=owner;session.start();
+ };
+}
+async function prepareRoute(route,version,prepared=null){
+ if(!prepared&&mobileNavigation.matches&&['programs','templates','catalog','workouts'].includes(route.view))return prepareMobileRoot(route,version);
  if(route.view==='home')return ()=>{
-  let view,latest;
+  let view,latest,settled=false;
   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report,focusFallback:()=>view?.focusTarget()});
   const controller=createWorkoutHomeController({api,workouts,launcher,onNavigate:hash=>action(()=>navigate(hash))(),onError:report,
-   onState:state=>{latest=state;view?.update(state);}});
+   onState:state=>{latest=state;if(settled)view?.update(state);}});
   view=mountWorkoutHome(createViewHost(),{state:latest,onStart:()=>controller.start(),onResume:()=>controller.resume(),onChoose:()=>controller.choose(),
    onRetry:()=>controller.refresh(),onSetup:kind=>kind==='set-active'?controller.choose({setup:true}):action(()=>navigate(kind==='open-program'?'#/programs/'+latest.program.id:'#/programs'))()});
-  mounted={onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
+  mounted={settled(){settled=true;if(latest)view.update(latest);},onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
  };
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
-  const data=await api.catalog();
+  const data=prepared?.catalog??await api.catalog();
   const variant=route.variantId?data.entries.find(e=>e.id===route.variantId):null,reference=data?.families.find(r=>r.id===(variant?.familyId||route.referenceId));
   const commit=()=>{
    const host=createViewHost(),content=host.appendChild(document.createElement('div'));
@@ -423,8 +451,8 @@ async function prepareRoute(route,version){
   let page,error='';
   // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.
   const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
-  const lists=Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
-  const [historyResult,listResult]=await Promise.allSettled([api.listWorkouts(),lists]);
+  const lists=prepared?Promise.resolve([null,null,null]):Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
+  const [historyResult,listResult]=await Promise.allSettled([prepared?Promise.resolve(prepared.page):api.listWorkouts(),lists]);
   const pendingFinish=workouts.pendingSummary(),sourceRoute=parseRoute(currentHash);
   const leavingPendingFinish=sourceRoute.view==='workout'&&pendingFinish?.id===sourceRoute.id;
   if(historyResult.status==='rejected'){if((mounted&&!leavingPendingFinish)||!isNetworkError(historyResult.reason))throw historyResult.reason;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
@@ -456,7 +484,7 @@ async function prepareRoute(route,version){
  if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
  const kind=route.view==='programs'?'program':'template';
  // A settings failure on the network just shows no active program; anything else is reported.
- const [records,settings]=await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
+ const [records,settings]=prepared?[prepared.records,prepared.settings]:await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
  return ()=>{
  // Star taps apply at once; one request is in flight at a time and only the latest choice is sent next.
  let confirmed=settings?.activeProgramId??null,wanted=confirmed,sending=false;

@@ -11,13 +11,17 @@ export async function holdResponse(page,pattern){
  return {requested,release};
 }
 
-test('current cold swipe waits for held destination data',async({page})=>{
+test('cold swipe settles while destination data is held and accepts another navigation',async({page})=>{
  await login(page);await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
  const held=await holdResponse(page,'**/api/documents?kind=program');
  try{
   await dragDestination(page);await held.requested;
-  await page.waitForTimeout(750);
-  await expect(page.locator('#mobile-page-stage')).toBeVisible();
+  await expect(page.locator('#mobile-page-stage')).toBeHidden({timeout:750});
+  await expect(page.locator('[data-root-state]')).toHaveAttribute('data-root-state','loading');
+  await expect(page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Library',exact:true})).toHaveAttribute('aria-current','page');
+  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'User',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'User',exact:true})).toBeVisible();
+  await page.waitForTimeout(1500);
  }finally{held.release();}
  await expect(page.locator('#mobile-page-stage')).toBeHidden();
 });

@@ -7,17 +7,17 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
  const icons={programs:'calendar',templates:'template',home:'home',workouts:'history',catalog:'catalog',library:'template',user:'profile'};
  for(const [key,a] of links)a.insertAdjacentHTML('afterbegin',actionIcon(icons[key]));
  const indicator=document.createElement('span');indicator.className='mobile-nav-indicator';indicator.setAttribute('aria-hidden','true');nav.append(indicator);
- let current=location.hash,lastMobile=media.matches,lastFocused=null;
+ let current=location.hash,lastMobile=media.matches,lastFocused=null,geometry=new Map();
  document.addEventListener('focusin',event=>{lastFocused=nav.contains(event.target)?event.target:null;},{signal:events.signal});
  nav.addEventListener('focusout',()=>{if(lastMobile===media.matches)lastFocused=null;},{signal:events.signal});
  const key=dest=>dest==='history'?'workouts':dest;
- function position(dest){const a=links.get(key(dest)),r=a?.getBoundingClientRect(),n=nav.getBoundingClientRect();return r?{left:r.left-n.left+r.width*.25,width:r.width*.5}:null;}
+ function position(dest){if(geometry.has(dest))return geometry.get(dest);const a=links.get(key(dest)),r=a?.getBoundingClientRect(),n=nav.getBoundingClientRect();const value=r?{left:r.left-n.left+r.width*.25,width:r.width*.5}:null;geometry.set(dest,value);return value;}
  function preview({from,to,progress}){
   const a=position(from),b=position(to);if(!a||!b)return;
   indicator.style.transform='translateX('+(a.left+(b.left-a.left)*progress)+'px)';
   indicator.style.width=(a.width+(b.width-a.width)*progress)+'px';indicator.hidden=false;
  }
- function resetPreview(){const dest=destinationFor(current);indicator.hidden=!dest;if(dest)preview({from:dest,to:dest,progress:0});}
+ function resetPreview(){geometry.clear();const dest=destinationFor(current);indicator.hidden=!dest;if(dest)preview({from:dest,to:dest,progress:0});}
  function commit(hash){
   current=hash;state.commit(hash);links.get('library').href=state.href('library');
   const dest=destinationFor(hash);

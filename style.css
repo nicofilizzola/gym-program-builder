@@ -2466,3 +2466,4 @@ body {padding-bottom:var(--tab-bar-height)}
 .logger-note {margin:0 0 12px;min-width:0}
 .logger-note .log-note-input {max-height:none}
 .log-best {margin:0 0 8px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
+.root-page-skeleton { min-height: 12rem; padding: 2rem 0; color: var(--muted); } .root-page-feedback { margin-block: 1rem; } .root-page-feedback p:empty { display: none; }
