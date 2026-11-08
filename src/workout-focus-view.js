@@ -95,7 +95,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';
   current.hidden=same(viewed,projection.current);empty.hidden=projection.items.length>0;feed.hidden=projection.items.length===0;
   review.querySelector('.focus-review-copy').textContent=completed===projection.workingKeys.length&&completed?'Your working sets are complete. Review your work, then finish.':'Review your completed work or keep training.';
-  if(!same(oldViewed,viewed)){jump(viewed,{focus:removedFocus});}syncActive();
+  const reordered=previous.map(i=>i.key).join('|')!==projection.items.map(i=>i.key).join('|');
+  if(!same(oldViewed,viewed)||reordered){jump(viewed,{focus:removedFocus});}syncActive();
  }
  function focusContext(ref){(ref?cards.get(setKey(ref))?.contextText:review.querySelector('h2'))?.focus({preventScroll:true});}
  function jump(ref,{animate=false,focus=false}={}){
@@ -109,7 +110,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const index=viewedIndex();for(const [key,card] of cards){const at=projection.items.findIndex(i=>i.key===key);if(Math.abs(at-index)<=1){const ex=snapshot.log.exercises[projection.items[at].exerciseIndex];card.update(projection.items[at],ex,ex.sets.find(s=>s.id===card.ref.setId),at);}else{for(const {widget} of card.widgets)widget.update({enabled:false});card.syncTitle();}}
   syncActive();
  }
- feed.addEventListener('scroll',()=>{if(!enabled||programmatic)return;cancelAnimationFrame(scrollFrame);scrollFrame=requestAnimationFrame(()=>{
+ feed.addEventListener('scroll',()=>{if(!enabled||programmatic||suspended)return;cancelAnimationFrame(scrollFrame);scrollFrame=requestAnimationFrame(()=>{
+  if(suspended||!enabled)return;
   let ref=null;for(const item of projection.items){const row=cards.get(item.key)?.row;if(row&&row.offsetTop<=feed.scrollTop+40)ref=item.ref;}
   if(review.offsetTop<=feed.scrollTop+40)ref=null;if(!same(ref,viewed)){viewed=ref;renderCursor();}
  });},{signal});

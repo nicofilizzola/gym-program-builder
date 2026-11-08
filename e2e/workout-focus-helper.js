@@ -6,7 +6,8 @@ export async function mountFocusFixture(page,{log=focusFixture(),enable=true}={}
   const {mountWorkoutFocus}=await import('/src/workout-focus-view.js');
   document.body.innerHTML='<main id="app"><div id="fixture"></div></main>';
   window.initialLog=log;window.saved=[];window.activity=[];
-  window.logger=mountWorkoutLogger(document.querySelector('#fixture'),{api:{},log,onChange:value=>saved.push(value)});
+  window.fixtureApi={catalog:async()=>({families:[{id:'r9',name:'Press',equipment:'Dumbbell'}],entries:[{id:'v9',familyId:'r9',name:'Incline press',revision:1,equipment:'Dumbbell',primaryMuscles:['Chest'],secondaryMuscles:[]}],tags:[]})};
+  window.logger=mountWorkoutLogger(document.querySelector('#fixture'),{api:fixtureApi,log,onChange:value=>saved.push(value)});
   window.port=logger.presentationPort;window.originalWeight=port.row({exerciseId:'straight',setId:'s1'})?.querySelector('[data-field="weight"]');
   const host=document.createElement('div');document.querySelector('.workout-logger').append(host);
   window.focusView=mountWorkoutFocus(host,{port,ui:{viewed:null,autoNext:true,weightIncrement:2.5},onInteraction:e=>activity.push(e),onViewed:()=>{},onFinish:()=>{}});

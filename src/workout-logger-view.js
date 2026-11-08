@@ -35,7 +35,7 @@ const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],seco
 export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{},sharedSaveStatus=false,onSaveStatusSlotChange=()=>{}}){
  let log=structuredClone(initial),last=lastTime,best=bestPerformance,bestStatus=new Map(),destroyed=false,busy=false,addPicker=null,sortable=null,relocatingFocus=false;
  const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set(),openSetNotes=new Set();
- const listeners=new Set();let rowPlacement=null,revision=0,externalPicker=null;const noteOrigins=new Map();
+ const listeners=new Set();let rowPlacement=null,revision=0,externalPicker=null,externalArea=null;const noteOrigins=new Map();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
  const page=document.createElement('section');page.className='workout-logger';page.dataset.mode=mode;if(readOnly)page.dataset.readonly='true';
  page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><div class="log-note logger-note"></div><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
@@ -437,11 +437,12 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  function restoreRows(){rowPlacement=null;relocate(()=>{for(const ex of log.exercises){const card=cards.get(ex.id);for(const set of ex.sets){const row=card?.rows.get(set.id);if(row)card.sets.append(row);}}});}
  function restoreExerciseNotes(){relocate(()=>{for(const [id,marker] of noteOrigins){const host=cards.get(id)?.noteHost;if(host&&marker.isConnected)marker.after(host);}});}
  function external(host,onSelect){
-  externalPicker?.destroy();host.replaceChildren();
+  closeExternal();host.replaceChildren();
   const area=document.createElement('div');area.className='log-picker';area.innerHTML='<div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button>';host.append(area);
-  const close=()=>{externalPicker?.destroy();externalPicker=null;area.remove();};
+  externalArea=area;const close=closeExternal;
   externalPicker=openPicker(area,entry=>{close();onSelect(entry);});area.lastElementChild.onclick=close;
  }
+ function closeExternal(){externalPicker?.destroy();externalPicker=null;externalArea?.remove();externalArea=null;}
  const presentationPort={
   read:()=>({log:structuredClone(log),lastTime:structuredClone(last),bestPerformance:structuredClone(best),bestStatus:new Map(bestStatus),unavailable:new Set(unavailable)}),
   subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
@@ -451,6 +452,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
    if(destroyed||!editable)return {accepted:false};
    const before=revision,ref=action.ref,id=action.exerciseId??ref?.exerciseId;
    switch(action.type){
+    case 'close-transient':closeExternal();moveMenu.close();return {accepted:true};
     case 'patch':return {accepted:commit(updateSet(log,id,ref.setId,action.patch),{action})};
     case 'toggle':{const row=presentationPort.row(ref);if(row)setRowBindings(row).done.click();break;}
     case 'set-note':openSetNote(id,ref.setId);return {accepted:true};
