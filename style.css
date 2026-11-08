@@ -2535,6 +2535,7 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .log-stepper .focus-control-label {display:block;padding:0 4px;margin:0 0 5px;color:var(--muted);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;text-align:center}
 .workout-focus .log-stepper input[type="text"] {flex:none;font-size:2.75rem;line-height:1;min-height:46px;padding:0 4px;border-radius:0;font-family:var(--font-display);font-weight:600}
 .workout-focus .workout-ruler {height:42px;flex:none}
+.workout-focus .workout-ruler[hidden] {display:block!important;visibility:hidden;pointer-events:none}
 .workout-focus .workout-ruler-track {height:42px}
 .workout-focus .workout-ruler-tick {top:22px;font-size:.625rem}
 .workout-focus .is-outside-range {border-color:var(--accent-deep)}
@@ -2599,3 +2600,12 @@ body {padding-bottom:var(--tab-bar-height)}
 .overview-block.is-removing {opacity:0}
 @media(max-width:760px){.workout-overview {margin:auto 0 0;width:100%;max-width:none;max-height:88dvh;border-radius:18px 18px 0 0}.overview-body {padding:20px 12px max(20px,env(safe-area-inset-bottom))}.workout-overview.catalog-modal-motion {transition:transform 200ms ease-out,opacity 200ms ease-out}.workout-overview.is-entering,.workout-overview.is-closing {transform:translateY(100%)}}
 @media(prefers-reduced-motion:reduce){.overview-block,.workout-overview {transition:none!important}}
+.focus-progress-segment.is-celebrating .focus-progress-fill {animation:focus-fill 480ms cubic-bezier(.2,.8,.2,1) both}
+.focus-card.is-done.is-celebrating .focus-complete-marker {animation:focus-pop 480ms ease-out}
+.focus-card.is-done.is-celebrating .focus-complete-marker .log-set-number {display:block;position:absolute;animation:focus-number 300ms ease-out both}
+.focus-card.is-done.is-celebrating .focus-complete-marker svg {stroke-dasharray:40;animation:focus-check 300ms ease-out both}
+@keyframes focus-fill {from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes focus-pop {0%{transform:scale(1);background:transparent;color:var(--muted)}45%{transform:scale(1.12)}100%{transform:scale(1);background:var(--accent);color:var(--on-accent)}}
+@keyframes focus-number {from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-6px)}}
+@keyframes focus-check {from{opacity:0;stroke-dashoffset:40;transform:translateY(5px)}to{opacity:1;stroke-dashoffset:0;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.workout-focus .is-celebrating * {animation:none!important}}

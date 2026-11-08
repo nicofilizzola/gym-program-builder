@@ -1,4 +1,5 @@
-import {projectWorkout,focusFallback,setKey} from './workout-focus-model.js';
+import {projectWorkout,focusFallback,setKey,completionMilestone} from './workout-focus-model.js';
+import {createWorkoutAdvance} from './workout-focus-advance.js';
 import {setRowBindings} from './workout-set-row.js';
 import {mountWorkoutRuler} from './workout-ruler.js';
 import {mountWorkoutTitle} from './workout-title.js';
@@ -13,17 +14,19 @@ const noteIcon=()=>actionIcon('edit');
 export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()=>{},onFinish=()=>{}}){
  let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,programmatic=false;
  const state={autoNext:ui.autoNext,weightIncrement:ui.weightIncrement},cards=new Map(),events=new AbortController(),{signal}=events;
+ const rewarded=new Set(),animationTimers=new Set(),reduced=matchMedia('(prefers-reduced-motion:reduce)');
+ const advance=createWorkoutAdvance({read:()=>({log:snapshot.log,viewed,autoNext:state.autoNext,suspended:!enabled||suspended||typingField()||Boolean(document.querySelector('dialog[open]'))}),onAdvance:ref=>jump(ref,{animate:true,focus:true}),reduced:()=>reduced.matches});
  const root=node('section','workout-focus'),progress=node('div','focus-progress'),meta=node('div','focus-progress-meta'),position=node('span',''),count=node('span',''),segments=node('div','focus-progress-segments');
  meta.append(position,count);progress.append(meta,segments);
  const feed=node('ol','focus-feed');feed.tabIndex=0;feed.setAttribute('aria-label','Workout sets');
  const review=node('li','focus-review');review.innerHTML='<p class="focus-eyebrow">Your workout</p><h2 tabindex="-1">Make it a good finish.</h2><p class="focus-review-copy"></p><button type="button" class="add-btn">Finish workout</button><p class="focus-muted">Finishing is always your choice.</p>';review.querySelector('button').onclick=()=>onFinish();feed.append(review);
  const empty=node('div','focus-empty');empty.innerHTML='<h2>No sets yet</h2><p>Add an exercise or use the overview to add sets.</p><button type="button" class="secondary-btn">Add exercise</button><div class="focus-picker"></div>';
  empty.querySelector('button').onclick=()=>port.command({type:'add-exercise',host:empty.querySelector('.focus-picker')});
- const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>onInteraction({type:'overview',opener:overview});current.onclick=()=>jump(projection.current,{focus:true});
- const autoLabel=node('label','focus-auto'),auto=document.createElement('input');auto.type='checkbox';auto.checked=state.autoNext;autoLabel.append(auto,document.createTextNode('Auto-next'));auto.onchange=()=>{state.autoNext=auto.checked;onInteraction({type:'preference',patch:{autoNext:state.autoNext}});};toolbar.append(overview,current,autoLabel);
+ const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};current.onclick=()=>{advance.cancel();jump(projection.current,{focus:true});};
+ const autoLabel=node('label','focus-auto'),auto=document.createElement('input');auto.type='checkbox';auto.checked=state.autoNext;autoLabel.append(auto,document.createTextNode('Auto-next'));auto.onchange=()=>{advance.cancel();state.autoNext=auto.checked;onInteraction({type:'preference',patch:{autoNext:state.autoNext}});};toolbar.append(overview,current,autoLabel);
  root.append(progress,feed,empty,toolbar);root.hidden=true;host.append(root);
  const logger=host.closest('.workout-logger');
- function interaction(type='input'){onInteraction({type});syncActive();}
+ function interaction(type='input'){advance.cancel();onInteraction({type});syncActive();}
  function createCard(ref,row){
   const b=setRowBindings(row),key=setKey(ref),markers=[],widgets=[],disposers=[];
   function borrow(el,target){if(!markers.some(m=>m.el===el)){const marker=document.createComment('compact-control');el.before(marker);markers.push({el,marker});}if(el.parentElement!==target)target.append(el);}
@@ -35,6 +38,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const controls=node('div','focus-number-controls focus-only'),help=node('div','focus-input-help focus-only'),rirStrip=node('div','focus-rir-strip focus-only'),notes=node('div','focus-note-area focus-only'),complete=node('div','focus-complete focus-only'),feedback=node('p','focus-feedback focus-only');feedback.textContent='Swipe up when you’re ready.';
   const action=node('button','focus-set-note');action.type='button';action.innerHTML=noteIcon()+'<span>Add set note</span>';action.onclick=()=>{interaction('note');port.command({type:'set-note',ref,open:true});};notes.append(action);
   const grid=row.querySelector('.log-set-row');grid.append(controls,help,rirStrip,notes,complete,feedback);
+  feedback.setAttribute('role','status');
   const caption=row.querySelector('.log-rir-label');caption.innerHTML='RIR<small>Optional</small>';
   const increment=document.createElement('select');increment.className='focus-increment';for(const n of [.25,1,2.5,5]){const option=document.createElement('option');option.value=n;option.textContent=`${n} kg steps`;increment.append(option);}increment.value=state.weightIncrement;
   increment.onchange=()=>{state.weightIncrement=+increment.value;onInteraction({type:'preference',patch:{weightIncrement:state.weightIncrement}});update(snapshot);};help.append(increment);
@@ -101,8 +105,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function focusContext(ref){(ref?cards.get(setKey(ref))?.contextText:review.querySelector('h2'))?.focus({preventScroll:true});}
  function jump(ref,{animate=false,focus=false}={}){
   if(!enabled||destroyed)return;viewed=ref;const target=ref?cards.get(setKey(ref))?.row:review;if(!target)return;
-  programmatic=true;feed.scrollTo({top:target.offsetTop,behavior:animate&&!matchMedia('(prefers-reduced-motion:reduce)').matches?'smooth':'instant'});programmatic=false;
-  renderCursor();if(focus)focusContext(ref);syncActive();
+  programmatic=true;renderCursor();feed.scrollTo({top:target.offsetTop,behavior:animate&&!matchMedia('(prefers-reduced-motion:reduce)').matches?'smooth':'instant'});programmatic=false;
+  if(focus)focusContext(ref);syncActive();
  }
  function renderCursor(){
   const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';current.hidden=same(viewed,projection.current);onViewed(viewed);
@@ -117,16 +121,33 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  });},{signal});
  for(const name of ['pointerdown','wheel','touchstart'])feed.addEventListener(name,()=>interaction(name),{signal,passive:true});
  root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
- const unsubscribe=port.subscribe(()=>update(port.read()));
+ function celebrate({before,after,ref}){
+  if(!enabled)return;const key=setKey(ref),card=cards.get(key);if(!card)return;
+  card.feedback.textContent=completionMilestone(before,after,ref).text;
+  if(rewarded.has(key))return;rewarded.add(key);if(reduced.matches)return;
+  const segment=[...segments.children].find(n=>n.dataset.key===key);card.row.classList.add('is-celebrating');segment?.classList.add('is-celebrating');
+  const timer=setTimeout(()=>{card.row.classList.remove('is-celebrating');segment?.classList.remove('is-celebrating');animationTimers.delete(timer);},500);animationTimers.add(timer);
+ }
+ const unsubscribe=port.subscribe(event=>{
+  update(port.read());if(!enabled||event.cause!=='edit')return;
+  advance.cancel();const ref=event.action?.ref;if(event.action?.type!=='toggle'||!ref)return;
+  const key=setKey(ref),before=projectWorkout(event.before),after=projectWorkout(event.after);
+  if(!before.doneKeys.has(key)&&after.doneKeys.has(key)){celebrate({...event,ref});advance.completed({...event,ref,viewed,autoNext:state.autoNext});}
+  else{const card=cards.get(key);if(card)card.feedback.textContent=completionMilestone(event.before,event.after,ref).text;}
+ });
+ root.addEventListener('input',()=>interaction('input'),{signal});window.addEventListener('resize',()=>advance.cancel(),{signal});
+ function stopCelebration(){for(const timer of animationTimers)clearTimeout(timer);animationTimers.clear();for(const n of root.querySelectorAll('.is-celebrating'))n.classList.remove('is-celebrating');}
+ reduced.addEventListener('change',()=>{if(reduced.matches)stopCelebration();},{signal});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)advance.cancel();},{signal});
  function restore(){port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});}
  return {
   update,
-  setEnabled(value){if(destroyed||enabled===value)return;if(!value){enabled=false;logger?.classList.remove('is-focus');restore();root.hidden=true;return;}
+  setEnabled(value){if(destroyed||enabled===value)return;advance.cancel();stopCelebration();if(!value){enabled=false;logger?.classList.remove('is-focus');restore();root.hidden=true;return;}
    const focused=document.activeElement,exerciseId=focused?.closest('.log-exercise')?.dataset.exerciseId,setId=focused?.closest('.log-set')?.dataset.setId;
    if(exerciseId)viewed=setId?{exerciseId,setId}:projection.items.find(i=>i.ref.exerciseId===exerciseId)?.ref??viewed;
    enabled=true;root.hidden=false;port.relocate(()=>{port.setRowPlacement(place);update(port.read());if(exerciseId&&focused?.matches('textarea')){const card=cards.get(setKey(viewed));if(card)port.command({type:'exercise-note',exerciseId,host:card.exerciseEditor});}logger?.classList.add('is-focus');});jump(viewed??projection.current);
   },
-  jump,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;syncActive();},restore,
-  destroy(){if(destroyed)return;if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();cancelAnimationFrame(scrollFrame);for(const card of cards.values())card.destroy();cards.clear();root.remove();}
+  jump,celebrate,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value)advance.cancel();syncActive();},restore,
+  destroy(){if(destroyed)return;advance.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();cancelAnimationFrame(scrollFrame);for(const card of cards.values())card.destroy();cards.clear();root.remove();}
  };
 }
