@@ -14,6 +14,7 @@ import {createRootResourceCache} from './root-resource-cache.js';
 import {createRootPageSession} from './root-page-session.js';
 import {mountRootPageSurface} from './root-page-surface.js';
 import {createHistoryPageData} from './history-page-data.js';
+import {bindRootCacheInvalidation} from './root-cache-invalidation.js';
 import {createAutosave} from './autosave.js';
 import {createTemplate,createProgram,duplicateProgram} from './program.js';
 import {parseRoute,resolveEntryHash} from './router.js';
@@ -40,7 +41,8 @@ import {mountTypingState} from './typing-state.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
 const rootCache=createRootResourceCache();
-const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
+let rootInvalidation;
+const api=createApiClient({onMutation:event=>rootInvalidation?.onMutation(event)}),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
 let hydrationHost=null;
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
 let breadcrumb,libraryNavigation,updateCurrentBreadcrumb=()=>{};
@@ -79,6 +81,7 @@ const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report
 function createViewHost(){return (hydrationHost||app).appendChild(document.createElement('div'));}
 const workoutBar=mountWorkoutBar(document.querySelector('#workout-bar-host'),{onResume:id=>action(()=>navigate('#/workouts/'+id))()});
 const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
+rootInvalidation=bindRootCacheInvalidation({cache:rootCache,workouts});
 let barRendered=false;
 const startWorkout=action(options=>workouts.start(options));
 // Set by Log out, cleared by a successful sign-in: offline startup never bypasses the password after a sign-out.
