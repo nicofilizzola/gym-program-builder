@@ -437,7 +437,7 @@ function prepareMobileHistory(version){
   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
   const surface=mountRootPageSurface(createViewHost(),{title:'Workouts',onRetry:()=>data.refresh()});
   let view;
-  surface.setContent(host=>{view=mountWorkoutHistory(host,{records:[],hasMore:false,error:'Loading...',onLoadMore:()=>data.loadMore(),onStart:()=>launcher.open({data:{programs:null,templates:null,logs:rootCache.read('history:first')?.value.records??null,activeProgramId:null}}),onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});});
+  surface.setContent(host=>{view=mountWorkoutHistory(host,{records:[],hasMore:false,error:'Loading...',onLoadMore:()=>data.loadMore(),onStart:()=>launcher.open({data:{programs:rootCache.read('programs')?.value??null,templates:rootCache.read('templates')?.value??null,logs:null,activeProgramId:rootCache.read('settings')?.value.activeProgramId??null,listStatus:{programs:'loading',templates:'loading',settings:'loading',firstPage:'loading'}},loadLists:loadStartLists}),onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});});
   const saved=mobileNavigationState.readPage('#/workouts');
   const data=createHistoryPageData({api,cache:rootCache,pendingSummary:()=>workouts.pendingSummary(),isCurrent:current,onAuthError:report,onState:state=>{
    surface.show(state);
@@ -448,7 +448,24 @@ function prepareMobileHistory(version){
   data.start({visibleCount:saved?.state?.visibleCount??0});
  };
 }
+async function loadStartLists({onUpdate}){
+ await Promise.all([
+  ['programs','programs',()=>api.list('program')],['templates','templates',()=>api.list('template')],
+  ['settings','settings',()=>api.getSettings()],['firstPage','history:first',()=>api.listWorkouts()]
+ ].map(async([resource,key,load])=>{
+  onUpdate({resource,status:'loading'});
+  try{
+   const saved=resource==='firstPage'?null:rootCache.read(key);
+   const result=saved?{status:'accepted',snapshot:saved}:await rootCache.load(key,load);
+   if(result.status!=='accepted')return;
+   let value=result.snapshot.value;
+   if(resource==='firstPage'){const pending=workouts.pendingSummary();if(pending&&!value.records.some(row=>row.id===pending.id))value={...value,records:[pending,...value.records]};}
+   onUpdate({resource,status:'ready',value});
+  }catch(error){onUpdate({resource,status:'error',error});}
+ }));
+}
 async function prepareRoute(route,version,prepared=null){
+ if(route.view==='workouts')return prepareMobileHistory(version);
  if(!prepared&&mobileNavigation.matches&&['programs','templates','catalog','workouts'].includes(route.view))return prepareMobileRoot(route,version);
  if(route.view==='home')return ()=>{
   let view,latest,settled=false;
@@ -477,37 +494,6 @@ async function prepareRoute(route,version,prepared=null){
  }
  if(route.view==='user')return ()=>{mounted=mountUserView(createViewHost(),{onNavigate:hash=>action(()=>navigate(hash))(),onLogout:logout});};
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange,onSaveStatusSlotChange});};}
- if(route.view==='workouts'){
-  let page,error='';
-  // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.
-  const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
-  const lists=prepared?Promise.resolve([null,null,null]):Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
-  const [historyResult,listResult]=await Promise.allSettled([prepared?Promise.resolve(prepared.page):api.listWorkouts(),lists]);
-  const pendingFinish=workouts.pendingSummary(),sourceRoute=parseRoute(currentHash);
-  const leavingPendingFinish=sourceRoute.view==='workout'&&pendingFinish?.id===sourceRoute.id;
-  if(historyResult.status==='rejected'){if((mounted&&!leavingPendingFinish)||!isNetworkError(historyResult.reason))throw historyResult.reason;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
-  else page=historyResult.value;
-  if(listResult.status==='rejected')throw listResult.reason;
-  const firstHistoryPage=page.records;
-  const wanted=mobileNavigation.matches?mobileNavigationState.readPage('#/workouts')?.state?.visibleCount??0:0;
-  while(page.hasMore&&page.records.length<wanted){
-   const last=page.records.at(-1);if(!last)break;
-   const more=await api.listWorkouts({before:last.startedAt,beforeId:last.id});
-   if(version!==routeVersion)return ()=>{};
-   const records=[...new Map([...page.records,...more.records].map(record=>[record.id,record])).values()];
-   if(records.length===page.records.length)break;
-   page={records,hasMore:more.hasMore};
-  }
-  let [programs,templates,settings]=listResult.value;
-  const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
-  return ()=>{const data={programs,templates,logs:firstHistoryPage,activeProgramId:settings?.activeProgramId??null};
-   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
-   const historyView=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
-   onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
-   onStart:()=>launcher.open({data}),
-   onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});
-   mounted={getNavigationState:()=>historyView.getNavigationState(),destroy(){historyView.destroy();launcher.destroy();}};};
- }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='workout')return prepareWorkout(route);
  if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}

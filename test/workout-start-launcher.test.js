@@ -1,6 +1,15 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createWorkoutStartLauncher} from '../src/workout-start-launcher.js';
+test('lazy lists update independently and closed generations reject late results',async()=>{
+ const updates=[];let emit,resolveClosed;
+ const launcher=createWorkoutStartLauncher({api:{},onStart(){},onNavigate(){},openSheet:()=>({updateLists:value=>updates.push(value),close(){resolveClosed();},closed:new Promise(r=>resolveClosed=r)})});
+ const opened=launcher.open({data:{programs:null,templates:null,logs:null,listStatus:{}},loadLists:async({onUpdate})=>{emit=onUpdate;}});
+ await Promise.resolve();emit({resource:'templates',status:'ready',value:[{id:'t'}]});
+ assert.deepEqual(updates.at(-1).templates,[{id:'t'}]);assert.equal(updates.at(-1).listStatus.templates,'ready');
+ opened.close();await opened.closed;await Promise.resolve();const count=updates.length;
+ emit({resource:'programs',status:'ready',value:[{id:'late'}]});assert.equal(updates.length,count);launcher.destroy();
+});
 test('launcher resolves bundles and forwards activation, retries and close once',async()=>{
  let sheet,close,closed=0;const changes=[],errors=[];
  const launcher=createWorkoutStartLauncher({api:{

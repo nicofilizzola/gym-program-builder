@@ -21,7 +21,7 @@ const exerciseCount=n=>`${n} ${n===1?'exercise':'exercises'}`;
  * Opens the Start workout sheet: a bottom sheet at ≤760px, a dialog above. Lists come from the caller
  * (null = failed to load); program sessions load on demand once per sheet. `onStart` runs after the sheet closed.
  */
-export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,activeProgramId=null,onActivate=async id=>({activeProgramId:id}),now=new Date(),initialTab,focusFallback=()=>null}){
+export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,loadTemplate,onStart,onNavigate,onRetryList,onRetryResources,listStatus={},activeProgramId=null,onActivate=async id=>({activeProgramId:id}),now=new Date(),initialTab,focusFallback=()=>null}){
  const invoker=document.activeElement,uid=`start-sheet-${++sheets}`;
  const dialog=document.createElement('dialog');
  dialog.className='catalog-dialog start-sheet';dialog.setAttribute('aria-labelledby',`${uid}-title`);
@@ -78,7 +78,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
   const retry=el('button','secondary-btn','Retry');retry.type='button';
   retry.addEventListener('click',async()=>{
    retry.disabled=true;
-   try{const list=await onRetryList(kind);if(kind==='program'){programs=list;renderPrograms();}else{templates=list;renderTemplates();}}
+   try{const list=await onRetryList(kind);if(kind==='program'){programs=list;listStatus.programs='ready';renderPrograms();}else{templates=list;listStatus.templates='ready';renderTemplates();}}
    catch{retry.disabled=false;}
   });
   panel.append(text,retry);
@@ -175,6 +175,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
 
  function renderPrograms({claimFocus=false}={}){
   const panel=panels.program;
+  if(listStatus.programs==='loading'&&!programs){panel.replaceChildren(el('p','start-sheet-empty','Loading programs...'));return;}
   if(programs===null){listError(panel,'program',"Couldn't load programs.");return;}
   if(!programs.length){empty(panel,'No programs yet.','Go to Programs','#/programs');return;}
   if(query.trim()){renderProgramResults(panel);return;}
@@ -199,7 +200,11 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
    if(open)fillProgram(region,record);
   });
   panel.replaceChildren(slot,list);
-  if(current)renderNext(slot,current,{claimFocus});
+  if(['settings','firstPage'].some(key=>listStatus[key]&&listStatus[key]!=='ready')){
+   const failed=['settings','firstPage'].some(key=>listStatus[key]==='error');
+   slot.append(el('p','start-sheet-hint',failed?"Couldn't load workout recommendations.":'Loading workout recommendations...'));
+   if(failed){const retry=el('button','secondary-btn','Retry recommendations');retry.type='button';retry.onclick=()=>onRetryResources?.();slot.append(retry);}
+  }else if(current)renderNext(slot,current,{claimFocus});
   else{const suggested=programs.find(p=>p.id===upNextProgram(programs,logs));if(suggested)renderActivate(slot,suggested);}
  }
 
@@ -225,6 +230,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
 
  function renderTemplates(){
   const panel=panels.template;
+  if(listStatus.templates==='loading'&&!templates){panel.replaceChildren(el('p','start-sheet-empty','Loading templates...'));return;}
   if(templates===null){listError(panel,'template',"Couldn't load session templates.");return;}
   if(!templates.length){empty(panel,'No session templates yet.','Go to Session templates','#/templates');return;}
   const shown=templates.filter(record=>matchesQuery(record.name.trim()||'Untitled template',query));
@@ -294,5 +300,13 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
  select(initialTab??(programs===null||programs.length?'program':'template'));
  document.body.append(dialog);motion.open();
  const card=$('.start-sheet-next');(card&&!panels.program.hidden?card:selectedTab()).focus();
- return {close,closed};
+ return {close,closed,updateLists(next){
+  if(dismissed||starting)return;
+  const focused=document.activeElement,programId=focused?.dataset.programId,label=focused?.getAttribute('aria-label');
+  const programChanged=JSON.stringify([programs,activeProgramId,logs,listStatus.programs,listStatus.settings,listStatus.firstPage])!==JSON.stringify([next.programs,next.activeProgramId,next.logs,next.listStatus?.programs,next.listStatus?.settings,next.listStatus?.firstPage]);
+  const templateChanged=JSON.stringify([templates,listStatus.templates])!==JSON.stringify([next.templates,next.listStatus?.templates]);
+  programs=next.programs;templates=next.templates;activeProgramId=next.activeProgramId;logs=next.logs;listStatus={...next.listStatus};
+  if(programChanged)renderPrograms();if(templateChanged)renderTemplates();
+  if(focused&&!focused.isConnected){const replacement=programId?dialog.querySelector('[data-program-id="'+CSS.escape(programId)+'"]'):label?[...dialog.querySelectorAll('button[aria-label]')].find(button=>button.getAttribute('aria-label')===label):null;(replacement||selectedTab())?.focus({preventScroll:true});}
+ }};
 }
