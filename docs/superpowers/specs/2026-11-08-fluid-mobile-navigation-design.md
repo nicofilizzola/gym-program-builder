@@ -1,7 +1,7 @@
 # Fluid mobile navigation under network latency
 
 Date: 2026-11-08.
-Status: Proposed execution contract based on the accepted recommendations; the user requested an implementation plan. Implementation has not started.
+Status: Implemented on `fix/fluid-mobile-navigation` and verified locally (see docs/superpowers/verification/2026-11-08-fluid-mobile-navigation.md). Refresh feedback placement remains an open design question. Not deployed.
 
 ## Problem and scope
 
