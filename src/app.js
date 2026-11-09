@@ -411,7 +411,7 @@ function prepareMobileRoot(route,version){
   for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,()=>interacted=true,{passive:true,signal:events.signal});
   const current=()=>!destroyed&&version===routeVersion&&authenticated;
   const load=()=>route.view==='catalog'?api.catalog():route.view==='workouts'?api.listWorkouts():api.list(route.view==='programs'?'program':'template');
-  const surface=mountRootPageSurface(createViewHost(),{title:({programs:'Programs',templates:'Session templates',catalog:'Exercise catalog',workouts:'Workouts'})[route.view],onRetry:()=>session.refresh()});
+  const surface=mountRootPageSurface(createViewHost(),{title:({programs:'Programs',templates:'Session templates',catalog:'Exercise catalog',workouts:'Workouts'})[route.view],pageClass:route.view==='catalog'?'catalog-page':'library',onRetry:()=>session.refresh()});
   const session=createRootPageSession({key,cache:rootCache,load,isCurrent:current,onAuthError:report,onState:state=>{
    surface.show(state);if(state.phase!=='ready'||state.data===undefined)return;
    if(live){if(JSON.stringify(lastData)!==JSON.stringify(state.data)){lastData=state.data;live.setData?.(state.data);}return;}
@@ -435,7 +435,7 @@ function prepareMobileHistory(version){
   const current=()=>!destroyed&&version===routeVersion&&authenticated,events=new AbortController();
   for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,()=>interacted=true,{passive:true,signal:events.signal});
   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
-  const surface=mountRootPageSurface(createViewHost(),{title:'Workouts',onRetry:()=>data.refresh()});
+  const surface=mountRootPageSurface(createViewHost(),{title:'Workouts',pageClass:'workout-history',onRetry:()=>data.refresh()});
   let view;
   surface.setContent(host=>{view=mountWorkoutHistory(host,{records:[],hasMore:false,error:'Loading...',onLoadMore:()=>data.loadMore(),onStart:()=>launcher.open({data:{programs:rootCache.read('programs')?.value??null,templates:rootCache.read('templates')?.value??null,logs:null,activeProgramId:rootCache.read('settings')?.value.activeProgramId??null,listStatus:{programs:'loading',templates:'loading',settings:'loading',firstPage:'loading'}},loadLists:loadStartLists}),onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});});
   const saved=mobileNavigationState.readPage('#/workouts');

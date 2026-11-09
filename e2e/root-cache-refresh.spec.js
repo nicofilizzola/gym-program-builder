@@ -64,3 +64,17 @@ test('outgoing Catalog refresh waits while a finger is dragging and applies on c
   await expect(page.locator('#app .reference-name').filter({hasText:data.families[0].name})).toHaveCount(1);
  }finally{release();await client.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]}).catch(()=>{});await client.detach();}
 });
+
+test('cold loading heading keeps the page gutter and lines up with the loaded heading',async({page})=>{
+ await login(page);let release;const held=new Promise(r=>release=r);
+ await page.route('**/api/documents?kind=program',async route=>{await held;await route.continue().catch(()=>{});});
+ try{
+  await nav(page,'Library').click();await expect(page.locator('[data-root-state]')).toHaveAttribute('data-root-state','loading');
+  const loading=await page.getByRole('heading',{name:'Programs',exact:true}).boundingBox();
+  release();await expect(page.locator('section.library .library-heading h1')).toBeVisible();
+  const loaded=await page.locator('section.library .library-heading h1').boundingBox();
+  expect(loading.x).toBeGreaterThanOrEqual(12);
+  expect(Math.abs(loading.x-loaded.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(loading.y-loaded.y)).toBeLessThanOrEqual(2);
+ }finally{release();}
+});

@@ -2466,4 +2466,14 @@ body {padding-bottom:var(--tab-bar-height)}
 .logger-note {margin:0 0 12px;min-width:0}
 .logger-note .log-note-input {max-height:none}
 .log-best {margin:0 0 8px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
-.root-page-skeleton { min-height: 12rem; padding: 2rem 0; color: var(--muted); } .root-page-feedback { margin-block: 1rem; } .root-page-feedback p:empty { display: none; }
+/* Root loading placeholder and refresh feedback reuse the destination's page container so headings never jump. */
+.root-page-placeholder,.root-page-feedback { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+.root-page-placeholder { padding-block: 24px; }
+.root-page-placeholder[data-page=catalog-page] { padding-block: 20px; }
+.root-page-placeholder[data-page=workout-history],.root-page-feedback[data-page=workout-history] { max-width: 40rem; }
+@media (max-width:760px) { .root-page-placeholder[data-page=catalog-page],.root-page-feedback[data-page=catalog-page] { padding: 16px; } }
+@media (max-width:600px) { .root-page-placeholder { padding: 16px; } .root-page-feedback { padding-inline: 16px; } }
+.root-page-skeleton { min-height: 12rem; padding: 1rem 0; color: var(--muted); }
+.root-page-feedback { margin-block: 1rem; }
+.root-page-feedback p:empty { display: none; }
+.root-page-feedback:has(> p:empty):has(> button[hidden]) { display: none; }
