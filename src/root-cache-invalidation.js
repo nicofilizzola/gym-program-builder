@@ -9,5 +9,5 @@ export function affectedRootResources({path,method}){
 }
 export function bindRootCacheInvalidation({cache,workouts}){
  const unsubscribe=workouts.subscribe(({reason})=>{if(reason==='signout')cache.clear();else if(reason==='finish'||reason==='discard')cache.invalidate(['history:first','history:visible']);});
- return {onMutation(event){const keys=affectedRootResources(event);if(keys.length)cache.invalidate(keys);if(event.path==='settings/active-program'&&event.result?.settings)cache.replace('settings',event.result.settings);},destroy:unsubscribe};
+ return {onMutation(event){if(event.scope!==undefined&&event.scope!==cache.scope())return;const keys=affectedRootResources(event);if(keys.length)cache.invalidate(keys);if(event.path==='settings/active-program'&&event.result?.settings)cache.replace('settings',event.result.settings);},destroy:unsubscribe};
 }

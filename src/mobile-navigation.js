@@ -18,14 +18,14 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
   indicator.style.width=(a.width+(b.width-a.width)*progress)+'px';indicator.hidden=false;
  }
  function resetPreview(){geometry.clear();const dest=destinationFor(current);indicator.hidden=!dest;if(dest)preview({from:dest,to:dest,progress:0});}
- function commit(hash){
+ function commit(hash,{preservePreview=false}={}){
   current=hash;state.commit(hash);links.get('library').href=state.href('library');
   const dest=destinationFor(hash);
   for(const [name,a] of links){
    const selected=media.matches?name===key(dest):name===({library:hash.startsWith('#/catalog')?'catalog':hash.startsWith('#/templates')?'templates':'programs',history:'workouts'}[dest]??dest);
    if(selected)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
   }
-  resetPreview();
+  if(!preservePreview)resetPreview();
  }
  function arrange(){
   const changed=lastMobile!==media.matches;lastMobile=media.matches;

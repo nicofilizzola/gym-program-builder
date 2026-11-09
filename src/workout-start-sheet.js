@@ -39,7 +39,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
 </div></form>`;
  const $=selector=>dialog.querySelector(selector);
  const tabs=[...dialog.querySelectorAll('[role=tab]')],panels={program:$('[data-panel=program]'),template:$('[data-panel=template]')};
- let resolveClosed,starting=false,dismissed=false,query='';
+ let resolveClosed,starting=false,dismissed=false,query='',pendingLists=null;
  const field=$('[data-search]'),expanded=new Map();
  const closed=new Promise(resolve=>{resolveClosed=resolve;});
  const tips=mountActionTooltips(dialog);
@@ -60,6 +60,7 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
  function setBusy(on){
   starting=on;
   for(const control of dialog.querySelectorAll('.start-sheet-tabs button,.start-sheet-body button,[data-search]'))control.disabled=on;
+  if(!on&&pendingLists){const latest=pendingLists;pendingLists=null;updateLists(latest);}
  }
  async function start(options){
   if(starting)return;setBusy(true);close();await closed;onStart(options);
@@ -300,13 +301,15 @@ export function openWorkoutStartSheet({programs,templates,logs=[],loadProgram,lo
  select(initialTab??(programs===null||programs.length?'program':'template'));
  document.body.append(dialog);motion.open();
  const card=$('.start-sheet-next');(card&&!panels.program.hidden?card:selectedTab()).focus();
- return {close,closed,updateLists(next){
-  if(dismissed||starting)return;
+ function updateLists(next){
+  if(dismissed)return;
+  if(starting){pendingLists={...next,listStatus:{...next.listStatus}};return;}
   const focused=document.activeElement,programId=focused?.dataset.programId,label=focused?.getAttribute('aria-label');
   const programChanged=JSON.stringify([programs,activeProgramId,logs,listStatus.programs,listStatus.settings,listStatus.firstPage])!==JSON.stringify([next.programs,next.activeProgramId,next.logs,next.listStatus?.programs,next.listStatus?.settings,next.listStatus?.firstPage]);
   const templateChanged=JSON.stringify([templates,listStatus.templates])!==JSON.stringify([next.templates,next.listStatus?.templates]);
   programs=next.programs;templates=next.templates;activeProgramId=next.activeProgramId;logs=next.logs;listStatus={...next.listStatus};
   if(programChanged)renderPrograms();if(templateChanged)renderTemplates();
   if(focused&&!focused.isConnected){const replacement=programId?dialog.querySelector('[data-program-id="'+CSS.escape(programId)+'"]'):label?[...dialog.querySelectorAll('button[aria-label]')].find(button=>button.getAttribute('aria-label')===label):null;(replacement||selectedTab())?.focus({preventScroll:true});}
- }};
+ }
+ return {close,closed,updateLists};
 }

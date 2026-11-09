@@ -42,7 +42,7 @@ import {parseDocument,serializeDocument,documentFileName} from './document-file.
 
 const rootCache=createRootResourceCache();
 let rootInvalidation;
-const api=createApiClient({onMutation:event=>rootInvalidation?.onMutation(event)}),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
+const api=createApiClient({mutationScope:()=>rootCache.scope(),onMutation:event=>rootInvalidation?.onMutation(event)}),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
 let hydrationHost=null;
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
 let breadcrumb,libraryNavigation,updateCurrentBreadcrumb=()=>{};
@@ -125,15 +125,15 @@ async function leave(){
 async function navigate(hash,{push=true,gesture=null}={}){
  hash=entryHash(hash);
  if(mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash))mobileNavigationState.writePage(currentHash,{scrollY:window.scrollY,state:mounted.getNavigationState?.()??null});
- if(!gesture){gestureGeneration++;gestureSettling=false;mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;}
+ if(!gesture)cancelMobileGesture();
  let mobileTransition=gesture;
  if(!mobileTransition&&push&&mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash)&&isSwipeRoot(hash)&&destinationFor(currentHash)!==destinationFor(hash)){
   mobileTransition={fromHash:currentHash,toHash:hash,direction:MOBILE_DESTINATIONS.indexOf(destinationFor(hash))>MOBILE_DESTINATIONS.indexOf(destinationFor(currentHash))?'next':'previous',offset:0,width:innerWidth};
-  if(!mobilePager.begin(mobileTransition))mobileTransition=null;
+  if(!mobilePager.begin(mobileTransition))mobileTransition=null;else mounted?.suspend?.();
  }
  const version=++routeVersion;busy(version);
  try{
-  if(!await leave()){if(version===routeVersion){history.replaceState(null,'',currentHash);if(mobileTransition)await mobilePager.rollback();}return {status:'blocked',hash:currentHash};}
+  if(!await leave()){if(version===routeVersion){history.replaceState(null,'',currentHash);if(mobileTransition){await mobilePager.rollback();mounted?.settled?.();}}return {status:'blocked',hash:currentHash};}
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
   if(push&&entryHash(location.hash)!==hash)history.pushState(null,'',hash);
   return await renderRoute(version,{mobileTransition});
@@ -152,24 +152,24 @@ const mobileSwipe=mountMobileSwipe(app,{
  begin(direction){
   const destination=adjacentDestination(destinationFor(currentHash),direction);if(!destination)return false;
   swipeContext={fromHash:currentHash,toHash:mobileNavigationState.href(destination),direction,offset:0,width:innerWidth};
-  return mobilePager.begin(swipeContext);
+  const begun=mobilePager.begin(swipeContext);if(begun)mounted?.suspend?.();return begun;
  },
  update(offset){if(swipeContext)swipeContext.offset=offset;mobilePager.update(offset);},
  release(result){
   const context=swipeContext;swipeContext=null;if(!context)return;
-  const generation=++gestureGeneration;gestureSettling=true;
+  const generation=++gestureGeneration,owner=mounted;gestureSettling=true;
   const operation=result.commit?navigate(context.toHash,{gesture:context}):mobilePager.rollback();
-  operation.catch(report).finally(()=>{if(generation===gestureGeneration)gestureSettling=false;});
+  operation.catch(report).finally(()=>{if(generation===gestureGeneration){gestureSettling=false;if(!result.commit&&mounted===owner)owner?.settled?.();}});
  },
- cancel(){swipeContext=null;const generation=++gestureGeneration;gestureSettling=true;void mobilePager.rollback().finally(()=>{if(generation===gestureGeneration)gestureSettling=false;});}
+ cancel(){swipeContext=null;const generation=++gestureGeneration,owner=mounted;gestureSettling=true;void mobilePager.rollback().finally(()=>{if(generation===gestureGeneration){gestureSettling=false;if(mounted===owner)owner?.settled?.();}});}
 });
-function cancelMobileGesture(){gestureGeneration++;mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;gestureSettling=false;}
+function cancelMobileGesture({resume=true}={}){mobileSwipe.cancel();mobilePager.cancel();gestureGeneration++;swipeContext=null;gestureSettling=false;if(resume)mounted?.settled?.();}
 mobileNavigation.addEventListener('change',()=>{history.scrollRestoration=mobileNavigation.matches?'manual':browserScrollRestoration;cancelMobileGesture();});
 window.addEventListener('resize',cancelMobileGesture);
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
- cancelMobileGesture();mobilePager.clear();
+ cancelMobileGesture({resume:false});mobilePager.clear();
  mobileNavigationState.clear();
  rootCache.clear();
  mounted?.onAuthHidden?.();
@@ -326,7 +326,7 @@ async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
   const commitView=()=>{
    if(version!==routeVersion)return;
    clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;committed=true;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
-   mobileNav.commit(currentHash);
+   mobileNav.commit(currentHash,{preservePreview:Boolean(mobileTransition)});
    if(['programs','templates','catalog'].includes(route.view))libraryNavigation=mountLibraryNavigation(app,{hash:currentHash,onNavigate:hash=>action(()=>navigate(hash))()});
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,mobileNavigation.matches?mobileNavigationState.readPage(currentHash)?.scrollY??0:0);
@@ -425,7 +425,7 @@ function prepareMobileRoot(route,version){
     if(route.view==='programs')void rootCache.load('settings',()=>api.getSettings()).then(result=>{if(current()&&result.status==='accepted')live?.setSettings?.(result.snapshot.value);}).catch(error=>{if(current()&&error.status===401)report(error);});
    }).catch(report).finally(()=>{mounting=false;});
   }});
-  const owner=new Proxy({settled:()=>session.settled(),onAuthHidden:()=>session.destroy(),destroy(){destroyed=true;events.abort();session.destroy();live?.destroy();surface.destroy();}}, {get(target,name){return name in target?target[name]:live?.[name];}});
+  const owner=new Proxy({suspend:()=>session.suspend(),settled:()=>session.settled(),onAuthHidden:()=>owner.destroy(),destroy(){if(destroyed)return;destroyed=true;events.abort();session.destroy();live?.destroy();surface.destroy();}}, {get(target,name){return name in target?target[name]:live?.[name];}});
   mounted=owner;session.start();
  };
 }
@@ -444,7 +444,8 @@ function prepareMobileHistory(version){
    view.setData({records:state.data?.records??[],hasMore:state.data?.hasMore??false,pending:state.pending,error:state.error?(state.data?"Couldn't refresh. Showing previously loaded data.":'Workouts could not be loaded. Connect to see your history.'):state.data?'':'Loading...'});
    if(state.data&&!restored){restored=true;if(current()&&!interacted)window.scrollTo(0,saved?.scrollY??0);}
   }});
-  mounted={getNavigationState:()=>view.getNavigationState(),settled:()=>data.settled(),onAuthHidden:()=>data.destroy(),destroy(){destroyed=true;events.abort();data.destroy();view.destroy();surface.destroy();launcher.destroy();}};
+  const teardown=()=>{if(destroyed)return;destroyed=true;events.abort();data.destroy();view.destroy();surface.destroy();launcher.destroy();};
+  mounted={getNavigationState:()=>view.getNavigationState(),suspend:()=>data.suspend(),settled:()=>data.settled(),onAuthHidden:teardown,destroy:teardown};
   data.start({visibleCount:saved?.state?.visibleCount??0});
  };
 }
@@ -474,7 +475,7 @@ async function prepareRoute(route,version,prepared=null){
    onState:state=>{latest=state;if(settled)view?.update(state);}});
   view=mountWorkoutHome(createViewHost(),{state:latest,onStart:()=>controller.start(),onResume:()=>controller.resume(),onChoose:()=>controller.choose(),
    onRetry:()=>controller.refresh(),onSetup:kind=>kind==='set-active'?controller.choose({setup:true}):action(()=>navigate(kind==='open-program'?'#/programs/'+latest.program.id:'#/programs'))()});
-  mounted={settled(){settled=true;if(latest)view.update(latest);},onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
+  mounted={suspend(){settled=false;},settled(){settled=true;if(latest)view.update(latest);},onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
  };
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){

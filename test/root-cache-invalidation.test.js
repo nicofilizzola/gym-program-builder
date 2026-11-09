@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {affectedRootResources,bindRootCacheInvalidation} from '../src/root-cache-invalidation.js';
 import {createRootResourceCache} from '../src/root-resource-cache.js';
+import {createApiClient} from '../src/api-client.js';
 test('mutation paths invalidate their affected resources, never reads or profile/auth writes',()=>{
  for(const [path,method,want] of [
   ['documents','POST',['programs','templates','settings']],['documents/p?revision=2','DELETE',['programs','templates','settings']],
@@ -10,6 +11,13 @@ test('mutation paths invalidate their affected resources, never reads or profile
   ['settings/active-program','PUT',['settings']],['workouts/x?revision=1','DELETE',['history:first','history:visible']],
   ['profile','PUT',[]],['auth/logout','POST',[]],['documents','GET',[]]
  ])assert.deepEqual(affectedRootResources({path,method}),want,path);
+});
+test('an old auth lifetime mutation acknowledgement cannot refill or overwrite the new cache',async()=>{
+ const cache=createRootResourceCache(),binding=bindRootCacheInvalidation({cache,workouts:{subscribe(){return ()=>{};}}});let release;
+ const api=createApiClient({mutationScope:()=>cache.scope(),onMutation:binding.onMutation,fetch:()=>new Promise(r=>release=r)});
+ const old=api.setActiveProgram('old');cache.clear();cache.replace('settings',{activeProgramId:'new'});
+ release(Response.json({settings:{activeProgramId:'old'}}));await old;
+ assert.deepEqual(cache.read('settings').value,{activeProgramId:'new'});binding.destroy();
 });
 test('confirmed active setting defeats old reads; local finish and signout clear the right data',async()=>{
  const cache=createRootResourceCache();let listener,resolve;const binding=bindRootCacheInvalidation({cache,workouts:{subscribe(fn){listener=fn;return ()=>listener=null;}}});

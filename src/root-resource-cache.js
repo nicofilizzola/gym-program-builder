@@ -17,5 +17,5 @@ export function createRootResourceCache({now=Date.now}={}){
   }).finally(()=>{if(pending.get(key)===promise)pending.delete(key);});
   pending.set(key,promise);return promise;
  }
- return {read,load,replace,invalidate,subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},clear(){auth++;values.clear();pending.clear();epochs.clear();for(const listener of listeners)listener({type:'clear',keys:[]});}};
+ return {read,load,replace,invalidate,scope:()=>auth,subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},clear(){auth++;values.clear();pending.clear();epochs.clear();for(const listener of listeners)listener({type:'clear',keys:[]});}};
 }

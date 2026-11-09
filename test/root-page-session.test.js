@@ -20,3 +20,10 @@ test('auth errors bypass motion gate and destroyed sessions never publish',async
  const session=createRootPageSession({key:'programs',cache,load:()=>{throw Object.assign(Error('sign in'),{status:401});},onAuthError:()=>auth++,onState:()=>published++,isCurrent:()=>true});
  session.start();await tick();assert.equal(auth,1);session.destroy();const count=published;session.settled();assert.equal(published,count);
 });
+test('an outgoing gesture suspends later refresh publication until cancellation settles',async()=>{
+ const states=[],cache=createRootResourceCache();let value=['first'];
+ const session=createRootPageSession({key:'programs',cache,load:()=>value,onState:s=>states.push(s)});
+ session.start();session.settled();await tick();const count=states.length;
+ session.suspend();value=['updated'];await session.refresh();assert.equal(states.length,count);
+ session.settled();assert.deepEqual(states.at(-1).data,['updated']);session.destroy();
+});

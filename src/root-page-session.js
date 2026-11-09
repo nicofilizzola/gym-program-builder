@@ -19,5 +19,5 @@ export function createRootPageSession({key,cache,load,onState,onAuthError=()=>{}
  }
  const unsubscribe=cache.subscribe(event=>{if(event.type==='clear'){destroy();return;}if(event.keys.includes(key))void refresh();});
  function destroy(){destroyed=true;request++;clearTimeout(timer);unsubscribe();}
- return {start(){const saved=cache.read(key);if(saved)state={phase:'ready',data:saved.value,refreshing:false,error:null,fromCache:true};if(valid())onState({phase:'loading',data:undefined,refreshing:false,error:null,fromCache:false});void refresh();},settled(){ready=true;publish();},refresh,destroy};
+ return {start(){const saved=cache.read(key);if(saved)state={phase:'ready',data:saved.value,refreshing:false,error:null,fromCache:true};if(valid())onState({phase:'loading',data:undefined,refreshing:false,error:null,fromCache:false});void refresh();},suspend(){ready=false;},settled(){ready=true;publish();},refresh,destroy};
 }
