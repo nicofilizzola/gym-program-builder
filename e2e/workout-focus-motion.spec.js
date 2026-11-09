@@ -9,7 +9,8 @@ test('only explicit completion animates keyed progress then advances to context'
  await expect(page.locator('.focus-card[data-set-id="s2"] .focus-context-text')).toBeFocused();
 });
 test('note opening cancels auto-next and undo recheck does not replay celebration',async({page})=>{
- await prepare(page);const card=page.locator('.focus-card[data-set-id="s1"]');await card.locator('.log-done').click();await page.clock.runFor(600);await card.getByRole('button',{name:'Add set note, Set 1, Bench press',exact:true}).click();await page.clock.runFor(1000);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});
+ // Paused: real time spent performing the click must not reach the 650ms advance.
+ await prepare(page);await page.clock.pauseAt(new Date(Date.now()+60000));const card=page.locator('.focus-card[data-set-id="s1"]');await card.locator('.log-done').click();await page.clock.runFor(600);await card.getByRole('button',{name:'Add set note, Set 1, Bench press',exact:true}).click();await page.clock.runFor(1000);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});
  await page.evaluate(async()=>{await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});});await expect(page.locator('.is-celebrating')).toHaveCount(0);
 });
 test('warmup completion advances without filling working progress',async({page})=>{
