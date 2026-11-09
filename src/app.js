@@ -30,6 +30,7 @@ import {normalizeProfile} from './profile.js';
 import {mountWorkoutHistory} from './workout-history-view.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
+import {createWorkoutFocusSession} from './workout-focus-session.js';
 import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
 import {mountWorkoutBar} from './workout-bar.js';
 import {mountTypingState} from './typing-state.js';
@@ -39,6 +40,7 @@ const api=createApiClient(),app=document.querySelector('#app'),shell=document.qu
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
 let breadcrumb,libraryNavigation,updateCurrentBreadcrumb=()=>{};
 const mobileNavigationState=createMobileNavigationState();
+const workoutFocusSession=createWorkoutFocusSession();
 const entryHash=hash=>resolveEntryHash(hash,{mobile:matchMedia('(max-width:760px)').matches});
 let templateController,programTemplates=[],mounted,active,queue,routeVersion=0,currentHash=entryHash(location.hash),authenticated=false,transitioning=false,creation=null,mountedVersion=0;
 const retryCreation=document.querySelector('#retry-creation');
@@ -160,6 +162,7 @@ window.addEventListener('resize',cancelMobileGesture);
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
+ workoutFocusSession.clear();
  cancelMobileGesture();mobilePager.clear();
  mobileNavigationState.clear();
  mounted?.onAuthHidden?.();
@@ -359,7 +362,7 @@ async function prepareWorkout(route){
   if(editFinished)change=track(workoutRecord(record));
   const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map),setBestPerformance:map=>logger?.setBestPerformance(map),setBestStatus:value=>logger?.setBestStatus(value)};
   logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,bestPerformance:local?.bestPerformance??null,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
-   sharedSaveStatus:editFinished,onSaveStatusSlotChange,
+   sharedSaveStatus:editFinished,onSaveStatusSlotChange,focusSession:workoutFocusSession,
    onChange:value=>(change||binding?.onChange)?.(value),
    onDelete:async()=>{
     await queue.flush();
@@ -386,7 +389,8 @@ async function prepareWorkout(route){
   };
   if(owned)binding=workouts.attach(route.id,handlers);
   else void finishedBest(linkedVariantIds(log));
-  mounted={destroy(){disposed=true;binding?.detach();logger.destroy();},setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft()};
+  const dispose=()=>{if(disposed)return;disposed=true;binding?.detach();logger.destroy();};
+  mounted={destroy:dispose,onAuthHidden:dispose,setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft()};
  };
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;

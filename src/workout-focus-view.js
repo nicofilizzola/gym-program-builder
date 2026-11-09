@@ -12,7 +12,7 @@ const noteIcon=()=>actionIcon('edit');
 
 /** Borrows canonical row/control nodes. All edits still go through the logger port. */
 export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()=>{},onFinish=()=>{}}){
- let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,programmatic=false;
+ let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,programmatic=false,measuring=0,feedHeight=null;
  const state={autoNext:ui.autoNext,weightIncrement:ui.weightIncrement},cards=new Map(),events=new AbortController(),{signal}=events;
  const rewarded=new Set(),animationTimers=new Set(),reduced=matchMedia('(prefers-reduced-motion:reduce)');
  const advance=createWorkoutAdvance({read:()=>({log:snapshot.log,viewed,autoNext:state.autoNext,suspended:!enabled||suspended||typingField()||Boolean(document.querySelector('dialog[open]'))}),onAdvance:ref=>jump(ref,{animate:true,focus:true}),reduced:()=>reduced.matches});
@@ -82,7 +82,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function ensureCard(ref,row){const key=setKey(ref);let card=cards.get(key);if(!card){card=createCard(ref,row);cards.set(key,card);}else port.relocate(card.borrowAll);return card;}
  function place({ref,row}){if(!enabled)return;ensureCard(ref,row);if(row.parentElement!==feed)feed.insertBefore(row,review);}
  function typingField(){return Boolean(document.activeElement?.matches('input[type="text"],input:not([type]),textarea,select,[contenteditable="true"]'));}
- function syncActive(){for(const card of cards.values())card.syncTitle();feed.classList.toggle('is-unsnapped',suspended||typingField());}
+ function syncActive(){for(const card of cards.values())card.syncTitle();feed.classList.toggle('is-unsnapped',suspended||Boolean(measuring)||typingField());}
  function update(next){
   if(destroyed)return;snapshot=next;if(!enabled)return;const previous=projection.items,oldViewed=viewed;projection=projectWorkout(snapshot.log);
   if(viewed&&!projection.items.some(i=>same(i.ref,viewed)))viewed=focusFallback(previous,projection.items,viewed);
@@ -114,8 +114,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const index=viewedIndex();for(const [key,card] of cards){const at=projection.items.findIndex(i=>i.key===key);if(Math.abs(at-index)<=1){const ex=snapshot.log.exercises[projection.items[at].exerciseIndex];card.update(projection.items[at],ex,ex.sets.find(s=>s.id===card.ref.setId),at);}else{for(const {widget} of card.widgets)widget.update({enabled:false});card.syncTitle();}}
   syncActive();
  }
- feed.addEventListener('scroll',()=>{if(!enabled||programmatic||suspended)return;cancelAnimationFrame(scrollFrame);scrollFrame=requestAnimationFrame(()=>{
-  if(suspended||!enabled)return;
+ feed.addEventListener('scroll',()=>{if(!enabled||programmatic||suspended||measuring)return;cancelAnimationFrame(scrollFrame);scrollFrame=requestAnimationFrame(()=>{
+  if(suspended||measuring||!enabled)return;
   let ref=null;for(const item of projection.items){const row=cards.get(item.key)?.row;if(row&&row.offsetTop<=feed.scrollTop+40)ref=item.ref;}
   if(review.offsetTop<=feed.scrollTop+40)ref=null;if(!same(ref,viewed)){viewed=ref;renderCursor();}
  });},{signal});
@@ -139,6 +139,13 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function stopCelebration(){for(const timer of animationTimers)clearTimeout(timer);animationTimers.clear();for(const n of root.querySelectorAll('.is-celebrating'))n.classList.remove('is-celebrating');}
  reduced.addEventListener('change',()=>{if(reduced.matches)stopCelebration();},{signal});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)advance.cancel();},{signal});
+ // Height changes move card offsets; hold snapping and scroll tracking until the viewed set is re-anchored.
+ function setFeedHeight(px){
+  if(destroyed||px===feedHeight)return;feedHeight=px;root.style.setProperty('--focus-feed-height',px+'px');if(!enabled)return;
+  measuring++;syncActive();const ref=viewed,target=ref?cards.get(setKey(ref))?.row:review;
+  if(target){programmatic=true;feed.scrollTo({top:target.offsetTop,behavior:'instant'});programmatic=false;}
+  requestAnimationFrame(()=>{measuring--;if(!destroyed)syncActive();});
+ }
  function restore(){port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});}
  return {
   update,
@@ -147,7 +154,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    if(exerciseId)viewed=setId?{exerciseId,setId}:projection.items.find(i=>i.ref.exerciseId===exerciseId)?.ref??viewed;
    enabled=true;root.hidden=false;port.relocate(()=>{port.setRowPlacement(place);update(port.read());if(exerciseId&&focused?.matches('textarea')){const card=cards.get(setKey(viewed));if(card)port.command({type:'exercise-note',exerciseId,host:card.exerciseEditor});}logger?.classList.add('is-focus');});jump(viewed??projection.current);
   },
-  jump,celebrate,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value)advance.cancel();syncActive();},restore,
+  jump,celebrate,setFeedHeight,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value)advance.cancel();syncActive();},restore,
   destroy(){if(destroyed)return;advance.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();cancelAnimationFrame(scrollFrame);for(const card of cards.values())card.destroy();cards.clear();root.remove();}
  };
 }

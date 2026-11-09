@@ -42,6 +42,7 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
   test.use({viewport,hasTouch});
 
   test('exercise notes open, save, reopen, clear and carry over as last time',async({page})=>{
+   test.skip(label==='390 touch','Active phone workouts use Focus; note behavior there is covered by the Focus and long-note tests.');
    const {id,names:[first]}=await start(page);
    const add=page.getByRole('button',{name:`Add note, ${first}`,exact:true});
    await expect(add).toHaveText('✎ Add note');
@@ -93,10 +94,12 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
    await expect.poll(()=>noteOf(page,id)).toBe('Felt heavy');
   });
 
+  // At 360px the active workout is Focus, which opens the same exercise note from its card.
   test('a long note wraps without horizontal scroll',async({page})=>{
    await page.setViewportSize({width:360,height:800});
    const {names:[first]}=await start(page);
-   await page.getByRole('button',{name:`Add note, ${first}`,exact:true}).click();
+   await expect(page.locator('.workout-focus')).toBeVisible();
+   await page.getByRole('button',{name:`Add exercise note, ${first}`,exact:true}).first().click();
    await page.getByLabel(`Note, ${first}`,{exact:true}).fill('word '.repeat(200).trim().slice(0,1000));
    await blur(page);
    const text=page.getByRole('button',{name:editName(first)});
@@ -106,6 +109,7 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
   });
 
   test('set notes save on input, finish on Enter, reopen and clear in the aligned note slot',async({page})=>{
+   test.skip(label==='390 touch','Active phone workouts use Focus; note behavior there is covered by the Focus and long-note tests.');
    const {id,names:[first]}=await start(page);
    const input=await openSetNote(page,2,first);
    const row=setMenu(page,2,first).locator('xpath=ancestor::li[contains(@class,"log-set")][1]');
@@ -134,6 +138,7 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
   });
 
   test('warm-up notes use distinct labels and resume as saved text',async({page})=>{
+   test.skip(label==='390 touch','Active phone workouts use Focus; note behavior there is covered by the Focus and long-note tests.');
    const {names:[first]}=await start(page);
    await page.getByRole('button',{name:`Add warm-up, ${first}`,exact:true}).click();
    const input=await openSetNote(page,1,first,{warm:true});
@@ -150,6 +155,7 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
   });
 
   test('removing a set with an open note restores the next menu and leaves no orphan input',async({page})=>{
+   test.skip(label==='390 touch','Active phone workouts use Focus; note behavior there is covered by the Focus and long-note tests.');
    const {names:[first]}=await start(page);
    const input=await openSetNote(page,2,first);await input.fill('Remove with this set');
    const row=input.locator('xpath=ancestor::li[contains(@class,"log-set")][1]'),id=await row.getAttribute('data-set-id');
@@ -198,13 +204,15 @@ test('set note close retains inert content through the collapse and rapid reopen
  await input.press('Enter');await expect(page.locator('.log-set-note-text')).toHaveText('✎ Still here');
 });
 
-test('reduced motion settles set note open and close in the same turn',async({page})=>{
- await page.setViewportSize({width:390,height:844});
+test('reduced motion settles set note open and close in the same turn',async({browser})=>{
+ // Compact touch rows exist above 760px; phones use Focus.
+ const context=await browser.newContext({viewport:{width:800,height:844},hasTouch:true,reducedMotion:'reduce'}),page=await context.newPage();
  const {names:[first]}=await start(page);
  const input=await openSetNote(page,2,first);
  expect(await input.evaluate(el=>({height:el.getBoundingClientRect().height,transition:getComputedStyle(el.closest('.log-set-note-part')).transitionDuration}))).toEqual({height:44,transition:'0s'});
  const closed=await input.evaluate(el=>{const slot=el.closest('.log-set-note-slot');el.blur();return {connected:el.isConnected,children:slot.childElementCount};});
  expect(closed).toEqual({connected:false,children:0});
+ await context.close();
 });
 
 test('removing a noted row retains inert content through its closing animation',async({page})=>{

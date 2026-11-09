@@ -1,4 +1,6 @@
 import {mountWorkoutNote} from './workout-note.js';
+import {mountWorkoutFocus} from './workout-focus-view.js';
+import {mountWorkoutOverview} from './workout-overview.js';
 import {mountWorkoutHistory} from './workout-history-summary.js';
 import {confirmAction} from './confirm-dialog.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
@@ -32,7 +34,7 @@ function collapseOut(part,animate){
 const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],secondaryMuscles:[]};
 
 /** Active workout logger: sticky header, exercise cards with set rows, add/swap/remove/reorder and Finish. */
-export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{},sharedSaveStatus=false,onSaveStatusSlotChange=()=>{}}){
+export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{},sharedSaveStatus=false,onSaveStatusSlotChange=()=>{},focusSession=null}){
  let log=structuredClone(initial),last=lastTime,best=bestPerformance,bestStatus=new Map(),destroyed=false,busy=false,addPicker=null,sortable=null,relocatingFocus=false;
  const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set(),openSetNotes=new Set();
  const listeners=new Set();let rowPlacement=null,revision=0,externalPicker=null,externalArea=null;const noteOrigins=new Map();
@@ -472,6 +474,28 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
    return {accepted:revision!==before};
   }
  };
+ let focusView=null,overview=null,focusObserver=null,measureFrame=null;
+ const mobile=matchMedia('(max-width:760px)');
+ function measureFocus(){cancelAnimationFrame(measureFrame);measureFrame=requestAnimationFrame(()=>{
+  if(destroyed||!mobile.matches||!focusView)return;
+  const header=page.querySelector('.logger-header'),feed=page.querySelector('.focus-feed'),focus=page.querySelector('.workout-focus'),toolbar=page.querySelector('.focus-toolbar'),nav=document.querySelector('.app-header nav');
+  const viewport=window.visualViewport,bottom=viewport?viewport.height:innerHeight,reserved=toolbar.getBoundingClientRect().height+(nav?.getBoundingClientRect().height??0)+12;
+  // Document positions keep the result independent of the current page scroll.
+  const feedTop=feed.getBoundingClientRect().top+scrollY,strip=feedTop-(focus.getBoundingClientRect().top+scrollY),headerBox=header.getBoundingClientRect();
+  const atRest=bottom-feedTop-reserved,underHeader=bottom-headerBox.height-parseFloat(getComputedStyle(header).marginBottom)-strip-reserved;
+  // A long workout note pushes the feed down; then the page scrolls the note away and the feed fills the space under the sticky header.
+  const height=Math.max(180,Math.floor(atRest>=underHeader*.75?atRest:underHeader));
+  focusView.setFeedHeight(height);
+ });}
+ if(focusSession&&active&&editable){
+  const host=document.createElement('div');page.append(host);
+  focusView=mountWorkoutFocus(host,{port:presentationPort,ui:focusSession.read(log.id),onViewed:ref=>focusSession.patch(log.id,{viewed:ref}),onInteraction:event=>{if(event.type==='preference')focusSession.patch(log.id,event.patch);if(event.type==='overview'){overview.update(presentationPort.read(),focusView.visibleRef());overview.open(event.opener);}},onFinish:()=>finish.click()});
+  overview=mountWorkoutOverview({port:presentationPort,onJump:ref=>focusView.jump(ref,{focus:true}),onActivity:value=>focusView.suspend(value),onClose:()=>focusView.update(presentationPort.read())});
+  const responsive=()=>{overview.close();focusView.setEnabled(mobile.matches);measureFocus();};
+  mobile.addEventListener('change',responsive,{signal});window.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('scroll',measureFocus,{signal});
+  focusObserver=new ResizeObserver(measureFocus);focusObserver.observe(page.querySelector('.logger-header'));focusObserver.observe(page.querySelector('.focus-toolbar'));focusObserver.observe(page);
+  responsive();
+ }
  return {
   presentationPort,
   setLog(value){if(destroyed)return;const before=log;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();publish('hydrate',before);},
@@ -491,6 +515,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   focusTitle(){title.focus({preventScroll:true});},
   destroy(){
    if(destroyed)return;
+   overview?.destroy();focusView?.destroy();focusObserver?.disconnect();cancelAnimationFrame(measureFrame);
    if(sharedSaveStatus)onSaveStatusSlotChange(null);
    destroyed=true;workoutNote.destroy();clearInterval(timer);for(const frame of closing)clearTimeout(frame.timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();setMenu.destroy();tooltips.destroy();
    listeners.clear();externalPicker?.destroy();for(const card of cards.values()){card.picker?.destroy();card.history.destroy();for(const row of card.rows.values())destroySetRow(row);}addPicker?.destroy();page.remove();
