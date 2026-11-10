@@ -31,11 +31,20 @@ Recap coverage (`e2e/workout-recap.spec.js`, `test/workout-controller.test.js`):
 
 ## Visual inspection
 
-Populated screenshots (ignored, `.superpowers/sdd/2026-11-08-mobile-workout-focus/`) at 360×740, 390×844, 390×844 with 200% root text, 760×1024 (Focus) and 761×1024, 1366×768, 1440×900, 1920×1080 (tracker), plus the overview and recap at 390×844. Every size had no horizontal overflow. At 360px and 200% text the first card is taller than the feed and scrolls internally, so the next-card preview is not visible; the specification allows this. At 760×1024 the card's controls anchor to the card bottom, leaving a gap under Best.
+Populated screenshots ([assets/mobile-workout-focus](assets/mobile-workout-focus/)) at 360×740, 390×844, 390×844 with 200% root text, 760×1024 (Focus) and 761×1024, 1366×768, 1440×900, 1920×1080 (tracker), plus the overview and recap at 390×844. Every size had no horizontal overflow. At 360px and 200% text the first card is taller than the feed and scrolls internally, so the next-card preview is not visible; the specification allows this. At 760×1024 the card's controls anchor to the card bottom, leaving a gap under Best.
 
 ## Not verified
 
 - **Real mobile device:** not performed. Native numeric keyboard, ruler and ticker gestures under real touch, pinch zoom, safe areas, snap feel and the typing-hidden tab bar have only Chromium viewport/touch emulation. Do not describe them as verified on a device.
 - Motion was checked through automated animation assertions and still screenshots, not by watching it on a device.
-- No independent review of Tasks 8–10 has been run yet.
+- The independent review covered the whole branch but did not run tests; see below.
 - Nothing was merged, pushed or deployed; no migration exists or was run.
+
+## Independent review and fix pass
+
+One fresh read-only reviewer examined `64669d0..279ed7d`: no Critical findings, two Important, eight Minor. Both Important findings were reproduced with failing tests and fixed in `fcaba77`:
+
+1. **Animated card `min-height` drifted the viewed set.** A feed height change (for example the soft keyboard) animated every card's minimum height over 200ms while the viewed set had already been re-anchored. Chromium's scroll anchoring hides this; the test disables `overflow-anchor` to emulate iOS Safari and uses a tall viewport where `min-height` governs card height. The transition no longer includes `min-height`.
+2. **Closing the overview took away a Focus-card exercise note.** Closing restored every borrowed note host to the hidden compact card. It now restores only notes inside the overview dialog.
+
+After the fix pass: 457 of 457 unit cases; 562 browser cases, 555 passed and 7 skipped, again as nine consecutive invocations; the 26 mobile Library navigation evidence images that `e2e/mobile-navigation-layout.spec.js` rewrites on every run were restored. The eight Minor findings are deferred and listed in the final report; none loses data.
