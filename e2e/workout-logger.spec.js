@@ -47,6 +47,7 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
   test.use({viewport});
 
   test('placeholders and ✓ log a set in one tap',async({page})=>{
+   test.skip(viewport.width<=760,'Active phone workouts use Focus; see the Focus tests below.');
    const {log,names:[first,second]}=await setup(page,{mutate:log=>({...log,exercises:log.exercises.map((e,i)=>i===1?{...e,target:null}:e)})});
    await expect(card(page,first).locator('.log-last-time')).toContainText('Last time');
    await expect(card(page,first).locator('.log-last-time')).toContainText('80×8 @2');
@@ -79,6 +80,7 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
   });
 
   test('inputs, steppers and RIR',async({page})=>{
+   test.skip(viewport.width<=760,'Active phone workouts use Focus; see the Focus tests below.');
    const {log,names:[first]}=await setup(page);
    const field=(n,kind)=>page.getByLabel(`Set ${n} ${kind}, ${first}`,{exact:true});
    await expect(field(2,'weight')).toBeVisible();await expect(field(2,'reps')).toBeVisible();
@@ -117,6 +119,7 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
   });
 
   test('swap, add, remove and reorder exercises',async({page})=>{
+   test.skip(viewport.width<=760,'Active phone workouts use Focus; see the Focus tests below.');
    const {log,spare,names:[first,second]}=await setup(page);
    await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('60');
    await page.getByRole('button',{name:`Swap exercise ${first}`,exact:true}).click();
@@ -181,6 +184,8 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    await page.getByRole('button',{name:'Finish',exact:true}).click();
    await expect(dialog).toContainText('1 set not completed — finish anyway? Uncompleted sets will be removed.');
    await dialog.getByRole('button',{name:'Finish workout'}).click();
+   // Phones finish into the recap; Done continues to History.
+   if(viewport.width<=760){await expect(page.locator('.workout-recap')).toBeVisible();await page.getByRole('button',{name:'Done',exact:true}).click();}
    await expect(page).toHaveURL(/#\/workouts$/);
    await expect(page.locator('.workout-history-row').first()).toContainText('4 sets');
    expect((await serverLog(page,log.id)).status).toBe('finished');
@@ -211,7 +216,8 @@ for(const width of [360,390]){
   const boxes=await rirBoxes(page,first);
   expect(boxes).toHaveLength(6);
   for(const box of boxes){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
-  for(const name of [`Mark set 1 done, ${first}`,`Set 1 actions, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+  await expect(page.locator('.workout-focus')).toBeVisible();
+  for(const name of [`Mark set 1 done, ${first}`]){const box=await page.getByRole('button',{name,exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)).toBe(0);
   await context.close();
  });
@@ -231,8 +237,9 @@ test('fine pointer keeps a one-line set row with 32px RIR options at 1366px',asy
  expect((await page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true}).boundingBox()).height).toBeGreaterThanOrEqual(32);
 });
 
+// Compact active rows on touch exist above 760px; phones use Focus.
 test('logger touch targets and reduced motion',async({browser})=>{
- const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});
+ const context=await browser.newContext({viewport:{width:800,height:844},hasTouch:true,reducedMotion:'reduce'});
  const page=await context.newPage();
  const {names:[first]}=await setup(page);
  const targets=[page.getByLabel(`Set 1 weight, ${first}`,{exact:true}),page.getByLabel(`Set 1 reps, ${first}`,{exact:true}),
@@ -259,6 +266,61 @@ test('logger touch targets and reduced motion',async({browser})=>{
  await removeSet(page,5,first);
  await expect(sets).toHaveCount(4);
  await context.close();
+});
+
+const focusRow=(page,n,name)=>page.locator('.focus-feed > li').filter({has:page.getByLabel(`Set ${n} weight, ${name}`,{exact:true})});
+test.describe('Focus at 390px',()=>{
+ test.use({viewport:{width:390,height:844},hasTouch:true});
+ test('placeholders, one-tap done, RIR and invalid drafts save through the shell',async({page})=>{
+  const {log,names:[first,second]}=await setup(page,{mutate:log=>({...log,exercises:log.exercises.map((e,i)=>i===1?{...e,target:null}:e)})});
+  await expect(page.locator('.workout-focus')).toBeVisible();
+  const row=focusRow(page,1,first);
+  await expect(row.locator('.log-last-time')).toContainText('80×8 @2');
+  const weight=page.getByLabel(`Set 1 weight, ${first}`,{exact:true}),reps=page.getByLabel(`Set 1 reps, ${first}`,{exact:true});
+  await expect(weight).toHaveAttribute('placeholder','80');await expect(reps).toHaveAttribute('placeholder','8');
+  await expect(weight).toHaveAttribute('inputmode','decimal');await expect(reps).toHaveAttribute('inputmode','numeric');
+  const done=page.getByRole('button',{name:`Mark set 1 done, ${first}`,exact:true});
+  await done.click();
+  await expect(done).toHaveAttribute('aria-pressed','true');
+  await expect(weight).toHaveValue('80');await expect(reps).toHaveValue('8');
+  await expect(page.getByRole('group',{name:`Set 1 RIR, ${first}`}).getByRole('button',{name:'2',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[0]).toMatchObject({weightKg:80,reps:8,rir:2,done:true});
+  await done.click();await expect(done).toHaveAttribute('aria-pressed','false');await expect(weight).toHaveValue('80');
+  const rir=page.getByRole('group',{name:`Set 1 RIR, ${first}`});
+  await rir.getByRole('button',{name:'3',exact:true}).click();
+  await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[0].rir).toBe(3);
+  await rir.getByRole('button',{name:'3',exact:true}).click();
+  await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[0].rir).toBe(null);
+  // Comma decimals save; an invalid draft stays local and visible.
+  const w2=page.getByLabel(`Set 2 weight, ${first}`,{exact:true});
+  await w2.fill('82,5');await w2.blur();await expect(w2).toHaveValue('82.5');
+  await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[1].weightKg).toBe(82.5);
+  await page.reload();await expect(page.locator('.workout-focus')).toBeVisible();await expect(w2).toHaveValue('82.5');
+  await w2.fill('82.3');await w2.blur();
+  await expect(w2).toHaveAttribute('aria-invalid','true');
+  await expect(focusRow(page,2,first).getByText('Weight must be a multiple of 0.25 from 0 to 999.75 kg.')).toBeVisible();
+  await page.waitForTimeout(600);
+  expect((await serverLog(page,log.id)).exercises[0].sets[1].weightKg).toBe(82.5);
+  // No reps from last time or a target: ✓ asks for reps and focuses the field.
+  const noReps=page.getByRole('button',{name:`Mark set 1 done, ${second}`,exact:true}),secondReps=page.getByLabel(`Set 1 reps, ${second}`,{exact:true});
+  await noReps.click();
+  await expect(focusRow(page,1,second).getByText('Enter reps',{exact:true})).toBeVisible();
+  await expect(secondReps).toBeFocused();await expect(noReps).toHaveAttribute('aria-pressed','false');
+  await secondReps.fill('10');await expect(focusRow(page,1,second).getByText('Enter reps',{exact:true})).toHaveCount(0);
+ });
+ test('overview swap saves and keeps the logged set',async({page})=>{
+  const {log,spare,names:[first]}=await setup(page);
+  await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('60');
+  await page.getByRole('button',{name:'Workout overview',exact:true}).click();
+  const d=page.getByRole('dialog',{name:'Workout overview'});
+  await d.getByRole('button',{name:`Swap exercise ${first}`,exact:true}).click();
+  const combo=d.getByRole('combobox',{name:'Exercise'});await expect(combo).toBeFocused();await combo.fill(spare.name);
+  await page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').filter({hasText:spare.name}).first().click();
+  await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0]).toMatchObject({variantId:spare.id,name:spare.name,target:null});
+  await d.getByRole('button',{name:'Close overview',exact:true}).click();
+  await expect(page.getByLabel(`Set 1 weight, ${spare.name}`,{exact:true})).toHaveValue('60');
+  await expect(focusRow(page,1,spare.name).locator('.log-last-time')).toContainText('50×10');
+ });
 });
 
 test('weight and reps inputs show 102.5 kg and 100 reps unclipped at 360px',async({browser})=>{

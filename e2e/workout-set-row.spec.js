@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper.js';
+import {login,resetWorkouts,createLinkedTemplate,headers,saveFinishedLog} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
 
 const makeId=()=>crypto.randomUUID();
@@ -20,6 +20,17 @@ async function setup(page,weight='999.75'){
  return name;
 }
 
+/** A finished 3-set log: the compact editor phones still use while active workouts show Focus. */
+async function setupFinished(page,weight){
+ await login(page);await resetWorkouts(page);
+ const {id}=await saveFinishedLog(page,{name:'Push A',startedAt:'2026-11-01T10:00:00'});
+ await page.goto('/#/workouts/'+id);
+ const name='Bench press';
+ await page.getByLabel(`Set 1 weight, ${name}`,{exact:true}).fill(weight);
+ await page.getByLabel(`Set 1 reps, ${name}`,{exact:true}).fill('100');
+ return name;
+}
+
 /** Geometry of every set row in the first card. */
 const measure=(page,name)=>page.evaluate(exerciseName=>{
  const card=[...document.querySelectorAll('.log-exercise')].find(el=>el.querySelector('h2').textContent===exerciseName).querySelector('.log-exercise-card');
@@ -31,7 +42,7 @@ const measure=(page,name)=>page.evaluate(exerciseName=>{
   const inputs=[...row.querySelectorAll('.log-stepper input')];
   const all=[...row.querySelectorAll('*')].filter(el=>el.getBoundingClientRect().width>0).map(el=>el.getBoundingClientRect().right);
   const caption=q('.log-rir-label');
-  return {row:rect(row),num:rect(q('.log-set-number')),captionShown:getComputedStyle(caption).display!=='none',steps:[...row.querySelectorAll('.log-step')].map(rect),options:[...row.querySelectorAll('.log-rir-option')].map(rect),li:rect(li),weight:rect(q('[data-kind="weight"]')),reps:rect(q('[data-kind="reps"]')),done:rect(q('.log-done')),menu:rect(q('.log-set-menu')),
+  return {row:rect(row),num:rect(q('.log-set-number')),captionShown:getComputedStyle(caption).display!=='none',steps:[...row.querySelectorAll('.log-step')].map(rect),options:[...row.querySelectorAll('.log-rir-option')].map(rect),li:rect(li),weight:rect(q('[data-kind="weight"]')),reps:rect(q('[data-kind="reps"]')),done:rect(q('.log-done')),doneShown:q('.log-done').getBoundingClientRect().width>0,menu:rect(q('.log-set-menu')),
    rir:rect(q('.log-rir')),clipped:inputs.map(i=>i.scrollWidth-i.clientWidth),borderTop:parseFloat(getComputedStyle(row).borderTopWidth),padding:[getComputedStyle(row).paddingTop,getComputedStyle(row).paddingBottom],
    maxRight:Math.max(...all),bg:getComputedStyle(row).backgroundColor};
  })};
@@ -40,33 +51,33 @@ const measure=(page,name)=>page.evaluate(exerciseName=>{
 const near=(a,b,message)=>expect(Math.abs(a-b),message).toBeLessThanOrEqual(1);
 
 for(const width of [360,390,430]){
- test(`set rows share one grid at ${width}px`,async({browser})=>{
+ // Active phone workouts use Focus; the compact grid on phones is the finished record.
+ test(`finished set rows share one grid at ${width}px`,async({browser})=>{
   const context=await browser.newContext({viewport:{width,height:844},hasTouch:true,reducedMotion:'reduce'});
   const page=await context.newPage();
-  const name=await setup(page,width===360?'102.5':'999.75');
-  await page.getByRole('button',{name:`Mark set 3 done, ${name}`,exact:true}).click();
+  const name=await setupFinished(page,width===360?'102.5':'999.75');
   const m=await measure(page,name),[first]=m.rows;
   expect(m.rows).toHaveLength(3);
   for(const [i,r] of m.rows.entries()){
    near(r.weight.left,first.weight.left,`kg x ${i}`);near(r.weight.width,first.weight.width,`kg w ${i}`);
    near(r.reps.left,first.reps.left,`reps x ${i}`);near(r.reps.width,first.reps.width,`reps w ${i}`);
-   near(r.done.left,first.done.left,`done x ${i}`);
+   expect(r.doneShown,`no done toggle ${i}`).toBe(false);
+   near(r.menu.left,first.menu.left,`menu x ${i}`);
    // Under 22rem (card content 352px: 360 and 390 phones) the group spans number to reps and drops the caption.
    const spansNumber=width<430;
    near(r.rir.left,spansNumber?r.num.left:r.weight.left,`rir left ${i}`);near(r.rir.right,r.reps.right,`rir right ${i}`);
    expect(r.captionShown,`caption ${i}`).toBe(!spansNumber);
    for(const box of [...r.steps,...r.options]){expect(box.width,`target w ${i}`).toBeGreaterThanOrEqual(43.5);expect(box.height,`target h ${i}`).toBeGreaterThanOrEqual(43.5);}
-   near(r.menu.left,r.done.left,`menu x ${i}`);
    expect(r.maxRight,`overflow ${i}`).toBeLessThanOrEqual(m.inner.right+1);
-   expect(r.rir.top,`rir below line 1 ${i}`).toBeGreaterThan(r.done.bottom-2);
+   expect(r.rir.top,`rir below line 1 ${i}`).toBeGreaterThan(r.reps.bottom-2);
    expect(r.borderTop,`separator ${i}`).toBe(i===0?0:1);
    expect(r.padding,`vertical set padding ${i}`).toEqual(['8px','8px']);
-   for(const box of [r.done,r.menu]){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
+   for(const box of [r.menu]){expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);}
   }
   expect(first.clipped.every(c=>c<=1)).toBe(true);
   // iOS zooms the page on focus of inputs under 16px.
   for(const field of ['weight','reps'])expect(await page.getByLabel(`Set 1 ${field}, ${name}`,{exact:true}).evaluate(el=>parseFloat(getComputedStyle(el).fontSize)),field).toBeGreaterThanOrEqual(16);
-  // A done row's tint spans the card's inner width plus its padding.
+  // A done row's tint spans the card's inner width plus its padding (finished sets are done).
   const done=m.rows[2];
   near(done.row.left,m.card.left+1,'done tint left');near(done.row.right,m.card.right-1,'done tint right');
   expect(done.bg).not.toBe('rgba(0, 0, 0, 0)');
@@ -74,6 +85,22 @@ for(const width of [360,390,430]){
   await context.close();
  });
 }
+
+test('active touch rows keep two lines with done above the menu at 800px',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:800,height:844},hasTouch:true,reducedMotion:'reduce'});
+ const page=await context.newPage();
+ const name=await setup(page);
+ await page.getByRole('button',{name:`Mark set 3 done, ${name}`,exact:true}).click();
+ const m=await measure(page,name),[first]=m.rows;
+ for(const [i,r] of m.rows.entries()){
+  near(r.done.left,first.done.left,`done x ${i}`);near(r.menu.left,r.done.left,`menu x ${i}`);
+  expect(r.rir.top,`rir below line 1 ${i}`).toBeGreaterThan(r.done.bottom-2);
+  for(const box of [r.done,r.menu,...r.steps,...r.options]){expect(box.width).toBeGreaterThanOrEqual(43.5);expect(box.height).toBeGreaterThanOrEqual(43.5);}
+  expect(r.maxRight).toBeLessThanOrEqual(m.inner.right+1);
+ }
+ const done=m.rows[2];near(done.row.left,m.card.left+1,'done tint left');near(done.row.right,m.card.right-1,'done tint right');expect(done.bg).not.toBe('rgba(0, 0, 0, 0)');
+ await context.close();
+});
 
 for(const [width,height] of [[900,800],[1366,768]])test(`set rows are one line at ${width}px fine pointer`,async({page})=>{
  await page.setViewportSize({width,height});
@@ -93,7 +120,7 @@ for(const [width,height] of [[900,800],[1366,768]])test(`set rows are one line a
 });
 
 test('the set menu removes a set and focuses the next set menu',async({page})=>{
- await page.setViewportSize({width:390,height:844});
+ await page.setViewportSize({width:1366,height:768});
  const name=await setup(page);
  await expect(page.getByRole('button',{name:`Remove set 1, ${name}`})).toHaveCount(0);
  await page.getByRole('button',{name:`Set 2 actions, ${name}`,exact:true}).click();

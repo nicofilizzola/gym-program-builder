@@ -19,6 +19,7 @@ export function mountReorderMenu({label='Reorder options'}={}){
  function toggle(button,choices){
   const same=trigger===button;close();if(same)return;
   trigger=button;button.setAttribute('aria-expanded','true');button.setAttribute('aria-controls',popup.id);
+  (button.closest('dialog')??document.body).append(popup);
   popup.replaceChildren(...choices.map(({label,disabled=false,run})=>{
    const option=document.createElement('button');option.type='button';option.className='secondary-btn';option.textContent=label;option.disabled=disabled;
    option.onclick=()=>{close(true);run();};return option;

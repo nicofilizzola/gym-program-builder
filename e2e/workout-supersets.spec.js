@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,headers} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
+import {finishWorkout} from '../src/workout-edit.js';
 
 const makeId=()=>crypto.randomUUID();
 
@@ -25,9 +26,22 @@ async function openActive(page){
  await expect(page.getByRole('button',{name:'Finish',exact:true})).toBeVisible();
  return {log,...made};
 }
+/** The same pair as a finished record: phones keep the compact editor for finished logs. */
+async function openFinished(page){
+ await login(page);await resetWorkouts(page);
+ const made=await makeTemplate(page);
+ let log=createWorkoutLog({id:makeId(),now:new Date(Date.now()-60*60000),makeId,template:made.template});
+ log={...log,exercises:log.exercises.map(e=>({...e,sets:e.sets.map(s=>({...s,weightKg:50,reps:8,done:true}))}))};
+ log=finishWorkout(log,new Date(Date.now()-5*60000)).log;
+ const r=await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}});
+ expect(r.ok(),await r.text()).toBeTruthy();
+ await page.goto('/#/workouts/'+log.id);
+ await expect(page.locator('li.log-superset')).toHaveCount(1);
+ return {log,...made};
+}
 const headings=page=>page.locator('.log-exercise h2').allTextContents();
 
-for(const [label,opts] of [['phone',{viewport:{width:390,height:844},hasTouch:true}],['desktop',{viewport:{width:1366,height:768}}]]){
+for(const [label,opts] of [['touch',{viewport:{width:800,height:844},hasTouch:true}],['desktop',{viewport:{width:1366,height:768}}]]){
  test(`pair renders as one frame with A1/A2 members (${label})`,async({browser})=>{
   const context=await browser.newContext({...opts,reducedMotion:'reduce'});const page=await context.newPage();
   const {names}=await openActive(page);
@@ -44,9 +58,9 @@ for(const [label,opts] of [['phone',{viewport:{width:390,height:844},hasTouch:tr
  });
 }
 
-test('member card content stays at least 300px at 360px',async({browser})=>{
+test('finished member card content stays at least 300px at 360px',async({browser})=>{
  const context=await browser.newContext({viewport:{width:360,height:740},hasTouch:true,reducedMotion:'reduce'});const page=await context.newPage();
- await openActive(page);
+ await openFinished(page);
  const widths=await page.evaluate(()=>[...document.querySelectorAll('.log-superset-members .log-exercise-card')].map(c=>{const s=getComputedStyle(c);return c.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight);}));
  expect(widths).toHaveLength(2);
  for(const w of widths)expect(w).toBeGreaterThanOrEqual(300);
@@ -60,7 +74,7 @@ test('member card content stays at least 300px at 360px',async({browser})=>{
 });
 
 test('unlink removes the frame and gives both cards Reorder (reduced motion)',async({browser})=>{
- const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});const page=await context.newPage();
+ const context=await browser.newContext({viewport:{width:800,height:844},hasTouch:true,reducedMotion:'reduce'});const page=await context.newPage();
  const {names}=await openActive(page);
  await page.getByRole('button',{name:'Unlink superset',exact:true}).click();
  await expect(page.locator('li.log-superset')).toHaveCount(0);
@@ -271,8 +285,9 @@ test.describe('guided focus between superset partners',()=>{
   await context.close();
  });
 
+ // Focus replaces guided focus on phones; compact touch logging keeps it above 760px.
  test('the partner row is scrolled below the sticky header (touch)',async({browser})=>{
-  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});const page=await context.newPage();
+  const context=await browser.newContext({viewport:{width:800,height:844},hasTouch:true,reducedMotion:'reduce'});const page=await context.newPage();
   await openActive(page);
   await check(page,0,1);
   await expect(reps(page,1,0)).toBeFocused();

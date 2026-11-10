@@ -2466,3 +2466,176 @@ body {padding-bottom:var(--tab-bar-height)}
 .logger-note {margin:0 0 12px;min-width:0}
 .logger-note .log-note-input {max-height:none}
 .log-best {margin:0 0 8px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
+/* Focus rulers decorate existing inputs and never own their values. */
+.log-stepper:has(>.workout-ruler:not([hidden])) {flex-wrap:wrap}
+.workout-ruler {position:relative;grid-column:1/-1;flex:0 0 100%;min-width:0;width:100%;height:54px;overflow:hidden;touch-action:pan-y pinch-zoom;cursor:ew-resize;user-select:none;outline-offset:-2px}
+.workout-ruler[hidden],.workout-rep-guidance[hidden] {display:none}
+.workout-ruler-track {position:relative;height:54px;background:repeating-linear-gradient(90deg,var(--muted) 0 1px,transparent 1px 32px) 0 4px/auto 13px repeat-x;will-change:transform}
+.workout-ruler-tick {position:absolute;top:24px;transform:translateX(-50%);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.workout-ruler-needle {position:absolute;top:0;left:50%;width:2px;height:23px;background:var(--accent);pointer-events:none}
+.workout-ruler-needle::before {content:'';position:absolute;left:-3px;top:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--accent)}
+.workout-ruler-target {position:absolute;top:2px;height:17px;background:var(--accent-soft);border-bottom:1px solid var(--accent-deep)}
+.workout-ruler.is-suggestion .workout-ruler-needle {opacity:.5}
+.workout-ruler.is-settling .workout-ruler-track {transition:transform 150ms ease-out}
+.workout-rep-guidance {grid-column:1/-1;flex:0 0 100%;margin:4px 0 0;font-size:.75rem;line-height:1.4;color:var(--muted);white-space:normal}
+.workout-rep-guidance.is-outside {color:var(--accent)}
+.workout-rep-guidance[data-warning]::before {content:'';display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-width='1.7' stroke-linejoin='round' d='m12 3 10 18H2Z M12 9v5m0 3v.1'/%3E%3C/svg%3E") center/contain no-repeat}
+@media(prefers-reduced-motion:reduce){.workout-ruler.is-settling .workout-ruler-track {transition:none}}
+.workout-title {min-width:0;overflow:hidden;white-space:nowrap}
+.workout-title-control {display:block;min-height:44px;line-height:44px;min-width:0;overflow:hidden}
+.workout-title.is-overflowing .workout-title-control {cursor:grab;touch-action:pan-y pinch-zoom;user-select:none;mask-image:linear-gradient(90deg,#000 0%,#000 94%,transparent)}
+.workout-title-control.is-dragging {cursor:grabbing}
+.workout-title-control:focus-visible {outline:2px solid var(--accent);outline-offset:-2px;mask-image:none}
+.workout-title-track {display:inline-flex;gap:48px;white-space:nowrap;vertical-align:top}
+.workout-title-copy {display:block;flex-shrink:0}
+.workout-title-copy[hidden] {display:none}
+.focus-only {display:none}
+.workout-focus .focus-only {display:block}
+.workout-focus {--focus-feed-height:calc(100dvh - 270px);min-width:0}
+.workout-focus[hidden],.workout-focus [hidden] {display:none!important}
+.workout-logger.is-focus {max-width:42rem;padding-bottom:0}
+.workout-logger.is-focus>.log-exercises,.workout-logger.is-focus>.log-empty,.workout-logger.is-focus>.log-add-exercise {display:none}
+.focus-progress {margin:0 0 8px}
+.focus-progress-meta {display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:.6875rem;line-height:1.4;margin-bottom:7px}
+.focus-progress-segments {display:flex;gap:3px;height:4px;overflow:hidden}
+.focus-progress-segment {flex:1;min-width:0;background:var(--border);overflow:hidden}
+.focus-progress-fill {display:block;height:100%;background:var(--accent);transform:scaleX(0);transform-origin:left}
+.focus-progress-segment.is-done .focus-progress-fill {transform:scaleX(1)}
+.focus-feed {position:relative;height:var(--focus-feed-height);overflow-y:auto;overflow-x:hidden;list-style:none;margin:0;padding:0;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain}
+.focus-feed::-webkit-scrollbar {display:none}
+.focus-feed.is-unsnapped {scroll-snap-type:none}
+.workout-focus .focus-card {position:relative;display:grid;grid-template-rows:1fr;min-height:max(0px,calc(var(--focus-feed-height) - 60px));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
+.workout-focus .focus-card.is-closed {min-height:0;grid-template-rows:0fr}
+.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;min-height:0;overflow:hidden;margin:0;padding:0}
+.workout-focus .focus-context {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:8px 0}
+.focus-context-text {min-width:0}
+.focus-eyebrow {margin:0;color:var(--muted);font-size:.625rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;overflow-wrap:anywhere}
+.focus-set-label {margin:3px 0 0;color:var(--text);font-size:.8125rem;line-height:1.35}
+.focus-complete-marker {position:relative;display:grid;place-items:center;flex:none;min-width:32px;min-height:32px;border:1px solid var(--border);border-radius:50%;font-size:.75rem;color:var(--muted)}
+.workout-focus .focus-complete-marker .log-set-number {grid-area:auto;color:inherit;font-size:inherit;transition:none}
+.focus-complete-marker svg {display:none;width:18px;height:18px;fill:none;stroke:currentColor}
+.focus-card.is-done .focus-complete-marker {background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.focus-card.is-done .focus-complete-marker svg {display:block}
+.focus-card.is-done .focus-complete-marker .log-set-number {display:none}
+.focus-identity {min-width:0;margin:3px 0 8px}
+.focus-exercise-title {margin:0;color:var(--text);font-family:var(--font-display);font-size:2rem;font-weight:600;letter-spacing:-.02em;line-height:1.1;text-transform:none}
+.focus-exercise-meta {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.focus-muted {color:var(--muted);font-size:.6875rem;line-height:1.4;overflow-wrap:anywhere}
+.focus-exercise-note,.focus-set-note {display:flex;align-items:center;gap:7px;min-height:44px;max-width:100%;padding:6px 0;border:0;border-radius:0;background:transparent;color:var(--muted);font:inherit;font-size:.75rem;text-align:left;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}
+.focus-exercise-note {flex-shrink:0;max-width:55%}
+.focus-exercise-note svg,.focus-set-note svg {width:15px;height:15px;flex-shrink:0;fill:none;stroke:currentColor}
+.focus-exercise-note:hover,.focus-set-note:hover {color:var(--text)}
+.focus-history {border-top:1px solid var(--border);padding-top:8px;margin-bottom:12px}
+.focus-history .log-last-time,.focus-history .log-best {margin:0 0 4px;font-size:.75rem;line-height:1.4;overflow-wrap:anywhere}
+.focus-history .log-last-note {margin:0 0 5px}
+.workout-logger .workout-focus .log-set-row {display:flex;flex-direction:column;align-items:stretch;gap:0;border:0;padding:0;background:none;transition:none;margin-top:auto}
+.workout-focus .focus-number-controls {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.workout-focus .log-stepper {grid-area:auto;display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;background:var(--surface);min-width:0;padding:8px 0 0}
+.workout-focus .log-stepper .log-step,.workout-focus .log-stepper::after {display:none}
+.workout-focus .log-stepper .focus-control-label {display:block;padding:0 4px;margin:0 0 5px;color:var(--muted);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+.workout-focus .log-stepper input[type="text"] {flex:none;font-size:2.75rem;line-height:1;min-height:46px;padding:0 4px;border-radius:0;font-family:var(--font-display);font-weight:600}
+.workout-focus .workout-ruler {height:42px;flex:none}
+.workout-focus .workout-ruler[hidden] {display:block!important;visibility:hidden;pointer-events:none}
+.workout-focus .workout-ruler-track {height:42px}
+.workout-focus .workout-ruler-tick {top:22px;font-size:.625rem}
+.workout-focus .is-outside-range {border-color:var(--accent-deep)}
+.workout-focus .focus-input-help {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.workout-focus .workout-rep-guidance {flex:1;min-width:0;max-width:70%;margin:0;font-size:.6875rem}
+.focus-increment {max-width:125px;min-height:44px;margin-left:auto;padding:4px;background:transparent;color:var(--muted);border:0;font:inherit;font-size:.6875rem}
+.workout-focus .focus-rir-strip {display:grid;grid-template-columns:36px minmax(0,1fr);gap:4px;align-items:center;margin:1px 0}
+.workout-focus .log-rir-label {display:block;grid-area:auto;margin:0;font-size:.8125rem;line-height:1.2;text-align:left;color:var(--text)}
+.workout-focus .log-rir-label small {display:block;margin-top:5px;font-size:.5rem;font-weight:400;color:var(--muted)}
+.workout-focus .log-rir {grid-area:auto;margin:0;gap:2px}
+.workout-focus .log-rir-option {margin:0!important;min-width:44px;min-height:44px;padding:4px;border:1px solid var(--border);border-radius:5px;color:var(--muted);background:var(--surface);font-size:1rem}
+.workout-focus .log-rir-option[aria-pressed=true] {border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.workout-focus .focus-note-area {min-width:0;min-height:44px}
+.workout-focus .log-set-note-slot {grid-area:auto;min-width:0}
+.workout-focus .focus-note-area .log-set-note-text {padding-left:0;border:0;background:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.workout-focus .log-set-menu {display:none}
+.workout-focus .focus-complete {margin-top:3px}
+.workout-focus .log-done {display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;padding:8px 12px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 1rem/1.3 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
+.workout-focus .log-done::after {content:attr(data-label)}
+.workout-focus .log-done svg {width:17px;height:17px}
+.workout-focus .is-done .log-done {background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-deep)}
+.workout-focus .log-done:active {transform:scale(.98)}
+.workout-focus .focus-feedback {margin:0;min-height:28px;padding:7px 0;color:var(--muted);font-size:.625rem;line-height:1.3;text-align:center}
+.focus-toolbar {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:50px;border-top:1px solid var(--border);background:var(--bg)}
+.focus-toolbar button {min-height:44px;padding:5px 0;background:none;border:0;font:inherit;font-size:.75rem;color:var(--text)}
+.focus-toolbar .focus-current {color:var(--accent);font-size:.6875rem}
+.focus-auto {display:flex;align-items:center;gap:6px;min-height:44px;color:var(--muted);font-size:.625rem;white-space:nowrap}
+.focus-auto input {width:20px;height:20px;accent-color:var(--accent)}
+.focus-review {display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:var(--focus-feed-height);list-style:none;padding:20px 0;scroll-snap-align:start;scroll-snap-stop:always}
+.focus-review h2 {margin:0;font-family:var(--font-display);font-size:2rem;text-transform:none}
+.focus-review-copy,.focus-empty p {color:var(--muted);font-size:.875rem}
+.focus-empty {padding:24px 0}
+@media(max-height:780px){.workout-focus .focus-context {min-height:44px}.focus-exercise-title {font-size:1.75rem}.focus-history {margin-bottom:8px}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}.workout-focus .focus-feedback {min-height:24px;padding:5px 0}}
+@media(max-width:350px){.workout-focus .focus-rir-strip {grid-template-columns:minmax(0,1fr)}.workout-focus .log-rir-label {display:flex;align-items:center;gap:8px;min-height:28px}.workout-focus .log-rir-label small {margin:0;font-size:.625rem}}
+@media(prefers-reduced-motion:reduce){.workout-focus .focus-card,.workout-focus .log-done {transition:none}.workout-focus .log-done:active {transform:none}}
+
+.is-focus .focus-number-controls .log-stepper {position:relative}
+.focus-bodyweight {position:absolute;top:26px;left:0;right:0;line-height:46px;text-align:center;font-size:2rem;font-variant-numeric:tabular-nums;pointer-events:none;color:var(--muted)}
+.log-stepper:focus-within>.focus-bodyweight {visibility:hidden}
+.workout-overview {width:min(680px,calc(100vw - 32px));max-height:88dvh;padding:0;overflow:auto}
+.overview-body {padding:20px;display:grid;gap:18px}
+.overview-header,.overview-block-head {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.overview-header h2,.overview-block h3,.overview-block h4 {margin:0}
+.overview-blocks {list-style:none;padding:0;margin:0;display:grid;gap:20px}
+.overview-block {border-top:2px solid var(--border);padding-top:14px;min-width:0;transition:opacity 200ms ease-out}
+.overview-block:has(.overview-block-head>button:not([hidden]):last-child) {border-left:3px solid var(--accent);padding-left:12px}
+.overview-block-head h3 {flex:1;overflow-wrap:anywhere}
+.overview-members,.overview-rounds {display:grid;gap:14px;margin-top:12px}
+.overview-exercise h4 {overflow-wrap:anywhere}
+.overview-actions {display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.overview-actions button,.overview-set-line button {min-height:44px;font-size:.75rem}
+.overview-set-group {border-top:1px solid var(--border);padding-top:10px}
+.overview-set-line {display:grid;grid-template-columns:minmax(0,1fr) 44px 44px;gap:0 6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.overview-set-line>button:first-child {grid-column:1;grid-row:1;text-align:left;overflow-wrap:anywhere;border:0;padding-left:0;font-family:inherit;text-transform:none}
+.overview-set-line>.action-button {grid-row:1 / span 2;border:0}
+.overview-set-line>.action-button:nth-of-type(2) {grid-column:2}
+.overview-set-line>.action-button:nth-of-type(3) {grid-column:3}
+.overview-set-line>p {grid-column:1 / -1}
+.overview-set-line>button[aria-current=step] {color:var(--accent);border-color:var(--accent)}
+.overview-set-summary {grid-column:1;grid-row:2;font-size:.8rem;color:var(--muted)}
+.overview-editor {min-width:0}.overview-editor textarea {width:100%}
+.overview-block.is-removing {opacity:0}
+@media(max-width:760px){.workout-overview {margin:auto 0 0;width:100%;max-width:none;max-height:88dvh;border-radius:18px 18px 0 0}.overview-body {padding:20px 12px max(20px,env(safe-area-inset-bottom))}.workout-overview.catalog-modal-motion {transition:transform 200ms ease-out,opacity 200ms ease-out}.workout-overview.is-entering,.workout-overview.is-closing {transform:translateY(100%)}}
+@media(prefers-reduced-motion:reduce){.overview-block,.workout-overview {transition:none!important}}
+.focus-progress-segment.is-celebrating .focus-progress-fill {animation:focus-fill 480ms cubic-bezier(.2,.8,.2,1) both}
+.focus-card.is-done.is-celebrating .focus-complete-marker {animation:focus-pop 480ms ease-out}
+.focus-card.is-done.is-celebrating .focus-complete-marker .log-set-number {display:block;position:absolute;animation:focus-number 300ms ease-out both}
+.focus-card.is-done.is-celebrating .focus-complete-marker svg {stroke-dasharray:40;animation:focus-check 300ms ease-out both}
+@keyframes focus-fill {from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes focus-pop {0%{transform:scale(1);background:transparent;color:var(--muted)}45%{transform:scale(1.12)}100%{transform:scale(1);background:var(--accent);color:var(--on-accent)}}
+@keyframes focus-number {from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-6px)}}
+@keyframes focus-check {from{opacity:0;stroke-dashoffset:40;transform:translateY(5px)}to{opacity:1;stroke-dashoffset:0;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.workout-focus .is-celebrating * {animation:none!important}}
+
+/* Finish recap: replaces the active logger in place; the bottom navigation stays. */
+.workout-logger.is-recap>:not(.recap-host) {display:none!important}
+.workout-recap {display:flex;flex-direction:column;align-items:stretch;gap:0;max-width:34rem;margin:0 auto;padding:24px 0 16px;text-align:center}
+.recap-mark {display:grid;place-items:center;width:58px;height:58px;margin:0 auto 18px;border:2px solid var(--accent);border-radius:50%;color:var(--accent);box-shadow:0 0 40px var(--accent-soft);animation:recap-land 480ms ease-out both}
+.recap-mark svg {width:28px;height:28px}
+.workout-recap .focus-eyebrow {margin:0 0 6px}
+.recap-title {margin:0 0 6px;font-family:var(--font-display);font-size:1.75rem;line-height:1.1;letter-spacing:-.01em;overflow-wrap:anywhere}
+.recap-title:focus {outline:none}
+.recap-title:focus-visible {outline:2px solid var(--accent);outline-offset:4px;border-radius:4px}
+.recap-summary,.recap-sync {margin:0 0 4px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
+.recap-status {display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;min-height:0;margin-top:4px}
+.recap-status[hidden] {display:none}
+.recap-status .logger-status {color:var(--muted);font-size:.8125rem}
+.recap-save-slot:empty {display:none}
+.recap-save-slot {display:flex;justify-content:center;margin-top:4px}
+.recap-exercises {list-style:none;margin:20px 0 0;padding:0;text-align:left}
+.recap-exercise {display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--border)}
+.recap-icon {flex:none;display:grid;place-items:center;width:20px;height:20px;color:var(--accent)}
+.recap-icon svg {width:18px;height:18px}
+.recap-exercise-text {min-width:0}
+.recap-exercise-name {display:block;font-weight:600;overflow-wrap:anywhere}
+.recap-exercise-text small {display:block;color:var(--muted);font-size:.75rem}
+.recap-skipped {margin:0;padding:12px 0 0;border-top:1px solid var(--border);color:var(--muted);font-size:.8125rem;text-align:left}
+.recap-skipped[hidden] {display:none}
+.recap-note {margin:16px 0 0;text-align:left}
+.recap-actions {display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.recap-actions button {width:100%;min-height:44px}
+@keyframes recap-land {0%{opacity:0;transform:scale(.6)}65%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.recap-mark {animation:none}}

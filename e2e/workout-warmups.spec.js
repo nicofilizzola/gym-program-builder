@@ -29,7 +29,8 @@ const doneSet=async(page,label,exName,reps)=>{
  await page.getByRole('button',{name:`Mark ${label.toLowerCase()} done, ${exName}`,exact:true}).click();
 };
 
-for(const [label,opts] of [['phone',{viewport:{width:390,height:844},hasTouch:true}],['desktop',{viewport:{width:1366,height:768}}]]){
+// Active phone workouts use Focus; compact warm-up rows on touch remain above 760px.
+for(const [label,opts] of [['touch',{viewport:{width:800,height:844},hasTouch:true}],['desktop',{viewport:{width:1366,height:768}}]]){
  test(`warm-up rows and Add warm-up (${label})`,async({browser})=>{
   const context=await browser.newContext({...opts,reducedMotion:'reduce'});const page=await context.newPage();
   const {exName}=await openActive(page);
@@ -59,14 +60,14 @@ for(const [label,opts] of [['phone',{viewport:{width:390,height:844},hasTouch:tr
 }
 
 test('Add warm-up animates the collapse unless reduced motion',async({browser})=>{
- const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'no-preference'});const page=await context.newPage();
+ const context=await browser.newContext({viewport:{width:800,height:844},hasTouch:true,reducedMotion:'no-preference'});const page=await context.newPage();
  const {exName}=await openActive(page);
  await page.evaluate(()=>{window.__closed=false;new MutationObserver(rs=>{if(rs.some(r=>r.oldValue?.includes('is-closed')))window.__closed=true;}).observe(document.body,{subtree:true,attributes:true,attributeOldValue:true,attributeFilter:['class']});});
  await page.getByRole('button',{name:`Add warm-up, ${exName}`,exact:true}).click();
  await expect(page.locator('.log-exercise').first().locator('.log-set-number')).toHaveText(['W1','W2','W3','1','2','3']);
  expect(await page.evaluate(()=>window.__closed)).toBe(true);
  await context.close();
- const reduced=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});const p2=await reduced.newPage();
+ const reduced=await browser.newContext({viewport:{width:800,height:844},hasTouch:true,reducedMotion:'reduce'});const p2=await reduced.newPage();
  const {exName:n2}=await openActive(p2);
  await p2.evaluate(()=>{window.__closed=false;new MutationObserver(rs=>{if(rs.some(r=>r.oldValue?.includes('is-closed')||[...r.addedNodes].some(n=>n.classList?.contains('is-closed'))||r.target.classList?.contains('is-closed')))window.__closed=true;}).observe(document.body,{subtree:true,attributes:true,childList:true,attributeOldValue:true,attributeFilter:['class']});});
  await p2.getByRole('button',{name:`Add warm-up, ${n2}`,exact:true}).click();

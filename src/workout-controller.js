@@ -30,6 +30,8 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
  }
 
  const ownedId=()=>owned?.sync?.log.id??null;
+ /** Tells a finishing attachment about its entry: status, conflict, or the released finished acknowledgement. */
+ const tell=(entry,event,value)=>{for(const watch of [...entry.watchers])watch(event,value);};
  /** A dirty mirror this controller does not own (a failed or pending boot): never overwrite it. */
  const strayMirror=()=>{const mirror=readMirror(storage);return mirror?.dirty&&mirror.log.id!==ownedId()?mirror:null;};
  const isActive=()=>Boolean(owned?.sync)&&owned.sync.log.status==='active';
@@ -42,14 +44,15 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
  function release(entry=owned){if(!entry||owned!==entry)return;owned=null;entry.sync?.dispose();notify('ownership');}
  function own(record,{lastTime=null,bestPerformance=null,dirty=false}={}){
   release();
-  const entry={sync:null,status:'',conflict:null,bestRequests:new Map()};
+  const entry={sync:null,status:'',conflict:null,bestRequests:new Map(),watchers:new Set()};
   owned=entry;
   entry.sync=createWorkoutSync({api,storage,record,lastTime,bestPerformance,dirty,timers,events,
    onLogChange:()=>{if(owned===entry&&entry.sync)notify(entry.sync.log.status==='finished'?'finish':'change');},
-   onStatus:text=>{if(owned!==entry)return;entry.status=text;if(view?.id===record.id)view.setStatus?.(text);if(text==='Sign in to sync')onSignIn();},
+   onStatus:text=>{if(owned!==entry)return;entry.status=text;if(view?.id===record.id)view.setStatus?.(text);tell(entry,'status');if(text==='Sign in to sync')onSignIn();},
    onRecord:value=>{
     // A finished snapshot acknowledged with nothing pending is done: the sync already cleared the mirror.
-    if(owned===entry&&value.log.status==='finished')queueMicrotask(()=>{if(owned===entry&&!entry.sync.isDirty()){release(entry);refreshBar();}});
+    // Ownership is released before the acknowledged record is handed on, so there is never a second writer.
+    if(owned===entry&&value.log.status==='finished')queueMicrotask(()=>{if(owned===entry&&!entry.sync.isDirty()){release(entry);refreshBar();tell(entry,'released',value);}});
    },
    onConflict:reason=>{if(owned===entry)resolveConflict(entry,reason);}});
   notify('ownership');return entry;
@@ -89,7 +92,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   return {dialog:{title,message:'This workout was changed on another device.',choices:[keep,saved]},confirmSaved:useSaved};
  }
  async function resolveConflict(entry,reason){
-  entry.conflict=reason;
+  entry.conflict=reason;tell(entry,'conflict');
   if(resolving)return;
   resolving=true;
   try{
@@ -293,10 +296,25 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
     if(ids.length)fetchLastTime(ids,id).then(map=>{if(map&&owned===entry){entry.sync.setLastTime(map);if(view===mine)mine.setLastTime?.(map);}});
    }
   }
-  const forMe=()=>owned?.sync?.log.id===id?owned:null;
+  const forMe=()=>owned?.sync?.log.id===id?owned:null,attachedSession=session;
+  // The accepted finish, captured before it reaches the sync so an early acknowledgement is never missed.
+  let finishing=null;
+  const finishState=()=>{
+   const {entry,record}=finishing,pending=!record;
+   return {id,log:structuredClone(record?record.log:entry.sync?.log??finishing.log),status:pending?entry.status:'Saved',pending,record:record?structuredClone(record):null,blocked:pending&&(Boolean(entry.conflict)||entry.status==='Sign in to sync')};
+  };
+  const current=()=>view===mine&&session===attachedSession;
+  const watch=(event,value)=>{if(!current())return;if(event==='released')finishing.record=structuredClone(value);mine.setFinishState?.(finishState());};
   return {
-   onChange(log){forMe()?.sync.change(log);},
-   async onFinish(){const target=forMe();await target?.sync.flush().catch(()=>{});await navigate('#/workouts');},
+   onChange(log){const target=forMe();if(target&&log.status==='finished'&&!finishing){finishing={entry:target,log:structuredClone(log),record:null};target.watchers.add(watch);}target?.sync.change(log);},
+   /** Legacy: flush, then History. With `stay`, report the accepted finish at once and keep syncing without navigating. */
+   async onFinish({stay=false}={}){
+    // An attachment left (route change or sign-out) while flushing no longer decides where the app goes.
+    if(!stay){const target=forMe();await target?.sync.flush().catch(()=>{});if(current())await navigate('#/workouts');return {accepted:true};}
+    if(!finishing||!current())return {accepted:false};
+    if(owned===finishing.entry)void finishing.entry.sync.flush().catch(()=>{});
+    return {accepted:true,state:finishState()};
+   },
    async onDiscard(){if(forMe()&&await discard())await navigate('#/workouts');},
    /** Retry after a paused non-network failure (`Couldn’t save`). */
    onRetry(){return forMe()?.sync.resume().catch(()=>{});},
@@ -311,7 +329,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
     const merged={...(target.sync.lastTime||{}),...map};
     target.sync.setLastTime(merged);if(view===mine)mine.setLastTime?.(merged);
    },
-   detach(){if(view===mine)view=null;}
+   detach(){if(view===mine)view=null;finishing?.entry.watchers.delete(watch);}
   };
  }
 

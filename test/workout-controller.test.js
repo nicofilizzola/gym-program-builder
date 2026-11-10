@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createWorkoutController,NO_SETS,OFFLINE_DISCARD,PENDING_FINISH,UNRECOVERED,linkedVariantIds} from '../src/workout-controller.js';
 import {readMirror,writeMirror} from '../src/workout-sync.js';
+import {finishWorkout} from '../src/workout-edit.js';
 
 test('home observers retain logger ownership and publish cloned edits, finish and signout',async()=>{
  const {controller,api}=make();await controller.boot();
@@ -353,4 +354,64 @@ test('stale Best HTTP errors cannot report or reopen login after reattach or new
  assert.equal(errors.length,0);assert.equal(signIns.length,0);
  const third=controller.attach('w1',{});pending[5].reject(httpError(401));await settle();assert.equal(errors.length,1);assert.equal(signIns.length,1);
  third.detach();controller.current.sync.dispose();
+});
+
+/** An active log saved at revision 1 and a binding that records finish states; saves after that wait for `release`. */
+async function finishing(options={}){
+ const ctx=make(options);await ctx.controller.boot();await ctx.controller.start();await ctx.controller.current.sync.flush();
+ const id=ctx.controller.current.log.id,states=[],setLogs=[];ctx.navigations.length=0;
+ const binding=ctx.controller.attach(id,{setFinishState:state=>states.push({...state,owned:ctx.controller.owns(id)}),setLog:value=>setLogs.push(value)});
+ const save=ctx.api.saveWorkout,waiting=[];ctx.api.saveWorkout=args=>new Promise((resolve,reject)=>waiting.push(()=>save(args).then(resolve,reject)));
+ const finished=finishWorkout({...ctx.controller.current.log,exercises:[structuredClone(doneExercise)]},new Date('2026-11-03T19:00:00Z')).log;
+ return {...ctx,id,states,setLogs,binding,finished,release:async()=>{for(let i=0;i<5;i++){await settle();while(waiting.length)await waiting.shift()();}}};
+}
+test('stay finish returns before network settles, then publishes the released acknowledgement',async()=>{
+ const {controller,binding,finished,states,navigations,release,id}=await finishing();
+ binding.onChange(finished);
+ const result=await binding.onFinish({stay:true});
+ assert.equal(result.accepted,true);assert.equal(result.state.pending,true);assert.equal(result.state.record,null);assert.equal(result.state.log.status,'finished');
+ assert.deepEqual(navigations,[]);assert.equal(controller.owns(id),true);
+ await release();
+ const done=states.filter(s=>s.record);
+ assert.equal(done.length,1);assert.equal(done[0].pending,false);assert.equal(done[0].record.revision,2);assert.equal(done[0].record.log.status,'finished');
+ assert.equal(done[0].owned,false,'the controller released ownership before the record was published');
+ assert.deepEqual(navigations,[]);
+});
+test('an acknowledgement before onFinish still returns the same record',async()=>{
+ const {controller,binding,finished,release}=await finishing();
+ binding.onChange(finished);void controller.flush();await release();
+ const result=await binding.onFinish({stay:true});
+ assert.equal(result.accepted,true);assert.equal(result.state.pending,false);assert.equal(result.state.record.revision,2);
+});
+test('a detached or signed-out recap is never published and never navigates',async()=>{
+ for(const leave of ['detach','signOut']){
+  const {controller,binding,finished,states,navigations,release}=await finishing();
+  binding.onChange(finished);await binding.onFinish({stay:true});const count=states.length;
+  if(leave==='detach')binding.detach();else controller.signOut();
+  await release();
+  assert.equal(states.length,count,leave);assert.deepEqual(navigations,[],leave);
+  assert.deepEqual(await binding.onFinish({stay:true}),{accepted:false},leave);
+ }
+});
+test('a conflict resolved to the saved active version cannot remain a success recap',async()=>{
+ const {api,binding,finished,states,setLogs,release,id}=await finishing({choices:['saved'],confirms:[true]});
+ const stored=api.records.get(id);api.records.set(id,{...stored,revision:stored.revision+1,log:{...stored.log,name:'Other device'}});
+ binding.onChange(finished);await binding.onFinish({stay:true});await release();await settle();await release();
+ assert.equal(states.some(s=>s.record),false);
+ assert.ok(states.some(s=>s.blocked),'the conflict is reported as blocking');
+ assert.equal(setLogs.at(-1)?.status,'active');assert.equal(setLogs.at(-1).name,'Other device');
+});
+test('legacy finish still flushes and navigates to History',async()=>{
+ const {binding,finished,navigations,release}=await finishing();
+ binding.onChange(finished);const done=binding.onFinish();await release();await done;
+ assert.deepEqual(navigations,['#/workouts']);
+});
+test('legacy finish does not navigate for an attachment left while flushing',async()=>{
+ for(const leave of ['detach','signOut']){
+  const {controller,binding,finished,navigations,release}=await finishing();
+  binding.onChange(finished);const done=binding.onFinish();
+  if(leave==='detach')binding.detach();else controller.signOut();
+  await release();await done;
+  assert.deepEqual(navigations,[],leave);
+ }
 });

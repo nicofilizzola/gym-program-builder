@@ -130,8 +130,10 @@ for(const [width,height,touch,zoom] of [[360,800,true,1],[390,844,true,1],[768,1
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const saved=page.getByRole('button',{name:'Edit workout note',exact:true});await expect(saved).toBeVisible();
   const finish=page.getByRole('button',{name:'Finish',exact:true});await expect(finish).toBeVisible();
-  await page.locator('.log-exercise').first().scrollIntoViewIfNeeded();
-  await expect(page.getByRole('textbox',{name:'Set 1 weight, Bench '+a.id,exact:true})).toBeVisible();
+  // Phones show the set inside the Focus feed rather than the compact card.
+  const weight=page.getByRole('textbox',{name:'Set 1 weight, Bench '+a.id,exact:true});
+  await weight.scrollIntoViewIfNeeded();
+  await expect(weight).toBeVisible();
   await page.evaluate(()=>scrollTo(0,0));
   await page.screenshot({path:testInfo.outputPath('populated-tracker.png'),fullPage:true});
  });

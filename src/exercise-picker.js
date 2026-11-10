@@ -15,7 +15,7 @@ export function mountExercisePicker(host,{api,exercise,onSelect,onView,legacy=fa
  const list=popup.querySelector('[role=listbox]');list.id=id;
  const filter=popup.querySelector('select'),error=popup.querySelector('.error'),retry=popup.querySelector('[data-retry]');
  for(const value of EQUIPMENT)filter.add(new Option(value,value));
- document.body.append(popup);
+ (host.closest('dialog')??document.body).append(popup);
  host.innerHTML='<div data-definition><div class="exercise-definition-head"><strong class="linked-exercise-name"></strong><div class="exercise-definition-actions"></div></div><p class="catalog-meta" data-meta></p></div><div data-custom><span class="catalog-meta">Custom exercise</span><button type="button" class="secondary-btn" data-link>Link to catalog</button></div><label class="field" data-search>Exercise<input type="text" role="combobox" aria-label="Exercise" aria-autocomplete="list" aria-expanded="false" autocomplete="off" placeholder="Search exercises"></label><p class="visually-hidden" role="status" data-announcement></p>';
  const input=host.querySelector('input'),strip=host.querySelector('.exercise-definition-actions');
  const tooltips=mountActionTooltips(host);

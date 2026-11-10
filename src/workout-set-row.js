@@ -5,6 +5,7 @@ import {WORKOUT_LIMITS} from './workout-log.js';
 const WEIGHT_STEP=2.5;
 const text=value=>value===null||value===undefined?'':String(value);
 const rows=new WeakMap();
+const bindings=new WeakMap();
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 
 const stepper=kind=>`<div class="log-stepper" data-kind="${kind}"><button type="button" class="log-step" data-step="-1">${actionIcon('minus')}</button><input type="text" inputmode="${kind==='weight'?'decimal':'numeric'}" autocomplete="off" spellcheck="false" data-field="${kind}"><button type="button" class="log-step" data-step="1">${actionIcon('plus')}</button></div>`;
@@ -134,9 +135,15 @@ export function createSetRow({exerciseName,set,kind=set.kind||'working',kindInde
  });
  menu.addEventListener('click',()=>onMenu(menu));
  rows.set(li,next=>{state={...state,...next};render();});
+ bindings.set(li,{inputs,number:$('.log-set-number'),done,rir,menu,noteHost:noteSlot,errors,
+  applyValue(kind,value){inputs[kind].value=text(value);typed(kind);},
+  hasInvalidDraft:()=>Boolean(errors.weight||errors.reps||needsReps),
+  disposers:new Set()});
  render();
  return li;
 }
 
 /** Refresh a row in place; a focused or invalid field keeps the text being typed. */
 export function updateSetRow(row,props){rows.get(row)?.(props);}
+export function setRowBindings(row){return bindings.get(row);}
+export function destroySetRow(row){for(const dispose of bindings.get(row)?.disposers??[])dispose();bindings.delete(row);rows.delete(row);}

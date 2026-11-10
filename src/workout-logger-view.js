@@ -1,5 +1,8 @@
 import {mountWorkoutNote} from './workout-note.js';
-import {selectBestPerformance} from './workout-best.js';
+import {mountWorkoutFocus} from './workout-focus-view.js';
+import {mountWorkoutOverview} from './workout-overview.js';
+import {mountWorkoutRecap} from './workout-recap.js';
+import {mountWorkoutHistory} from './workout-history-summary.js';
 import {confirmAction} from './confirm-dialog.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {mountExercisePicker} from './exercise-picker.js';
@@ -7,8 +10,8 @@ import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
 import {validateWorkoutLog,WORKOUT_LIMITS,normalizeNote} from './workout-log.js';
 import {setLogName,setWorkoutNote,setExerciseNote,setSetNote,setWorkoutTimes,addExercise,swapExercise,removeExercise,moveLogBlock,unlinkSuperset,addSet,addWarmup,removeSet,updateSet,toggleSetDone,nextGuidedSet,confirmFinish} from './workout-edit.js';
-import {formatLastTime,setPlaceholder,formatElapsed} from './workout-sets.js';
-import {createSetRow,updateSetRow} from './workout-set-row.js';
+import {setPlaceholder,formatElapsed} from './workout-sets.js';
+import {createSetRow,updateSetRow,setRowBindings,destroySetRow} from './workout-set-row.js';
 import {supersetBlocks} from './superset.js';
 import {createLogSupersetFrame,syncLogSupersetFrame} from './workout-superset-frame.js';
 
@@ -32,9 +35,10 @@ function collapseOut(part,animate){
 const blankExercise={catalogId:null,familyId:null,name:'',primaryMuscles:[],secondaryMuscles:[]};
 
 /** Active workout logger: sticky header, exercise cards with set rows, add/swap/remove/reorder and Finish. */
-export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{},sharedSaveStatus=false,onSaveStatusSlotChange=()=>{}}){
+export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerformance=null,mode='active',readOnly=false,onDelete=async()=>{},onChange=()=>{},onFinish=async()=>{},onDiscard=async()=>{},onLastTimeNeeded=()=>{},onBestPerformanceNeeded=()=>{},onRetry=()=>{},sharedSaveStatus=false,onSaveStatusSlotChange=()=>{},focusSession=null}){
  let log=structuredClone(initial),last=lastTime,best=bestPerformance,bestStatus=new Map(),destroyed=false,busy=false,addPicker=null,sortable=null,relocatingFocus=false;
  const active=mode==='active',editable=!readOnly,unavailable=new Set(),cards=new Map(),frames=new Map(),closing=new Set(),openSetNotes=new Set();
+ const listeners=new Set();let rowPlacement=null,revision=0,externalPicker=null,externalArea=null;const noteOrigins=new Map();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
  const page=document.createElement('section');page.className='workout-logger';page.dataset.mode=mode;if(readOnly)page.dataset.readonly='true';
  page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><div class="log-note logger-note"></div><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
@@ -55,15 +59,19 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  }
  const find=id=>log.exercises.find(e=>e.id===id);
  const lastSets=ex=>ex.variantId&&last&&!unavailable.has(ex.variantId)?last[ex.variantId]?.sets:undefined;
- function lastText(ex){
-  if(!ex.variantId)return {text:'No history'};
-  if(last===null||unavailable.has(ex.variantId))return {text:'Last time unavailable offline'};
-  const entry=last[ex.variantId];return entry?{label:'Last time',text:formatLastTime(entry.sets)}:{text:'No history'};
- }
  function say(text){message.textContent=text;}
 
  /** Every edit passes validation before it is shown or reported. */
- function commit(next,{animate=false}={}){
+ function publish(cause,before=log,action=null){for(const listener of listeners)listener({cause,before:structuredClone(before),after:structuredClone(log),action});}
+ function relocate(work){
+  // Borrowed rows/notes may currently belong to the Focus feed or a dialog.
+  const focused=document.activeElement!==document.body?document.activeElement:null;
+  const selection=focused&&typeof focused.selectionStart==='number'?[focused.selectionStart,focused.selectionEnd,focused.selectionDirection]:null;
+  const wasRelocating=relocatingFocus;relocatingFocus=true;
+  try{return work();}finally{if(focused?.isConnected&&document.activeElement!==focused){focused.focus({preventScroll:true});if(selection)try{focused.setSelectionRange(...selection);}catch{}}relocatingFocus=wasRelocating;}
+ }
+ function commit(next,{animate=false,action=null}={}){
+  const before=log;
   timeError=false;
   const result=validateWorkoutLog(next);
   if(result.error&&mode==='finished'){
@@ -72,19 +80,19 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
    if(saveable){
     const rest=validateWorkoutLog(saveable);
     if(rest.error&&saveable.exercises.length){say(rest.error);render();return false;}
-    log=next;say('');render({animate});if(!rest.error)onChange(structuredClone(rest.log));return true;
+    log=next;say('');render({animate});revision++;if(!rest.error)onChange(structuredClone(rest.log));publish('edit',before,action);return true;
    }
   }
   if(result.error){say(result.error);render();return false;}
-  log=result.log;say('');render({animate});onChange(structuredClone(log));return true;
+  log=result.log;say('');render({animate});revision++;onChange(structuredClone(log));publish('edit',before,action);return true;
  }
 
  function createCard(ex){
   const li=document.createElement('li');li.className='log-exercise collapsible';li.dataset.exerciseId=ex.id;li.dataset.blockKey=ex.id;
   const headingId='log-exercise-'+uid();li.setAttribute('aria-labelledby',headingId);
-  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><p class="log-last-time"><span class="log-last-label"></span><span class="log-last-value"></span></p><p class="log-last-note" hidden></p><p class="log-best"></p><div class="log-note"></div><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><div class="log-set-actions"><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button><button type="button" class="secondary-btn log-add-warmup">${actionIcon('plus')}Add warm-up</button></div></div></div>`;
+  li.innerHTML=`<div class="log-exercise-clip"><div class="log-exercise-card"><div class="log-exercise-head"><div class="log-exercise-identity"><h2 tabindex="-1" id="${headingId}"></h2><p class="catalog-meta log-equipment"></p></div><div class="log-exercise-actions"><button type="button" class="action-button" data-card-action="swap" data-action-tooltip="Swap exercise">${actionIcon('move')}</button><button type="button" class="action-button reorder-action" data-card-action="reorder" data-action-tooltip="Reorder" aria-expanded="false">${actionIcon('reorder')}</button><button type="button" class="action-button action-button--delete" data-card-action="remove" data-action-tooltip="Remove exercise">${actionIcon('delete')}</button></div></div><div class="log-history"></div><div class="log-note"></div><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel swap</button></div><div class="log-set-head" aria-hidden="true"><span>Set</span><span>kg</span><span>Reps</span><span class="log-set-head-rir">RIR</span></div><ol class="log-sets"></ol><div class="log-set-actions"><button type="button" class="secondary-btn log-add-set">${actionIcon('plus')}Add set</button><button type="button" class="secondary-btn log-add-warmup">${actionIcon('plus')}Add warm-up</button></div></div></div>`;
   const q=selector=>li.querySelector(selector);
-  const card={li,rows:new Map(),picker:null,heading:q('h2'),equipment:q('.log-equipment'),label:q('.log-last-label'),value:q('.log-last-value'),lastNote:q('.log-last-note'),best:q('.log-best'),noteHost:q('.log-note'),notePart:null,noteKind:'none',editingNote:false,
+  const card={li,rows:new Map(),picker:null,heading:q('h2'),equipment:q('.log-equipment'),history:mountWorkoutHistory(q('.log-history'),{exercise:ex,lastTime:last,bestPerformance:best,bestStatus,unavailable}),noteHost:q('.log-note'),notePart:null,noteKind:'none',editingNote:false,
    swap:q('[data-card-action="swap"]'),reorder:q('[data-card-action="reorder"]'),remove:q('[data-card-action="remove"]'),swapArea:q('.log-picker'),sets:q('.log-sets'),addSet:q('.log-add-set'),addWarmup:q('.log-add-warmup'),setActions:q('.log-set-actions')};
   card.swapArea.lastElementChild.addEventListener('click',()=>{closeSwap(card);card.swap.focus();});
   card.swapArea.addEventListener('keydown',event=>{if(event.key==='Escape'&&event.target.getAttribute('aria-expanded')==='false'){closeSwap(card);card.swap.focus();}},true);
@@ -155,29 +163,13 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   const input=card.notePart?.querySelector('textarea');
   if(input){input.focus({preventScroll:false});input.setSelectionRange(input.value.length,input.value.length);}
  }
- function updateBest(card,ex){
-  const range=ex.target?.repRange,label=range?`Best (${range.min}–${range.max} reps)`:'Best';
-  card.best.replaceChildren();
-  if(ex.variantId&&!Object.hasOwn(best||{},ex.variantId)){
-   const state=bestStatus.get(ex.variantId)||'loading';
-   card.best.textContent=state==='offline'?'Best unavailable offline':state==='error'?'Best unavailable':'Loading best…';return;
-  }
-  const winner=selectBestPerformance(ex.variantId?best?.[ex.variantId]??[]:[],range);
-  if(!winner){card.best.textContent=label+' · No qualifying performance';return;}
-  const date=document.createElement('time');date.dateTime=winner.finishedAt;date.textContent=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(winner.finishedAt));
-  card.best.append(`${label} · ${winner.weightKg===0?'BW':winner.weightKg+' kg'} × ${winner.reps} · `,date);
- }
  function updateCard(card,ex,animate,label=''){
   card.heading.textContent=label?`${label} ${ex.name}`:ex.name;card.reorder.hidden=!!label;card.equipment.textContent=ex.equipment||'';card.equipment.hidden=!ex.equipment;
-  const shown=lastText(ex);card.label.textContent=shown.label||'';card.label.hidden=!shown.label;card.value.textContent=shown.text;
-  const lastNote=last&&ex.variantId&&!unavailable.has(ex.variantId)?last[ex.variantId]?.note:'';
-  card.lastNote.hidden=!lastNote;card.lastNote.title=lastNote||'';
-  if(lastNote){card.lastNote.replaceChildren();const hidden=document.createElement('span');hidden.className='visually-hidden';hidden.textContent='Last time note:';card.lastNote.append(hidden,`“${lastNote}”`);}
-  updateBest(card,ex);
+  card.history.update({exercise:ex,lastTime:last,bestPerformance:best,bestStatus,unavailable});
   syncNote(card,ex);
   card.swap.setAttribute('aria-label',`Swap exercise ${ex.name}`);card.reorder.setAttribute('aria-label',`Reorder ${ex.name}`);card.remove.setAttribute('aria-label',`Remove exercise ${ex.name}`);
   card.addSet.setAttribute('aria-label',`Add set, ${ex.name}`);card.addWarmup.setAttribute('aria-label',`Add warm-up, ${ex.name}`);card.addSet.disabled=card.addWarmup.disabled=ex.sets.length>=WORKOUT_LIMITS.sets;
-  for(const [id,row] of card.rows)if(!ex.sets.some(s=>s.id===id)){card.rows.delete(id);openSetNotes.delete(id);collapseOut(row,animate);}
+  for(const [id,row] of card.rows)if(!ex.sets.some(s=>s.id===id)){card.rows.delete(id);openSetNotes.delete(id);destroySetRow(row);collapseOut(row,animate);}
   const counts={warmup:0,working:0};
   ex.sets.forEach((set,index)=>{
    const kindIndex=++counts[set.kind];
@@ -200,7 +192,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
     if(animate&&!reducedMotion.matches)row.classList.add('is-closed');card.rows.set(set.id,row);
    }else updateSetRow(row,props);
    const live=[...card.sets.children].filter(el=>!el.classList.contains('is-removing'));
-   if(live[index]!==row)card.sets.insertBefore(row,live[index]||null);
+   if(rowPlacement)relocate(()=>rowPlacement({ref:{exerciseId:ex.id,setId:set.id},row,compactHost:card.sets,index}));
+   else if(live[index]!==row)relocate(()=>card.sets.insertBefore(row,live[index]||null));
    if(fresh&&animate)reveal(row);
   });
  }
@@ -242,7 +235,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   }
   const blocks=supersetBlocks(log.exercises),pairs=new Set(blocks.filter(b=>b.length===2).map(b=>log.exercises[b.start].id));
   for(const [id,frame] of frames)if(!pairs.has(id)){frames.delete(id);dissolveFrame(frame,animate);}
-  for(const [id,card] of cards)if(!find(id)){cards.delete(id);for(const setId of card.rows.keys())openSetNotes.delete(setId);card.picker?.destroy();collapseOut(card.li,animate);}
+  for(const [id,card] of cards)if(!find(id)){cards.delete(id);for(const [setId,row] of card.rows){openSetNotes.delete(setId);destroySetRow(row);}card.history.destroy();card.picker?.destroy();noteOrigins.delete(id);collapseOut(card.li,animate);}
   const fresh=[];
   for(const ex of log.exercises){
    let card=cards.get(ex.id);
@@ -305,7 +298,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   const ex=find(exerciseId),index=ex.sets.findIndex(s=>s.id===setId);
   const result=toggleSetDone(log,exerciseId,setId,setPlaceholder(ex,index,lastSets(ex)));
   if(result.error)return result.error;
-  if(commit(result.log)&&active)guideFocus(exerciseId,setId);
+  if(commit(result.log,{action:{type:'toggle',ref:{exerciseId,setId}}})&&active&&!rowPlacement)guideFocus(exerciseId,setId);
  }
  /** After a working set becomes done in a pair, focus the next open set's reps (never while typing in a field). */
  function guideFocus(exerciseId,setId){
@@ -420,11 +413,14 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  }
  finish.addEventListener('click',()=>run(async()=>{
   say('');
+  // Working sets per exercise before pruning, so the recap can describe partial work honestly.
+  planned=new Map(log.exercises.map(ex=>[ex.id,ex.sets.filter(s=>s.kind!=='warmup').length]));
+  const recap=Boolean(focusView?.isEnabled());
   const result=await confirmFinish(()=>destroyed?null:log,{confirm:options=>confirmAction({...options,signal:confirmations.signal}),now:()=>new Date()});
   if(result.cancelled)return;
   if(result.error){say(result.error);return;}
   log=result.log;onChange(structuredClone(log));
-  await onFinish(structuredClone(log));
+  await onFinish(structuredClone(log),{recap});
  }),{signal});
  more.addEventListener('click',()=>menu.toggle(more,[active
   ?{label:'Discard workout',run:()=>run(async()=>{
@@ -444,15 +440,78 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  render();tick();root.append(page);
  if(sharedSaveStatus){statusText.hidden=true;retryButton.hidden=true;const slot=document.createElement('div');slot.className='page-save-slot';page.querySelector('.logger-header').append(slot);onSaveStatusSlotChange(slot);}
 
+ function restoreRows(){rowPlacement=null;relocate(()=>{for(const ex of log.exercises){const card=cards.get(ex.id);for(const set of ex.sets){const row=card?.rows.get(set.id);if(row)card.sets.append(row);}}});}
+ /** Returns borrowed exercise notes to their cards; with `scope`, only the notes currently inside it (another surface keeps its own). */
+ function restoreExerciseNotes(scope=null){relocate(()=>{for(const [id,marker] of noteOrigins){const host=cards.get(id)?.noteHost;if(host&&marker.isConnected&&(!scope||scope.contains(host)))marker.after(host);}});}
+ function external(host,onSelect){
+  closeExternal();host.replaceChildren();
+  const area=document.createElement('div');area.className='log-picker';area.innerHTML='<div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button>';host.append(area);
+  externalArea=area;const close=closeExternal;
+  externalPicker=openPicker(area,entry=>{close();onSelect(entry);});area.lastElementChild.onclick=close;
+ }
+ function closeExternal(){externalPicker?.destroy();externalPicker=null;externalArea?.remove();externalArea=null;}
+ const presentationPort={
+  read:()=>({log:structuredClone(log),lastTime:structuredClone(last),bestPerformance:structuredClone(best),bestStatus:new Map(bestStatus),unavailable:new Set(unavailable)}),
+  subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
+  row:ref=>cards.get(ref.exerciseId)?.rows.get(ref.setId)??null,
+  setRowPlacement(place){rowPlacement=place;render();},restoreRows,restoreExerciseNotes,relocate,
+  async command(action){
+   if(destroyed||!editable)return {accepted:false};
+   const before=revision,ref=action.ref,id=action.exerciseId??ref?.exerciseId;
+   switch(action.type){
+    case 'close-transient':closeExternal();moveMenu.close();return {accepted:true};
+    case 'patch':return {accepted:commit(updateSet(log,id,ref.setId,action.patch),{action})};
+    case 'toggle':{const row=presentationPort.row(ref);if(row)setRowBindings(row).done.click();break;}
+    case 'set-note':openSetNote(id,ref.setId);return {accepted:true};
+    case 'exercise-note':{const card=cards.get(id);if(!card)return {accepted:false};if(action.host){if(!noteOrigins.has(id)){const marker=document.createComment('exercise-note');card.noteHost.before(marker);noteOrigins.set(id,marker);}relocate(()=>action.host.append(card.noteHost));}if(!card.editingNote)openNote(card);return {accepted:true};}
+    case 'add-set':return {accepted:commit(addSet(log,id,uid),{animate:true,action})};
+    case 'add-warmup':return {accepted:commit(addWarmup(log,id,uid),{animate:true,action})};
+    case 'remove-set':await dropSet(id,ref.setId);break;
+    case 'remove-exercise':await dropExercise(id);break;
+    case 'unlink':return {accepted:commit(unlinkSuperset(log,id),{animate:true,action})};
+    case 'move-block':{const blocks=supersetBlocks(log.exercises),from=blocks.findIndex(b=>log.exercises.slice(b.start,b.start+b.length).some(e=>e.id===id));return {accepted:commit(moveLogBlock(log,from,action.toBlockIndex),{action})};}
+    case 'reorder':{const blocks=supersetBlocks(log.exercises),at=()=>blocks.findIndex(b=>log.exercises.slice(b.start,b.start+b.length).some(e=>e.id===id));moveMenu.toggle(action.opener,[-1,1].map(step=>({label:step<0?'Move up':'Move down',disabled:at()+step<0||at()+step>=blocks.length,run:()=>presentationPort.command({type:'move-block',exerciseId:id,toBlockIndex:at()+step})})));return {accepted:true};}
+    case 'swap':external(action.host,entry=>{if(find(id))commit(swapExercise(log,id,entry));requestLastTime([entry.id]);});return {accepted:true};
+    case 'add-exercise':external(action.host,entry=>{if(log.exercises.length<WORKOUT_LIMITS.exercises)commit(addExercise(log,entry,uid),{animate:true});requestLastTime([entry.id]);});return {accepted:true};
+    case 'finish':finish.click();return {accepted:true};
+    case 'discard':more.click();return {accepted:true};
+   }
+   return {accepted:revision!==before};
+  }
+ };
+ let focusView=null,overview=null,focusObserver=null,measureFrame=null,planned=new Map(),recap=null;
+ const mobile=matchMedia('(max-width:760px)');
+ function measureFocus(){cancelAnimationFrame(measureFrame);measureFrame=requestAnimationFrame(()=>{
+  if(destroyed||!mobile.matches||!focusView)return;
+  const header=page.querySelector('.logger-header'),feed=page.querySelector('.focus-feed'),focus=page.querySelector('.workout-focus'),toolbar=page.querySelector('.focus-toolbar'),nav=document.querySelector('.app-header nav');
+  const viewport=window.visualViewport,bottom=viewport?viewport.height:innerHeight,reserved=toolbar.getBoundingClientRect().height+(nav?.getBoundingClientRect().height??0)+12;
+  // Document positions keep the result independent of the current page scroll.
+  const feedTop=feed.getBoundingClientRect().top+scrollY,strip=feedTop-(focus.getBoundingClientRect().top+scrollY),headerBox=header.getBoundingClientRect();
+  const atRest=bottom-feedTop-reserved,underHeader=bottom-headerBox.height-parseFloat(getComputedStyle(header).marginBottom)-strip-reserved;
+  // A long workout note pushes the feed down; then the page scrolls the note away and the feed fills the space under the sticky header.
+  const height=Math.max(180,Math.floor(atRest>=underHeader*.75?atRest:underHeader));
+  focusView.setFeedHeight(height);
+ });}
+ if(focusSession&&active&&editable){
+  const host=document.createElement('div');page.append(host);
+  focusView=mountWorkoutFocus(host,{port:presentationPort,ui:focusSession.read(log.id),onViewed:ref=>focusSession.patch(log.id,{viewed:ref}),onInteraction:event=>{if(event.type==='preference')focusSession.patch(log.id,event.patch);if(event.type==='overview'){overview.update(presentationPort.read(),focusView.visibleRef());overview.open(event.opener);}},onFinish:()=>finish.click()});
+  overview=mountWorkoutOverview({port:presentationPort,onJump:ref=>focusView.jump(ref,{focus:true}),onActivity:value=>focusView.suspend(value),onClose:()=>focusView.update(presentationPort.read())});
+  // Once the recap is shown it stays until an explicit action; resizing never revives the active controls.
+  const responsive=()=>{if(recap||!focusView)return;overview.close();focusView.setEnabled(mobile.matches);measureFocus();};
+  mobile.addEventListener('change',responsive,{signal});window.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('scroll',measureFocus,{signal});
+  focusObserver=new ResizeObserver(measureFocus);focusObserver.observe(page.querySelector('.logger-header'));focusObserver.observe(page.querySelector('.focus-toolbar'));focusObserver.observe(page);
+  responsive();
+ }
  return {
-  setLog(value){if(destroyed)return;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();},
-  setBestPerformance(map){if(destroyed)return;best={...(best||{}),...map};render();},
-  setBestStatus({variantIds,status}){if(destroyed)return;for(const id of variantIds)bestStatus.set(id,status);render();},
-  setLastTime(map){if(destroyed)return;last=map;if(map)for(const id of Object.keys(map))unavailable.delete(id);render();},
+  presentationPort,
+  setLog(value){if(destroyed)return;const before=log;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();publish('hydrate',before);},
+  setBestPerformance(map){if(destroyed)return;best={...(best||{}),...map};render();publish('history');},
+  setBestStatus({variantIds,status}){if(destroyed)return;for(const id of variantIds)bestStatus.set(id,status);render();publish('history');},
+  setLastTime(map){if(destroyed)return;last=map;if(map)for(const id of Object.keys(map))unavailable.delete(id);render();publish('history');},
   /** A paused non-network failure (`Couldn’t save`) shows Retry; other statuses retry by themselves or have their own flow. */
   setStatus(text){
    if(destroyed)return;
-   statusText.textContent=text;
+   statusText.textContent=text;publish('status');
    const hide=!(active&&text==='Couldn’t save');
    if(hide&&document.activeElement===retryButton)title.focus({preventScroll:true});
    retryButton.hidden=hide;
@@ -460,10 +519,25 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   /** True while a finished log has a set still showing `Enter reps`, which is not saved. */
   hasUnsavedDraft(){return mode==='finished'&&editable&&[...page.querySelectorAll('.log-set-error')].some(e=>e.textContent==='Enter reps');},
   focusTitle(){title.focus({preventScroll:true});},
+  /** Replaces the active logger with the finish recap. Status and Retry move with it while the finish is pending. */
+  showRecap({state,onDone,onView,onNote}){
+   if(destroyed||recap)return recap;
+   clearInterval(timer);cancelAnimationFrame(measureFrame);focusObserver?.disconnect();overview?.destroy();overview=null;focusView?.destroy();focusView=null;
+   const host=document.createElement('div');host.className='recap-host';page.append(host);
+   for(const part of page.children)if(part!==host){part.inert=true;}
+   page.classList.add('is-recap');
+   recap=mountWorkoutRecap(host,{state,planned,onDone,onView,onNote});
+   recap.statusSlot().append(statusText,retryButton);
+   scrollTo({top:0,behavior:'instant'});recap.focus();
+   return recap;
+  },
+  updateRecap(state){if(!destroyed)recap?.update(state);},
   destroy(){
+   if(destroyed)return;
+   recap?.destroy();overview?.destroy();focusView?.destroy();focusObserver?.disconnect();cancelAnimationFrame(measureFrame);
    if(sharedSaveStatus)onSaveStatusSlotChange(null);
    destroyed=true;workoutNote.destroy();clearInterval(timer);for(const frame of closing)clearTimeout(frame.timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();setMenu.destroy();tooltips.destroy();
-   for(const card of cards.values())card.picker?.destroy();addPicker?.destroy();page.remove();
+   listeners.clear();externalPicker?.destroy();for(const card of cards.values()){card.picker?.destroy();card.history.destroy();for(const row of card.rows.values())destroySetRow(row);}addPicker?.destroy();page.remove();
   }
  };
 }
