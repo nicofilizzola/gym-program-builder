@@ -35,3 +35,26 @@ test('card with Last time, previous note and Best still fits at 412x760',async({
  expect((await fits(page)).preview).toBeGreaterThanOrEqual(0);
  await context.close();
 });
+async function enlarged(browser){
+ const opened=await open(browser,{width:390,height:664});
+ await opened.page.addStyleTag({content:'html{font-size:200%}'});await opened.page.evaluate(()=>window.dispatchEvent(new Event('resize')));
+ return opened;
+}
+test('200% text keeps Complete inside the feed',async({browser})=>{
+ const {page,context}=await enlarged(browser);
+ await expect.poll(async()=>(await fits(page)).doneInside).toBe(true);
+ await context.close();
+});
+test('only the viewed card pins Complete',async({browser})=>{
+ const {page,context}=await enlarged(browser);
+ const pinned=()=>page.evaluate(()=>[...document.querySelectorAll('.focus-feed>.log-set')].filter(r=>getComputedStyle(r.querySelector('.focus-complete')).position==='sticky').map(r=>r.dataset.setId));
+ await expect.poll(async()=>(await pinned()).length).toBe(1);
+ expect((await pinned())[0]).toBe(await page.locator('.focus-feed>.log-set').first().getAttribute('data-set-id'));
+ await context.close();
+});
+test('a focused reps input is not hidden under the pinned Complete',async({browser})=>{
+ const {page,context}=await enlarged(browser);
+ const card=page.locator('.focus-feed>.log-set').first(),reps=card.locator('[data-field="reps"]');await reps.focus();
+ await expect.poll(async()=>{const [i,c]=await Promise.all([reps.boundingBox(),card.locator('.focus-complete').boundingBox()]);return i.y+i.height<=c.y+1;}).toBe(true);
+ await context.close();
+});

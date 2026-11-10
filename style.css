@@ -2509,7 +2509,7 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-feed.is-unsnapped {scroll-snap-type:none}
 .workout-focus .focus-card {position:relative;display:grid;grid-template-rows:1fr;min-height:max(0px,calc(var(--focus-feed-height) - 60px));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
 .workout-focus .focus-card.is-closed {min-height:0;grid-template-rows:0fr}
-.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;min-height:0;overflow:hidden;margin:0;padding:0}
+.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;min-height:0;overflow:clip;margin:0;padding:0}
 .workout-focus .focus-context {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;padding:4px 0}
 .focus-context-text {min-width:0}
 .focus-eyebrow {margin:2px 0 0;color:var(--muted);font-size:.625rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;overflow-wrap:anywhere}
@@ -2559,6 +2559,9 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .focus-note-area .log-set-note-text {padding-left:0;border:0;background:none;white-space:pre-wrap;overflow-wrap:anywhere}
 .workout-focus .log-set-menu {display:none}
 .workout-focus .focus-complete {margin-top:3px}
+/* Fallback when the viewed card outgrows the feed (enlarged text, tiny phones): Complete stays reachable. */
+.workout-focus .focus-card.is-viewed .focus-complete {position:sticky;bottom:0;z-index:1;margin-top:0;padding-top:3px;background:var(--bg)}
+.workout-focus .focus-card.is-viewed :is(input,button,select):focus {scroll-margin-bottom:64px}
 .workout-focus .log-done {display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;padding:8px 12px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 1rem/1.3 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
 .workout-focus .log-done::after {content:attr(data-label);white-space:normal;text-align:center}
 .workout-focus .log-done svg {width:17px;height:17px}

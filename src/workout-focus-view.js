@@ -38,7 +38,9 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const historyHost=node('div','focus-history focus-only');row.querySelector('.log-set-clip').prepend(context,identity,historyHost);row.classList.add('focus-card');row.dataset.exerciseId=ref.exerciseId;
   const controls=node('div','focus-number-controls focus-only'),help=node('div','focus-input-help focus-only'),rirStrip=node('div','focus-rir-strip focus-only'),notes=node('div','focus-note-area focus-only'),complete=node('div','focus-complete focus-only'),feedback=node('p','focus-feedback visually-hidden');
   const action=node('button','focus-set-note');action.type='button';action.innerHTML=noteIcon()+'<span class="visually-hidden">Add set note</span>';action.onclick=()=>{interaction('note');port.command({type:'set-note',ref,open:true});};
-  const grid=row.querySelector('.log-set-row');grid.append(controls,help,rirStrip,notes,complete,feedback);
+  const grid=row.querySelector('.log-set-row');grid.append(controls,help,rirStrip,notes,feedback);
+  // Complete sits on the whole card (not the controls grid) so, when pinned, it can stick anywhere the card is in view.
+  row.querySelector('.log-set-clip').append(complete);
   feedback.setAttribute('role','status');
   const caption=row.querySelector('.log-rir-label');caption.innerHTML='RIR<small>Optional</small>';
   const increment=document.createElement('select');increment.className='focus-increment';for(const n of [.25,1,2.5,5]){const option=document.createElement('option');option.value=n;option.textContent=`${n} kg steps`;increment.append(option);}increment.value=state.weightIncrement;
@@ -77,7 +79,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    },
    syncTitle(){title?.update({active:enabled&&same(ref,viewed),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
    restore(){for(const {widget} of widgets)widget.update({enabled:false});port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';title?.update({active:false});},
-   destroy(){title?.destroy();history?.destroy();for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();identity.remove();action.remove();historyHost.remove();controls.remove();help.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card');}
+   destroy(){title?.destroy();history?.destroy();for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();identity.remove();action.remove();historyHost.remove();controls.remove();help.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed');}
   };
   b.disposers.add(()=>{for(const {widget} of widgets)widget.destroy();title?.destroy();});
   return card;
@@ -115,7 +117,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function renderCursor(){
   const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';current.hidden=same(viewed,projection.current);onViewed(viewed);
   // Geometry is enabled only around the destination; canonical inputs always remain mounted.
-  const index=viewedIndex();for(const [key,card] of cards){const at=projection.items.findIndex(i=>i.key===key);if(Math.abs(at-index)<=1){const ex=snapshot.log.exercises[projection.items[at].exerciseIndex];card.update(projection.items[at],ex,ex.sets.find(s=>s.id===card.ref.setId),at);}else{for(const {widget} of card.widgets)widget.update({enabled:false});card.syncTitle();}}
+  const index=viewedIndex();for(const card of cards.values())card.row.classList.toggle('is-viewed',same(card.ref,viewed));
+  for(const [key,card] of cards){const at=projection.items.findIndex(i=>i.key===key);if(Math.abs(at-index)<=1){const ex=snapshot.log.exercises[projection.items[at].exerciseIndex];card.update(projection.items[at],ex,ex.sets.find(s=>s.id===card.ref.setId),at);}else{for(const {widget} of card.widgets)widget.update({enabled:false});card.syncTitle();}}
   syncActive();
  }
  feed.addEventListener('scroll',()=>{if(!enabled||programmatic||suspended||measuring)return;cancelAnimationFrame(scrollFrame);scrollFrame=requestAnimationFrame(()=>{
