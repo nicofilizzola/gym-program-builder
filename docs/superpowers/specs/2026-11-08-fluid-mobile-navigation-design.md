@@ -1,7 +1,7 @@
 # Fluid mobile navigation under network latency
 
 Date: 2026-11-08.
-Status: Implemented on `fix/fluid-mobile-navigation` and verified locally (see docs/superpowers/verification/2026-11-08-fluid-mobile-navigation.md). Refresh feedback placement remains an open design question. Not deployed.
+Status: Implemented on `fix/fluid-mobile-navigation` and verified locally (see docs/superpowers/verification/2026-11-08-fluid-mobile-navigation.md). Refresh status is pinned above the bottom bars. Not deployed.
 
 ## Problem and scope
 

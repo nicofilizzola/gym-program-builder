@@ -8,7 +8,7 @@ Branch: `fix/fluid-mobile-navigation`, based on `dfea147`. Local verification on
 - Six auth-lifetime memory resources cache actual data, with successful-empty handling, in-flight deduplication, mutation invalidation and epochs rejecting obsolete reads. No storage/API/schema change.
 - Library/Catalog updates preserve focused controls and filter nodes. Catalog defers background replacement during dialogs/composition. Home and workout ownership/mirrors remain separate.
 - History independently reconciles its visible extent and its first-page scheduling input. Start workout opens immediately; list results update independently and Blank works while lists are held. Unknown scheduling history suppresses recommendations.
-- The cold loading placeholder and refresh feedback reuse the destination's mobile page gutter, so the heading does not jump when content mounts.
+- The cold loading placeholder reuses the destination's mobile page gutter, so the heading does not jump when content mounts. Refresh status is a pill pinned above the bottom bars.
 
 ## Timing evidence
 
@@ -42,16 +42,18 @@ One read-only whole-branch review (`dfea147..313f5b0`) found no critical issues 
 
 - The full browser run exposed an isolation bug in the new `workout-picker-latency` spec: an earlier test's active workout stayed in the running app after `resetWorkouts`, so Blank opened the in-progress prompt. Reproduced by running it after `workout-offline.spec.js`; fixed by reloading after the reset, the pattern existing workout specs use. Test-only.
 - Screenshot inspection found the cold loading heading and Loading text flush against the screen edge (x=0), jumping to the 16px gutter when content mounted. Added a failing alignment test, then gave the placeholder and feedback the destination's mobile container padding.
-- Open: the refresh feedback (`Updating...`, `Couldn't refresh…` with Retry) is appended after the page content, so on a populated list it renders below the fold. Its placement is a design decision awaiting the user; behavior and tests are otherwise unaffected.
+- The refresh feedback (`Updating...`, `Couldn't refresh…` with Retry) was appended after the page content, so on a populated list it rendered below the fold. Following the recommended option, it is now a compact status pill pinned (sticky) above the tab bar and any active workout bar (`--workout-bar-space` from `workout-bar.js`), returning to normal flow at the list end so the last rows stay reachable. It shows and hides instantly: it reports a routine background refresh already delayed 250ms against flashing. A failing test with 10 programs, with and without an active workout, now passes.
 
 ## Test results
 
 - Unit (final): ordinary `npm test` 455/456 — only `repository.test.js` failed deleting its temporary SQLite file (`EBUSY`), the pre-existing Windows issue that reproduces on the base revision; an earlier post-review ordinary run passed 456/456. With the temporary GC preload (ignored scratch, not shipped) 456/456. Database code unchanged.
 - Build and `git diff --check`: pass.
 - Full browser suite, one invocation after the review fixes: 509/512. Failures: two `profile.spec.js` touch cases that hard-code `baseURL` 127.0.0.1:3199 and therefore cannot reach the isolated server (both pass 2/2 from a port-adjusted scratch copy), and the picker isolation bug above (fixed; 11/11 with the preceding offline spec). This is full-run-plus-targeted-reruns evidence, not one green invocation.
-- After the gutter fix: focused latency/cache/memory, navigation, swipes, active-program, recovery, Catalog, Home, start-sheet, offline and picker suites 164/164.
+- After the gutter fix (before pinning the status): focused latency/cache/memory, navigation, swipes, active-program, recovery, Catalog, Home, start-sheet, offline and picker suites 164/164.
 
-Screenshots (390px): `assets/fluid-mobile-navigation/390-cold-loading.png` (held Programs GET), `390-cached-refreshing.png` (cached rows during a held refresh) and `390-refresh-failed.png` (503 refresh; message below the fold, see Open).
+- After pinning the status: the same focused suites plus `workout-bar` and `workout-start` 168/168; unit 456/456 with the GC preload; build and `git diff --check` pass.
+
+Screenshots (390px): `assets/fluid-mobile-navigation/390-cold-loading.png` (held Programs GET), `390-cached-refreshing.png` (cached rows during a held refresh) and `390-refresh-failed.png` (503 refresh; pinned status with Retry).
 
 ## Verification environment and limits
 
