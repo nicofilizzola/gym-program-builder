@@ -12,8 +12,8 @@ export function mountWorkoutBar(host,{onResume=()=>{}}={}){
  const text=bar.querySelector('.workout-bar-text'),link=bar.querySelector('a');
  let shown=null,interval=null,generation=0,closeTimer=null;
  const tick=()=>{if(shown)text.textContent=`Workout in progress · ${shown.name} · ${formatElapsed(Date.now()-Date.parse(shown.startedAt))}`;};
- // The tab bar (phones) sits below the resume bar, so the page reserves both.
- const reserve=()=>{document.body.style.paddingBottom=bar.hidden?'':`calc(var(--tab-bar-height) + ${bar.offsetHeight}px)`;};
+ // The tab bar (phones) sits below the resume bar, so the page reserves both; pinned page status sits above them.
+ const reserve=()=>{document.body.style.paddingBottom=bar.hidden?'':`calc(var(--tab-bar-height) + ${bar.offsetHeight}px)`;document.body.style.setProperty('--workout-bar-space',bar.hidden?'0px':`${bar.offsetHeight}px`);};
  const resize=typeof ResizeObserver==='function'?new ResizeObserver(()=>{if(bar.classList.contains('is-open'))reserve();}):null;
  resize?.observe(bar);
  const visible=()=>{if(document.visibilityState==='visible')tick();};

@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,headers} from './workout-helper.js';
+import {login,headers,resetWorkouts} from './workout-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 const nav=(page,name)=>page.getByRole('navigation',{name:'Main'}).getByRole('link',{name,exact:true});
 test('cached rows remain usable during a held refresh and changed rows preserve focus',async({page})=>{
@@ -77,4 +77,32 @@ test('cold loading heading keeps the page gutter and lines up with the loaded he
   expect(Math.abs(loading.x-loaded.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(loading.y-loaded.y)).toBeLessThanOrEqual(2);
  }finally{release();}
+});
+
+async function expectFeedbackAboveBars(page){
+ const feedback=page.locator('.root-page-feedback');
+ await expect(feedback.getByText("Couldn't refresh. Showing previously loaded data.",{exact:true})).toBeVisible();
+ const box=await feedback.boundingBox(),nav=await page.getByRole('navigation',{name:'Main'}).boundingBox();
+ const bar=page.getByRole('region',{name:'Active workout'}),barBox=await bar.isVisible()?await bar.boundingBox():null;
+ expect(box.y).toBeGreaterThanOrEqual(0);
+ expect(box.y+box.height).toBeLessThanOrEqual((barBox??nav).y+0.5);
+ const retry=await feedback.getByRole('button',{name:'Retry',exact:true}).boundingBox();
+ expect(retry.height).toBeGreaterThanOrEqual(44);
+}
+test('refresh failure on a long list stays in view above the tab bar and the active workout bar',async({page})=>{
+ await login(page);await resetWorkouts(page);await page.reload();await expect(page.locator('#app h1').first()).toBeVisible();
+ for(let i=0;i<10;i++)await page.request.post('/api/documents',{headers,data:{id:crypto.randomUUID(),kind:'program',document:{name:'Long list '+i,mode:'schedule',goals:{},workouts:[]}}});
+ await nav(page,'Library').click();await expect(page.locator('.library-item').nth(9)).toBeVisible();
+ await nav(page,'User').click();
+ await page.route('**/api/documents?kind=program',route=>route.fulfill({status:503,json:{error:{message:'Unavailable'}}}));
+ await nav(page,'Library').click();await expectFeedbackAboveBars(page);
+ await page.unroute('**/api/documents?kind=program');
+ await nav(page,'History').click();await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await page.getByRole('dialog').getByRole('button',{name:'Blank workout',exact:true}).click();
+ await expect(page.locator('.logger-title')).toBeVisible();
+ await nav(page,'Library').click();await expect(page.getByRole('region',{name:'Active workout'})).toBeVisible();
+ await nav(page,'User').click();
+ await page.route('**/api/documents?kind=program',route=>route.fulfill({status:503,json:{error:{message:'Unavailable'}}}));
+ await nav(page,'Library').click();await expectFeedbackAboveBars(page);
+ await resetWorkouts(page);
 });
