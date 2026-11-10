@@ -79,3 +79,11 @@ Screenshots (390px): `assets/fluid-mobile-navigation/390-cold-loading.png` (held
 Windows, Node 24, Playwright Chromium. Concurrent worktrees used the shared port 3199 (and later 3299), causing stale-server results and connection errors. Checks used an ignored copy of the same dev server and an ignored Playwright config with identical options on an unused port (3299, then 3417). Fixture Origin headers remain accepted by the existing configured-origin/browser-alias API policy. No tracked server or test configuration changed.
 
 Not verified: physical iOS Safari/Android devices, real network conditions and any preview or production deployment.
+
+## Verified local merge
+
+On 2026-11-10 the user selected a local merge into `main`. Local `main` (`3931840`) already contained the mobile workout Focus merge and was ahead of `origin/main`, so there was nothing to pull. `git merge --no-ff fix/fluid-mobile-navigation` produced `5e68f2b`. Its three conflicts were adjacent additions: both AGENTS.md sections and both style.css blocks were kept, and `showLogin` both clears the Focus session and cancels the mobile gesture without resuming the outgoing page. Focus's finish still marks the log finished, which invalidates the History cache.
+
+Fresh checks on the merged tree passed: ordinary `npm test` 476/476, the static build and `git diff --check`. The full browser suite (isolated port 3417, fixture origin 3199) gave 567 passed, 7 skipped and 2 failed. The failures are the two `profile.spec.js` touch cases that hard-code `baseURL` 3199; they passed 9/9 from a port-adjusted copy. This is a full run plus one targeted rerun, not a single green invocation. Browser runs regenerate the `mobile-library-navigation` screenshots; they were restored and are not part of the merge.
+
+The host-managed worktree and its checked-out feature branch remain attached for the host to manage. Nothing was pushed or deployed, and deployment has not been verified.
