@@ -45,3 +45,19 @@ test('blank weight is visibly bodyweight without seeding a recorded number',asyn
  expect(await page.evaluate(()=>port.read().log.exercises[0].sets[1].weightKg)).toBe(null);
  await card.getByLabel('Set 1 weight, Bench press',{exact:true}).fill('20');await expect(card.locator('.focus-bodyweight')).toBeHidden();
 });
+test('card puts set note in the RIR row and has no visible feedback line',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
+ const card=page.locator('.focus-card[data-set-id="s1"]'),action=card.locator('.focus-rir-strip').getByRole('button',{name:'Add set note, Set 1, Bench press',exact:true});
+ await expect(action).toBeVisible();const box=await action.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+ await expect(card.locator('.focus-feedback')).toHaveClass(/visually-hidden/);
+ await expect(card.locator('.focus-identity .focus-exercise-note')).toHaveAttribute('aria-label','Add exercise note, Bench press');
+ expect((await card.locator('.focus-context').boundingBox()).height).toBeLessThanOrEqual(44);
+});
+test('completion milestone reads in the Complete button',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
+ const card=page.locator('.focus-card[data-set-id="s1"]'),done=card.locator('.log-done');
+ await card.getByLabel('Set 1 reps, Bench press',{exact:true}).fill('8');await done.click();
+ await expect(done).toHaveAttribute('data-label',/ · Tap to undo$/);
+ await expect(done).not.toHaveAttribute('data-label','Set complete · Tap to undo');
+ await expect(card.locator('.focus-feedback')).not.toHaveText('');
+});
