@@ -2639,3 +2639,19 @@ body {padding-bottom:var(--tab-bar-height)}
 .recap-actions button {width:100%;min-height:44px}
 @keyframes recap-land {0%{opacity:0;transform:scale(.6)}65%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.recap-mark {animation:none}}
+
+/* Root loading placeholder and refresh feedback reuse the destination's page container so headings never jump. */
+.root-page-placeholder { max-width: 1120px; margin-inline: auto; padding-inline: 24px; }
+.root-page-placeholder { padding-block: 24px; }
+.root-page-placeholder[data-page=catalog-page] { padding-block: 20px; }
+.root-page-placeholder[data-page=workout-history] { max-width: 40rem; }
+@media (max-width:760px) { .root-page-placeholder[data-page=catalog-page] { padding: 16px; } }
+@media (max-width:600px) { .root-page-placeholder { padding: 16px; } }
+.root-page-skeleton { min-height: 12rem; padding: 1rem 0; color: var(--muted); }
+/* Refresh status pins above the tab bar and any active workout bar so it is visible on long lists.
+   Shown and hidden instantly: it reports a routine background refresh, already delayed 250ms against flashing. */
+.root-page-feedback { position: sticky; bottom: calc(var(--tab-bar-height) + var(--workout-bar-space, 0px) + 8px); z-index: 5; display: flex; align-items: center; gap: 12px; width: fit-content; max-width: calc(100% - 32px); margin: 1rem auto; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: 0 4px 16px #0006; }
+.root-page-feedback p { margin: 0; flex: 1 1 auto; min-width: 0; color: var(--muted); overflow-wrap: anywhere; }
+.root-page-feedback .secondary-btn { flex: none; min-height: 44px; }
+.root-page-feedback p:empty { display: none; }
+.root-page-feedback:has(> p:empty):has(> button[hidden]) { display: none; }

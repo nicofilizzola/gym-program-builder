@@ -12,6 +12,16 @@ Design: docs/superpowers/specs/2026-11-08-mobile-workout-focus-design.md; plan: 
 - The feed height is measured from document positions, toolbar, `--tab-bar-height` and `visualViewport`; a long workout note yields the space under the sticky header. Logger horizontal gestures never navigate root destinations.
 - An explicit Focus Finish shows a transient recap of the post-pruning record (`src/workout-recap.js`). `binding.onFinish({stay:true})` returns `{accepted,state}` without navigating; the controller releases ownership before publishing the acknowledged record, then the app's finished-log autosave becomes the only writer. Pending finishes stay read-only and are never described as saved. A conflict restoring an active log leaves the recap. Reload shows the regular finished record; desktop and start-another-workout prompts keep their destinations. No migration, schema or export change. Never claim a pending deployment was verified.
 
+## Fluid root navigation (2026-11-08)
+
+Design: docs/superpowers/specs/2026-11-08-fluid-mobile-navigation-design.md; plan: docs/superpowers/plans/2026-11-08-fluid-mobile-navigation.md; evidence: docs/superpowers/verification/2026-11-08-fluid-mobile-navigation.md. Supersedes the older required-root-load-before-settlement/source-on-load-failure rules only; editor leave guards and nested route failures retain their existing behavior.
+
+- Root navigation commits a lightweight destination without waiting for GETs. Keep 220ms settlement, 180ms rollback and instant reduced motion; gate heavy data publication until settlement ends. Navigation unlocks while content is still loading. Previews remain inert; one live controller owns each page.
+- Root list resources use an auth-scoped memory cache with epoch invalidation and deduplicated reads. Returning views show real cached data, refresh in the background and preserve controls/focus/scroll. Cold failures stay on the destination with Retry; refresh failures retain previous data. Refresh status pins above the tab and workout bars (instant, no motion). Unknown/failed loads never become successful empties. Clear caches and previews on auth changes; preserve workout mirrors.
+- Successful API mutations invalidate affected lists; local finish/discard invalidates history before acknowledgement. Settings responses must preserve the latest star intent. Catalog updates defer across open drafts/composition. Cache no actionable Home recommendations or active logs.
+- History's visible extent stays separate from its first-page recommendation input. Pagination and refresh cannot duplicate or shrink newer appends; restoration never overrides later user interaction. The start sheet opens immediately and loads lists independently; Blank remains available, and unknown scheduling inputs suppress Up next.
+- No migration, new persistence, prefetch, polling, new offline creation or PWA support. Never claim physical-device or production verification from localhost results.
+
 ## Mobile Library navigation and swiping (2026-11-07)
 
 Design: docs/superpowers/specs/2026-11-07-mobile-library-navigation-design.md; plan: docs/superpowers/plans/2026-11-07-mobile-library-navigation.md; evidence: docs/superpowers/verification/2026-11-07-mobile-library-navigation.md. Supersedes older mobile header/tab rules where they conflict.

@@ -6,6 +6,20 @@ When you change a value, change it in `style.css` first and then update this fil
 
 ## Principles
 
+Root navigation motion is independent of API response time. At mobile widths,
+keep the existing 220ms settlement and 180ms cancellation; reduced motion is
+instant. Use static loading placeholders with the destination heading, then
+publish heavy list updates after motion ends. Returning pages use actual
+session-cached content and a background refresh status delayed by 250ms.
+Cold errors stay on the destination with Retry; refresh errors retain the last
+successful content. Loading content never disables the bottom navigation.
+Preserve focus, drafts, composition and scroll when refreshed data arrives. The loading
+placeholder uses the destination's mobile page gutter (16px at ≤600px) and
+heading style (Library or Catalog header) so the heading never jumps when
+content mounts. The refresh
+status is a compact surface pill pinned above the tab bar and any active workout
+bar, with a 44px Retry on failure; it appears and disappears without motion.
+
 The mobile training Home uses a single immersive equipment photograph with a dark
 readability gradient and one orange Start/Resume action. Its template cover picker
 is a collapsed disclosure with four labeled native radios; choices use the existing

@@ -24,15 +24,15 @@ test('cancellation has no history side effect and a skipped tap opens only User'
  expect(await page.evaluate(()=>history.length)).toBe(length+1);
  await expect(page.getByRole('heading',{name:'User',exact:true})).toBeFocused();
 });
-test('failed required destination keeps source and newer tap supersedes held load',async({page})=>{
+test('failed destination stays on Retry and newer tap supersedes held load',async({page})=>{
  await login(page);await page.goto('/#/user');await ready(page,'#/user');
  await page.route('**/api/workouts',r=>r.fulfill({status:503,json:{error:{message:'History unavailable'}}}));
- await dragDestination(page,{direction:'previous'});await expect(page.locator('#app-message')).toContainText('History unavailable');await ready(page,'#/user');
+ await dragDestination(page,{direction:'previous'});await expect(page.locator('.root-page-feedback')).toContainText('History unavailable');await ready(page,'#/workouts');
  await page.unroute('**/api/workouts');
  let release,seen;const held=new Promise(r=>release=r),requested=new Promise(r=>seen=r);
  await page.route('**/api/documents?kind=program',async r=>{seen();await held;await r.continue();});
  await main(page).getByRole('link',{name:'Library',exact:true}).click();await requested;
- await expect(main(page).getByRole('link',{name:'User',exact:true})).toHaveAttribute('aria-current','page');
+ await expect(main(page).getByRole('link',{name:'Library',exact:true})).toHaveAttribute('aria-current','page');
  await main(page).getByRole('link',{name:'History',exact:true}).click();release();await ready(page,'#/workouts');
  await expect(page.getByRole('heading',{name:'Workouts',exact:true})).toBeVisible();
 });
@@ -43,7 +43,7 @@ test('active mirror survives an attempted root swipe offline and User restores t
  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('gpb.activeWorkout')).log);
  await main(page).getByRole('link',{name:'Home',exact:true}).click();await ready(page,'#/home');
  await expect(page.getByRole('button',{name:'Resume workout',exact:true})).toBeVisible();await expect(page.locator('.workout-bar')).not.toBeVisible();
- await page.context().setOffline(true);await dragDestination(page);await expect(page.locator('#app-message')).not.toBeEmpty();await ready(page,'#/home');
+ await page.context().setOffline(true);await dragDestination(page);await expect(page.locator('.root-page-feedback button')).toBeVisible();await ready(page,'#/templates');
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('gpb.activeWorkout')).log.id)).toBe(before.id);
  await page.context().setOffline(false);await main(page).getByRole('link',{name:'User',exact:true}).click();await ready(page,'#/user');
  await expect(page.locator('.workout-bar')).toBeVisible();await resetWorkouts(page);

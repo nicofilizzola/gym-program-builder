@@ -11,7 +11,7 @@ export function createMobilePageTransition({app,stage,navigation,media,reduced})
    if(el.matches('input,textarea,select,button,a,[tabindex]'))el.tabIndex=-1;
   }
   const originals=app.querySelectorAll('input,textarea,select'),copies=node.querySelectorAll('input,textarea,select');
-  originals.forEach((el,i)=>{copies[i].value=el.value;if('checked'in el)copies[i].checked=el.checked;});
+  originals.forEach((el,i)=>{copies[i].value=el.value;if('checked'in el)copies[i].checked=el.checked;if(el.matches('select'))[...copies[i].options].forEach((option,j)=>option.selected=option.defaultSelected=el.options[j].selected);});
   Object.assign(node.style,{position:'absolute',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',margin:'0'});
   return {node,width:innerWidth};
  }
@@ -58,7 +58,6 @@ export function createMobilePageTransition({app,stage,navigation,media,reduced})
    const version=generation,owned=session;commit();await restore();
    if(!isCurrent()||version!==generation){if(version===generation)cancel();return false;}
    if(owned&&!reduced.matches){
-    capture(owned.toHash);owned.target.replaceChildren(snapshots.get(owned.toHash).node.cloneNode(true));update(owned.offset);
     if(!await animate((owned.direction==='next'?-1:1)*owned.width,220))return false;
    }
    if(!isCurrent()||version!==generation)return false;cancel();focus();return true;

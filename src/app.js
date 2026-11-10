@@ -10,6 +10,11 @@ import {mountTagView} from './tag-view.js';
 import {createViewTransition} from './view-transition.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
 import {createApiClient} from './api-client.js';
+import {createRootResourceCache} from './root-resource-cache.js';
+import {createRootPageSession} from './root-page-session.js';
+import {mountRootPageSurface} from './root-page-surface.js';
+import {createHistoryPageData} from './history-page-data.js';
+import {bindRootCacheInvalidation} from './root-cache-invalidation.js';
 import {createAutosave} from './autosave.js';
 import {createTemplate,createProgram,duplicateProgram} from './program.js';
 import {parseRoute,resolveEntryHash} from './router.js';
@@ -37,7 +42,10 @@ import {mountWorkoutBar} from './workout-bar.js';
 import {mountTypingState} from './typing-state.js';
 import {parseDocument,serializeDocument,documentFileName} from './document-file.js';
 
-const api=createApiClient(),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
+const rootCache=createRootResourceCache();
+let rootInvalidation;
+const api=createApiClient({mutationScope:()=>rootCache.scope(),onMutation:event=>rootInvalidation?.onMutation(event)}),app=document.querySelector('#app'),shell=document.querySelector('#shell'),authHost=document.querySelector('#auth');
+let hydrationHost=null;
 const message=document.querySelector('#app-message'),status=document.querySelector('[data-testid="save-status"]'),retry=document.querySelector('#retry-save'),reloadSaved=document.querySelector('#reload-saved'),copySaved=document.querySelector('#copy-saved');
 let breadcrumb,libraryNavigation,updateCurrentBreadcrumb=()=>{};
 const mobileNavigationState=createMobileNavigationState();
@@ -73,9 +81,10 @@ const programReturn=new Map();
 const errorText=error=>error.message||'Something went wrong. Please retry.';
 function report(error){message.textContent=errorText(error);if(error.status===401)showLogin(true);}
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
-function createViewHost(){return app.appendChild(document.createElement('div'));}
+function createViewHost(){return (hydrationHost||app).appendChild(document.createElement('div'));}
 const workoutBar=mountWorkoutBar(document.querySelector('#workout-bar-host'),{onResume:id=>action(()=>navigate('#/workouts/'+id))()});
 const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
+rootInvalidation=bindRootCacheInvalidation({cache:rootCache,workouts});
 let barRendered=false;
 const startWorkout=action(options=>workouts.start(options));
 // Set by Log out, cleared by a successful sign-in: offline startup never bypasses the password after a sign-out.
@@ -119,15 +128,15 @@ async function leave(){
 async function navigate(hash,{push=true,gesture=null}={}){
  hash=entryHash(hash);
  if(mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash))mobileNavigationState.writePage(currentHash,{scrollY:window.scrollY,state:mounted.getNavigationState?.()??null});
- if(!gesture){gestureGeneration++;gestureSettling=false;mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;}
+ if(!gesture)cancelMobileGesture();
  let mobileTransition=gesture;
  if(!mobileTransition&&push&&mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash)&&isSwipeRoot(hash)&&destinationFor(currentHash)!==destinationFor(hash)){
   mobileTransition={fromHash:currentHash,toHash:hash,direction:MOBILE_DESTINATIONS.indexOf(destinationFor(hash))>MOBILE_DESTINATIONS.indexOf(destinationFor(currentHash))?'next':'previous',offset:0,width:innerWidth};
-  if(!mobilePager.begin(mobileTransition))mobileTransition=null;
+  if(!mobilePager.begin(mobileTransition))mobileTransition=null;else mounted?.suspend?.();
  }
  const version=++routeVersion;busy(version);
  try{
-  if(!await leave()){if(version===routeVersion){history.replaceState(null,'',currentHash);if(mobileTransition)await mobilePager.rollback();}return {status:'blocked',hash:currentHash};}
+  if(!await leave()){if(version===routeVersion){history.replaceState(null,'',currentHash);if(mobileTransition){await mobilePager.rollback();mounted?.settled?.();}}return {status:'blocked',hash:currentHash};}
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
   if(push&&entryHash(location.hash)!==hash)history.pushState(null,'',hash);
   return await renderRoute(version,{mobileTransition});
@@ -146,26 +155,27 @@ const mobileSwipe=mountMobileSwipe(app,{
  begin(direction){
   const destination=adjacentDestination(destinationFor(currentHash),direction);if(!destination)return false;
   swipeContext={fromHash:currentHash,toHash:mobileNavigationState.href(destination),direction,offset:0,width:innerWidth};
-  return mobilePager.begin(swipeContext);
+  const begun=mobilePager.begin(swipeContext);if(begun)mounted?.suspend?.();return begun;
  },
  update(offset){if(swipeContext)swipeContext.offset=offset;mobilePager.update(offset);},
  release(result){
   const context=swipeContext;swipeContext=null;if(!context)return;
-  const generation=++gestureGeneration;gestureSettling=true;
+  const generation=++gestureGeneration,owner=mounted;gestureSettling=true;
   const operation=result.commit?navigate(context.toHash,{gesture:context}):mobilePager.rollback();
-  operation.catch(report).finally(()=>{if(generation===gestureGeneration)gestureSettling=false;});
+  operation.catch(report).finally(()=>{if(generation===gestureGeneration){gestureSettling=false;if(!result.commit&&mounted===owner)owner?.settled?.();}});
  },
- cancel(){swipeContext=null;const generation=++gestureGeneration;gestureSettling=true;void mobilePager.rollback().finally(()=>{if(generation===gestureGeneration)gestureSettling=false;});}
+ cancel(){swipeContext=null;const generation=++gestureGeneration,owner=mounted;gestureSettling=true;void mobilePager.rollback().finally(()=>{if(generation===gestureGeneration){gestureSettling=false;if(mounted===owner)owner?.settled?.();}});}
 });
-function cancelMobileGesture(){gestureGeneration++;mobileSwipe.cancel();mobilePager.cancel();swipeContext=null;gestureSettling=false;}
+function cancelMobileGesture({resume=true}={}){mobileSwipe.cancel();mobilePager.cancel();gestureGeneration++;swipeContext=null;gestureSettling=false;if(resume)mounted?.settled?.();}
 mobileNavigation.addEventListener('change',()=>{history.scrollRestoration=mobileNavigation.matches?'manual':browserScrollRestoration;cancelMobileGesture();});
 window.addEventListener('resize',cancelMobileGesture);
 window.addEventListener('beforeunload',event=>{if(queue?.isDirty()||mounted?.hasUnsavedDraft?.()){event.preventDefault();event.returnValue='';}});
 window.addEventListener('hashchange',action(()=>{if(authenticated)return navigate(entryHash(location.hash),{push:false});}));
 function showLogin(resuming=false){
  workoutFocusSession.clear();
- cancelMobileGesture();mobilePager.clear();
+ cancelMobileGesture({resume:false});mobilePager.clear();
  mobileNavigationState.clear();
+ rootCache.clear();
  mounted?.onAuthHidden?.();
  cancelActiveConfirmation();
  cancelConfirmations();
@@ -320,7 +330,7 @@ async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
   const commitView=()=>{
    if(version!==routeVersion)return;
    clearView();queue?.dispose();queue=null;active=null;saveStatus('');mountedVersion=version;commit();currentHash=commit.canonicalHash||targetHash;committed=true;if(commit.canonicalHash)history.replaceState(null,'',commit.canonicalHash);
-   mobileNav.commit(currentHash);
+   mobileNav.commit(currentHash,{preservePreview:Boolean(mobileTransition)});
    if(['programs','templates','catalog'].includes(route.view))libraryNavigation=mountLibraryNavigation(app,{hash:currentHash,onNavigate:hash=>action(()=>navigate(hash))()});
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
    if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,mobileNavigation.matches?mobileNavigationState.readPage(currentHash)?.scrollY??0:0);
@@ -333,6 +343,7 @@ async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
   };
   const finished=mobileTransition?await mobilePager.complete({commit:commitView,restore:async()=>{await new Promise(requestAnimationFrame);if(version===routeVersion)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);},focus,isCurrent:()=>version===routeVersion}):await viewTransition.swap(commitView,{focus});
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
+  mounted?.settled?.();
   if(committed&&!finished)focus();
   return {status:committed?'committed':'superseded',hash:currentHash};
  }catch(error){
@@ -418,25 +429,90 @@ async function prepareWorkout(route){
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;
 }
-async function prepareRoute(route,version){
+function prepareMobileRoot(route,version){
+ if(route.view==='workouts')return prepareMobileHistory(version);
+ return ()=>{
+  const key=({programs:'programs',templates:'templates',catalog:'catalog',workouts:'history:first'})[route.view];
+  let live=null,destroyed=false,mounting=false,lastData,interacted=false;
+  const events=new AbortController();
+  for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,()=>interacted=true,{passive:true,signal:events.signal});
+  const current=()=>!destroyed&&version===routeVersion&&authenticated;
+  const load=()=>route.view==='catalog'?api.catalog():route.view==='workouts'?api.listWorkouts():api.list(route.view==='programs'?'program':'template');
+  const surface=mountRootPageSurface(createViewHost(),{title:({programs:'Programs',templates:'Session templates',catalog:'Exercise catalog',workouts:'Workouts'})[route.view],pageClass:route.view==='catalog'?'catalog-page':'library',onRetry:()=>session.refresh()});
+  const session=createRootPageSession({key,cache:rootCache,load,isCurrent:current,onAuthError:report,onState:state=>{
+   surface.show(state);if(state.phase!=='ready'||state.data===undefined)return;
+   if(live){if(JSON.stringify(lastData)!==JSON.stringify(state.data)){lastData=state.data;live.setData?.(state.data);}return;}
+   if(mounting)return;
+   mounting=true;lastData=state.data;
+   const prepared=route.view==='catalog'?{catalog:state.data}:route.view==='workouts'?{page:state.data}:{records:state.data,settings:null};
+   void prepareRoute(route,version,prepared).then(commit=>{
+    if(!current())return;
+    surface.setContent(host=>{hydrationHost=host;try{commit();live=mounted;}finally{hydrationHost=null;mounted=owner;}});
+    if(current()&&!interacted)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);
+    if(route.view==='programs')void rootCache.load('settings',()=>api.getSettings()).then(result=>{if(current()&&result.status==='accepted')live?.setSettings?.(result.snapshot.value);}).catch(error=>{if(current()&&error.status===401)report(error);});
+   }).catch(report).finally(()=>{mounting=false;});
+  }});
+  const owner=new Proxy({suspend:()=>session.suspend(),settled:()=>session.settled(),onAuthHidden:()=>owner.destroy(),destroy(){if(destroyed)return;destroyed=true;events.abort();session.destroy();live?.destroy();surface.destroy();}}, {get(target,name){return name in target?target[name]:live?.[name];}});
+  mounted=owner;session.start();
+ };
+}
+function prepareMobileHistory(version){
+ return ()=>{
+  let destroyed=false,interacted=false,restored=false;
+  const current=()=>!destroyed&&version===routeVersion&&authenticated,events=new AbortController();
+  for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,()=>interacted=true,{passive:true,signal:events.signal});
+  const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
+  const surface=mountRootPageSurface(createViewHost(),{title:'Workouts',pageClass:'workout-history',onRetry:()=>data.refresh()});
+  let view;
+  surface.setContent(host=>{view=mountWorkoutHistory(host,{records:[],hasMore:false,error:'Loading...',onLoadMore:()=>data.loadMore(),onStart:()=>launcher.open({data:{programs:rootCache.read('programs')?.value??null,templates:rootCache.read('templates')?.value??null,logs:null,activeProgramId:rootCache.read('settings')?.value.activeProgramId??null,listStatus:{programs:'loading',templates:'loading',settings:'loading',firstPage:'loading'}},loadLists:loadStartLists}),onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});});
+  const saved=mobileNavigationState.readPage('#/workouts');
+  const data=createHistoryPageData({api,cache:rootCache,pendingSummary:()=>workouts.pendingSummary(),isCurrent:current,onAuthError:report,onState:state=>{
+   surface.show(state);
+   view.setData({records:state.data?.records??[],hasMore:state.data?.hasMore??false,pending:state.pending,error:state.error?(state.data?"Couldn't refresh. Showing previously loaded data.":'Workouts could not be loaded. Connect to see your history.'):state.data?'':'Loading...'});
+   if(state.data&&!restored){restored=true;if(current()&&!interacted)window.scrollTo(0,saved?.scrollY??0);}
+  }});
+  const teardown=()=>{if(destroyed)return;destroyed=true;events.abort();data.destroy();view.destroy();surface.destroy();launcher.destroy();};
+  mounted={getNavigationState:()=>view.getNavigationState(),suspend:()=>data.suspend(),settled:()=>data.settled(),onAuthHidden:teardown,destroy:teardown};
+  data.start({visibleCount:saved?.state?.visibleCount??0});
+ };
+}
+async function loadStartLists({onUpdate}){
+ await Promise.all([
+  ['programs','programs',()=>api.list('program')],['templates','templates',()=>api.list('template')],
+  ['settings','settings',()=>api.getSettings()],['firstPage','history:first',()=>api.listWorkouts()]
+ ].map(async([resource,key,load])=>{
+  onUpdate({resource,status:'loading'});
+  try{
+   const saved=resource==='firstPage'?null:rootCache.read(key);
+   const result=saved?{status:'accepted',snapshot:saved}:await rootCache.load(key,load);
+   if(result.status!=='accepted')return;
+   let value=result.snapshot.value;
+   if(resource==='firstPage'){const pending=workouts.pendingSummary();if(pending&&!value.records.some(row=>row.id===pending.id))value={...value,records:[pending,...value.records]};}
+   onUpdate({resource,status:'ready',value});
+  }catch(error){onUpdate({resource,status:'error',error});}
+ }));
+}
+async function prepareRoute(route,version,prepared=null){
+ if(route.view==='workouts')return prepareMobileHistory(version);
+ if(!prepared&&mobileNavigation.matches&&['programs','templates','catalog','workouts'].includes(route.view))return prepareMobileRoot(route,version);
  if(route.view==='home')return ()=>{
-  let view,latest;
+  let view,latest,settled=false;
   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report,focusFallback:()=>view?.focusTarget()});
   const controller=createWorkoutHomeController({api,workouts,launcher,onNavigate:hash=>action(()=>navigate(hash))(),onError:report,
-   onState:state=>{latest=state;view?.update(state);}});
+   onState:state=>{latest=state;if(settled)view?.update(state);}});
   view=mountWorkoutHome(createViewHost(),{state:latest,onStart:()=>controller.start(),onResume:()=>controller.resume(),onChoose:()=>controller.choose(),
    onRetry:()=>controller.refresh(),onSetup:kind=>kind==='set-active'?controller.choose({setup:true}):action(()=>navigate(kind==='open-program'?'#/programs/'+latest.program.id:'#/programs'))()});
-  mounted={onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
+  mounted={suspend(){settled=false;},settled(){settled=true;if(latest)view.update(latest);},onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
  };
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
-  const data=await api.catalog();
+  const data=prepared?.catalog??await api.catalog();
   const variant=route.variantId?data.entries.find(e=>e.id===route.variantId):null,reference=data?.families.find(r=>r.id===(variant?.familyId||route.referenceId));
   const commit=()=>{
    const host=createViewHost(),content=host.appendChild(document.createElement('div'));
    if(route.view!=='catalog'&&(!reference||(route.variantId&&!variant))){breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Not found'}],onNavigate:hash=>action(()=>navigate(hash))()});const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='This reference exercise or variant is unavailable. Return to Exercise catalog.';content.append(p);return;}
    if(route.view!=='catalog')breadcrumb=mountBreadcrumbs(host,{items:[],onNavigate:hash=>action(()=>navigate(hash))()});
-   mounted=mountCatalog(content,{api,initialData:data,navigationState:route.view==='catalog'&&mobileNavigation.matches?mobileNavigationState.readPage('#/catalog')?.state:null,target:reference?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
+   mounted=mountCatalog(content,{api,loadCatalog:prepared?async()=>{const result=await rootCache.load('catalog',()=>api.catalog());return result.status==='accepted'?result.snapshot.value:rootCache.read('catalog')?.value;}:undefined,initialData:data,navigationState:route.view==='catalog'&&mobileNavigation.matches?mobileNavigationState.readPage('#/catalog')?.state:null,target:reference?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
     breadcrumb?.update([{label:'Exercise catalog',href:'#/catalog'},...(variant?[{label:reference.name,href:'#/catalog/references/'+reference.id},{label:variant.name}]:[{label:reference.name}])]);
     const hash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;}
    }});
@@ -446,44 +522,13 @@ async function prepareRoute(route,version){
  }
  if(route.view==='user')return ()=>{mounted=mountUserView(createViewHost(),{onNavigate:hash=>action(()=>navigate(hash))(),onLogout:logout});};
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange,onSaveStatusSlotChange});};}
- if(route.view==='workouts'){
-  let page,error='';
-  // The start sheet's lists load with the history; a list lost to the network shows Retry in the sheet.
-  const optional=promise=>promise.catch(failure=>{if(!isNetworkError(failure))throw failure;return null;});
-  const lists=Promise.all([optional(api.list('program')),optional(api.list('template')),optional(api.getSettings())]);
-  const [historyResult,listResult]=await Promise.allSettled([api.listWorkouts(),lists]);
-  const pendingFinish=workouts.pendingSummary(),sourceRoute=parseRoute(currentHash);
-  const leavingPendingFinish=sourceRoute.view==='workout'&&pendingFinish?.id===sourceRoute.id;
-  if(historyResult.status==='rejected'){if((mounted&&!leavingPendingFinish)||!isNetworkError(historyResult.reason))throw historyResult.reason;page={records:[],hasMore:false};error='Workouts could not be loaded. Connect to see your history.';}
-  else page=historyResult.value;
-  if(listResult.status==='rejected')throw listResult.reason;
-  const firstHistoryPage=page.records;
-  const wanted=mobileNavigation.matches?mobileNavigationState.readPage('#/workouts')?.state?.visibleCount??0:0;
-  while(page.hasMore&&page.records.length<wanted){
-   const last=page.records.at(-1);if(!last)break;
-   const more=await api.listWorkouts({before:last.startedAt,beforeId:last.id});
-   if(version!==routeVersion)return ()=>{};
-   const records=[...new Map([...page.records,...more.records].map(record=>[record.id,record])).values()];
-   if(records.length===page.records.length)break;
-   page={records,hasMore:more.hasMore};
-  }
-  let [programs,templates,settings]=listResult.value;
-  const summary=workouts.pendingSummary(),pending=summary&&!page.records.some(r=>r.id===summary.id)?summary:null;
-  return ()=>{const data={programs,templates,logs:firstHistoryPage,activeProgramId:settings?.activeProgramId??null};
-   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report});
-   const historyView=mountWorkoutHistory(createViewHost(),{records:page.records,hasMore:page.hasMore,pending,error,
-   onLoadMore:last=>api.listWorkouts({before:last.startedAt,beforeId:last.id}),
-   onStart:()=>launcher.open({data}),
-   onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});
-   mounted={getNavigationState:()=>historyView.getNavigationState(),destroy(){historyView.destroy();launcher.destroy();}};};
- }
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='workout')return prepareWorkout(route);
  if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
  if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
  const kind=route.view==='programs'?'program':'template';
  // A settings failure on the network just shows no active program; anything else is reported.
- const [records,settings]=await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
+ let [records,settings]=prepared?[prepared.records,rootCache.read('settings')?.value??prepared.settings]:await Promise.all([api.list(kind),kind==='program'?api.getSettings().catch(error=>{if(!isNetworkError(error))report(error);return {activeProgramId:null};}):null]);
  return ()=>{
  // Star taps apply at once; one request is in flight at a time and only the latest choice is sent next.
  let confirmed=settings?.activeProgramId??null,wanted=confirmed,sending=false;
@@ -522,7 +567,11 @@ async function prepareRoute(route,version){
    }
   }),
   onImport:action(file=>importFile(kind,file,version))
- });};
+ });
+ const view=mounted;
+ view.setData=items=>{records=items;view.update(records,{activeProgramId:wanted});};
+ view.setSettings=value=>{if(sending)return;confirmed=wanted=value?.activeProgramId??null;view.update(records,{activeProgramId:wanted});};
+ };
 }
 async function start(){
  try{await api.passwordSession();}catch(error){

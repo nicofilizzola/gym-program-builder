@@ -1,6 +1,16 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createApiClient} from '../src/api-client.js';
+test('successful writes notify once including 204; failed reads and writes do not',async()=>{
+ const events=[];let response=Response.json({settings:{activeProgramId:'p'}});
+ const api=createApiClient({fetch:async()=>response,onMutation:event=>events.push(event)});
+ await api.setActiveProgram('p');assert.equal(events.length,1);assert.equal(events[0].path,'settings/active-program');
+ response=new Response(null,{status:204});await api.remove({id:'p',revision:1});assert.equal(events.length,2);
+ response=Response.json({error:{message:'Conflict'}},{status:409});await assert.rejects(api.setActiveProgram('q'));assert.equal(events.length,2);
+ response=Response.json({settings:{}});await api.getSettings();assert.equal(events.length,2);
+ const throwing=createApiClient({fetch:async()=>Response.json({settings:{activeProgramId:null}}),onMutation:()=>{throw Error('observer');}});
+ assert.deepEqual(await throwing.setActiveProgram(null),{activeProgramId:null});
+});
 test('API client sends revision and cookie-safe requests and retains conflict details',async()=>{
  let received;const api=createApiClient({fetch:async(url,options)=>{received={url,options};return Response.json({error:{code:'CONFLICT',message:'Newer version'}},{status:409});}});
  await assert.rejects(api.update({id:'a',revision:4,document:{name:'Local'}}),{status:409,code:'CONFLICT'});

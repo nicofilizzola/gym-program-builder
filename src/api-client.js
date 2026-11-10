@@ -1,10 +1,13 @@
-export function createApiClient({fetch:request=globalThis.fetch}={}) {
+export function createApiClient({fetch:request=globalThis.fetch,onMutation=()=>{},mutationScope=()=>null}={}) {
   async function call(path,method='GET',value) {
+    const scope=mutationScope();
     const response=await request(`/api/${path}`,{method,credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json'},...(value===undefined?{}:{body:JSON.stringify(value)})});
-    if(response.status===204)return;
+    if(response.status===204){if(method!=='GET')notify();return;}
     let result;try {result=await response.json();}catch {throw Object.assign(Error('Server returned an invalid response.'),{status:response.status});}
     if(!response.ok)throw Object.assign(Error(result.error?.message||'Request failed.'),{status:response.status,code:result.error?.code,details:result.error?.details});
+    if(method!=='GET')notify(result);
     return result;
+    function notify(result){try{onMutation({path,method,value,result,scope});}catch{/* A subscriber cannot undo a successful server write. */}}
   }
   return {
     programBundle:id=>call('documents/'+encodeURIComponent(id)+'/bundle'),
