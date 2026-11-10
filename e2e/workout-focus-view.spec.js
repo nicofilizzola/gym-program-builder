@@ -61,3 +61,9 @@ test('completion milestone reads in the Complete button',async({page})=>{
  await expect(done).not.toHaveAttribute('data-label','Set complete · Tap to undo');
  await expect(card.locator('.focus-feedback')).not.toHaveText('');
 });
+test('a long unbreakable exercise name never widens the card',async({page})=>{
+ const log=focusFixture();log.exercises[0].name='Another 23740b88-15c4-42d1-a134-1f80e39a698c';log.exercises[0].note='word '.repeat(60).trim();
+ await page.setViewportSize({width:360,height:800});await mountFocusFixture(page,{log});await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
+ const widths=await page.locator('.focus-card[data-set-id="s1"]').evaluate(card=>({card:card.getBoundingClientRect().width,clip:card.querySelector('.log-set-clip').getBoundingClientRect().width,note:card.querySelector('.focus-exercise-note-text').getBoundingClientRect().width}));
+ expect(widths.clip).toBeLessThanOrEqual(widths.card);expect(widths.note).toBeLessThanOrEqual(widths.card);
+});
