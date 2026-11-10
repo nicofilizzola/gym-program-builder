@@ -48,3 +48,21 @@ One fresh read-only reviewer examined `64669d0..279ed7d`: no Critical findings, 
 2. **Closing the overview took away a Focus-card exercise note.** Closing restored every borrowed note host to the hidden compact card. It now restores only notes inside the overview dialog.
 
 After the fix pass: 457 of 457 unit cases; 562 browser cases, 555 passed and 7 skipped, again as nine consecutive invocations; the 26 mobile Library navigation evidence images that `e2e/mobile-navigation-layout.spec.js` rewrites on every run were restored. The eight Minor findings are deferred and listed in the final report; none loses data.
+
+## Card fit (2026-11-10)
+
+Plan: docs/superpowers/plans/2026-11-10-focus-card-fit.md. Reported on a physical Pixel 8: the first card cut off at Add set note, so Complete needed a scroll; DevTools presets showed more.
+
+**Cause.** Card content was a fixed ~530–555px, the feed got the visible viewport minus ~320px of chrome, and `min-height: feed − 60px` let the card overflow. DevTools presets (412×915) omit browser UI; real Chrome on a Pixel 8 leaves roughly 750–790px. Measured before the fix (2 exercises, no history):
+
+| Viewport | Feed | Card | Complete visible | Preview |
+|---|---|---|---|---|
+| 412×760 | 439 | 532 | no (cut at Add set note) | none |
+| 390×844 | 523 | 554 | no (−3px) | none |
+| 412×915 | 594 | 554 | yes | 39 |
+
+**After.** `e2e/workout-focus-fit.spec.js` asserts Complete inside the feed, no horizontal overflow and a minimum preview: ≥24px at 360×660, 390×664 and 412×660 (360×660 measured 28px), ≥48px at 412×760, 390×844 and 430×932; Complete inside the feed with Last time, its note and Best at 412×760; and at 200% text (390×664) Complete is pinned on the viewed card only, never covering a focused input. Screenshots: `assets/mobile-workout-focus/fit-*.png` (360×660, 390×664, 412×760, 390×844, 200% text, Workout actions menu, completed set).
+
+**Local checks.** `npm test` 476/476; `npm run build` passed; full `npm run test:e2e` 580 passed, 7 skipped, 3 failed. Two failures were a real regression (a long unbreakable catalog name widened the card through the new flex title row), fixed with `grid-template-columns: minmax(0,1fr)` and pinned by `a long unbreakable exercise name never widens the card`; the paired rerun passed 30/30. The third (`reference-exercises` catalog mutation focus) passed in two reruns and is unrelated to Focus.
+
+**Known limits.** With Last time history at 360×660 Complete fits but the next-card preview is absent (the specification allows this). Physical-device verification on the Pixel 8 is pending: confirm in Chrome with the default font and display size; larger system font or display size settings make cards taller, where the sticky Complete applies. Motion was checked only through the existing automated motion tests.

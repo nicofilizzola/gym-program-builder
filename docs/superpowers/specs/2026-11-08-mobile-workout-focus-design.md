@@ -59,6 +59,8 @@ Do not truncate labels, benchmarks, errors, or notes to force the target card he
 
 Never enable snapping inside an open note editor or force a snap in response to typing, acknowledgements, cached-history refreshes, or the keyboard opening. Resizing and switching between mobile and desktop preserve the current log, in-progress valid/invalid input drafts, note editors, and focused control. A focused control must not be destroyed to apply a breakpoint layout.
 
+**Amendment (2026-11-10, card fit).** The ~60px preview proved unreachable on real phones: card content was ~530–555px while the feed received the visible viewport minus ~320px of chrome, so Complete fell below the fold below ~850px visible height (DevTools presets hide this because they omit browser UI). Approved changes: every viewed card must fit through Complete plus a preview from a 660px visible viewport at default text; on phones the workout note moves into Workout actions (header indicator when saved); the context line and title merge, the set-note action becomes an icon in the RIR row and completion feedback moves into the Complete label (no separate feedback line); feed-height container tiers shrink numbers and rulers; when a viewed card still outgrows the feed, its Complete is sticky. Plan: docs/superpowers/plans/2026-11-10-focus-card-fit.md.
+
 ## 2. Execution order and orientation
 
 Derive the feed from existing exercise/set IDs. Do not reorder the stored log into execution order.
