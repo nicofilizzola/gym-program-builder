@@ -184,6 +184,8 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    await page.getByRole('button',{name:'Finish',exact:true}).click();
    await expect(dialog).toContainText('1 set not completed — finish anyway? Uncompleted sets will be removed.');
    await dialog.getByRole('button',{name:'Finish workout'}).click();
+   // Phones finish into the recap; Done continues to History.
+   if(viewport.width<=760){await expect(page.locator('.workout-recap')).toBeVisible();await page.getByRole('button',{name:'Done',exact:true}).click();}
    await expect(page).toHaveURL(/#\/workouts$/);
    await expect(page.locator('.workout-history-row').first()).toContainText('4 sets');
    expect((await serverLog(page,log.id)).status).toBe('finished');

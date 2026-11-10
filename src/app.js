@@ -31,6 +31,7 @@ import {mountWorkoutHistory} from './workout-history-view.js';
 import {readMirror,isNetworkError} from './workout-sync.js';
 import {mountWorkoutLogger} from './workout-logger-view.js';
 import {createWorkoutFocusSession} from './workout-focus-session.js';
+import {setWorkoutNote} from './workout-edit.js';
 import {createWorkoutController,linkedVariantIds} from './workout-controller.js';
 import {mountWorkoutBar} from './workout-bar.js';
 import {mountTypingState} from './typing-state.js';
@@ -359,8 +360,28 @@ async function prepareWorkout(route){
  const lastTime=local?local.lastTime:await (linkedVariantIds(log).length?api.lastTime({variantIds:linkedVariantIds(log),exclude:route.id}).catch(error=>{if(isNetworkError(error))return null;report(error);return {};}):Promise.resolve({}));
  const commit=()=>{
   let logger=null,binding=null,change=null,disposed=false;const bestRequests=new Map();
+  // Focus finish recap: the latest finish state is cached so an early acknowledgement is never lost.
+  let finishState=null,recapView=null,recapLog=null;
   if(editFinished)change=track(workoutRecord(record));
-  const handlers={setStatus:text=>logger?.setStatus(text),setLog:value=>logger?.setLog(value),setLastTime:map=>logger?.setLastTime(map),setBestPerformance:map=>logger?.setBestPerformance(map),setBestStatus:value=>logger?.setBestStatus(value)};
+  /** Once the controller has released the acknowledged record, the finished-log autosave becomes its only writer. */
+  const applyFinishState=state=>{
+   finishState=state;if(disposed||!recapView)return;
+   logger.updateRecap(state);
+   if(state.record&&!recapLog){recapLog=structuredClone(state.record.log);binding?.detach();binding=null;change=track(workoutRecord(state.record));onSaveStatusSlotChange(recapView.saveStatusSlot());}
+  };
+  const recapNote=(text,{blur})=>{if(disposed||!recapLog||(blur&&text===recapLog.note))return;recapLog=setWorkoutNote(recapLog,text);change?.(recapLog);};
+  async function finishWithRecap(){
+   const owner=binding;if(!owner)return;
+   const result=await owner.onFinish({stay:true});
+   if(disposed||binding!==owner)return;
+   if(!result.accepted){await owner.onFinish();return;}
+   const state=finishState?.record?finishState:result.state;
+   recapView=logger.showRecap({state,onDone:action(()=>navigate('#/workouts')),onView:action(()=>navigate('#/workouts/'+route.id)),onNote:recapNote});
+   applyFinishState(state);
+  }
+  const handlers={setStatus:text=>logger?.setStatus(text),setFinishState:applyFinishState,
+   // Use saved version may restore this workout as active: leave the recap for the live logger.
+   setLog:value=>{if(recapView&&value.status==='active'){void action(()=>navigate('#/workouts/'+route.id,{push:false}))();return;}logger?.setLog(value);},setLastTime:map=>logger?.setLastTime(map),setBestPerformance:map=>logger?.setBestPerformance(map),setBestStatus:value=>logger?.setBestStatus(value)};
   logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,bestPerformance:local?.bestPerformance??null,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
    sharedSaveStatus:editFinished,onSaveStatusSlotChange,focusSession:workoutFocusSession,
    onChange:value=>(change||binding?.onChange)?.(value),
@@ -370,7 +391,7 @@ async function prepareWorkout(route){
     queue?.dispose();queue=null;active=null;saveStatus('');
     await navigate('#/workouts');
    },
-   onFinish:()=>binding?.onFinish(),
+   onFinish:(value,{recap=false}={})=>recap?finishWithRecap():binding?.onFinish(),
    onDiscard:()=>binding?.onDiscard(),
    onRetry:()=>binding?.onRetry(),
    onBestPerformanceNeeded:ids=>binding?binding.onBestPerformanceNeeded(ids):finishedBest(ids),
@@ -389,8 +410,10 @@ async function prepareWorkout(route){
   };
   if(owned)binding=workouts.attach(route.id,handlers);
   else void finishedBest(linkedVariantIds(log));
-  const dispose=()=>{if(disposed)return;disposed=true;binding?.detach();logger.destroy();};
-  mounted={destroy:dispose,onAuthHidden:dispose,setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft()};
+  const dispose=()=>{if(disposed)return;disposed=true;binding?.detach();if(recapLog)onSaveStatusSlotChange(null);logger.destroy();};
+  mounted={destroy:dispose,onAuthHidden:dispose,setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft(),
+   // Acknowledged recap edits: refresh the summary without replacing a focused note editor.
+   syncSaved:value=>{if(disposed||!recapLog)return;recapLog=structuredClone(value);applyFinishState({...finishState,log:structuredClone(value)});}};
  };
  commit.focus=()=>app.querySelector('.logger-title')?.focus({preventScroll:true});
  return commit;

@@ -2609,3 +2609,33 @@ body {padding-bottom:var(--tab-bar-height)}
 @keyframes focus-number {from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-6px)}}
 @keyframes focus-check {from{opacity:0;stroke-dashoffset:40;transform:translateY(5px)}to{opacity:1;stroke-dashoffset:0;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.workout-focus .is-celebrating * {animation:none!important}}
+
+/* Finish recap: replaces the active logger in place; the bottom navigation stays. */
+.workout-logger.is-recap>:not(.recap-host) {display:none!important}
+.workout-recap {display:flex;flex-direction:column;align-items:stretch;gap:0;max-width:34rem;margin:0 auto;padding:24px 0 16px;text-align:center}
+.recap-mark {display:grid;place-items:center;width:58px;height:58px;margin:0 auto 18px;border:2px solid var(--accent);border-radius:50%;color:var(--accent);box-shadow:0 0 40px var(--accent-soft);animation:recap-land 480ms ease-out both}
+.recap-mark svg {width:28px;height:28px}
+.workout-recap .focus-eyebrow {margin:0 0 6px}
+.recap-title {margin:0 0 6px;font-family:var(--font-display);font-size:1.75rem;line-height:1.1;letter-spacing:-.01em;overflow-wrap:anywhere}
+.recap-title:focus {outline:none}
+.recap-title:focus-visible {outline:2px solid var(--accent);outline-offset:4px;border-radius:4px}
+.recap-summary,.recap-sync {margin:0 0 4px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
+.recap-status {display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;min-height:0;margin-top:4px}
+.recap-status[hidden] {display:none}
+.recap-status .logger-status {color:var(--muted);font-size:.8125rem}
+.recap-save-slot:empty {display:none}
+.recap-save-slot {display:flex;justify-content:center;margin-top:4px}
+.recap-exercises {list-style:none;margin:20px 0 0;padding:0;text-align:left}
+.recap-exercise {display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--border)}
+.recap-icon {flex:none;display:grid;place-items:center;width:20px;height:20px;color:var(--accent)}
+.recap-icon svg {width:18px;height:18px}
+.recap-exercise-text {min-width:0}
+.recap-exercise-name {display:block;font-weight:600;overflow-wrap:anywhere}
+.recap-exercise-text small {display:block;color:var(--muted);font-size:.75rem}
+.recap-skipped {margin:0;padding:12px 0 0;border-top:1px solid var(--border);color:var(--muted);font-size:.8125rem;text-align:left}
+.recap-skipped[hidden] {display:none}
+.recap-note {margin:16px 0 0;text-align:left}
+.recap-actions {display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.recap-actions button {width:100%;min-height:44px}
+@keyframes recap-land {0%{opacity:0;transform:scale(.6)}65%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.recap-mark {animation:none}}

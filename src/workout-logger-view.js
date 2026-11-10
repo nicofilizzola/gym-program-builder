@@ -1,6 +1,7 @@
 import {mountWorkoutNote} from './workout-note.js';
 import {mountWorkoutFocus} from './workout-focus-view.js';
 import {mountWorkoutOverview} from './workout-overview.js';
+import {mountWorkoutRecap} from './workout-recap.js';
 import {mountWorkoutHistory} from './workout-history-summary.js';
 import {confirmAction} from './confirm-dialog.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
@@ -412,11 +413,14 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  }
  finish.addEventListener('click',()=>run(async()=>{
   say('');
+  // Working sets per exercise before pruning, so the recap can describe partial work honestly.
+  planned=new Map(log.exercises.map(ex=>[ex.id,ex.sets.filter(s=>s.kind!=='warmup').length]));
+  const recap=Boolean(focusView?.isEnabled());
   const result=await confirmFinish(()=>destroyed?null:log,{confirm:options=>confirmAction({...options,signal:confirmations.signal}),now:()=>new Date()});
   if(result.cancelled)return;
   if(result.error){say(result.error);return;}
   log=result.log;onChange(structuredClone(log));
-  await onFinish(structuredClone(log));
+  await onFinish(structuredClone(log),{recap});
  }),{signal});
  more.addEventListener('click',()=>menu.toggle(more,[active
   ?{label:'Discard workout',run:()=>run(async()=>{
@@ -474,7 +478,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
    return {accepted:revision!==before};
   }
  };
- let focusView=null,overview=null,focusObserver=null,measureFrame=null;
+ let focusView=null,overview=null,focusObserver=null,measureFrame=null,planned=new Map(),recap=null;
  const mobile=matchMedia('(max-width:760px)');
  function measureFocus(){cancelAnimationFrame(measureFrame);measureFrame=requestAnimationFrame(()=>{
   if(destroyed||!mobile.matches||!focusView)return;
@@ -491,7 +495,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   const host=document.createElement('div');page.append(host);
   focusView=mountWorkoutFocus(host,{port:presentationPort,ui:focusSession.read(log.id),onViewed:ref=>focusSession.patch(log.id,{viewed:ref}),onInteraction:event=>{if(event.type==='preference')focusSession.patch(log.id,event.patch);if(event.type==='overview'){overview.update(presentationPort.read(),focusView.visibleRef());overview.open(event.opener);}},onFinish:()=>finish.click()});
   overview=mountWorkoutOverview({port:presentationPort,onJump:ref=>focusView.jump(ref,{focus:true}),onActivity:value=>focusView.suspend(value),onClose:()=>focusView.update(presentationPort.read())});
-  const responsive=()=>{overview.close();focusView.setEnabled(mobile.matches);measureFocus();};
+  // Once the recap is shown it stays until an explicit action; resizing never revives the active controls.
+  const responsive=()=>{if(recap||!focusView)return;overview.close();focusView.setEnabled(mobile.matches);measureFocus();};
   mobile.addEventListener('change',responsive,{signal});window.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('scroll',measureFocus,{signal});
   focusObserver=new ResizeObserver(measureFocus);focusObserver.observe(page.querySelector('.logger-header'));focusObserver.observe(page.querySelector('.focus-toolbar'));focusObserver.observe(page);
   responsive();
@@ -513,9 +518,22 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   /** True while a finished log has a set still showing `Enter reps`, which is not saved. */
   hasUnsavedDraft(){return mode==='finished'&&editable&&[...page.querySelectorAll('.log-set-error')].some(e=>e.textContent==='Enter reps');},
   focusTitle(){title.focus({preventScroll:true});},
+  /** Replaces the active logger with the finish recap. Status and Retry move with it while the finish is pending. */
+  showRecap({state,onDone,onView,onNote}){
+   if(destroyed||recap)return recap;
+   clearInterval(timer);cancelAnimationFrame(measureFrame);focusObserver?.disconnect();overview?.destroy();overview=null;focusView?.destroy();focusView=null;
+   const host=document.createElement('div');host.className='recap-host';page.append(host);
+   for(const part of page.children)if(part!==host){part.inert=true;}
+   page.classList.add('is-recap');
+   recap=mountWorkoutRecap(host,{state,planned,onDone,onView,onNote});
+   recap.statusSlot().append(statusText,retryButton);
+   scrollTo({top:0,behavior:'instant'});recap.focus();
+   return recap;
+  },
+  updateRecap(state){if(!destroyed)recap?.update(state);},
   destroy(){
    if(destroyed)return;
-   overview?.destroy();focusView?.destroy();focusObserver?.disconnect();cancelAnimationFrame(measureFrame);
+   recap?.destroy();overview?.destroy();focusView?.destroy();focusObserver?.disconnect();cancelAnimationFrame(measureFrame);
    if(sharedSaveStatus)onSaveStatusSlotChange(null);
    destroyed=true;workoutNote.destroy();clearInterval(timer);for(const frame of closing)clearTimeout(frame.timer);events.abort();confirmations.abort();sortable?.destroy();menu.destroy();moveMenu.destroy();setMenu.destroy();tooltips.destroy();
    listeners.clear();externalPicker?.destroy();for(const card of cards.values()){card.picker?.destroy();card.history.destroy();for(const row of card.rows.values())destroySetRow(row);}addPicker?.destroy();page.remove();
