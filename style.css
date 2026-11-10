@@ -2504,7 +2504,7 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-progress-segment {flex:1;min-width:0;background:var(--border);overflow:hidden}
 .focus-progress-fill {display:block;height:100%;background:var(--accent);transform:scaleX(0);transform-origin:left}
 .focus-progress-segment.is-done .focus-progress-fill {transform:scaleX(1)}
-.focus-feed {position:relative;height:var(--focus-feed-height);overflow-y:auto;overflow-x:hidden;list-style:none;margin:0;padding:0;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain}
+.focus-feed {position:relative;container:focus-feed / size;height:var(--focus-feed-height);overflow-y:auto;overflow-x:hidden;list-style:none;margin:0;padding:0;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain}
 .focus-feed::-webkit-scrollbar {display:none}
 .focus-feed.is-unsnapped {scroll-snap-type:none}
 .workout-focus .focus-card {position:relative;display:grid;grid-template-rows:1fr;min-height:max(0px,calc(var(--focus-feed-height) - 60px));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
@@ -2573,8 +2573,11 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-review h2 {margin:0;font-family:var(--font-display);font-size:2rem;text-transform:none}
 .focus-review-copy,.focus-empty p {color:var(--muted);font-size:.875rem}
 .focus-empty {padding:24px 0}
-@media(max-height:780px){.workout-focus .focus-context {min-height:44px}.focus-exercise-title {font-size:1.75rem}.focus-history {margin-bottom:8px}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}.workout-focus .focus-feedback {min-height:24px;padding:5px 0}}
-@media(max-width:350px){.workout-focus .focus-rir-strip {grid-template-columns:minmax(0,1fr)}.workout-focus .log-rir-label {display:flex;align-items:center;gap:8px;min-height:28px}.workout-focus .log-rir-label small {margin:0;font-size:.625rem}}
+/* Density tiers follow the measured feed, not the device: short feeds shrink numbers and rulers so the set still fits. */
+@container focus-feed (height < 560px){.focus-exercise-title {font-size:1.75rem}.focus-history {margin-bottom:8px}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}}
+@container focus-feed (height < 460px){.focus-exercise-title {font-size:1.5rem}.focus-history {margin-bottom:6px}.workout-focus .log-stepper input[type="text"] {min-height:36px;font-size:2.2rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:32px}.workout-focus .workout-ruler-tick {top:18px}.workout-focus .log-stepper {padding-top:4px}.workout-focus .log-stepper .focus-control-label {margin-bottom:3px}}
+/* Narrow cards keep six 44px RIR targets and the set-note icon on one row; the caption stays as the group's accessible name. */
+@container focus-feed (width < 362px){.workout-focus .focus-rir-strip {grid-template-columns:minmax(0,1fr) 44px}.workout-focus .log-rir-label {position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){.workout-focus .focus-card,.workout-focus .log-done {transition:none}.workout-focus .log-done:active {transform:none}}
 
 .is-focus .focus-number-controls .log-stepper {position:relative}
