@@ -1,5 +1,17 @@
 # Gym Program Builder
 
+## Mobile workout Focus (2026-11-08)
+
+Design: docs/superpowers/specs/2026-11-08-mobile-workout-focus-design.md; plan: docs/superpowers/plans/2026-11-08-mobile-workout-focus.md; evidence: docs/superpowers/verification/2026-11-08-mobile-workout-focus.md. Supersedes the compact active tracker on phones where they conflict.
+
+- Editable active workouts at ≤760px show Focus: one snapping set-by-set feed. Desktop keeps the regular tracker; finished logs use the compact editable record on every viewport. Explicit routes and drafts survive resize.
+- Focus is a presentation over `mountWorkoutLogger`'s port: it borrows the same row/input/note/RIR/done nodes, never clones them, never mounts a second logger or controller and never changes `workout-sync`. Preserve node identity, focus, caret, composition and invalid drafts through breakpoint changes and saves.
+- Execution order comes from pure `src/workout-focus-model.js` (warm-ups, then paired rounds). Rulers (0.25/1/2.5/5kg, default 2.5) never round a typed value; rep guidance is advisory and inclusive. RIR one-tap targets ≥44px; numeric inputs ≥16px.
+- Title ticker only for overflowing names (22px/s, 1.4s hold, 2.2s after drag); tap pauses, no separate button. Completion: fill 480ms, check 300ms, scale 480ms, Auto-next 650ms to context; any interaction, note, dialog, undo or resize cancels. Reduced motion is instant with no title autoplay. Hydration, saves and network responses never celebrate or advance.
+- Auto-next, weight increment and per-log viewed set live in auth-scoped memory (`src/workout-focus-session.js`), cleared on sign-in/out; never in the log, mirror or exports.
+- The feed height is measured from document positions, toolbar, `--tab-bar-height` and `visualViewport`; a long workout note yields the space under the sticky header. Logger horizontal gestures never navigate root destinations.
+- An explicit Focus Finish shows a transient recap of the post-pruning record (`src/workout-recap.js`). `binding.onFinish({stay:true})` returns `{accepted,state}` without navigating; the controller releases ownership before publishing the acknowledged record, then the app's finished-log autosave becomes the only writer. Pending finishes stay read-only and are never described as saved. A conflict restoring an active log leaves the recap. Reload shows the regular finished record; desktop and start-another-workout prompts keep their destinations. No migration, schema or export change. Never claim a pending deployment was verified.
+
 ## Mobile Library navigation and swiping (2026-11-07)
 
 Design: docs/superpowers/specs/2026-11-07-mobile-library-navigation-design.md; plan: docs/superpowers/plans/2026-11-07-mobile-library-navigation.md; evidence: docs/superpowers/verification/2026-11-07-mobile-library-navigation.md. Supersedes older mobile header/tab rules where they conflict.
