@@ -53,6 +53,25 @@ One read-only whole-branch review (`dfea147..313f5b0`) found no critical issues 
 
 - After pinning the status: the same focused suites plus `workout-bar` and `workout-start` 168/168; unit 456/456 with the GC preload; build and `git diff --check` pass.
 
+## Scoped re-review of the post-review commits
+
+At the user's request, an independent reviewer (fresh context) reviewed `ec5cfdc..f0425ef`: no Critical, two Important, seven Minor.
+
+- Important, fixed: Catalog's cold-load heading still shrank 32px→24px because the placeholder always used the Library header. Test `cold Catalog loading heading matches the loaded Catalog heading` RED (height Δ 8.8px) → GREEN (x, y and height within 1px) after the placeholder adopted `catalog-header`.
+- Important, fixed: `f0425ef` had committed 18 regenerated screenshots of the previous feature (`assets/mobile-library-navigation/`) with different database content, contrary to this record's earlier claim that they were restored. They are restored to their pre-session versions.
+- Deferred minors: see the final summary below.
+- Fix-pass verification: `root-cache-refresh`, `catalog`, `mobile-destination-swipes`, `mobile-page-memory`, `mobile-navigation-latency` and `workout-picker-latency` 54/54; unit 456/456 ordinary and with the GC preload; build and `git diff --check` pass.
+
+## Deferred minors (from the scoped re-review)
+
+- The pinned status keeps its bar offset while `body.is-typing` slides the bars away, floating above an empty band (precedent: `body.is-typing .panel {bottom:0}`).
+- History shows its refresh failure twice (its own alert plus the pinned status) and differing cold-failure wording; one owner should report refresh errors.
+- Hiding an empty status relies on `:has()`; browsers without it would show an empty pill. Setting `hidden` in `show()` would remove the dependency.
+- `data-page` on the feedback element and History's placeholder `pageClass` have no visible effect.
+- `workout-bar.js` `destroy()` resets body padding but not `--workout-bar-space` (no current caller).
+- The status jumps to its final offset while the workout bar slides (~180ms).
+- The pinned status was not inspected at 200% text, while typing, at 601–760px/761px or with reduced motion; at 200% text it wraps over the list with no dismiss.
+
 Screenshots (390px): `assets/fluid-mobile-navigation/390-cold-loading.png` (held Programs GET), `390-cached-refreshing.png` (cached rows during a held refresh) and `390-refresh-failed.png` (503 refresh; pinned status with Retry).
 
 ## Verification environment and limits

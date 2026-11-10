@@ -14,8 +14,9 @@ session-cached content and a background refresh status delayed by 250ms.
 Cold errors stay on the destination with Retry; refresh errors retain the last
 successful content. Loading content never disables the bottom navigation.
 Preserve focus, drafts, composition and scroll when refreshed data arrives. The loading
-placeholder and refresh feedback use the destination's mobile page gutter
-(16px at ≤600px) so the heading never jumps when content mounts. The refresh
+placeholder uses the destination's mobile page gutter (16px at ≤600px) and
+heading style (Library or Catalog header) so the heading never jumps when
+content mounts. The refresh
 status is a compact surface pill pinned above the tab bar and any active workout
 bar, with a 44px Retry on failure; it appears and disappears without motion.
 

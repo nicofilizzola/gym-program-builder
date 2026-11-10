@@ -2,7 +2,7 @@
 export function mountRootPageSurface(host,{title,onRetry,pageClass='library'}){
  const section=document.createElement('section');section.className='root-page-surface';section.dataset.rootState='loading';
  const placeholder=document.createElement('section'),header=document.createElement('header'),heading=document.createElement('h1'),skeleton=document.createElement('div');
- heading.textContent=title;heading.tabIndex=-1;skeleton.className='root-page-skeleton';skeleton.textContent='Loading...';skeleton.setAttribute('role','status');placeholder.className='root-page-placeholder';placeholder.dataset.page=pageClass;header.className='library-heading';header.append(heading);placeholder.append(header,skeleton);
+ heading.textContent=title;heading.tabIndex=-1;skeleton.className='root-page-skeleton';skeleton.textContent='Loading...';skeleton.setAttribute('role','status');placeholder.className='root-page-placeholder';placeholder.dataset.page=pageClass;header.className=pageClass==='catalog-page'?'catalog-header':'library-heading';header.append(heading);placeholder.append(header,skeleton);
  const content=document.createElement('div'),feedback=document.createElement('div'),text=document.createElement('p'),retry=document.createElement('button');
  feedback.className='root-page-feedback';feedback.dataset.page=pageClass;text.setAttribute('role','status');retry.type='button';retry.className='secondary-btn';retry.textContent='Retry';retry.onclick=onRetry;retry.hidden=true;feedback.append(text,retry);section.append(placeholder,content,feedback);host.append(section);
  let populated=false;

@@ -106,3 +106,18 @@ test('refresh failure on a long list stays in view above the tab bar and the act
  await nav(page,'Library').click();await expectFeedbackAboveBars(page);
  await resetWorkouts(page);
 });
+
+test('cold Catalog loading heading matches the loaded Catalog heading',async({page})=>{
+ await login(page);let release;const held=new Promise(r=>release=r);
+ await page.route('**/api/catalog',async route=>{await held;await route.continue().catch(()=>{});});
+ try{
+  await nav(page,'Library').click();await page.getByRole('link',{name:'Exercises',exact:true}).click();
+  await expect(page.locator('[data-root-state]')).toHaveAttribute('data-root-state','loading');
+  const loading=await page.locator('.root-page-placeholder h1').boundingBox();
+  release();await expect(page.locator('.catalog-page .catalog-header h1')).toBeVisible();
+  const loaded=await page.locator('.catalog-page .catalog-header h1').boundingBox();
+  expect(Math.abs(loading.x-loaded.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(loading.height-loaded.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(loading.y-loaded.y)).toBeLessThanOrEqual(1);
+ }finally{release();}
+});
