@@ -47,3 +47,39 @@ test('logging out clears Focus memory',async({page})=>{
  await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#shell')).toBeVisible();
  await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.getByLabel('Auto-next',{exact:true})).toBeChecked();
 });
+test('closing the overview keeps a Focus card exercise note in that card',async({page})=>{
+ const log=await start(page),name=log.exercises[0].name;
+ await page.getByRole('button',{name:`Add exercise note, ${name}`,exact:true}).first().click();
+ const note=page.getByRole('textbox',{name:`Note, ${name}`,exact:true});await note.fill('Brace first ');
+ await page.getByRole('button',{name:'Workout overview',exact:true}).click();
+ await page.getByRole('dialog',{name:'Workout overview'}).getByRole('button',{name:'Close overview',exact:true}).click();
+ await expect(page.getByRole('dialog',{name:'Workout overview'})).toHaveCount(0);
+ // Opening the dialog ends editing (blur trims and saves); the saved note must stay in the visible Focus card.
+ const saved=page.locator('.focus-exercise-editor').getByRole('button',{name:`Edit note, ${name}: Brace first`,exact:true});
+ await expect(saved).toBeVisible();await expect(note).toHaveCount(0);
+});
+test.describe('with motion',()=>{
+ test.use({reducedMotion:'no-preference'});
+ // iOS Safari has no scroll anchoring; without it Chromium shows the same drift instead of compensating for it.
+ const noAnchoring=page=>page.addStyleTag({content:'.focus-feed{overflow-anchor:none}'});
+ const anchor=page=>page.locator('.focus-feed').evaluate(f=>{const rows=[...f.querySelectorAll(':scope>.log-set')];return rows.findIndex(r=>Math.abs(r.offsetTop-f.scrollTop)<2);});
+ // Typing turns snapping off, so the browser cannot mask drift while the keyboard shrinks the viewport.
+ test('a height change while typing re-anchors the viewed set after card transitions settle',async({page})=>{
+  // A tall phone so card height comes from min-height rather than content.
+  await page.setViewportSize({width:390,height:1100});await start(page);await noAnchoring(page);
+  await page.locator('.focus-feed').evaluate(f=>{const row=f.querySelectorAll(':scope>.log-set')[2];f.scrollTo({top:row.offsetTop,behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(2);
+  await page.locator('.focus-feed>.log-set').nth(2).locator('[data-field="reps"]').click();await expect(page.locator('.focus-feed')).toHaveClass(/is-unsnapped/);
+  await page.setViewportSize({width:390,height:900});await page.waitForTimeout(400);
+  expect(await anchor(page)).toBe(2);
+ });
+ test('an overview warm-up added before the viewed set keeps that set in view',async({page})=>{
+  await page.setViewportSize({width:390,height:1100});await start(page);await noAnchoring(page);
+  const ids=await page.locator('.focus-feed>.log-set').evaluateAll(rows=>rows.map(r=>r.dataset.setId));
+  await page.locator('.focus-feed').evaluate(f=>{const row=f.querySelectorAll(':scope>.log-set')[1];f.scrollTo({top:row.offsetTop,behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(1);
+  await page.getByRole('button',{name:'Workout overview',exact:true}).click();
+  const d=page.getByRole('dialog',{name:'Workout overview'});await d.getByRole('button',{name:/^Add warm-up/}).first().click();
+  await d.getByRole('button',{name:'Close overview',exact:true}).click();await expect(d).toHaveCount(0);await page.waitForTimeout(500);
+  const shown=await page.locator('.focus-feed').evaluate(f=>{const rows=[...f.querySelectorAll(':scope>.log-set')];return rows.find(r=>Math.abs(r.offsetTop-f.scrollTop)<2)?.dataset.setId;});
+  expect(shown).toBe(ids[1]);
+ });
+});

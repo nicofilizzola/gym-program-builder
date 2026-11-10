@@ -441,7 +441,8 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  if(sharedSaveStatus){statusText.hidden=true;retryButton.hidden=true;const slot=document.createElement('div');slot.className='page-save-slot';page.querySelector('.logger-header').append(slot);onSaveStatusSlotChange(slot);}
 
  function restoreRows(){rowPlacement=null;relocate(()=>{for(const ex of log.exercises){const card=cards.get(ex.id);for(const set of ex.sets){const row=card?.rows.get(set.id);if(row)card.sets.append(row);}}});}
- function restoreExerciseNotes(){relocate(()=>{for(const [id,marker] of noteOrigins){const host=cards.get(id)?.noteHost;if(host&&marker.isConnected)marker.after(host);}});}
+ /** Returns borrowed exercise notes to their cards; with `scope`, only the notes currently inside it (another surface keeps its own). */
+ function restoreExerciseNotes(scope=null){relocate(()=>{for(const [id,marker] of noteOrigins){const host=cards.get(id)?.noteHost;if(host&&marker.isConnected&&(!scope||scope.contains(host)))marker.after(host);}});}
  function external(host,onSelect){
   closeExternal();host.replaceChildren();
   const area=document.createElement('div');area.className='log-picker';area.innerHTML='<div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button>';host.append(area);
