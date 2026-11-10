@@ -41,11 +41,18 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  const listeners=new Set();let rowPlacement=null,revision=0,externalPicker=null,externalArea=null;const noteOrigins=new Map();
  const events=new AbortController(),{signal}=events,confirmations=new AbortController();
  const page=document.createElement('section');page.className='workout-logger';page.dataset.mode=mode;if(readOnly)page.dataset.readonly='true';
- page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><div class="log-note logger-note"></div><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
+ page.innerHTML=`<header class="logger-header"><div class="logger-header-row"><h1 class="logger-title" tabindex="-1"><input type="text" class="logger-name" aria-label="Workout name" maxlength="${WORKOUT_LIMITS.nameMax}" autocomplete="off"></h1><button type="button" class="action-button logger-note-indicator" aria-label="Edit workout note" data-action-tooltip="Workout note" hidden>${actionIcon('edit')}</button><button type="button" class="add-btn logger-finish">Finish</button><button type="button" class="action-button logger-more" aria-label="Workout actions" data-action-tooltip="Workout actions" aria-expanded="false">${actionIcon('more')}</button></div><div class="logger-times" hidden><label>Date<input type="date" class="logger-date"></label><label>Start time<input type="time" class="logger-start"></label><label>End time<input type="time" class="logger-end"></label></div><p class="logger-meta"><span class="logger-elapsed"></span><span class="logger-status" role="status" aria-live="polite"></span><button type="button" class="secondary-btn logger-retry" hidden>Retry</button></p><p class="error logger-message" role="alert"></p></header><div class="log-note logger-note"></div><ol class="log-exercises"></ol><p class="empty log-empty">No exercises yet. Add one to start logging.</p><div class="log-picker" hidden><div class="exercise-picker"></div><button type="button" class="secondary-btn">Cancel</button></div><button type="button" class="secondary-btn log-add-exercise">${actionIcon('plus')}Add exercise</button>`;
  const $=selector=>page.querySelector(selector);
  const times=$('.logger-times'),dateInput=$('.logger-date'),startInput=$('.logger-start'),endInput=$('.logger-end'),title=$('.logger-title'),nameInput=$('.logger-name'),finish=$('.logger-finish'),more=$('.logger-more'),elapsed=$('.logger-elapsed'),statusText=$('.logger-status'),retryButton=$('.logger-retry'),message=$('.logger-message');
  const list=$('.log-exercises'),empty=$('.log-empty'),addArea=$('.log-picker'),addHost=addArea.firstElementChild,addCancel=addArea.lastElementChild,addButton=$('.log-add-exercise');
- const workoutNote=mountWorkoutNote($('.logger-note'),{note:log.note??'',readOnly:!editable,onInput:text=>commit(setWorkoutNote(log,text)),onBlur:text=>{if(text!==log.note)commit(setWorkoutNote(log,text));}});
+ // On phones (Focus) the workout note lives behind the header: Workout actions, or this indicator once a note exists.
+ let focusChrome=false;const noteIndicator=$('.logger-note-indicator');
+ const syncNoteIndicator=()=>{noteIndicator.hidden=!(focusChrome&&editable&&Boolean(log.note)&&!workoutNote.isEditing());};
+ const workoutNote=mountWorkoutNote($('.logger-note'),{note:log.note??'',readOnly:!editable,onInput:text=>commit(setWorkoutNote(log,text)),onBlur:text=>{if(text!==log.note)commit(setWorkoutNote(log,text));
+  // The note ends editing after this callback returns.
+  queueMicrotask(()=>{if(destroyed)return;syncNoteIndicator();if(focusChrome&&document.activeElement===document.body)(noteIndicator.hidden?more:noteIndicator).focus({preventScroll:true});});}});
+ noteIndicator.addEventListener('click',()=>{workoutNote.open();syncNoteIndicator();});
+ function setFocusChrome(on){focusChrome=on;workoutNote.update({note:log.note??'',readOnly:!editable,collapsed:on});syncNoteIndicator();}
  const tooltips=mountActionTooltips(page),menu=mountReorderMenu({label:'Workout actions'}),moveMenu=mountReorderMenu(),setMenu=mountReorderMenu({label:'Set actions'});
  nameInput.readOnly=!editable;finish.hidden=!active;more.hidden=addButton.hidden=!editable;times.hidden=mode!=='finished'||readOnly;
 
@@ -226,7 +233,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  }
  const firstIdOf=li=>li.dataset.blockKey;
  function render({animate=false}={}){
-  workoutNote.update({note:log.note??'',readOnly:!editable});
+  workoutNote.update({note:log.note??'',readOnly:!editable,collapsed:focusChrome});syncNoteIndicator();
   // A closing frame stays put through routine edits (typing, done toggles), so a focused field is never moved mid-edit;
   // it is released early only when its members no longer sit together in the log in their current order.
   for(const frame of [...closing]){
@@ -422,7 +429,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   log=result.log;onChange(structuredClone(log));
   await onFinish(structuredClone(log),{recap});
  }),{signal});
- more.addEventListener('click',()=>menu.toggle(more,[active
+ more.addEventListener('click',()=>menu.toggle(more,[...(focusChrome&&editable?[{label:log.note?'Edit workout note':'Add workout note',run:()=>{workoutNote.open();syncNoteIndicator();}}]:[]),active
   ?{label:'Discard workout',run:()=>run(async()=>{
    if(!await confirmAction({title:'Discard workout?',message:'This workout and its sets will be deleted. This cannot be undone.',confirmLabel:'Discard workout',destructive:true,signal:confirmations.signal}))return;
    if(!destroyed)await onDiscard();
@@ -484,7 +491,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  function measureFocus(){cancelAnimationFrame(measureFrame);measureFrame=requestAnimationFrame(()=>{
   if(destroyed||!mobile.matches||!focusView)return;
   const header=page.querySelector('.logger-header'),feed=page.querySelector('.focus-feed'),focus=page.querySelector('.workout-focus'),toolbar=page.querySelector('.focus-toolbar'),nav=document.querySelector('.app-header nav');
-  const viewport=window.visualViewport,bottom=viewport?viewport.height:innerHeight,reserved=toolbar.getBoundingClientRect().height+(nav?.getBoundingClientRect().height??0)+12;
+  const viewport=window.visualViewport,bottom=viewport?viewport.height:innerHeight,reserved=toolbar.getBoundingClientRect().height+(nav?.getBoundingClientRect().height??0);
   // Document positions keep the result independent of the current page scroll.
   const feedTop=feed.getBoundingClientRect().top+scrollY,strip=feedTop-(focus.getBoundingClientRect().top+scrollY),headerBox=header.getBoundingClientRect();
   const atRest=bottom-feedTop-reserved,underHeader=bottom-headerBox.height-parseFloat(getComputedStyle(header).marginBottom)-strip-reserved;
@@ -497,7 +504,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   focusView=mountWorkoutFocus(host,{port:presentationPort,ui:focusSession.read(log.id),onViewed:ref=>focusSession.patch(log.id,{viewed:ref}),onInteraction:event=>{if(event.type==='preference')focusSession.patch(log.id,event.patch);if(event.type==='overview'){overview.update(presentationPort.read(),focusView.visibleRef());overview.open(event.opener);}},onFinish:()=>finish.click()});
   overview=mountWorkoutOverview({port:presentationPort,onJump:ref=>focusView.jump(ref,{focus:true}),onActivity:value=>focusView.suspend(value),onClose:()=>focusView.update(presentationPort.read())});
   // Once the recap is shown it stays until an explicit action; resizing never revives the active controls.
-  const responsive=()=>{if(recap||!focusView)return;overview.close();focusView.setEnabled(mobile.matches);measureFocus();};
+  const responsive=()=>{if(recap||!focusView)return;overview.close();setFocusChrome(mobile.matches);focusView.setEnabled(mobile.matches);measureFocus();};
   mobile.addEventListener('change',responsive,{signal});window.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('scroll',measureFocus,{signal});
   focusObserver=new ResizeObserver(measureFocus);focusObserver.observe(page.querySelector('.logger-header'));focusObserver.observe(page.querySelector('.focus-toolbar'));focusObserver.observe(page);
   responsive();

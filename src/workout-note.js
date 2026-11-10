@@ -1,11 +1,11 @@
 import {WORKOUT_LIMITS,normalizeNote} from './workout-log.js';
 
 /** Owns note presentation only. The logger owns persistence and canonical text. */
-export function mountWorkoutNote(host,{note='',readOnly=false,onInput=()=>{},onBlur=()=>{}}){
+export function mountWorkoutNote(host,{note='',readOnly=false,collapsed=false,onInput=()=>{},onBlur=()=>{}}){
  const motion=matchMedia('(prefers-reduced-motion: reduce)'),parts=new Set();
  let editing=false,current=null,kind=null,destroyed=false,composing=false;
  const grow=field=>{field.style.height='auto';field.style.height=field.scrollHeight+'px';};
- function remove(part){clearTimeout(part.timer);part.remove();parts.delete(part);}
+ function remove(part){clearTimeout(part.timer);part.remove();parts.delete(part);if(kind==='none'&&!parts.size)host.hidden=true;}
  function close(part,animate){
   part.inert=true;part.setAttribute('aria-hidden','true');part.classList.add('is-closed');
   if(!animate||motion.matches){remove(part);return;}
@@ -14,7 +14,9 @@ export function mountWorkoutNote(host,{note='',readOnly=false,onInput=()=>{},onB
  }
  function render(animate=false){
   if(destroyed)return;
-  const next=readOnly?(note?'static':'none'):editing?'edit':note?'text':'add';
+  // Collapsed hosts (phone Focus) show the note only while it is being edited.
+  const next=readOnly?(note&&!collapsed?'static':'none'):editing?'edit':collapsed?'none':note?'text':'add';
+  host.classList.toggle('is-editing',editing);
   if(next!==kind){
    if(current)close(current,animate);
    kind=next;current=null;
@@ -33,24 +35,28 @@ export function mountWorkoutNote(host,{note='',readOnly=false,onInput=()=>{},onB
     }else if(next==='static'){field=document.createElement('p');field.className='log-note-static';}
     else{
      field=document.createElement('button');field.type='button';field.className=next==='add'?'log-note-add':'log-note-text';field.setAttribute('aria-label',next==='add'?'Add workout note':'Edit workout note');
-     field.addEventListener('click',()=>{
-      editing=true;render(true);const input=current.querySelector('textarea');input.focus();input.setSelectionRange(input.value.length,input.value.length);
-     });
+     field.addEventListener('click',open);
     }
     inner.append(field);
     if(animate&&!motion.matches)part.classList.add('is-closed');host.append(part);
     if(animate){getComputedStyle(part).gridTemplateRows;part.classList.remove('is-closed');}
    }
   }
-  host.hidden=next==='none';
+  host.hidden=next==='none'&&!parts.size;
   const field=current?.querySelector('button,textarea,p');if(!field)return;
   if(next==='edit'){if(document.activeElement!==field&&!composing)field.value=note;grow(field);}
   else field.textContent=next==='add'?'Add note':note;
  }
+ function open(){
+  if(destroyed||readOnly)return;
+  editing=true;render(true);const input=current.querySelector('textarea');input.focus();input.setSelectionRange(input.value.length,input.value.length);
+ }
  const settle=()=>{if(motion.matches)for(const part of parts)if(part!==current)remove(part);};motion.addEventListener('change',settle);
  render();
  return {
-  update(value){note=value.note??'';readOnly=value.readOnly;render();},
+  update(value){note=value.note??'';readOnly=value.readOnly;collapsed=Boolean(value.collapsed);render();},
+  open,
+  isEditing:()=>editing,
   destroy(){destroyed=true;motion.removeEventListener('change',settle);for(const part of parts)remove(part);}
  };
 }

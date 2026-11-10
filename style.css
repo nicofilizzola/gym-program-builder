@@ -2494,6 +2494,9 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus {--focus-feed-height:calc(100dvh - 270px);min-width:0}
 .workout-focus[hidden],.workout-focus [hidden] {display:none!important}
 .workout-logger.is-focus {max-width:42rem;padding-bottom:0}
+.workout-logger.is-focus>.logger-header {margin-bottom:8px}
+.workout-logger.is-focus>.logger-note {margin:0 0 8px}
+.logger-note-indicator[hidden] {display:none}
 .workout-logger.is-focus>.log-exercises,.workout-logger.is-focus>.log-empty,.workout-logger.is-focus>.log-add-exercise {display:none}
 .focus-progress {margin:0 0 8px}
 .focus-progress-meta {display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:.6875rem;line-height:1.4;margin-bottom:7px}

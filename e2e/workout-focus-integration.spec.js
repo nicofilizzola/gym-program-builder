@@ -13,7 +13,7 @@ test('breakpoint preserves invalid drafts and the exact focused input and caret'
  const log=await start(page),input=page.getByLabel(`Set 1 weight, ${log.exercises[0].name}`,{exact:true});await input.fill('82.3');await input.evaluate(n=>{window.testInput=n;n.setSelectionRange(1,3);});await page.setViewportSize({width:761,height:844});await expect(input).toBeFocused();await expect(input).toHaveValue('82.3');await page.setViewportSize({width:760,height:844});await expect(input).toBeFocused();expect(await input.evaluate(n=>({same:n===window.testInput,start:n.selectionStart,end:n.selectionEnd}))).toEqual({same:true,start:1,end:3});
 });
 test('breakpoint retains a composing exercise note and shared workout note',async({page})=>{
- const log=await start(page);await page.getByRole('button',{name:`Add exercise note, ${log.exercises[0].name}`,exact:true}).first().click();const note=page.getByRole('textbox',{name:`Note, ${log.exercises[0].name}`,exact:true});await note.fill('Slow descent');await note.evaluate(n=>{window.testNote=n;n.setSelectionRange(2,5);n.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});await page.setViewportSize({width:761,height:844});await expect(note).toBeFocused();await page.setViewportSize({width:760,height:844});await expect(note).toBeFocused();expect(await note.evaluate(n=>({same:n===window.testNote,start:n.selectionStart,end:n.selectionEnd}))).toEqual({same:true,start:2,end:5});await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeVisible();
+ const log=await start(page);await page.getByRole('button',{name:`Add exercise note, ${log.exercises[0].name}`,exact:true}).first().click();const note=page.getByRole('textbox',{name:`Note, ${log.exercises[0].name}`,exact:true});await note.fill('Slow descent');await note.evaluate(n=>{window.testNote=n;n.setSelectionRange(2,5);n.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});await page.setViewportSize({width:761,height:844});await expect(note).toBeFocused();await page.setViewportSize({width:760,height:844});await expect(note).toBeFocused();expect(await note.evaluate(n=>({same:n===window.testNote,start:n.selectionStart,end:n.selectionEnd}))).toEqual({same:true,start:2,end:5});await page.getByRole('button',{name:'Workout actions',exact:true}).click();await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeVisible();
 });
 test('Auto-next off survives route reentry without changing the saved log',async({page})=>{
  const log=await start(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();await page.getByRole('link',{name:'History',exact:true}).click();await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.getByLabel('Auto-next',{exact:true})).not.toBeChecked();const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log).not.toHaveProperty('autoNext');
@@ -26,8 +26,9 @@ test('feed re-measures without losing the viewed set',async({page})=>{
  await page.setViewportSize({width:761,height:700});await page.setViewportSize({width:760,height:700});await expect.poll(anchored).toEqual({index:2,snapped:true});
 });
 test('a long workout note leaves the feed the space under the sticky header',async({page})=>{
- const log=await start(page);await page.getByRole('button',{name:'Add workout note',exact:true}).click();
- const note=page.getByRole('textbox',{name:'Workout note',exact:true});await note.fill('Long workout context with line breaks.\n'.repeat(45));await note.blur();
+ const log=await start(page);const initial=(await page.locator('.focus-feed').boundingBox()).height;await page.getByRole('button',{name:'Workout actions',exact:true}).click();await page.getByRole('button',{name:'Add workout note',exact:true}).click();
+ // In Focus the note only occupies the page while it is being edited.
+ const note=page.getByRole('textbox',{name:'Workout note',exact:true});await note.fill('Long workout context with line breaks.\n'.repeat(45));
  const feed=page.locator('.focus-feed');await expect.poll(async()=>(await feed.boundingBox()).height).toBeGreaterThan(400);
  // Scrolling the page brings the whole feed and toolbar on screen below the sticky header, above the tab bar.
  await page.locator('.focus-toolbar').scrollIntoViewIfNeeded();await page.evaluate(()=>scrollBy(0,10000));
@@ -35,6 +36,28 @@ test('a long workout note leaves the feed the space under the sticky header',asy
  expect(box.y).toBeGreaterThanOrEqual(header.y+header.height-1);expect(toolbar.y+toolbar.height).toBeLessThanOrEqual(nav.y+1);
  const before=box.height;await page.evaluate(()=>scrollTo(0,0));await page.setViewportSize({width:390,height:845});await page.setViewportSize({width:390,height:844});
  await expect.poll(async()=>(await feed.boundingBox()).height).toBe(before);
+ await note.blur();await expect(note).toHaveCount(0);await expect.poll(async()=>(await feed.boundingBox()).height).toBe(initial);
+});
+test('Focus moves the workout note into the header menu',async({page})=>{
+ await start(page);
+ await expect(page.locator('.logger-note')).toBeHidden();
+ await page.getByRole('button',{name:'Workout actions',exact:true}).click();
+ await page.getByRole('button',{name:'Add workout note',exact:true}).click();
+ const note=page.getByRole('textbox',{name:'Workout note',exact:true});
+ await expect(note).toBeFocused();await note.fill('Felt strong');await note.blur();
+ await expect(note).toHaveCount(0);await expect(page.locator('.logger-note')).toBeHidden();
+ const indicator=page.getByRole('button',{name:'Edit workout note',exact:true});
+ await expect(indicator).toBeVisible();await indicator.click();
+ await expect(note).toBeFocused();await expect(note).toHaveValue('Felt strong');await note.blur();
+ await page.setViewportSize({width:761,height:844});
+ await expect(page.locator('.logger-note')).toBeVisible();await expect(page.locator('.logger-note-indicator')).toBeHidden();
+});
+test('Focus chrome leaves no reserve gap and no note row above the feed',async({page})=>{
+ await start(page);
+ const header=await page.locator('.logger-header').boundingBox(),progress=await page.locator('.focus-progress').boundingBox();
+ expect(progress.y-(header.y+header.height)).toBeLessThanOrEqual(9);
+ const toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.locator('nav[aria-label="Main"]').boundingBox();
+ expect(nav.y-(toolbar.y+toolbar.height)).toBeLessThanOrEqual(2);
 });
 test('horizontal swipes on the logger never change root destinations',async({page})=>{
  const log=await start(page);const url=page.url();
