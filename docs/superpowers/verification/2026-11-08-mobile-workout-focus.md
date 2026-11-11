@@ -68,3 +68,20 @@ Plan: docs/superpowers/plans/2026-11-10-focus-card-fit.md. Reported on a physica
 **Known limits.** With Last time history at 360×660 Complete fits but the next-card preview is absent (the specification allows this). Physical-device verification on the Pixel 8 is pending: confirm in Chrome with the default font and display size; larger system font or display size settings make cards taller, where the sticky Complete applies. Motion was checked only through the existing automated motion tests.
 
 **Independent review (card fit).** One fresh reviewer read `9a6e739..edc8945`: no Critical, two Important, seven Minor. Both Important findings were reproduced with failing tests and fixed: (1) a keyboard-driven feed shrink re-anchored the card top and left the focused input under the pinned Complete; `setFeedHeight` now keeps a focused field 64px above the feed bottom (`opening the keyboard keeps the focused reps input above the pinned Complete`). (2) Closing the workout note returned focus to the header before a tapped control could take it; both note blur paths now wait for the focus move to settle (`tapping a set input while the workout note is open moves focus to that input`). After the fix pass: unit 476/476; e2e 501 passed with no failures before the run was interrupted, then the remaining 11 files 94/94; build passed. Deferred minors: a stale milestone label after undoing a different set of the same exercise, a wrapping completion label, density tiers reacting to the keyboard, a focused inline note button lost when crossing 761→760px, the 32px saved exercise-note text target, a misleading CSS comment about the RIR caption, and the sticky-pin test asserting only computed `position`.
+
+## Card rhythm and clean peek (2026-11-11)
+
+Plan: docs/superpowers/plans/2026-11-11-focus-card-rhythm.md. Local Chromium (Playwright, touch, mobile) with seeded Last time and Best; heights are visible browser viewports.
+
+| Viewport | Before: next title visible / history→inputs / RIR→Complete | After |
+|---|---|---|
+| 412×839 (Pixel 7) | 17px / 126px / 4px | next-set header whole, title 0px; every section gap equal |
+| 412×850 (Pixel 8/9) | 17px / 137px / 4px | same |
+| 393×750 (iPhone 16, toolbar collapsed) | 17px / 50px / 4px | equal gaps; peek only when whole |
+| 440×770 | 17px / 70px / 4px | equal gaps; peek only when whole |
+| 393×659, 360×660 (418px feed) | header cut mid-row / 6px / 4px | no peek (`.is-peekless`), card fits without the sticky fallback, 6px gaps |
+
+- `e2e/workout-focus-fit.spec.js`: rhythm at 11 viewports (min gap ≥6px, spread ≤16px, RIR→Complete ≥ inner gap) and clean peek (title ≤1px, header whole or absent, expected peekless per viewport). `e2e/workout-focus-view.spec.js`: last set never peeks, two-line superset eyebrow sets the peek, long exercise note keeps the viewed set anchored. Unit: `test/workout-focus-fit.test.js`.
+- Inspected screenshots at 412×839, 412×850, 393×659, 393×750, 440×770, 360×660 and 390×664 at 200% text; completed a set on Pixel 7 (Auto-next settled on set 2 with a clean peek of set 3). At 200% text and on 418px feeds with a previous-session note the card still outgrows the feed and the existing sticky Complete applies.
+- Checks: `npm test` 483/483; `npm run build` passed; full `npm run test:e2e` 604 passed, 7 skipped, 1 failed — `with motion › a height change while typing re-anchors the viewed set…` (anchor 1 instead of 2). Not reproduced in 69 targeted runs (isolated ×5, whole file ×4, 6× CPU throttling ×8 on this branch and ×8 on the pre-change base); the seven workout suites together then passed 103/103. Treated as an intermittent, unexplained failure; watch for recurrence.
+- Gaps: no physical device, no WebKit/Safari engine run; the Pixel gaps are evenly spread (about 35px each) and could be tightened further by raising `--focus-gap`'s range or input sizes if they read as airy on device.

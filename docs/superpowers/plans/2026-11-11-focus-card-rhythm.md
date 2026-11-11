@@ -29,7 +29,7 @@
 - The peek shows exactly the next set's header (`.focus-context`: set label, eyebrow, number marker) and nothing of its title.
 - All or nothing: when the viewed card's content plus that header does not fit the feed, there is no peek; the card fills the feed exactly. The last set (next item is the review) never peeks.
 - One `--focus-gap` between every card section, fluid with the feed's container height, on the 6–20px range. RIR→Complete uses it.
-- No `margin-top:auto`; residual height is spread across the card's section gaps; feeds ≥640px also get larger inputs/rulers. Complete is the last thing in the card, one gap above the separator.
+- No `margin-top:auto`; residual height is spread across the card's section gaps; feeds ≥560px also get larger inputs/rulers. Complete is the last thing in the card, one gap above the separator.
 - Unchanged: 44px targets, ≥16px inputs, sticky-Complete fallback (viewed card only), 64px focused scroll margin, keyboard re-anchoring, motion, data, exports.
 
 ## Global Constraints
@@ -123,7 +123,7 @@ const r=await rhythm(page);expect(r.rirToDone).toBeGreaterThanOrEqual(r.controls
   - `.workout-logger .workout-focus .log-set-row`: drop `margin-top:auto`, add `gap:var(--focus-gap)`; hide empty in-flow items so they add no gap: `.workout-focus .log-set-row>.log-set-error:empty`, `.workout-focus .focus-note-area:not(:has(.log-set-note-part))` → `display:none`.
   - Remove ad hoc spacing now owned by the gap: `.focus-identity` margin-bottom, `.focus-history` margin-bottom (base and both tier overrides), `.focus-rir-strip` margin, `.focus-complete` margin-top.
   - Sticky viewed Complete keeps its background band without changing layout: `.focus-card.is-viewed .focus-complete {margin-top:calc(-1 * var(--focus-gap));padding-top:var(--focus-gap)}` (replaces `margin-top:0;padding-top:3px`).
-  - New tier `@container focus-feed (height >= 640px)`: stepper input `font-size:3.25rem;min-height:54px`, ruler and track `48px`, tick `top:26px`.
+  - New tier `@container focus-feed (height >= 560px)`: stepper input `font-size:3.25rem;min-height:54px`, ruler and track `48px`, tick `top:26px`.
 - [ ] **Step 4: Run** the rhythm tests → PASS, then the whole file `npx playwright test e2e/workout-focus-fit.spec.js`. The existing `preview >= minPreview` assertions may now fail; that is expected and is replaced in Task 3 — every other existing test in the file must pass.
 - [ ] **Step 5: Commit** — `git add style.css e2e/workout-focus-fit.spec.js && git commit -m "fix(focus): one fluid section rhythm instead of a dead band above the inputs"`
 
@@ -175,8 +175,8 @@ expect(p.headerPx===0||Math.abs(p.headerPx-p.headerH)<=1).toBe(true); // whole h
 
 - [ ] **Step 1: Inspect populated screens** (seeded Last time + Best, Playwright with touch) at 412×839, 412×850, 393×659, 393×750, 440×770, 360×660 and 390×664 with 200% text; capture screenshots. Check: next header crisp or absent, no title sliver, even gaps, Complete one gap above the separator, no horizontal overflow. Play: swipe between sets, complete a set (Auto-next), open/close exercise and set notes, open the keyboard on reps, reduced motion. Fix anything abrupt before continuing.
 - [ ] **Step 2: Update docs.**
-  - AGENTS.md "Card fit" bullet: replace "plus a next-card preview" with "the next set's full header peeks only when it fits whole (otherwise no peek; the last set never peeks); one fluid `--focus-gap` (6–20px from feed height) separates every section, residual spread evenly; a ≥640px tier enlarges inputs and rulers". Keep the rest.
-  - Design system "Card": "feed height minus 60px so the next card's header peeks" → "feed height minus the next card's header (`focusCardFit`, `src/workout-focus-fit.js`), or the whole feed when it cannot fit whole". "Fit": add the `--focus-gap` formula, `space-between`, the ≥640px tier values, and remove the "plus a next-card preview from a 660px visible viewport" wording.
+  - AGENTS.md "Card fit" bullet: replace "plus a next-card preview" with "the next set's full header peeks only when it fits whole (otherwise no peek; the last set never peeks); one fluid `--focus-gap` (6–20px from feed height) separates every section, residual spread evenly; a ≥560px tier enlarges inputs and rulers". Keep the rest.
+  - Design system "Card": "feed height minus 60px so the next card's header peeks" → "feed height minus the next card's header (`focusCardFit`, `src/workout-focus-fit.js`), or the whole feed when it cannot fit whole". "Fit": add the `--focus-gap` formula, `space-between`, the ≥560px tier values, and remove the "plus a next-card preview from a 660px visible viewport" wording.
   - Verification doc: the before/after table from "Root cause" with the new measurements, the viewports and interactions actually exercised, and gaps (no physical devices; Safari engine not run — Chromium only).
 - [ ] **Step 3: Full verification** — `npm test`, `npm run test:e2e`, `npm run build` → all pass; paste the summary lines into the verification doc.
 - [ ] **Step 4: Commit** — `git add AGENTS.md docs/design-system/README.md docs/superpowers/verification/2026-11-08-mobile-workout-focus.md && git commit -m "docs(focus): record card rhythm and clean peek"`
