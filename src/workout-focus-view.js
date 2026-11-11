@@ -150,7 +150,10 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function setFeedHeight(px){
   if(destroyed||px===feedHeight)return;feedHeight=px;root.style.setProperty('--focus-feed-height',px+'px');if(!enabled)return;
   measuring++;syncActive();const ref=viewed,target=ref?cards.get(setKey(ref))?.row:review;
-  if(target){programmatic=true;feed.scrollTo({top:target.offsetTop,behavior:'instant'});programmatic=false;}
+  if(target){programmatic=true;feed.scrollTo({top:target.offsetTop,behavior:'instant'});
+   // The keyboard shrinks the feed while typing: keep the focused field above the pinned Complete (64px).
+   const active=document.activeElement;if(typingField()&&target.contains(active)){const f=active.getBoundingClientRect(),box=feed.getBoundingClientRect(),below=f.bottom+64-box.bottom;if(below>0)feed.scrollTop+=Math.min(below,f.top-box.top);}
+   programmatic=false;}
   requestAnimationFrame(()=>{measuring--;if(!destroyed)syncActive();});
  }
  function restore(){port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});}

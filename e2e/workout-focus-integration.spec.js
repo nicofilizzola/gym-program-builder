@@ -106,3 +106,10 @@ test.describe('with motion',()=>{
   expect(shown).toBe(ids[1]);
  });
 });
+test('tapping a set input while the workout note is open moves focus to that input',async({page})=>{
+ const log=await start(page);
+ await page.getByRole('button',{name:'Workout actions',exact:true}).click();await page.getByRole('button',{name:'Add workout note',exact:true}).click();
+ await page.getByRole('textbox',{name:'Workout note',exact:true}).fill('Quick note');
+ const reps=page.getByLabel(`Set 1 reps, ${log.exercises[0].name}`,{exact:true});await reps.click();
+ await expect(reps).toBeFocused();await page.waitForTimeout(100);await expect(reps).toBeFocused();
+});

@@ -30,7 +30,8 @@ export function mountWorkoutNote(host,{note='',readOnly=false,collapsed=false,on
      field.addEventListener('blur',()=>{
       if(destroyed||current!==part)return;
       composing=false;note=normalizeNote(field.value);onBlur(note);editing=false;render(true);
-      queueMicrotask(()=>{if(!destroyed&&document.activeElement===document.body)current?.querySelector('button')?.focus({preventScroll:true});});
+      // After the focus move settles: only rescue focus that landed nowhere, never steal a tapped target.
+      setTimeout(()=>{if(!destroyed&&document.activeElement===document.body)current?.querySelector('button')?.focus({preventScroll:true});});
      });
     }else if(next==='static'){field=document.createElement('p');field.className='log-note-static';}
     else{

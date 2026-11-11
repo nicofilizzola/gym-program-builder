@@ -50,7 +50,9 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  const syncNoteIndicator=()=>{noteIndicator.hidden=!(focusChrome&&editable&&Boolean(log.note)&&!workoutNote.isEditing());};
  const workoutNote=mountWorkoutNote($('.logger-note'),{note:log.note??'',readOnly:!editable,onInput:text=>commit(setWorkoutNote(log,text)),onBlur:text=>{if(text!==log.note)commit(setWorkoutNote(log,text));
   // The note ends editing after this callback returns.
-  queueMicrotask(()=>{if(destroyed)return;syncNoteIndicator();if(focusChrome&&document.activeElement===document.body)(noteIndicator.hidden?more:noteIndicator).focus({preventScroll:true});});}});
+  queueMicrotask(()=>{if(!destroyed)syncNoteIndicator();});
+  // Wait for the focus move to settle so a tapped control keeps its focus.
+  setTimeout(()=>{if(!destroyed&&focusChrome&&document.activeElement===document.body)(noteIndicator.hidden?more:noteIndicator).focus({preventScroll:true});});}});
  noteIndicator.addEventListener('click',()=>{workoutNote.open();syncNoteIndicator();});
  function setFocusChrome(on){focusChrome=on;workoutNote.update({note:log.note??'',readOnly:!editable,collapsed:on});syncNoteIndicator();}
  const tooltips=mountActionTooltips(page),menu=mountReorderMenu({label:'Workout actions'}),moveMenu=mountReorderMenu(),setMenu=mountReorderMenu({label:'Set actions'});

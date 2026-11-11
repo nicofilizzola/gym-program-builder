@@ -58,3 +58,11 @@ test('a focused reps input is not hidden under the pinned Complete',async({brows
  await expect.poll(async()=>{const [i,c]=await Promise.all([reps.boundingBox(),card.locator('.focus-complete').boundingBox()]);return i.y+i.height<=c.y+1;}).toBe(true);
  await context.close();
 });
+test('opening the keyboard keeps the focused reps input above the pinned Complete',async({browser})=>{
+ const {page,context}=await open(browser,{width:390,height:664});
+ const card=page.locator('.focus-feed>.log-set').first(),reps=card.locator('[data-field="reps"]');await reps.click();
+ await page.setViewportSize({width:390,height:380});
+ await expect.poll(async()=>{const [i,c,f]=await Promise.all([reps.boundingBox(),card.locator('.focus-complete').boundingBox(),page.locator('.focus-feed').boundingBox()]);return i.y>=f.y-1&&i.y+i.height<=Math.min(c.y,f.y+f.height)+1;}).toBe(true);
+ await expect(reps).toBeFocused();
+ await context.close();
+});
