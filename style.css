@@ -2579,7 +2579,7 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-review-copy,.focus-empty p {color:var(--muted);font-size:.875rem}
 .focus-empty {padding:24px 0}
 /* Density tiers follow the measured feed, not the device: short feeds shrink numbers and rulers so the set still fits. */
-@container focus-feed (height >= 640px){.workout-focus .log-stepper input[type="text"] {min-height:54px;font-size:3.25rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:48px}.workout-focus .workout-ruler-tick {top:26px}}
+@container focus-feed (height >= 560px){.workout-focus .log-stepper input[type="text"] {min-height:54px;font-size:3.25rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:48px}.workout-focus .workout-ruler-tick {top:26px}}
 @container focus-feed (height < 560px){.focus-exercise-title {font-size:1.75rem}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}}
 @container focus-feed (height < 460px){.focus-exercise-title {font-size:1.5rem}.workout-focus .log-stepper input[type="text"] {min-height:36px;font-size:2.2rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:32px}.workout-focus .workout-ruler-tick {top:18px}.workout-focus .log-stepper {padding-top:4px}.workout-focus .log-stepper .focus-control-label {margin-bottom:3px}.workout-focus .focus-context {min-height:36px}.workout-focus .log-done {min-height:44px}}
 /* Narrow cards keep six 44px RIR targets and the set-note icon on one row; the caption stays as the group's accessible name. */

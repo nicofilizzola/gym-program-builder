@@ -93,7 +93,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  // Reads every card, then writes: each card leaves room for the next set's whole header, or fills the feed.
  function fitCards(){
   if(!enabled||destroyed)return;const feedHeight=feed.clientHeight,rows=[...feed.querySelectorAll(':scope>.focus-card')];
-  const anchorRow=(viewed&&cards.get(setKey(viewed))?.row)||review,anchor=anchorRow.offsetTop-feed.scrollTop;
+  const anchorRow=inView().row,anchor=anchorRow.offsetTop-feed.scrollTop;
   const fits=rows.map(row=>{const clip=row.querySelector('.log-set-clip'),cs=getComputedStyle(clip),heights=sections(clip).map(el=>{const m=getComputedStyle(el);return el.getBoundingClientRect().height+parseFloat(m.marginTop)+parseFloat(m.marginBottom);});
    const next=row.nextElementSibling?.classList.contains('focus-card')?row.nextElementSibling.querySelector('.focus-context'):null;
    return focusCardFit({feedHeight,contentHeight:stackHeight(heights,parseFloat(cs.rowGap)||0,parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom))+parseFloat(getComputedStyle(row).borderBottomWidth),peekHeight:next?next.getBoundingClientRect().height:0});});
@@ -139,10 +139,11 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   syncActive();
  }
  feed.addEventListener('scroll',()=>{if(!enabled||programmatic||suspended||measuring)return;cancelAnimationFrame(scrollFrame);scrollFrame=requestAnimationFrame(()=>{
-  if(suspended||measuring||!enabled)return;
-  let ref=null;for(const item of projection.items){const row=cards.get(item.key)?.row;if(row&&row.offsetTop<=feed.scrollTop+40)ref=item.ref;}
-  if(review.offsetTop<=feed.scrollTop+40)ref=null;if(!same(ref,viewed)){viewed=ref;renderCursor();}
+  if(suspended||measuring||!enabled)return;track();
  });},{signal});
+ // The set the scroll position shows (null = review), read from geometry rather than the possibly stale `viewed`.
+ function inView(){let ref=null,row=null;for(const item of projection.items){const r=cards.get(item.key)?.row;if(r&&r.offsetTop<=feed.scrollTop+40){ref=item.ref;row=r;}}return review.offsetTop<=feed.scrollTop+40?{ref:null,row:review}:{ref,row:row||review};}
+ function track(){const {ref}=inView();if(!same(ref,viewed)){viewed=ref;renderCursor();}}
  for(const name of ['pointerdown','wheel','touchstart'])feed.addEventListener(name,()=>interaction(name),{signal,passive:true});
  root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
  function celebrate({before,after,ref}){
@@ -172,7 +173,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    // The keyboard shrinks the feed while typing: keep the focused field above the pinned Complete (64px).
    const active=document.activeElement;if(typingField()&&target.contains(active)){const f=active.getBoundingClientRect(),box=feed.getBoundingClientRect(),below=f.bottom+64-box.bottom;if(below>0)feed.scrollTop+=Math.min(below,f.top-box.top);}
    programmatic=false;}
-  requestAnimationFrame(()=>{measuring--;if(!destroyed)syncActive();});
+  requestAnimationFrame(()=>{measuring--;if(destroyed)return;syncActive();if(!measuring&&enabled&&!suspended)track();});
  }
  function restore(){port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});}
  return {

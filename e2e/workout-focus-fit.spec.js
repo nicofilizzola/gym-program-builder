@@ -89,3 +89,9 @@ for(const [width,height] of [[360,660],[390,664],[393,659],[393,750],[412,660],[
   expect(r.rirToDone,JSON.stringify(r)).toBeGreaterThanOrEqual(r.controlsToHelp);
   await context.close();
  });
+test('feeds of 560px and taller use the large inputs',async({browser})=>{
+ const {page,context}=await open(browser,{width:412,height:839});
+ expect(await page.locator('.focus-feed').evaluate(f=>f.clientHeight)).toBeGreaterThanOrEqual(560);
+ await expect(page.locator('.focus-feed>.log-set').first().locator('[data-field="reps"]')).toHaveCSS('font-size','52px');
+ await context.close();
+});

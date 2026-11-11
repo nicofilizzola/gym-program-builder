@@ -90,3 +90,23 @@ test('opening a long exercise note keeps the viewed set anchored',async({page})=
  expect(Math.abs(await delta()-before)).toBeLessThanOrEqual(2);
  expect((await shown(page,'.focus-card[data-set-id="s2"] .focus-exercise-title')).px).toBeLessThanOrEqual(1);
 });
+// Frame-order races: a refit queued before a user scroll, and a scroll landing just after a feed measurement.
+const settle=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(r)))));
+test('a refit queued before a user scroll keeps the scrolled-to set in place',async({page})=>{
+ await page.setViewportSize({width:390,height:900});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'sw'}));
+ await page.locator('.focus-card[data-set-id="s2"] [data-field="reps"]').evaluate(n=>n.focus({preventScroll:true})); // typing turns snapping off
+ await page.evaluate(()=>new Promise(resolve=>{
+  for(const id of ['sw','s1']){const pad=document.createElement('div');pad.style.height='60px';document.querySelector(`.focus-card[data-set-id="${id}"] .focus-history`).append(pad);}
+  // The ResizeObserver fires after this frame and queues its refit; the scroll lands in the next frame.
+  requestAnimationFrame(()=>setTimeout(()=>{const f=document.querySelector('.focus-feed');f.scrollTop=f.querySelector('[data-set-id="s2"]').offsetTop;resolve();}));
+ }));
+ await settle(page);
+ expect(await page.evaluate(()=>{const f=document.querySelector('.focus-feed');return Math.abs(f.querySelector('[data-set-id="s2"]').offsetTop-f.scrollTop);})).toBeLessThanOrEqual(2);
+ expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s2'});
+});
+test('a scroll right after a feed measurement still moves the viewed set',async({page})=>{
+ await page.setViewportSize({width:390,height:900});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'sw'}));
+ await page.evaluate(()=>new Promise(resolve=>{focusView.setFeedHeight(560);setTimeout(()=>{const f=document.querySelector('.focus-feed');f.scrollTo({top:f.querySelector('[data-set-id="s2"]').offsetTop,behavior:'instant'});resolve();});}));
+ await settle(page);
+ expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s2'});
+});
