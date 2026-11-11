@@ -21,11 +21,20 @@ const fits=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'
  const fb=f.getBoundingClientRect(),cb=card.getBoundingClientRect(),db=done.getBoundingClientRect();
  return {doneInside:db.top>=fb.top-0.5&&db.bottom<=fb.bottom+0.5,preview:Math.round(fb.bottom-cb.bottom),overflowX:document.documentElement.scrollWidth>innerWidth};});
 
-for(const [width,height,minPreview] of [[360,660,24],[390,664,24],[412,660,24],[412,760,48],[390,844,48],[430,932,48]])
- test(`whole card and preview fit at ${width}x${height}`,async({browser})=>{
-  const {page,context}=await open(browser,{width,height});
+// The next card shows its whole header (set label, eyebrow, marker) or nothing; never any title.
+const peek=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),[card,next]=f.querySelectorAll(':scope>.log-set'),fb=f.getBoundingClientRect();
+ const visible=el=>{const b=el.getBoundingClientRect();return Math.max(0,Math.min(fb.bottom,b.bottom)-Math.max(fb.top,b.top));},header=next.querySelector('.focus-context');
+ return {titlePx:visible(next.querySelector('.focus-exercise-title')),headerPx:visible(header),headerH:header.getBoundingClientRect().height,peekless:card.classList.contains('is-peekless'),cardH:card.getBoundingClientRect().height,feedH:fb.height};});
+for(const [width,height,peekless] of [[360,660,true],[390,664,null],[393,659,true],[412,660,null],[412,760,null],[412,839,false],[412,850,false],[393,750,null],[440,770,null],[390,844,false],[430,932,false]])
+ test(`whole card fits with a clean peek at ${width}x${height}`,async({browser})=>{
+  const {page,context}=await open(browser,{width,height,history:true,previousNote:false});
+  await expect(page.locator('.focus-feed>.log-set').first().locator('.log-best')).toBeVisible();
   await expect.poll(()=>fits(page)).toMatchObject({doneInside:true,overflowX:false});
-  expect((await fits(page)).preview).toBeGreaterThanOrEqual(minPreview);
+  const p=await peek(page);
+  expect(p.titlePx,JSON.stringify(p)).toBeLessThanOrEqual(1);
+  expect(p.headerPx===0||Math.abs(p.headerPx-p.headerH)<=1,JSON.stringify(p)).toBe(true);
+  if(peekless!==null)expect(p.peekless,JSON.stringify(p)).toBe(peekless);
+  if(peekless)expect(p.cardH,JSON.stringify(p)).toBeLessThanOrEqual(p.feedH+1); // fits without the sticky fallback
   await context.close();
  });
 test('card with Last time, previous note and Best still fits at 412x760',async({browser})=>{

@@ -67,3 +67,26 @@ test('a long unbreakable exercise name never widens the card',async({page})=>{
  const widths=await page.locator('.focus-card[data-set-id="s1"]').evaluate(card=>({card:card.getBoundingClientRect().width,clip:card.querySelector('.log-set-clip').getBoundingClientRect().width,note:card.querySelector('.focus-exercise-note-text').getBoundingClientRect().width}));
  expect(widths.clip).toBeLessThanOrEqual(widths.card);expect(widths.note).toBeLessThanOrEqual(widths.card);
 });
+// Visible pixels of an element inside the feed's box.
+const shown=(page,selector)=>page.evaluate(selector=>{const f=document.querySelector('.focus-feed').getBoundingClientRect(),b=document.querySelector(selector).getBoundingClientRect();return {px:Math.max(0,Math.min(f.bottom,b.bottom)-Math.max(f.top,b.top)),h:b.height};},selector);
+test('last set before review never peeks',async({page})=>{
+ await page.setViewportSize({width:360,height:740});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));
+ await expect(page.locator('.focus-card[data-set-id="a2"]')).toHaveClass(/is-peekless/);
+ await expect.poll(async()=>(await shown(page,'.focus-review h2')).px).toBe(0);
+});
+test('a two-line superset eyebrow sets the peek height',async({page})=>{
+ await page.setViewportSize({width:360,height:900});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s2'}));
+ const header='.focus-card[data-set-id="aw"] .focus-context';
+ expect(await page.locator(header+' .focus-eyebrow').evaluate(n=>n.getBoundingClientRect().height>parseFloat(getComputedStyle(n).lineHeight||'12')*1.5||n.getClientRects().length>1)).toBe(true);
+ await expect(page.locator('.focus-card[data-set-id="s2"]')).not.toHaveClass(/is-peekless/);
+ await expect.poll(async()=>{const h=await shown(page,header);return Math.abs(h.px-h.h)<=1;}).toBe(true);
+ expect((await shown(page,'.focus-card[data-set-id="aw"] .focus-exercise-title')).px).toBeLessThanOrEqual(1);
+});
+test('opening a long exercise note keeps the viewed set anchored',async({page})=>{
+ await page.setViewportSize({width:390,height:900});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
+ const delta=()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed');return f.querySelector('[data-set-id="s1"]').offsetTop-f.scrollTop;});const before=await delta();
+ const card=page.locator('.focus-card[data-set-id="s1"]');await card.getByRole('button',{name:'Add exercise note, Bench press',exact:true}).click();
+ await page.getByRole('textbox',{name:'Note, Bench press',exact:true}).fill('Note '.repeat(80));await page.waitForTimeout(400);
+ expect(Math.abs(await delta()-before)).toBeLessThanOrEqual(2);
+ expect((await shown(page,'.focus-card[data-set-id="s2"] .focus-exercise-title')).px).toBeLessThanOrEqual(1);
+});
