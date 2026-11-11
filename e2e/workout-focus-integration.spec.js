@@ -22,7 +22,8 @@ test('feed re-measures without losing the viewed set',async({page})=>{
  await start(page);const feed=page.locator('.focus-feed');const anchored=()=>feed.evaluate(f=>{const rows=[...f.querySelectorAll(':scope>.log-set')];return {index:rows.findIndex(r=>Math.abs(r.offsetTop-f.scrollTop)<2),snapped:!f.classList.contains('is-unsnapped')};});
  await feed.evaluate(f=>{const row=f.querySelectorAll(':scope>.log-set')[2];f.scrollTo({top:row.offsetTop,behavior:'instant'});});await expect.poll(anchored).toEqual({index:2,snapped:true});
  await page.setViewportSize({width:390,height:700});await expect.poll(anchored).toEqual({index:2,snapped:true});
- const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.getByRole('link',{name:'History',exact:true}).boundingBox();expect(box.y+box.height).toBeLessThanOrEqual(toolbar.y+1);expect(toolbar.y+toolbar.height).toBeLessThanOrEqual(nav.y+1);
+ // The logger re-measures on the next frame after a resize; wait for it instead of reading once.
+ await expect.poll(async()=>{const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.getByRole('link',{name:'History',exact:true}).boundingBox();return box.y+box.height<=toolbar.y+1&&toolbar.y+toolbar.height<=nav.y+1;}).toBe(true);
  await page.setViewportSize({width:761,height:700});await page.setViewportSize({width:760,height:700});await expect.poll(anchored).toEqual({index:2,snapped:true});
 });
 test('a long workout note leaves the feed the space under the sticky header',async({page})=>{
@@ -92,8 +93,8 @@ test.describe('with motion',()=>{
   await page.setViewportSize({width:390,height:1100});await start(page);await noAnchoring(page);
   await page.locator('.focus-feed').evaluate(f=>{const row=f.querySelectorAll(':scope>.log-set')[2];f.scrollTo({top:row.offsetTop,behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(2);
   await page.locator('.focus-feed>.log-set').nth(2).locator('[data-field="reps"]').click();await expect(page.locator('.focus-feed')).toHaveClass(/is-unsnapped/);
-  await page.setViewportSize({width:390,height:900});await page.waitForTimeout(400);
-  expect(await anchor(page)).toBe(2);
+  await page.setViewportSize({width:390,height:900});
+  await expect.poll(()=>anchor(page)).toBe(2);
  });
  test('an overview warm-up added before the viewed set keeps that set in view',async({page})=>{
   await page.setViewportSize({width:390,height:1100});await start(page);await noAnchoring(page);
