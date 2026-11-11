@@ -2507,9 +2507,9 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-feed {position:relative;container:focus-feed / size;height:var(--focus-feed-height);overflow-y:auto;overflow-x:hidden;list-style:none;margin:0;padding:0;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain}
 .focus-feed::-webkit-scrollbar {display:none}
 .focus-feed.is-unsnapped {scroll-snap-type:none}
-.workout-focus .focus-card {position:relative;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1fr;min-height:max(0px,calc(var(--focus-feed-height) - 60px));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
+.workout-focus .focus-card {--focus-gap:clamp(6px,calc((100cqh - 400px) / 10),20px);position:relative;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1fr;min-height:max(0px,calc(var(--focus-feed-height) - 60px));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
 .workout-focus .focus-card.is-closed {min-height:0;grid-template-rows:0fr}
-.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;min-height:0;overflow:clip;margin:0;padding:0}
+.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;justify-content:space-between;gap:var(--focus-gap);min-height:0;overflow:clip;margin:0;padding:0 0 var(--focus-gap)}
 .workout-focus .focus-context {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;padding:4px 0}
 .focus-context-text {min-width:0}
 .focus-eyebrow {margin:2px 0 0;color:var(--muted);font-size:.625rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;overflow-wrap:anywhere}
@@ -2520,7 +2520,7 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-card.is-done .focus-complete-marker {background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .focus-card.is-done .focus-complete-marker svg {display:block}
 .focus-card.is-done .focus-complete-marker .log-set-number {display:none}
-.focus-identity {min-width:0;margin:0 0 6px}
+.focus-identity {min-width:0;margin:0}
 .focus-identity-row {display:flex;align-items:center;gap:8px}
 .focus-identity-row>:first-child {flex:1;min-width:0}
 .focus-exercise-title {margin:0;color:var(--text);font-family:var(--font-display);font-size:2rem;font-weight:600;letter-spacing:-.02em;line-height:1.1;text-transform:none}
@@ -2531,10 +2531,13 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-exercise-note-text {display:block;width:100%;min-height:32px;padding:4px 0;border:0;background:none;color:var(--muted);font:inherit;font-size:.75rem;line-height:1.4;text-align:left;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}
 .focus-exercise-note svg,.focus-set-note svg {width:15px;height:15px;flex-shrink:0;fill:none;stroke:currentColor}
 .focus-exercise-note:hover,.focus-set-note:hover {color:var(--text)}
-.focus-history {border-top:1px solid var(--border);padding-top:8px;margin-bottom:12px}
+.focus-history {border-top:1px solid var(--border);padding-top:8px}
 .focus-history .log-last-time,.focus-history .log-best {margin:0 0 4px;font-size:.75rem;line-height:1.4;overflow-wrap:anywhere}
 .focus-history .log-last-note {margin:0 0 5px}
-.workout-logger .workout-focus .log-set-row {display:flex;flex-direction:column;align-items:stretch;gap:0;border:0;padding:0;background:none;transition:none;margin-top:auto}
+.workout-logger .workout-focus .log-set-row {display:flex;flex-direction:column;align-items:stretch;gap:0;border:0;padding:0;background:none;transition:none}
+/* The row's sections join the card's flex column so one gap (plus any residual) spaces every section evenly. */
+.workout-logger .workout-focus .focus-card .log-set-row {display:contents}
+.workout-focus .log-set-row>.log-set-error:empty,.workout-focus .focus-note-area:not(:has(.log-set-note-part)) {display:none}
 .workout-focus .focus-number-controls {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .workout-focus .log-stepper {grid-area:auto;display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;background:var(--surface);min-width:0;padding:8px 0 0}
 .workout-focus .log-stepper .log-step,.workout-focus .log-stepper::after {display:none}
@@ -2548,7 +2551,7 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .focus-input-help {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
 .workout-focus .workout-rep-guidance {flex:1;min-width:0;max-width:70%;margin:0;font-size:.6875rem}
 .focus-increment {max-width:125px;min-height:44px;margin-left:auto;padding:4px;background:transparent;color:var(--muted);border:0;font:inherit;font-size:.6875rem}
-.workout-focus .focus-rir-strip {display:grid;grid-template-columns:36px minmax(0,1fr) 44px;gap:4px;align-items:center;margin:1px 0}
+.workout-focus .focus-rir-strip {display:grid;grid-template-columns:36px minmax(0,1fr) 44px;gap:4px;align-items:center;margin:0}
 .workout-focus .log-rir-label {display:block;grid-area:auto;margin:0;font-size:.8125rem;line-height:1.2;text-align:left;color:var(--text)}
 .workout-focus .log-rir-label small {display:block;margin-top:5px;font-size:.5rem;font-weight:400;color:var(--muted)}
 .workout-focus .log-rir {grid-area:auto;margin:0;gap:2px}
@@ -2558,9 +2561,8 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .log-set-note-slot {grid-area:auto;min-width:0}
 .workout-focus .focus-note-area .log-set-note-text {padding-left:0;border:0;background:none;white-space:pre-wrap;overflow-wrap:anywhere}
 .workout-focus .log-set-menu {display:none}
-.workout-focus .focus-complete {margin-top:3px}
 /* Fallback when the viewed card outgrows the feed (enlarged text, tiny phones): Complete stays reachable. */
-.workout-focus .focus-card.is-viewed .focus-complete {position:sticky;bottom:0;z-index:1;margin-top:0;padding-top:3px;background:var(--bg)}
+.workout-focus .focus-card.is-viewed .focus-complete {position:sticky;bottom:0;z-index:1;margin-top:calc(-1 * var(--focus-gap));padding-top:var(--focus-gap);background:var(--bg)}
 .workout-focus .focus-card.is-viewed :is(input,button,select):focus {scroll-margin-bottom:64px}
 .workout-focus .log-done {display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;padding:8px 12px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 1rem/1.3 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
 .workout-focus .log-done::after {content:attr(data-label);white-space:normal;text-align:center}
@@ -2577,8 +2579,9 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-review-copy,.focus-empty p {color:var(--muted);font-size:.875rem}
 .focus-empty {padding:24px 0}
 /* Density tiers follow the measured feed, not the device: short feeds shrink numbers and rulers so the set still fits. */
-@container focus-feed (height < 560px){.focus-exercise-title {font-size:1.75rem}.focus-history {margin-bottom:8px}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}}
-@container focus-feed (height < 460px){.focus-exercise-title {font-size:1.5rem}.focus-history {margin-bottom:6px}.workout-focus .log-stepper input[type="text"] {min-height:36px;font-size:2.2rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:32px}.workout-focus .workout-ruler-tick {top:18px}.workout-focus .log-stepper {padding-top:4px}.workout-focus .log-stepper .focus-control-label {margin-bottom:3px}}
+@container focus-feed (height >= 640px){.workout-focus .log-stepper input[type="text"] {min-height:54px;font-size:3.25rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:48px}.workout-focus .workout-ruler-tick {top:26px}}
+@container focus-feed (height < 560px){.focus-exercise-title {font-size:1.75rem}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}}
+@container focus-feed (height < 460px){.focus-exercise-title {font-size:1.5rem}.workout-focus .log-stepper input[type="text"] {min-height:36px;font-size:2.2rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:32px}.workout-focus .workout-ruler-tick {top:18px}.workout-focus .log-stepper {padding-top:4px}.workout-focus .log-stepper .focus-control-label {margin-bottom:3px}.workout-focus .focus-context {min-height:36px}.workout-focus .log-done {min-height:44px}}
 /* Narrow cards keep six 44px RIR targets and the set-note icon on one row; the caption stays as the group's accessible name. */
 @container focus-feed (width < 362px){.workout-focus .focus-rir-strip {grid-template-columns:minmax(0,1fr) 44px}.workout-focus .log-rir-label {position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){.workout-focus .focus-card,.workout-focus .log-done {transition:none}.workout-focus .log-done:active {transform:none}}

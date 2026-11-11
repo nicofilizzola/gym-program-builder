@@ -3,13 +3,13 @@ import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper
 import {createWorkoutLog} from '../src/workout-log.js';
 
 // Heights are visible browser viewports (browser UI already subtracted), not device screen sizes.
-async function open(browser,{width,height,history=false}){
+async function open(browser,{width,height,history=false,previousNote=true}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:true,isMobile:true,baseURL:'http://127.0.0.1:3199'}),page=await context.newPage();
  await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Fit');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();
  const make=()=>createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});
  if(history){
   const past=make(),start=new Date(Date.now()-86400000);past.status='finished';past.startedAt=start.toISOString();past.finishedAt=new Date(start.getTime()+3600000).toISOString();
-  past.exercises[0].note='Brace hard, slow eccentric, pause at the bottom of every rep.';
+  if(previousNote)past.exercises[0].note='Brace hard, slow eccentric, pause at the bottom of every rep.';
   for(const ex of past.exercises)for(const set of ex.sets)Object.assign(set,{weightKg:62.5,reps:10,done:true});
   const r=await page.request.put('/api/workouts/'+past.id,{headers,data:{revision:0,log:past}});expect(r.ok(),await r.text()).toBeTruthy();
  }
@@ -66,3 +66,17 @@ test('opening the keyboard keeps the focused reps input above the pinned Complet
  await expect(reps).toBeFocused();
  await context.close();
 });
+// Vertical gaps between consecutive card sections, top to bottom; the last one runs to the card's separator.
+const rhythm=page=>page.evaluate(()=>{const card=document.querySelector('.focus-feed>.log-set'),box=s=>card.querySelector(s).getBoundingClientRect(),R=Math.round;
+ const [ctx,id,hist,ctl,help,rir,done]=['.focus-context','.focus-identity','.focus-history','.focus-number-controls','.focus-input-help','.focus-rir-strip','.log-done'].map(box);
+ return {ctxToTitle:R(id.top-ctx.bottom),titleToHistory:R(hist.top-id.bottom),historyToControls:R(ctl.top-hist.bottom),controlsToHelp:R(help.top-ctl.bottom),helpToRir:R(rir.top-help.bottom),rirToDone:R(done.top-rir.bottom),doneToEnd:R(card.getBoundingClientRect().bottom-1-done.bottom)};});
+for(const [width,height] of [[360,660],[390,664],[393,659],[393,750],[412,660],[412,760],[412,839],[412,850],[440,770],[390,844],[430,932]])
+ test(`consistent rhythm at ${width}x${height}`,async({browser})=>{
+  const {page,context}=await open(browser,{width,height,history:true,previousNote:false});
+  await expect(page.locator('.focus-feed>.log-set').first().locator('.log-best')).toBeVisible();
+  const r=await rhythm(page),g=Object.values(r);
+  expect(Math.min(...g),JSON.stringify(r)).toBeGreaterThanOrEqual(6);
+  expect(Math.max(...g)-Math.min(...g),JSON.stringify(r)).toBeLessThanOrEqual(16);
+  expect(r.rirToDone,JSON.stringify(r)).toBeGreaterThanOrEqual(r.controlsToHelp);
+  await context.close();
+ });
