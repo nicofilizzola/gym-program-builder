@@ -1,4 +1,4 @@
-import {logExerciseFromEntry,normalizeLogName,toLocalIso,validateWorkoutLog,WORKOUT_LIMITS} from './workout-log.js';
+import {logExerciseFromEntry,logTags,normalizeLogName,toLocalIso,validateWorkoutLog,WORKOUT_LIMITS} from './workout-log.js';
 import {pairRole as supersetRole,moveBlockOrder,unpair,removeExercise as removePairMember} from './superset.js';
 
 export const NO_SETS='Log at least one working set, or discard the workout.';
@@ -19,7 +19,7 @@ export const addExercise=(log,entry,makeId)=>({...log,exercises:[...log.exercise
 
 export const swapExercise=(log,exerciseId,entry)=>mapExercise(log,exerciseId,e=>({...e,
  variantId:entry.id,referenceId:entry.familyId,name:entry.name,equipment:entry.equipment??null,
- primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null}));
+ primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null,...logTags(entry)}));
 
 export const setWorkoutNote=(log,text)=>({...log,note:text});
 

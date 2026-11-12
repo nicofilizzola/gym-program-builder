@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CATALOG_NAME_MAX} from '../src/catalog.js';
-import {WORKOUT_LIMITS,toLocalIso,validateWorkoutLog,createWorkoutLog,logExerciseFromEntry,workoutSummary,upgradeLog} from '../src/workout-log.js';
+import {WORKOUT_LIMITS,toLocalIso,validateWorkoutLog,createWorkoutLog,logExerciseFromEntry,logTags,workoutSummary,upgradeLog} from '../src/workout-log.js';
 
 const seq=()=>{let n=0;return()=>'id'+(++n);};
 const set=(over={})=>({id:'s1',kind:'working',weightKg:80,reps:8,rir:2,done:true,note:'',...over});
-const exercise=(over={})=>({id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:['Biceps'],target:null,note:'',sets:[set()],...over});
+const exercise=(over={})=>({id:'e1',variantId:null,referenceId:null,name:'Row',equipment:null,primaryMuscles:['Lats'],secondaryMuscles:['Biceps'],target:null,note:'',brand:'',focusTags:[],sets:[set()],...over});
  const active=(over={})=>({id:'l1',logVersion:2,status:'active',name:'Workout',coverId:'gym',note:'',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[exercise()],...over});
 const finished=(over={})=>active({status:'finished',finishedAt:'2026-11-03T19:00:00.000+01:00',...over});
 const bad=(log,part)=>{const r=validateWorkoutLog(log);assert.ok(r.error,'expected error');if(part)assert.match(r.error,part);};
@@ -27,7 +27,7 @@ test('supported v2 ingest defaults missing notes without mutating input or accep
 
 test('limits are frozen',()=>{
  assert.ok(Object.isFrozen(WORKOUT_LIMITS));
- assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280,workoutNoteMax:2000});
+ assert.deepEqual({...WORKOUT_LIMITS},{weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:200,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280,workoutNoteMax:2000,tagMax:80,focusTagsMax:20});
 });
 
 test('exercise names follow the catalog limit (200), separate from the workout name limit (120)',()=>{
@@ -127,7 +127,7 @@ test('validateWorkoutLog enforces structure and limits',()=>{
  const r=validateWorkoutLog(finished({startedAt:'2026-11-03T17:00:00Z',finishedAt:'2026-11-03T18:00:00.000Z',junk:1,source:{kind:'blank',junk:2},exercises:[exercise({junk:3,sets:[set({junk:4})]})]}));
  assert.ok(r.log);
  assert.deepEqual(Object.keys(r.log),['id','logVersion','status','name','coverId','note','startedAt','finishedAt','source','exercises']);
- assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','sets']);
+ assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','brand','focusTags','sets']);
  assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]),['id','kind','weightKg','reps','rir','done','note']);
  assert.deepEqual(r.log.source,{kind:'blank'});
  // target
@@ -184,7 +184,7 @@ test('valid pairs are kept in canonical shape',()=>{
  pair.exercises[0].superset={restBetweenSeconds:30,restAfterRoundSeconds:120};
  const r=validateWorkoutLog(pair);
  assert.deepEqual(r.log.exercises[0].superset,{restBetweenSeconds:30,restAfterRoundSeconds:120});
- assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','superset','sets']);
+ assert.deepEqual(Object.keys(r.log.exercises[0]),['id','variantId','referenceId','name','equipment','primaryMuscles','secondaryMuscles','target','note','brand','focusTags','superset','sets']);
  assert.deepEqual(Object.keys(r.log.exercises[0].sets[0]).slice(0,2),['id','kind']);
 });
 test('history counts done working sets only',()=>{assert.equal(workoutSummary(logWithDone({warmup:2,working:3})).doneSets,3);});
@@ -231,4 +231,38 @@ test('workout note defaults and UTF-16 boundaries',()=>{
  for(const note of ['a'.repeat(2000),'\u{1F600}'.repeat(1000),' raw\n note '])assert.equal(validateWorkoutLog(active({note})).log.note,note);
  for(const note of ['a'.repeat(2001),'\u{1F600}'.repeat(1000)+'a'])assert.equal(validateWorkoutLog(active({note})).error,'Workout note must be at most 2,000 characters.');
  for(const note of [null,12,{}])assert.equal(validateWorkoutLog(active({note})).error,'Invalid workout note.');
+});
+
+test('logTags snapshots catalog and template tags',()=>{
+ assert.deepEqual(logTags({brand:{id:'t1',name:' Hammer '},focusTags:[{name:'Stretch'},{name:'stretch'},{name:' '},{name:'Upper chest'}]}),{brand:'Hammer',focusTags:['Stretch','Upper chest']});
+ assert.deepEqual(logTags({brand:'Hammer',focusTags:['A','a ']}),{brand:'Hammer',focusTags:['A']});
+ const many=Array.from({length:25},(_,i)=>'T'+i);
+ assert.deepEqual(logTags({focusTags:many}).focusTags,many.slice(0,20));
+ assert.deepEqual(logTags({brand:null}),{brand:'',focusTags:[]});
+ assert.deepEqual(logTags(),{brand:'',focusTags:[]});
+ assert.ok(validateWorkoutLog(active({exercises:[exercise(logTags({brand:'x'.repeat(200),focusTags:['y'.repeat(200),...many]}))]})).log);
+});
+
+test('log exercises carry tags from their source',()=>{
+ const template={id:'t',document:{name:'Pull',exercises:[
+  {name:'Row',catalogId:'v1',familyId:'r1',brand:'Hammer',focusTags:['Stretch'],primaryMuscles:['Lats'],secondaryMuscles:[],sets:3,repRange:{min:8,max:12},restSeconds:90},
+  {name:'Curl',primaryMuscles:['Biceps'],secondaryMuscles:[],sets:3,repRange:{min:8,max:12},restSeconds:90}]}};
+ const log=createWorkoutLog({id:'n',now:new Date(),makeId:seq(),template});
+ assert.deepEqual([log.exercises[0].brand,log.exercises[0].focusTags],['Hammer',['Stretch']]);
+ assert.deepEqual([log.exercises[1].brand,log.exercises[1].focusTags],['',[]]);
+ const ex=logExerciseFromEntry({id:'v',familyId:'r',name:'Fly',primaryMuscles:['Chest'],secondaryMuscles:[],brand:{id:'b',name:'Hammer',archived:true},focusTags:[{id:'f',name:'Stretch',archived:true}]},seq());
+ assert.deepEqual([ex.brand,ex.focusTags],['Hammer',['Stretch']]);
+ assert.deepEqual([logExerciseFromEntry({id:'v',familyId:'r',name:'Fly',primaryMuscles:[],secondaryMuscles:[]},seq()).brand],['']);
+});
+
+test('tag fields default and validate',()=>{
+ const v1=exercise();delete v1.note;
+ const old=upgradeLog({id:'l',logVersion:1,status:'active',name:'W',startedAt:'2026-11-03T18:00:00.000+01:00',finishedAt:null,source:{kind:'blank'},exercises:[{...v1,sets:[{id:'s',weightKg:null,reps:null,rir:null,done:false}]}]});
+ assert.deepEqual([old.exercises[0].brand,old.exercises[0].focusTags],['',[]]);
+ const v2=exercise();delete v2.brand;delete v2.focusTags;
+ assert.deepEqual([upgradeLog(active({exercises:[v2]})).exercises[0].brand,upgradeLog(active({exercises:[v2]})).exercises[0].focusTags],['',[]]);
+ for(const over of [{brand:5},{brand:'x'.repeat(81)},{focusTags:'a'},{focusTags:Array.from({length:21},(_,i)=>'t'+i)},{focusTags:['']},{focusTags:[' ']},{focusTags:['y'.repeat(81)]},{focusTags:[7]},{focusTags:['Ab','aB']}])
+  assert.equal(validateWorkoutLog(active({exercises:[exercise(over)]})).error,'Exercise 1: Invalid tags.',JSON.stringify(over).slice(0,40));
+ const ok=validateWorkoutLog(active({exercises:[exercise({brand:' Hammer ',focusTags:[' Stretch ','Upper chest']})]})).log.exercises[0];
+ assert.deepEqual([ok.brand,ok.focusTags],['Hammer',['Stretch','Upper chest']]);
 });

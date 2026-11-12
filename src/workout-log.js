@@ -3,7 +3,7 @@ import {EQUIPMENT,CATALOG_NAME_MAX} from './catalog.js';
 import {supersetIssue} from './validate.js';
 import {normalizeWorkoutCover} from './workout-cover.js';
 
-export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:CATALOG_NAME_MAX,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280,workoutNoteMax:2000});
+export const WORKOUT_LIMITS=Object.freeze({weightMax:999.75,weightStep:0.25,repsMin:1,repsMax:100,rirMax:5,nameMax:120,exerciseNameMax:CATALOG_NAME_MAX,exercises:40,sets:20,bytes:262144,lastTimeIds:40,historyPage:30,exerciseNoteMax:1000,setNoteMax:280,workoutNoteMax:2000,tagMax:80,focusTagsMax:20});
 
 const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,3})?(Z|[+-]\d\d:\d\d)$/;
 const pad=(n,w=2)=>String(n).padStart(w,'0');
@@ -24,6 +24,14 @@ export const normalizeNote=text=>String(text).trim();
 /** Trim, default to 'Workout' when empty, cap at the name limit. */
 export const normalizeLogName=text=>(String(text).trim()||'Workout').slice(0,WORKOUT_LIMITS.nameMax);
 
+/** Snapshot of a template or catalog variant's tags (strings or {name}); the first 20 unique names win. */
+export function logTags({brand,focusTags}={}){
+ const name=t=>String(typeof t==='string'?t:t?.name??'').trim();
+ const seen=new Set(),tags=[];
+ for(const t of focusTags||[]){const n=name(t),k=n.toLocaleLowerCase();if(n&&n.length<=WORKOUT_LIMITS.tagMax&&!seen.has(k)){seen.add(k);tags.push(n);}}
+ return {brand:name(brand).slice(0,WORKOUT_LIMITS.tagMax),focusTags:tags.slice(0,WORKOUT_LIMITS.focusTagsMax)};
+}
+
 export function createWorkoutLog({id,now,makeId,template,program,occurrenceId}){
  const name=normalizeLogName(template?template.document.name:'');
  const source=!template?{kind:'blank'}
@@ -34,14 +42,14 @@ export function createWorkoutLog({id,now,makeId,template,program,occurrenceId}){
   primaryMuscles:[...ex.primaryMuscles],secondaryMuscles:[...ex.secondaryMuscles],
   target:{sets:ex.sets,warmupSets:ex.warmupSets??0,repRange:{min:ex.repRange.min,max:ex.repRange.max},restSeconds:ex.restSeconds},
   ...(ex.superset?{superset:{restBetweenSeconds:ex.superset.restBetweenSeconds,restAfterRoundSeconds:ex.superset.restAfterRoundSeconds}}:{}),
-  note:'',sets:[...Array.from({length:ex.warmupSets??0},()=>emptySet(makeId,'warmup')),...Array.from({length:ex.sets},()=>emptySet(makeId,'working'))]
+  note:'',...logTags(ex),sets:[...Array.from({length:ex.warmupSets??0},()=>emptySet(makeId,'warmup')),...Array.from({length:ex.sets},()=>emptySet(makeId,'working'))]
  }));
  return {id,logVersion:LOG_VERSION,status:'active',name,coverId:normalizeWorkoutCover(template?.document.coverId),note:'',startedAt:toLocalIso(now),finishedAt:null,source,exercises};
 }
 
 export function logExerciseFromEntry(entry,makeId){
  return {id:makeId(),variantId:entry.id,referenceId:entry.familyId,name:entry.name,equipment:entry.equipment??null,
-  primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null,note:'',sets:[emptySet(makeId)]};
+  primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],target:null,note:'',...logTags(entry),sets:[emptySet(makeId)]};
 }
 
 export function workoutSummary(log){
@@ -102,6 +110,10 @@ function validateExercise(ex,i,finished){
  const note=ex.note===undefined?'':ex.note;
  if(typeof note!=='string')return fail(`${where}: Invalid exercise.`);
  if(note.length>WORKOUT_LIMITS.exerciseNoteMax)return fail(`${where}: Note must be at most 1,000 characters.`);
+ const brand=ex.brand===undefined?'':ex.brand,focusTags=ex.focusTags===undefined?[]:ex.focusTags;
+ if(typeof brand!=='string'||brand.trim().length>WORKOUT_LIMITS.tagMax||!Array.isArray(focusTags)||focusTags.length>WORKOUT_LIMITS.focusTagsMax)return fail(`${where}: Invalid tags.`);
+ const tags=focusTags.map(t=>typeof t==='string'?t.trim():'');
+ if(tags.some(t=>!t||t.length>WORKOUT_LIMITS.tagMax)||new Set(tags.map(t=>t.toLocaleLowerCase())).size!==tags.length)return fail(`${where}: Invalid tags.`);
  if(ex.equipment!==null&&!EQUIPMENT.includes(ex.equipment))return fail(`${where}: Invalid equipment.`);
  const primary=validateMuscles(ex.primaryMuscles,where);if(primary.error)return primary;
  const secondary=validateMuscles(ex.secondaryMuscles,where);if(secondary.error)return secondary;
@@ -117,7 +129,7 @@ function validateExercise(ex,i,finished){
   if(r.set.kind==='warmup'&&sets.some(p=>p.kind==='working'))return fail(`${where}: Warm-up sets must come before working sets.`);
   sets.push(r.set);
  }
- const out={id:ex.id,variantId:ex.variantId,referenceId:ex.referenceId,name:ex.name,equipment:ex.equipment,primaryMuscles:primary.list,secondaryMuscles:secondary.list,target,note,...(ex.superset!==undefined?{superset:ex.superset}:{}),sets};
+ const out={id:ex.id,variantId:ex.variantId,referenceId:ex.referenceId,name:ex.name,equipment:ex.equipment,primaryMuscles:primary.list,secondaryMuscles:secondary.list,target,note,brand:brand.trim(),focusTags:tags,...(ex.superset!==undefined?{superset:ex.superset}:{}),sets};
  return {exercise:out};
 }
 

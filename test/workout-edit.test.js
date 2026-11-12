@@ -191,3 +191,14 @@ test('workout note edit preserves raw text, is immutable and survives finishing'
  assert.equal(finishWorkout(next,new Date('2026-11-03T20:00:00Z')).log.note,note);
  assert.equal(removeExercise(next,'e2').note,note);
 });
+
+test('add copies variant tags; swap replaces or clears them',()=>{
+ const log=makeLog(),tagged={...entry,brand:{id:'b',name:'Hammer'},focusTags:[{id:'f',name:'Stretch'}]};
+ assert.deepEqual([addExercise(log,tagged,seq()).exercises.at(-1).brand,addExercise(log,tagged,seq()).exercises.at(-1).focusTags],['Hammer',['Stretch']]);
+ const first=swapExercise(log,'e1',tagged);
+ assert.deepEqual([first.exercises[0].brand,first.exercises[0].focusTags],['Hammer',['Stretch']]);
+ const other=swapExercise(first,'e1',{...entry,brand:null,focusTags:[{name:'Lengthened'}]});
+ assert.deepEqual([other.exercises[0].brand,other.exercises[0].focusTags],['',['Lengthened']]);
+ const none=swapExercise(first,'e1',entry);
+ assert.deepEqual([none.exercises[0].brand,none.exercises[0].focusTags],['',[]]);
+});
