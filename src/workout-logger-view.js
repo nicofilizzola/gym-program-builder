@@ -431,7 +431,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   log=result.log;onChange(structuredClone(log));
   await onFinish(structuredClone(log),{recap});
  }),{signal});
- more.addEventListener('click',()=>menu.toggle(more,[...(focusChrome&&editable?[{label:log.note?'Edit workout note':'Add workout note',run:()=>{workoutNote.open();syncNoteIndicator();}}]:[]),active
+ more.addEventListener('click',()=>menu.toggle(more,[...(focusChrome&&editable?[{label:log.note?'Edit workout note':'Add workout note',run:()=>{workoutNote.open();syncNoteIndicator();}}]:[]),...(focusChrome&&editable&&active&&focusView?.isEnabled()?[{label:`Weight steps · ${focusSession.read(log.id).weightIncrement} kg`,run:()=>{const n=focusSession.read(log.id).weightIncrement;menu.toggle(more,[.25,1,2.5,5].map(step=>({label:`${step} kg`,current:step===n,run:()=>focusView.setWeightIncrement(step)})));}}]:[]),active
   ?{label:'Discard workout',run:()=>run(async()=>{
    if(!await confirmAction({title:'Discard workout?',message:'This workout and its sets will be deleted. This cannot be undone.',confirmLabel:'Discard workout',destructive:true,signal:confirmations.signal}))return;
    if(!destroyed)await onDiscard();

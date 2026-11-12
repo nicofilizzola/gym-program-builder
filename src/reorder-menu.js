@@ -20,15 +20,16 @@ export function mountReorderMenu({label='Reorder options'}={}){
   const same=trigger===button;close();if(same)return;
   trigger=button;button.setAttribute('aria-expanded','true');button.setAttribute('aria-controls',popup.id);
   (button.closest('dialog')??document.body).append(popup);
-  popup.replaceChildren(...choices.map(({label,disabled=false,run})=>{
+  popup.replaceChildren(...choices.map(({label,disabled=false,current=false,run})=>{
    const option=document.createElement('button');option.type='button';option.className='secondary-btn';option.textContent=label;option.disabled=disabled;
+   if(current){option.setAttribute('aria-current','true');option.dataset.initial='';const mark=document.createElement('span');mark.setAttribute('aria-hidden','true');mark.textContent=' ✓';option.append(mark);}
    option.onclick=()=>{close(true);run();};return option;
   }));
   popup.showPopover();
   anchorRect=button.getBoundingClientRect();
   const position=tooltipPosition(anchorRect,popup.getBoundingClientRect(),{width:innerWidth,height:innerHeight});
   popup.style.left=`${position.left}px`;popup.style.top=`${position.top}px`;
-  popup.querySelector('button:not(:disabled)')?.focus({preventScroll:true});
+  (popup.querySelector('button[data-initial]:not(:disabled)')??popup.querySelector('button:not(:disabled)'))?.focus({preventScroll:true});
  }
  document.addEventListener('pointerdown',event=>{if(trigger&&!trigger.contains(event.target)&&!popup.contains(event.target))close();},options);
  document.addEventListener('focusin',event=>{if(trigger&&!trigger.contains(event.target)&&!popup.contains(event.target))close();},options);

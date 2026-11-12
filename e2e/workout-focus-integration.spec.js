@@ -53,6 +53,17 @@ test('Focus moves the workout note into the header menu',async({page})=>{
  await page.setViewportSize({width:761,height:844});
  await expect(page.locator('.logger-note')).toBeVisible();await expect(page.locator('.logger-note-indicator')).toBeHidden();
 });
+test('Workout actions sets the weight step for every ruler',async({page})=>{
+ const log=await start(page),more=page.getByRole('button',{name:'Workout actions',exact:true});
+ await more.click();const items=page.locator('.reorder-menu button');await expect(items.nth(0)).toHaveText('Add workout note');await expect(items.nth(1)).toHaveText('Weight steps · 2.5 kg');
+ await items.nth(1).click();await expect(items).toHaveText(['0.25 kg','1 kg','2.5 kg ✓','5 kg']);
+ const current=page.getByRole('button',{name:'2.5 kg',exact:true});await expect(current).toHaveAttribute('aria-current','true');await expect(current).toBeFocused();
+ await page.getByRole('button',{name:'5 kg',exact:true}).click();await expect(page.getByRole('group',{name:'Workout actions'})).toBeHidden();await expect(more).toBeFocused();
+ const weight=page.getByLabel(`Set 1 weight, ${log.exercises[0].name}`,{exact:true});await weight.fill('80');
+ const slider=page.getByRole('slider',{name:`Adjust Set 1 weight, ${log.exercises[0].name}`,exact:true});await slider.focus();await slider.press('ArrowRight');await expect(weight).toHaveValue('85');
+ await more.click();await expect(page.getByRole('button',{name:'Weight steps · 5 kg',exact:true})).toBeVisible();await page.keyboard.press('Escape');
+ await page.setViewportSize({width:761,height:844});await more.click();await expect(page.getByRole('button',{name:/^Weight steps/})).toHaveCount(0);
+});
 test('Focus chrome leaves no reserve gap and no note row above the feed',async({page})=>{
  await start(page);
  const header=await page.locator('.logger-header').boundingBox(),progress=await page.locator('.focus-progress').boundingBox();
