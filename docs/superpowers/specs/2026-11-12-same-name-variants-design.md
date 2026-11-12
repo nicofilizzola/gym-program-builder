@@ -60,13 +60,12 @@ Unchanged:
 
 ## 3. Places that show names only
 
-- **Rule.** In a list that shows variant names without their tags, when two or more entries share a normalized name with different tags, each of them shows its tags after the name. The brand comes first, then the focus tags in catalog order, all joined with ` · `, for example `Chest press · Hammer · Stretch`. An untagged entry stays `Chest press`, and names that do not collide never change.
+- **Rule.** In a list on screen that shows variant names without their tags, when two or more entries share a normalized name with different tags, each of them shows its tags after the name. The brand comes first, then the focus tags in catalog order, all joined with ` · `, for example `Chest press · Hammer · Stretch`. An untagged entry stays `Chest press`, and names that do not collide never change.
 - **Places and their scope** (the list within which a collision is detected):
   - the reference exercise's variant preview: that reference's variants;
-  - the workout recap's exercise rows: that workout;
-  - the program AI review input: the whole program snapshot, every occurrence included.
+  - the workout recap's exercise rows: that workout.
 - **One pure helper** in `src/catalog.js` computes these labels from `{name, brand, focusTags}`. Templates carry the tag names, and logs carry them since spec 1.
-- **AI review.** The input's shape, the facts and the prompt version stay the same; only colliding names gain their tags.
+- **AI review (amended 2026-11-12 while planning).** No change. The validated program snapshot already sends each exercise's `brand` and `focusTags` beside its name (`src/program-analysis-input.js` `cleanWorkout`), and the prompt projection passes every exercise field through (`server/program-analysis-prompt.js`). The model can therefore already tell same-name variants apart, and renaming them in the input would only repeat that.
 - **Tagged places stay as they are:** the catalog, the picker, template cards, the tracker (spec 1) and the overview (spec 2).
 
 ## 4. Delivery order
