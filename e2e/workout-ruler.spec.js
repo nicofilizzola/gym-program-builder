@@ -45,7 +45,7 @@ test('range updates from the current typed value and omits invalid or absent tar
  await reps.fill('101');await expect(hint).toBeHidden();await expect(caption).toHaveText('Reps');
  await page.evaluate(()=>widgets.reps.update({value:null,placeholder:null,range:null,increment:1,enabled:true}));await expect(hint).toBeHidden();await expect(caption).toHaveText('Reps');
 });
-test('horizontal drag adjusts while vertical intent and cancellation do not write',async({page})=>{
+test('horizontal drag adjusts and a cancelled vertical press does not write',async({page})=>{
  await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true}),box=await slider.boundingBox();
  await page.mouse.move(box.x+180,box.y+15);await page.mouse.down();await page.mouse.move(box.x+116,box.y+15,{steps:5});await page.mouse.up();expect(await page.evaluate(()=>value.weightKg)).toBe(85);
  await page.evaluate(()=>{window.before=patches.length;const s=document.querySelector('[role="slider"]');s.dispatchEvent(new PointerEvent('pointerdown',{pointerId:9,isPrimary:true,button:0,clientX:100,clientY:20,bubbles:true}));s.dispatchEvent(new PointerEvent('pointermove',{pointerId:9,isPrimary:true,clientX:102,clientY:70,bubbles:true}));s.dispatchEvent(new PointerEvent('pointercancel',{pointerId:9,bubbles:true}));});
@@ -57,6 +57,11 @@ test('a drag that drifts vertically keeps adjusting',async({page})=>{
  await page.mouse.move(box.x+180,box.y+15);await page.mouse.down();await page.mouse.move(box.x+170,box.y+55,{steps:4});await page.mouse.move(box.x+116,box.y+55,{steps:5});await page.mouse.up();
  // A drag writes live on each step; the last write is where it ends.
  expect(await page.evaluate(()=>patches.at(-1))).toEqual({weightKg:85});
+});
+test('a vertical swipe without horizontal travel writes nothing',async({page})=>{
+ await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true}),box=await slider.boundingBox();
+ await page.mouse.move(box.x+box.width*.75,box.y+15);await page.mouse.down();await page.mouse.move(box.x+box.width*.75+3,box.y+55,{steps:4});await page.mouse.up();
+ expect(await page.evaluate(()=>patches)).toEqual([]);
 });
 test('tapping left or right of centre steps once',async({page})=>{
  await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true}),box=await slider.boundingBox();

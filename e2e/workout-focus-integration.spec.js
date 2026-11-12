@@ -127,13 +127,22 @@ test('tapping a set input while the workout note is open moves focus to that inp
 });
 // Input.synthesizeScrollGesture with touch dispatches no touchmove in headless Chromium here, so the swipe is raw CDP touch events.
 test('a swipe that starts on a ruler never scrolls the feed',async({page})=>{
- await start(page);const feed=page.locator('.focus-feed'),card=feed.locator(':scope>.log-set').first(),cdp=await page.context().newCDPSession(page);
+ const log=await start(page),fields=()=>Promise.all(['weight','reps'].map(f=>page.getByLabel(`Set 1 ${f}, ${log.exercises[0].name}`,{exact:true}).inputValue()));const feed=page.locator('.focus-feed'),card=feed.locator(':scope>.log-set').first(),cdp=await page.context().newCDPSession(page);
  await feed.evaluate(f=>f.addEventListener('scroll',()=>{window.maxTop=Math.max(window.maxTop,f.scrollTop);}));
  const swipe=async locator=>{await page.evaluate(()=>{window.maxTop=0;});const b=await locator.boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
   for(let i=1;i<=10;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-i*20}]});await page.waitForTimeout(16);}
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(300);
   return page.evaluate(()=>window.maxTop);}; // snapping returns a short swipe to the same card, so read the furthest scroll
- expect(await swipe(card.locator('.workout-ruler').first())).toBe(0);
+ const before=await fields();expect(await swipe(card.locator('.workout-ruler').first())).toBe(0);expect(await fields()).toEqual(before); // and never nudges
  expect(await swipe(card.locator('.focus-exercise-title'))).toBeGreaterThan(50);
+});
+test('a diagonal touch drag on a ruler holds until release',async({page})=>{
+ const log=await start(page),weight=page.getByLabel(`Set 1 weight, ${log.exercises[0].name}`,{exact:true});await weight.fill('80');
+ const b=await page.locator('.focus-feed>.log-set').first().locator('.workout-ruler').first().boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2),cdp=await page.context().newCDPSession(page);
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ // 120px left with 100px of vertical drift (well outside the strip) is +4 steps of 2.5kg on the ruler
+ for(let i=1;i<=10;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-i*12,y:y+i*10}]});await page.waitForTimeout(16);}
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await expect(weight).toHaveValue('90');expect(await page.locator('.focus-feed').evaluate(f=>f.scrollTop)).toBe(0);
 });

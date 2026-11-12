@@ -43,13 +43,13 @@ export function mountWorkoutRuler(host,{input,kind,caption=null,onAdjust,onInter
   clearTimeout(settleTimer);settleTimer=setTimeout(()=>root.classList.remove('is-settling'),170);
  }
  // The strip owns a pointer from press to release (touch-action:none); vertical drift never drops the gesture.
- root.addEventListener('pointerdown',e=>{if(!state.enabled||e.button!==0||!e.isPrimary)return;onInteraction();clearTimeout(settleTimer);root.classList.remove('is-settling');try{root.setPointerCapture(e.pointerId);}catch{}drag={id:e.pointerId,x:e.clientX,offset,moved:false};},{signal});
+ root.addEventListener('pointerdown',e=>{if(!state.enabled||e.button!==0||!e.isPrimary)return;onInteraction();clearTimeout(settleTimer);root.classList.remove('is-settling');try{root.setPointerCapture(e.pointerId);}catch{}drag={id:e.pointerId,x:e.clientX,y:e.clientY,offset,moved:false,vertical:false};},{signal});
  root.addEventListener('pointermove',e=>{
   if(!drag||drag.id!==e.pointerId)return;const dx=e.clientX-drag.x;
-  if(!drag.moved){if(Math.abs(dx)<=8)return;drag.moved=true;root.classList.add('is-dragging');}
+  if(!drag.moved){if(Math.abs(e.clientY-drag.y)>8)drag.vertical=true;if(Math.abs(dx)<=8)return;drag.moved=true;root.classList.add('is-dragging');}
   offset=clamp(drag.offset-dx,0,(max-min)/state.increment*32);draw();adjust(min+Math.round(offset/32)*state.increment);
  },{signal});
- root.addEventListener('pointerup',e=>{if(drag?.id!==e.pointerId)return;if(drag.moved){settle();return;}drag=null;const rect=root.getBoundingClientRect();step(e.clientX<rect.left+rect.width/2?-1:1);},{signal}); // a tap applies at once, like a key
+ root.addEventListener('pointerup',e=>{if(drag?.id!==e.pointerId)return;if(drag.moved){settle();return;}const vertical=drag.vertical;drag=null;if(vertical){syncPosition();return;}const rect=root.getBoundingClientRect();step(e.clientX<rect.left+rect.width/2?-1:1);},{signal}); // a tap (released within the slop both ways) applies at once, like a key; a vertical swipe writes nothing
  for(const event of ['pointercancel','lostpointercapture'])root.addEventListener(event,e=>{if(drag?.id===e.pointerId)settle();},{signal});
  root.addEventListener('wheel',e=>{if(!state.enabled||Math.abs(e.deltaX)<=Math.abs(e.deltaY))return;e.preventDefault();onInteraction();offset=clamp(offset+e.deltaX,0,(max-min)/state.increment*32);adjust(min+Math.round(offset/32)*state.increment);syncPosition();},{signal,passive:false});
  root.addEventListener('keydown',e=>{
