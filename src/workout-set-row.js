@@ -75,7 +75,7 @@ export function createSetRow({exerciseName,set,kind=set.kind||'working',kindInde
    field.setAttribute('aria-label',`Note, ${label}`);
    if(document.activeElement!==field)field.value=current.note??'';
   }else{
-   field.textContent=`✎ ${current.note}`;
+   field.innerHTML=actionIcon('note');field.append(current.note);
    if(kind==='text')field.setAttribute('aria-label',`Edit note, ${label}: ${current.note}`);
   }
  }

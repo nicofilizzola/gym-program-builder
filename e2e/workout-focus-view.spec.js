@@ -46,13 +46,16 @@ test('blank weight is visibly bodyweight without seeding a recorded number',asyn
  expect(await page.evaluate(()=>port.read().log.exercises[0].sets[1].weightKg)).toBe(null);
  await card.getByLabel('Set 1 weight, Bench press',{exact:true}).fill('20');await expect(card.locator('.focus-bodyweight')).toBeHidden();
 });
-test('card puts set note in the RIR row and has no visible feedback line',async({page})=>{
+test('card puts the set note on the header row and the RIR row holds only RIR',async({page})=>{
  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
- const card=page.locator('.focus-card[data-set-id="s1"]'),action=card.locator('.focus-rir-strip').getByRole('button',{name:'Add set note, Set 1, Bench press',exact:true});
- await expect(action).toBeVisible();const box=await action.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+ const card=page.locator('.focus-card[data-set-id="s1"]'),action=card.locator('.focus-context').getByRole('button',{name:'Add set note, Set 1, Bench press',exact:true});
+ await expect(action).toBeVisible();const box=await action.boundingBox(),marker=await card.locator('.focus-complete-marker').boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);expect(box.x+box.width).toBeLessThanOrEqual(marker.x+0.5);
+ await expect(card.locator('.focus-rir-strip button')).toHaveCount(6);
  await expect(card.locator('.focus-feedback')).toHaveClass(/visually-hidden/);
  await expect(card.locator('.focus-identity .focus-exercise-note')).toHaveAttribute('aria-label','Add exercise note, Bench press');
- expect((await card.locator('.focus-context').boundingBox()).height).toBeLessThanOrEqual(44);
+ expect((await card.locator('.focus-context').boundingBox()).height).toBeCloseTo(44,0);
+ await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'aw'}));
+ await expect(page.locator('.focus-card[data-set-id="aw"] .focus-context').getByRole('button',{name:/^Add set note, Warm-up set 1/})).toBeVisible();
 });
 test('completion milestone reads in the Complete button',async({page})=>{
  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));

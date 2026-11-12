@@ -38,7 +38,7 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
    const rounds=el('div','overview-rounds');block.content.append(rounds);let group=null,last=null;
    for(const item of items){const groupKey=item.kind==='warmup'?'Warm-ups':pair?`Round ${item.round}`:'Working sets';if(last!==groupKey){group=el('section','overview-set-group');group.append(el('h4','',groupKey));rounds.append(group);last=groupKey;}
     const ex=exercises.find(e=>e.id===item.ref.exerciseId),line=el('div','overview-set-line'),label=`${item.kind==='warmup'?'Warm-up':'Working set'} ${item.kindIndex}, ${ex.name}`,jump=button(label,()=>{selected=item.ref;close();}),summary=el('span','overview-set-summary'),note=button(`Set note, ${label}`,()=>{selected=item.ref;close(()=>port.command({type:'set-note',ref:item.ref}));}),remove=button(`Remove ${label}`,()=>port.command({type:'remove-set',ref:item.ref}));
-    jump.textContent=`${item.kind==='warmup'?'Warm-up':'Set'} ${item.kindIndex}${pair?' · '+ex.name:''}`;note.innerHTML=actionIcon('edit');remove.innerHTML=actionIcon('delete');note.classList.add('action-button');remove.classList.add('action-button');
+    jump.textContent=`${item.kind==='warmup'?'Warm-up':'Set'} ${item.kindIndex}${pair?' · '+ex.name:''}`;note.innerHTML=actionIcon('note');remove.innerHTML=actionIcon('delete');note.classList.add('action-button');remove.classList.add('action-button');
     line.append(jump,summary,note,remove);if(pair&&item.kind==='working'&&item.preview.label.includes('No partner'))line.append(el('p','focus-muted','No partner set this round'));group.append(line);block.rows.set(item.key,{jump,summary,ref:item.ref});
    }
   }

@@ -47,7 +47,7 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
    test.skip(label==='390 touch','Active phone workouts use Focus; note behavior there is covered by the Focus and long-note tests.');
    const {id,names:[first]}=await start(page);
    const add=page.getByRole('button',{name:`Add note, ${first}`,exact:true});
-   await expect(add).toHaveText('✎ Add note');
+   await expect(add).toHaveText('Add note');await expect(add.locator('svg[aria-hidden="true"]')).toHaveCount(1);
    expect((await add.boundingBox()).height).toBeGreaterThanOrEqual(hasTouch?43.5:31.5);
    await add.click();
    const input=page.getByLabel(`Note, ${first}`,{exact:true});
@@ -58,14 +58,14 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
    await input.fill('Seat 4');
    await blur(page);
    const text=page.getByRole('button',{name:editName(first)});
-   await expect(text).toHaveText('✎ Seat 4');
+   await expect(text).toHaveText('Seat 4');
    await expect(status(page)).toHaveText('Saved');
    expect(await noteOf(page,id)).toBe('Seat 4');
    await text.click();
    await expect(input).toBeFocused();
    expect(await input.evaluate(el=>[el.selectionStart,el.selectionEnd])).toEqual([6,6]);
    await input.fill('   ');await blur(page);
-   await expect(page.getByRole('button',{name:`Add note, ${first}`,exact:true})).toHaveText('✎ Add note');
+   await expect(page.getByRole('button',{name:`Add note, ${first}`,exact:true})).toHaveText('Add note');
    await expect(status(page)).toHaveText('Saved');
    expect(await noteOf(page,id)).toBe('');
    // Note again, finish, then start the same template: the note shows as read-only last-time text, not copied.
@@ -124,7 +124,7 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
    expect(await input.evaluate(el=>({focused:el===document.activeElement,note:JSON.parse(localStorage.getItem('gpb.activeWorkout')).log.exercises[0].sets[1].note}))).toEqual({focused:true,note:'  Felt easy  '});
    await input.press('Enter');
    const text=row.locator('button.log-set-note-text');
-   await expect(text).toHaveText('✎ Felt easy');
+   await expect(text).toHaveText('Felt easy');
    await expect(input).toHaveCount(0);
    await expect(text).toBeFocused();
    expect((await text.boundingBox()).height).toBeGreaterThanOrEqual(hasTouch?43.5:31.5);
@@ -146,10 +146,10 @@ for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true
    const input=await openSetNote(page,1,first,{warm:true});
    await input.fill('Light and controlled');await input.press('Enter');
    const text=page.locator('.log-set.is-warmup .log-set-note-text');
-   await expect(text).toHaveText('✎ Light and controlled');
+   await expect(text).toHaveText('Light and controlled');
    await text.click();await expect(input).toBeFocused();await blur(page);
    await expect(status(page)).toHaveText('Saved');await page.reload();
-   await expect(text).toHaveText('✎ Light and controlled');
+   await expect(text).toHaveText('Light and controlled');
    await expect(page.locator('.log-set-note-input')).toHaveCount(0);
    await expect(page.locator('.log-set-note-part.is-closed')).toHaveCount(0);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -203,7 +203,7 @@ test('set note close retains inert content through the collapse and rapid reopen
  await expect(input).toBeFocused();
  await input.fill('Still here');await page.waitForTimeout(350);
  await expect(input).toHaveValue('Still here');await expect(input).toBeFocused();
- await input.press('Enter');await expect(page.locator('.log-set-note-text')).toHaveText('✎ Still here');
+ await input.press('Enter');await expect(page.locator('.log-set-note-text')).toHaveText('Still here');
 });
 
 test('reduced motion settles set note open and close in the same turn',async({browser})=>{
@@ -241,7 +241,7 @@ test('a note typed offline survives reload and syncs once restored',async({page}
  await page.getByRole('button',{name:`Add note, ${first}`,exact:true}).click();
  await page.getByLabel(`Note, ${first}`,{exact:true}).fill('Seat 4');await blur(page);
  await page.reload();
- await expect(page.getByRole('button',{name:editName(first)})).toHaveText('✎ Seat 4');
+ await expect(page.getByRole('button',{name:editName(first)})).toHaveText('Seat 4');
  await page.unroute('**/api/**');await page.evaluate(()=>dispatchEvent(new Event('online')));
  await expect(status(page)).toHaveText('Saved');
  expect(await noteOf(page,id)).toBe('Seat 4');
@@ -263,7 +263,7 @@ test('the read-only history view shows the note as text with no add button',asyn
  await expect(page.locator('.logger-note .log-note-static')).toHaveText('Whole workout read-only');
  await expect(page.getByRole('button',{name:'Edit workout note',exact:true})).toHaveCount(0);
  await expect(page.locator('.log-note').filter({hasText:'Seat 4'})).toBeVisible();
- await expect(page.locator('.log-set-note-static')).toHaveText('✎ Felt heavy');
+ await expect(page.locator('.log-set-note-static')).toHaveText('Felt heavy');
  await expect(page.locator('button.log-set-note-text,.log-set-menu:not([hidden]),.log-set-note-input')).toHaveCount(0);
  await expect(page.getByRole('button',{name:/^(Add|Edit) note/})).toHaveCount(0);
  await expect(page.locator('.log-exercise').filter({hasText:second}).locator('.log-note')).toBeHidden();

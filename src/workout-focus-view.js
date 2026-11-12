@@ -9,7 +9,7 @@ import {focusCardFit,stackHeight} from './workout-focus-fit.js';
 
 const node=(tag,className,text)=>{const el=document.createElement(tag);el.className=className;if(text!==undefined)el.textContent=text;return el;};
 const same=(a,b)=>a===b||Boolean(a&&b&&setKey(a)===setKey(b));
-const noteIcon=()=>actionIcon('edit');
+const noteIcon=()=>actionIcon('note');
 
 /** Borrows canonical row/control nodes. All edits still go through the logger port. */
 export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()=>{},onFinish=()=>{}}){
@@ -34,13 +34,13 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const b=setRowBindings(row),key=setKey(ref),markers=[],widgets=[],disposers=[];
   function borrow(el,target){if(!markers.some(m=>m.el===el)){const marker=document.createComment('compact-control');el.before(marker);markers.push({el,marker});}if(el.parentElement!==target)target.append(el);}
   const context=node('header','focus-context focus-only'),contextText=node('div','focus-context-text'),eyebrow=node('p','focus-eyebrow'),label=node('p','focus-set-label');contextText.tabIndex=-1;contextText.append(label,eyebrow);
-  const marker=node('span','focus-complete-marker');marker.innerHTML=actionIcon('check');context.append(contextText,marker);
+  const action=node('button','focus-set-note');action.type='button';action.innerHTML=noteIcon()+'<span class="visually-hidden">Add set note</span>';action.onclick=()=>{interaction('note');port.command({type:'set-note',ref,open:true});};
+  const marker=node('span','focus-complete-marker');marker.innerHTML=actionIcon('check');context.append(contextText,action,marker);
   const identity=node('div','focus-identity focus-only'),titleRow=node('div','focus-identity-row'),heading=node('h2','focus-exercise-title'),exerciseAction=node('button','focus-exercise-note');exerciseAction.type='button';exerciseAction.innerHTML=noteIcon();titleRow.append(heading,exerciseAction);
   const noteText=node('button','focus-exercise-note-text');noteText.type='button';
   const exerciseEditor=node('div','focus-exercise-editor');identity.append(titleRow,noteText,exerciseEditor);
   const historyHost=node('div','focus-history focus-only');row.querySelector('.log-set-clip').prepend(context,identity,historyHost);row.classList.add('focus-card');row.dataset.exerciseId=ref.exerciseId;
   const controls=node('div','focus-number-controls focus-only'),help=node('div','focus-input-help focus-only'),rirStrip=node('div','focus-rir-strip focus-only'),notes=node('div','focus-note-area focus-only'),complete=node('div','focus-complete focus-only'),feedback=node('p','focus-feedback visually-hidden');
-  const action=node('button','focus-set-note');action.type='button';action.innerHTML=noteIcon()+'<span class="visually-hidden">Add set note</span>';action.onclick=()=>{interaction('note');port.command({type:'set-note',ref,open:true});};
   const grid=row.querySelector('.log-set-row');grid.append(controls,help,rirStrip,notes,feedback);
   // Complete sits on the whole card (not the controls grid) so, when pinned, it can stick anywhere the card is in view.
   row.querySelector('.log-set-clip').append(complete);
@@ -48,7 +48,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const caption=row.querySelector('.log-rir-label');caption.innerHTML='RIR<small>Optional</small>';
   const increment=document.createElement('select');increment.className='focus-increment';for(const n of [.25,1,2.5,5]){const option=document.createElement('option');option.value=n;option.textContent=`${n} kg steps`;increment.append(option);}increment.value=state.weightIncrement;
   increment.onchange=()=>{state.weightIncrement=+increment.value;onInteraction({type:'preference',patch:{weightIncrement:state.weightIncrement}});update(snapshot);};help.append(increment);
-  function borrowAll(){caption.innerHTML='RIR<small>Optional</small>';borrow(b.number,marker);for(const kind of ['weight','reps'])borrow(b.inputs[kind].closest('.log-stepper'),controls);borrow(caption,rirStrip);borrow(b.rir,rirStrip);rirStrip.append(action);borrow(b.noteHost,notes);borrow(b.done,complete);}
+  function borrowAll(){caption.innerHTML='RIR<small>Optional</small>';borrow(b.number,marker);for(const kind of ['weight','reps'])borrow(b.inputs[kind].closest('.log-stepper'),controls);borrow(caption,rirStrip);borrow(b.rir,rirStrip);borrow(b.noteHost,notes);borrow(b.done,complete);}
   port.relocate(borrowAll);
   const observed=[context,identity,historyHost,controls,help,rirStrip,notes,complete];for(const el of observed)resize.observe(el);
   for(const kind of ['weight','reps']){
