@@ -52,3 +52,40 @@ test('horizontal drag adjusts while vertical intent and cancellation do not writ
  expect(await page.evaluate(()=>patches.length-before)).toBe(0);expect(page.url()).not.toContain('#');
  const count=await page.locator('.workout-ruler-tick').count();expect(count).toBeLessThan(60);
 });
+test('a drag that drifts vertically keeps adjusting',async({page})=>{
+ await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true}),box=await slider.boundingBox();
+ await page.mouse.move(box.x+180,box.y+15);await page.mouse.down();await page.mouse.move(box.x+170,box.y+55,{steps:4});await page.mouse.move(box.x+116,box.y+55,{steps:5});await page.mouse.up();
+ // A drag writes live on each step; the last write is where it ends.
+ expect(await page.evaluate(()=>patches.at(-1))).toEqual({weightKg:85});
+});
+test('tapping left or right of centre steps once',async({page})=>{
+ await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true}),box=await slider.boundingBox();
+ await page.mouse.click(box.x+box.width/4,box.y+15);expect(await page.evaluate(()=>patches)).toEqual([{weightKg:77.5}]);
+ await page.mouse.click(box.x+box.width*3/4,box.y+15);expect(await page.evaluate(()=>patches)).toEqual([{weightKg:77.5},{weightKg:80}]);
+ const reps=await page.getByRole('slider',{name:'Adjust Set 1 reps, Bench press',exact:true}).boundingBox();
+ await page.mouse.click(reps.x+reps.width*3/4,reps.y+15);expect(await page.evaluate(()=>value.reps)).toBe(9);
+});
+test('taps respect limits and off-grid values',async({page})=>{
+ await mount(page);const weight=page.getByLabel('Set 1 weight, Bench press',{exact:true}),reps=page.getByLabel('Set 1 reps, Bench press',{exact:true});
+ const strip=kind=>page.getByRole('slider',{name:`Adjust Set 1 ${kind}, Bench press`,exact:true});
+ const tap=async(kind,side)=>{const box=await strip(kind).boundingBox();await page.mouse.click(box.x+box.width*(side<0?.25:.75),box.y+15);};
+ const writes=async(kind,side)=>{const before=await page.evaluate(()=>patches.length);await tap(kind,side);return page.evaluate(n=>patches.slice(n),before);};
+ await weight.fill('999.75');expect(await writes('weight',1)).toEqual([]);await expect(strip('weight').locator('.workout-ruler-nudge').last()).toHaveClass(/is-limit/);await expect(strip('weight').locator('.workout-ruler-nudge').first()).not.toHaveClass(/is-limit/);
+ await weight.fill('0');expect(await writes('weight',-1)).toEqual([]);await expect(strip('weight').locator('.workout-ruler-nudge').first()).toHaveClass(/is-limit/);
+ await reps.fill('100');expect(await writes('reps',1)).toEqual([]);await reps.fill('1');expect(await writes('reps',-1)).toEqual([]);
+ await weight.fill('24.25');expect(await writes('weight',1)).toEqual([{weightKg:26.75}]);
+ await expect(strip('weight').locator('.workout-ruler-nudge')).toHaveText(['‹','›']);await expect(strip('weight').locator('.workout-ruler-nudge').first()).toHaveAttribute('aria-hidden','true');
+});
+test('a cancelled press writes nothing and a cancelled drag settles on a step',async({page})=>{
+ await mount(page);
+ const run=end=>page.evaluate(end=>{const s=document.querySelector('[role="slider"]'),at=x=>({pointerId:7,isPrimary:true,button:0,clientX:x,clientY:20,bubbles:true}),before=patches.length;
+  s.dispatchEvent(new PointerEvent('pointerdown',at(100)));if(end==='press'){s.dispatchEvent(new PointerEvent('pointercancel',at(100)));return patches.length-before;}
+  s.dispatchEvent(new PointerEvent('pointermove',at(30)));s.dispatchEvent(new PointerEvent(end,at(30)));const v=value.weightKg;value={...value,weightKg:null};refresh();return v;},end);
+ expect(await run('press')).toBe(0);
+ const cancelled=await run('pointercancel'),released=await run('pointerup');
+ expect(cancelled%2.5).toBe(0);expect(cancelled).toBe(released);
+});
+test('the strip owns touches and keeps its slider semantics',async({page})=>{
+ await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true});
+ await expect(slider).toHaveCSS('touch-action','none');await expect(slider).toHaveAttribute('aria-valuetext','Suggested 80 kg');
+});

@@ -4,7 +4,7 @@ Design: [specification](../specs/2026-11-12-focus-set-page-design.md). Plan: [im
 
 ## Part 1: small fixes (2026-11-12)
 
-Commits: `bf4ff7d` (`5+`), `e3817b7` (no warm-up RIR), `0168132` (note icon and header-row set note), and the Task 4 commit (RIR border, docs). Parts 2 (input) and 3 (tags) are not yet implemented; this file is extended as they ship.
+Commits: `bf4ff7d` (`5+`), `e3817b7` (no warm-up RIR), `0168132` (note icon and header-row set note), and the Task 4 commit (RIR border, docs). Part 3 (tags) is not yet implemented; this file is extended as it ships.
 
 ### Commands (localhost, Chromium via Playwright)
 
@@ -46,5 +46,43 @@ A scratch Playwright script (not committed) built a populated log (two warm-ups,
 - RIR border after tapping, deselecting and tapping another option on the user's phone: `pending (user)`.
 - Set-note button on the header row feels right to hit with a thumb, on working and warm-up cards: `pending (user)`.
 - `5+` label and Last time `@5+` read correctly on the phone: `pending (user)`.
+
+## Part 2: input (2026-11-12)
+
+Commits: `23b7e16` (Weight steps in Workout actions), `799d805` (Reps caption, help row and `kg steps` select removed) and the Task 7 commit (ruler gesture, tap nudges, ruler heights, Part 2 docs).
+
+### Commands (localhost, Chromium via Playwright)
+
+- `npm test`: 488 passed, 0 failed.
+- `npm run build`: passed (`Built public assets.`).
+- `npm run test:e2e` (full, one invocation, 14.9 min): 626 passed, 7 skipped, 0 failed. The tap-nudge motion change (a tap no longer adds the settle transition) landed during that run, so the ruler and every Focus spec were re-run afterwards: `workout-ruler`, `workout-focus-integration`, `workout-focus-fit`, `workout-focus-motion`, `workout-focus-view`, 82 passed. The suite's rewrites of `docs/superpowers/verification/assets/mobile-library-navigation/*.png` were reverted, not committed.
+
+### Ruler gesture (Task 7)
+
+- RED before the change (`npx playwright test e2e/workout-ruler.spec.js`): `'a drag that drifts vertically keeps adjusting'` wrote nothing (the gesture was dropped once the first movement leaned vertical), `'tapping left or right of centre steps once'` wrote nothing, `'taps respect limits and off-grid values'` found no `.workout-ruler-nudge`, and the strip's `touch-action` was `pan-y pinch-zoom`. `'a cancelled press writes nothing and a cancelled drag settles on a step'` already passed (drags write live per step) and stays as a guard.
+- `'a swipe that starts on a ruler never scrolls the feed'` (`e2e/workout-focus-integration.spec.js`): the brief named `Input.synthesizeScrollGesture` with `gestureSourceType:'touch'`, but in this headless Chromium it dispatched `touchstart` and no `touchmove`, so it scrolled nothing anywhere (title included) and could not tell the cases apart. The test drives raw CDP `Input.dispatchTouchEvent` (start, ten 20px moves, end) instead and reads the furthest `scrollTop` (snapping returns a short swipe to the same card). With `touch-action:pan-y pinch-zoom` restored temporarily it fails (`Expected: 0`, `Received: 185`); with `none`, the ruler swipe leaves the feed at 0 and the title swipe still scrolls it (about 185px).
+- Ruler heights (`e2e/workout-focus-fit.spec.js`): 56px at 412x839 (feed 598px), 48px at 412x760 (feed 519px), 44px at 360x660 (feed 419px). The whole fit and rhythm matrix passes unchanged with the taller rulers, including the `false` peek rows at 360x660, 393x659 and 412x839.
+
+### What was inspected
+
+A scratch Playwright spec (not committed) opened a populated active workout with Last time and Best (touch, `isMobile`) and measured the viewed card.
+
+- **Viewports.** At 360x660, 390x664, 393x659, 412x760, 412x839 and 430x932 both rulers have the tier height above (44/44/44/48/56/56px), each chevron cap is 20px wide and flush with its strip end, Complete is inside the feed, and neither the page nor the card overflows horizontally. Screenshot at 390x664 viewed: the chevrons sit in opaque `--surface` caps so tick labels slide under them instead of colliding (the first transparent version overlapped `57.5` and `12`, fixed before commit).
+- **200% text** (360x660, 390x664): rulers stay 44px with intact caps, inputs 70.4px, the card goes peekless with Complete pinned inside the feed, no horizontal overflow; screenshot at 360 viewed.
+- **Touch and motion** (390x844): a touchscreen tap at the left quarter of the weight ruler from the 62.5 placeholder wrote 60, a right-quarter tap wrote 62.5, and a diagonal touch drag (80px left, 96px down) wrote 70 with the feed still at `scrollTop` 0. With reduced motion neither a tap nor a drag release adds `is-settling`; without it a tap is still instant (no `is-settling`) and only a drag release uses the existing 150ms settle.
+- Desktop sizes show the regular tracker, where no ruler is mounted; not re-inspected.
+
+### Not inspected
+
+- Real devices of any kind, hybrid input, and browsers other than Chromium.
+- Whether `touch-action:none` on the strip was in fact the cause of the reported drop on the user's phone (the spec's hypothesis); emulation shows only that a swipe from the strip no longer scrolls the feed.
+
+### Phone checks
+
+- Grabbing a ruler with a thumb on the first try: `pending (user)`.
+- A full swipe across a ruler without lifting never lets go, including when the thumb drifts vertically: `pending (user)`.
+- Tapping either side of the needle nudges one step, and stops at the limits: `pending (user)`.
+- A swipe that starts on a ruler never scrolls the feed by accident, while the rest of the card still scrolls: `pending (user)`.
+- Logging a whole workout with rulers and taps only: `pending (user)`.
 
 No physical-device or deployment verification is claimed; everything above is localhost Chromium emulation.

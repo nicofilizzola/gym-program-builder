@@ -125,3 +125,15 @@ test('tapping a set input while the workout note is open moves focus to that inp
  const reps=page.getByLabel(`Set 1 reps, ${log.exercises[0].name}`,{exact:true});await reps.click();
  await expect(reps).toBeFocused();await page.waitForTimeout(100);await expect(reps).toBeFocused();
 });
+// Input.synthesizeScrollGesture with touch dispatches no touchmove in headless Chromium here, so the swipe is raw CDP touch events.
+test('a swipe that starts on a ruler never scrolls the feed',async({page})=>{
+ await start(page);const feed=page.locator('.focus-feed'),card=feed.locator(':scope>.log-set').first(),cdp=await page.context().newCDPSession(page);
+ await feed.evaluate(f=>f.addEventListener('scroll',()=>{window.maxTop=Math.max(window.maxTop,f.scrollTop);}));
+ const swipe=async locator=>{await page.evaluate(()=>{window.maxTop=0;});const b=await locator.boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+  for(let i=1;i<=10;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-i*20}]});await page.waitForTimeout(16);}
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(300);
+  return page.evaluate(()=>window.maxTop);}; // snapping returns a short swipe to the same card, so read the furthest scroll
+ expect(await swipe(card.locator('.workout-ruler').first())).toBe(0);
+ expect(await swipe(card.locator('.focus-exercise-title'))).toBeGreaterThan(50);
+});

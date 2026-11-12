@@ -2470,12 +2470,16 @@ body {padding-bottom:var(--tab-bar-height)}
 .log-best {margin:0 0 8px;color:var(--muted);font-size:.875rem;overflow-wrap:anywhere}
 /* Focus rulers decorate existing inputs and never own their values. */
 .log-stepper:has(>.workout-ruler:not([hidden])) {flex-wrap:wrap}
-.workout-ruler {position:relative;grid-column:1/-1;flex:0 0 100%;min-width:0;width:100%;height:54px;overflow:hidden;touch-action:pan-y pinch-zoom;cursor:ew-resize;user-select:none;outline-offset:-2px}
+.workout-ruler {position:relative;grid-column:1/-1;flex:0 0 100%;min-width:0;width:100%;height:54px;overflow:hidden;touch-action:none;cursor:ew-resize;user-select:none;outline-offset:-2px}
 .workout-ruler[hidden],.workout-rep-guidance[hidden] {display:none}
 .workout-ruler-track {position:relative;height:54px;background:repeating-linear-gradient(90deg,var(--muted) 0 1px,transparent 1px 32px) 0 4px/auto 13px repeat-x;will-change:transform}
 .workout-ruler-tick {position:absolute;top:24px;transform:translateX(-50%);font-size:.6875rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .workout-ruler-needle {position:absolute;top:0;left:50%;width:2px;height:23px;background:var(--accent);pointer-events:none}
 .workout-ruler-needle::before {content:'';position:absolute;left:-3px;top:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--accent)}
+.workout-ruler-nudge {position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;width:20px;color:var(--muted);font-size:1.125rem;line-height:1;background:var(--surface);pointer-events:none}
+.workout-ruler-nudge:first-of-type {left:0}
+.workout-ruler-nudge:last-of-type {right:0}
+.workout-ruler-nudge.is-limit {opacity:.35}
 .workout-ruler-target {position:absolute;top:2px;height:17px;background:var(--accent-soft);border-bottom:1px solid var(--accent-deep)}
 .workout-ruler.is-suggestion .workout-ruler-needle {opacity:.5}
 .workout-ruler.is-settling .workout-ruler-track {transition:transform 150ms ease-out}
@@ -2545,10 +2549,10 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .log-stepper .focus-control-label {display:block;padding:0 4px;margin:0 0 5px;color:var(--muted);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;text-align:center}
 .workout-focus .log-stepper .focus-control-label.is-outside {color:var(--under)}
 .workout-focus .log-stepper input[type="text"] {flex:none;font-size:2.75rem;line-height:1;min-height:46px;padding:0 4px;border-radius:0;font-family:var(--font-display);font-weight:600}
-.workout-focus .workout-ruler {height:42px;flex:none}
+.workout-focus .workout-ruler {height:48px;flex:none}
 .workout-focus .workout-ruler[hidden] {display:block!important;visibility:hidden;pointer-events:none}
-.workout-focus .workout-ruler-track {height:42px}
-.workout-focus .workout-ruler-tick {top:22px;font-size:.625rem}
+.workout-focus .workout-ruler-track {height:48px}
+.workout-focus .workout-ruler-tick {top:26px;font-size:.625rem}
 .workout-focus .is-outside-range {border-color:var(--accent-deep)}
 .workout-focus .focus-rir-strip {display:grid;grid-template-columns:36px minmax(0,1fr);gap:4px;align-items:center;margin:0}
 .workout-focus .log-rir-label {display:block;grid-area:auto;margin:0;font-size:.8125rem;line-height:1.2;text-align:left;color:var(--text)}
@@ -2578,9 +2582,9 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-review-copy,.focus-empty p {color:var(--muted);font-size:.875rem}
 .focus-empty {padding:24px 0}
 /* Density tiers follow the measured feed, not the device: short feeds shrink numbers and rulers so the set still fits. */
-@container focus-feed (height >= 560px){.workout-focus .log-stepper input[type="text"] {min-height:54px;font-size:3.25rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:48px}.workout-focus .workout-ruler-tick {top:26px}}
-@container focus-feed (height < 560px){.focus-exercise-title {font-size:1.75rem}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:36px}.workout-focus .workout-ruler-tick {top:20px}}
-@container focus-feed (height < 460px){.focus-exercise-title {font-size:1.5rem}.workout-focus .log-stepper input[type="text"] {min-height:36px;font-size:2.2rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:32px}.workout-focus .workout-ruler-tick {top:18px}.workout-focus .log-stepper {padding-top:4px}.workout-focus .log-stepper .focus-control-label {margin-bottom:3px}.workout-focus .log-done {min-height:44px}}
+@container focus-feed (height >= 560px){.workout-focus .log-stepper input[type="text"] {min-height:54px;font-size:3.25rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:56px}.workout-focus .workout-ruler-tick {top:30px}}
+@container focus-feed (height < 560px){.focus-exercise-title {font-size:1.75rem}.workout-focus .log-stepper input[type="text"] {min-height:40px;font-size:2.4rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:48px}.workout-focus .workout-ruler-tick {top:26px}}
+@container focus-feed (height < 460px){.focus-exercise-title {font-size:1.5rem}.workout-focus .log-stepper input[type="text"] {min-height:36px;font-size:2.2rem}.workout-focus .workout-ruler,.workout-focus .workout-ruler-track {height:44px}.workout-focus .workout-ruler-tick {top:22px}.workout-focus .log-stepper {padding-top:4px}.workout-focus .log-stepper .focus-control-label {margin-bottom:3px}.workout-focus .log-done {min-height:44px}}
 /* Narrow cards keep six 44px RIR targets and the set-note icon on one row; the caption stays as the group's accessible name. */
 @container focus-feed (width < 362px){.workout-focus .focus-rir-strip {grid-template-columns:minmax(0,1fr)}.workout-focus .log-rir-label {position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){.workout-focus .focus-card,.workout-focus .log-done {transition:none}.workout-focus .log-done:active {transform:none}}

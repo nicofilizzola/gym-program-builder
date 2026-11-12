@@ -107,3 +107,10 @@ test('an out-of-target caption still fits at 360x660',async({browser})=>{
  await expect.poll(()=>fits(page)).toMatchObject({doneInside:true,overflowX:false});
  await context.close();
 });
+for(const [width,height,ruler] of [[412,839,56],[412,760,48],[360,660,44]])
+ test(`rulers are ${ruler}px tall at ${width}x${height}`,async({browser})=>{
+  const {page,context}=await open(browser,{width,height});
+  const strip=page.locator('.focus-feed>.log-set').first().locator('.workout-ruler').first();
+  await expect(strip).toHaveCSS('height',ruler+'px');await expect(strip.locator('.workout-ruler-track')).toHaveCSS('height',ruler+'px');
+  await context.close();
+ });
