@@ -1,5 +1,5 @@
 import {actionIcon} from './action-controls.js';
-import {parseWeight,parseReps,stepWeight,stepReps} from './workout-sets.js';
+import {formatRir,parseWeight,parseReps,stepWeight,stepReps} from './workout-sets.js';
 import {WORKOUT_LIMITS} from './workout-log.js';
 
 const WEIGHT_STEP=2.5;
@@ -21,7 +21,7 @@ export function createSetRow({exerciseName,set,kind=set.kind||'working',kindInde
  let state={exerciseName,set,kind,kindIndex,placeholder,noteOpen};const errors={weight:null,reps:null};let needsReps=mode==='finished'&&set.done&&set.reps===null;
  const noteSlot=$('.log-set-note-slot');let notePart=null,noteKind='none',renderedNoteOpen=noteOpen;
  for(let value=0;value<=WORKOUT_LIMITS.rirMax;value++){
-  const button=document.createElement('button');button.type='button';button.className='log-rir-option';button.textContent=String(value);button.dataset.rir=String(value);button.disabled=readOnly;rir.append(button);
+  const button=document.createElement('button');button.type='button';button.className='log-rir-option';button.textContent=formatRir(value);if(value===WORKOUT_LIMITS.rirMax)button.setAttribute('aria-label','5 or more');button.dataset.rir=String(value);button.disabled=readOnly;rir.append(button);
  }
  menu.hidden=readOnly;
  for(const input of Object.values(inputs)){input.setAttribute('aria-describedby',errorId);input.readOnly=readOnly;}

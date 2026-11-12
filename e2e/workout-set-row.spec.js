@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate,headers,saveFinishedLog} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
+import {finishWorkout} from '../src/workout-edit.js';
 
 const makeId=()=>crypto.randomUUID();
 
@@ -127,4 +128,32 @@ test('the set menu removes a set and focuses the next set menu',async({page})=>{
  await page.getByRole('group',{name:'Set actions'}).getByRole('button',{name:'Remove set',exact:true}).click();
  await expect(page.locator('.log-exercise').first().locator('.log-set')).toHaveCount(2);
  await expect(page.getByRole('button',{name:`Set 2 actions, ${name}`,exact:true})).toBeFocused();
+});
+
+test('the sixth RIR option reads 5+ and stores 5',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});
+ await setup(page);
+ const five=page.locator('.log-exercise').first().locator('.log-rir').first().getByRole('button',{name:'5 or more',exact:true});
+ await expect(five).toHaveText('5+');await five.click();await expect(five).toHaveAttribute('aria-pressed','true');
+ await expect.poll(async()=>(await (await page.request.get('/api/workouts/active')).json()).record.log.exercises[0].sets[0].rir).toBe(5);
+ await page.reload();
+ await expect(page.locator('.log-exercise').first().locator('.log-rir').first().getByRole('button',{name:'5 or more',exact:true})).toHaveAttribute('aria-pressed','true');
+});
+
+test('last time RIR 5 suggests 5+',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});
+ await login(page);await resetWorkouts(page);
+ const {id}=await createLinkedTemplate(page,'Push A');
+ const template=(await (await page.request.get(`/api/documents/${id}`)).json()).record;
+ let past=createWorkoutLog({id:makeId(),now:new Date(Date.now()-3*3600000),makeId,template});
+ past={...past,exercises:past.exercises.map((e,i)=>i?e:{...e,sets:[{id:makeId(),kind:'working',weightKg:80,reps:8,rir:5,done:true}]})};
+ const saved=await page.request.put(`/api/workouts/${past.id}`,{headers,data:{revision:0,log:finishWorkout(past,new Date(Date.now()-2*3600000)).log}});
+ expect(saved.ok(),await saved.text()).toBeTruthy();
+ const log=createWorkoutLog({id:makeId(),now:new Date(Date.now()-5*60000),makeId,template});
+ const put=await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}});
+ expect(put.ok(),await put.text()).toBeTruthy();
+ await page.goto('/#/workouts/'+log.id);
+ const card=page.locator('.log-exercise').first();
+ await expect(card.locator('.log-last-time')).toContainText('@5+');
+ await expect(card.locator('.log-rir').first().getByRole('button',{name:'5 or more',exact:true})).toHaveClass(/is-placeholder/);
 });

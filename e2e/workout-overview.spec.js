@@ -1,9 +1,10 @@
 import {test,expect} from '@playwright/test';
 import {mountFocusFixture} from './workout-focus-helper.js';
+import {focusFixture} from '../test/fixtures/workout-focus.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
-async function mount(page){await mountFocusFixture(page);await page.evaluate(async()=>{const {mountWorkoutOverview}=await import('/src/workout-overview.js');window.overview=mountWorkoutOverview({port,onJump:ref=>focusView.jump(ref,{focus:true}),onActivity:v=>focusView.suspend(v)});overview.open(document.querySelector('.focus-overview'));});return page.getByRole('dialog',{name:'Workout overview'});}
+async function mount(page,log){await mountFocusFixture(page,{log});await page.evaluate(async()=>{const {mountWorkoutOverview}=await import('/src/workout-overview.js');window.overview=mountWorkoutOverview({port,onJump:ref=>focusView.jump(ref,{focus:true}),onActivity:v=>focusView.suspend(v)});overview.open(document.querySelector('.focus-overview'));});return page.getByRole('dialog',{name:'Workout overview'});}
 test('groups warmups and working sets and frames uneven superset rounds',async({page})=>{
- const d=await mount(page);await page.screenshot({path:'.superpowers/sdd/2026-11-08-mobile-workout-focus/overview-390.png'});await expect(d.getByRole('heading',{name:'Round 1',exact:true})).toBeVisible();await expect(d).toContainText('No partner set this round');await expect(d.getByRole('button',{name:'Warm-up 1, Bench press',exact:true})).toBeVisible();
+ const log=focusFixture();Object.assign(log.exercises[0].sets[1],{weightKg:80,reps:8,rir:5});const d=await mount(page,log);await page.screenshot({path:'.superpowers/sdd/2026-11-08-mobile-workout-focus/overview-390.png'});await expect(d.locator('.overview-set-line').filter({has:page.getByRole('button',{name:'Working set 1, Bench press',exact:true})}).locator('.overview-set-summary')).toHaveText(/ · 5\+ RIR$/);await expect(d.getByRole('heading',{name:'Round 1',exact:true})).toBeVisible();await expect(d).toContainText('No partner set this round');await expect(d.getByRole('button',{name:'Warm-up 1, Bench press',exact:true})).toBeVisible();
  await d.getByRole('button',{name:'Working set 2, Bench press',exact:true}).click();await expect(d).toHaveCount(0);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s2'});
 });
 test('zero-set exercise remains manageable and escape restores opener',async({page})=>{

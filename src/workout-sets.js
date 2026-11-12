@@ -9,13 +9,15 @@ const isWarmup=set=>set?.kind==='warmup';
 export const workingLastSets=sets=>Array.isArray(sets)?sets.filter(set=>!isWarmup(set)):[];
 export const warmupLastSets=sets=>Array.isArray(sets)?sets.filter(isWarmup):[];
 
+export const formatRir=value=>value===WORKOUT_LIMITS.rirMax?`${value}+`:String(value);
+
 export function formatLastTime(sets){
  const working=workingLastSets(sets);
  if(!working.length)return 'No history';
  return working.map(set=>{
   const weight=set.weightKg===null||set.weightKg===0?'BW':String(set.weightKg);
   const reps=set.reps===null?'?':set.reps;
-  return `${weight}×${reps}${set.rir===null?'':` @${set.rir}`}`;
+  return `${weight}×${reps}${set.rir===null?'':` @${formatRir(set.rir)}`}`;
  }).join(' · ');
 }
 

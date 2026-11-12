@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {formatLastTime,setPlaceholder,parseWeight,parseReps,stepWeight,stepReps,formatElapsed} from '../src/workout-sets.js';
+import {formatLastTime,formatRir,setPlaceholder,parseWeight,parseReps,stepWeight,stepReps,formatElapsed} from '../src/workout-sets.js';
 
 test('formatLastTime shows weight × reps, bodyweight and RIR',()=>{
  assert.equal(formatLastTime([{weightKg:80,reps:8,rir:2},{weightKg:80,reps:7,rir:null},{weightKg:77.5,reps:8,rir:null}]),'80×8 @2 · 80×7 · 77.5×8');
  assert.equal(formatLastTime([{weightKg:null,reps:10,rir:null},{weightKg:0,reps:9,rir:1}]),'BW×10 · BW×9 @1');
  assert.equal(formatLastTime([]),'No history');
+});
+test('formatRir marks the top value as five or more',()=>{
+ assert.deepEqual([0,4,5].map(formatRir),['0','4','5+']);
+ assert.equal(formatLastTime([{kind:'working',weightKg:80,reps:8,rir:5,done:true}]),'80×8 @5+');
 });
 test('parseWeight accepts comma decimals and enforces steps',()=>{
  assert.deepEqual(parseWeight('82,5'),{value:82.5});assert.deepEqual(parseWeight(' 80 '),{value:80});
