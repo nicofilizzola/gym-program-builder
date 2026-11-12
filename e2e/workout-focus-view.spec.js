@@ -13,6 +13,7 @@ test('set cards reuse canonical inputs and restore them to compact layout',async
 test('warmups and unequal supersets show execution context and RIR is one tap',async({page})=>{
  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));
  const card=page.locator('.focus-card[data-set-id="a2"]');await expect(card).toContainText('No partner set this round');
+ await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'aw'}));await expect(page.locator('.focus-card[data-set-id="aw"] .focus-rir-strip')).toBeHidden();await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));await expect(card.locator('.focus-rir-strip')).toBeVisible();
  const group=card.getByRole('group',{name:/RIR/}),zero=group.getByRole('button',{name:'0',exact:true});
  await zero.click();await expect(zero).toHaveAttribute('aria-pressed','true');await zero.click();await expect(zero).toHaveAttribute('aria-pressed','false');
  const boxes=await group.getByRole('button').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {w:r.width,h:r.height};}));expect(boxes.every(r=>r.w>=44&&r.h>=44)).toBe(true);

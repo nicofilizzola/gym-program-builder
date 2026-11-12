@@ -138,3 +138,31 @@ test('a dirty version 1 mirror resumes with numbered working rows and syncs',asy
  expect(saved.log.logVersion).toBe(2);
  expect(saved.log.exercises[0].sets.map(s=>s.kind)).toEqual(['working','working']);
 });
+
+test('warm-up rows have no RIR control and never inherit one',async({page})=>{
+ await login(page);await resetWorkouts(page);
+ const {template,exName}=await makeTemplate(page);
+ const log=createWorkoutLog({id:makeId(),now:new Date(Date.now()-5*60000),makeId,template});
+ log.exercises[0].sets[0].rir=3;
+ const r=await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}});
+ expect(r.ok(),await r.text()).toBeTruthy();
+ await page.goto('/#/workouts/'+log.id);
+ await expect(page.getByRole('button',{name:'Finish',exact:true})).toBeVisible();
+ const rowsOk=async()=>{
+  const first=page.locator('.log-exercise').first();
+  for(const row of await first.locator('.log-set.is-warmup').all()){await expect(row.locator('.log-rir')).toBeHidden();await expect(row.locator('.log-rir-label')).toBeHidden();await expect(row.locator('.log-set-menu')).toBeVisible();}
+  for(const row of await first.locator('.log-set:not(.is-warmup)').all()){await expect(row.locator('.log-rir')).toBeVisible();await expect(row.locator('.log-rir-label')).toHaveJSProperty('hidden',false);}
+ };
+ await rowsOk();
+ await page.getByRole('button',{name:`Add warm-up, ${exName}`,exact:true}).click();
+ await expect(page.locator('.log-exercise').first().locator('.log-set-number')).toHaveText(['W1','W2','W3','1','2','3']);
+ await rowsOk();
+ await expect.poll(async()=>(await (await page.request.get('/api/workouts/'+log.id)).json()).record.log.exercises[0].sets.filter(s=>s.kind==='warmup').map(s=>s.rir)).toEqual([3,null,null]);
+ await doneSet(page,'Warm-up set 1',exName,'10');await doneSet(page,'Set 1',exName,'8');
+ await page.getByRole('button',{name:'Finish',exact:true}).click();
+ await page.getByRole('dialog').getByRole('button',{name:'Finish workout'}).click();
+ await page.goto('/#/workouts');
+ await page.locator('.workout-history-row a').first().click();
+ await expect(page.locator('.log-exercise').first().locator('.log-set-number')).toHaveText(['W1','1']);
+ await rowsOk();
+});

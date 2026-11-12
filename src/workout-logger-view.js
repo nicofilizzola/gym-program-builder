@@ -301,7 +301,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   const ex=find(exerciseId),index=ex.sets.findLastIndex(s=>s.kind===kind),previous=ex.sets[index];if(!previous)return {done:true};
   const ph=setPlaceholder(ex,index,lastSets(ex))||{};
   // Recorded values only: a blank weight stays bodyweight and a blank RIR stays blank; reps may fall back to the placeholder.
-  return {done:true,weightKg:previous.weightKg,reps:previous.reps??ph.reps??null,rir:previous.rir};
+  return {done:true,weightKg:previous.weightKg,reps:previous.reps??ph.reps??null,rir:kind==='warmup'?null:previous.rir};
  }
  function toggle(exerciseId,setId){
   const ex=find(exerciseId),index=ex.sets.findIndex(s=>s.id===setId);

@@ -90,6 +90,7 @@ export function createSetRow({exerciseName,set,kind=set.kind||'working',kindInde
    const [down,up]=li.querySelectorAll(`[data-kind="${kind}"] .log-step`);
    down.setAttribute('aria-label',`Decrease ${label.toLowerCase()} ${kind}, ${name}`);up.setAttribute('aria-label',`Increase ${label.toLowerCase()} ${kind}, ${name}`);
   }
+  rir.hidden=li.querySelector('.log-rir-label').hidden=warm;
   rir.setAttribute('aria-label',`${label} RIR, ${name}`);
   for(const button of rir.children){
    const value=Number(button.dataset.rir);

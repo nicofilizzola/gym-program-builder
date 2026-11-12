@@ -62,7 +62,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   exerciseAction.onclick=noteText.onclick=()=>{interaction('note');port.command({type:'exercise-note',exerciseId:ref.exerciseId,host:exerciseEditor});};
   const card={milestone:null,ref,key,row,b,contextText,eyebrow,label,heading,exerciseAction,exerciseEditor,historyHost,widgets,increment,action,feedback,borrowAll,
    update(item,ex,set,index){
-    label.textContent=item.preview.label;
+    label.textContent=item.preview.label;rirStrip.hidden=item.kind==='warmup';
     contextText.setAttribute('aria-label',`${item.preview.label}, ${ex.name}`);
     const note=ex.note||'',editing=exerciseEditor.hasChildNodes();exerciseAction.setAttribute('aria-label',`${note?'Edit':'Add'} exercise note, ${ex.name}`);exerciseAction.title=note;exerciseAction.classList.toggle('has-note',Boolean(note));exerciseAction.hidden=editing;
     // The full note stays readable below the title; it opens the same editor.

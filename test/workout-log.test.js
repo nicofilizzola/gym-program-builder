@@ -10,6 +10,11 @@ const exercise=(over={})=>({id:'e1',variantId:null,referenceId:null,name:'Row',e
 const finished=(over={})=>active({status:'finished',finishedAt:'2026-11-03T19:00:00.000+01:00',...over});
 const bad=(log,part)=>{const r=validateWorkoutLog(log);assert.ok(r.error,'expected error');if(part)assert.match(r.error,part);};
 
+test('a stored warm-up RIR stays valid',()=>{
+ const r=validateWorkoutLog(active({exercises:[exercise({sets:[set({id:'w',kind:'warmup',rir:3}),set({id:'s2'})]})]}));
+ assert.equal(r.error,undefined);assert.equal(r.log.exercises[0].sets[0].rir,3);
+});
+
 test('supported v2 ingest defaults missing notes without mutating input or accepting invalid records',()=>{
  const raw=active();delete raw.exercises[0].note;delete raw.exercises[0].sets[0].note;
  const got=upgradeLog(raw);

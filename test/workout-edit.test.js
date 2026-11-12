@@ -11,6 +11,14 @@ const makeLog=()=>({id:'l1',logVersion:2,status:'active',name:'Workout',startedA
 const copy=l=>JSON.parse(JSON.stringify(l));
 const entry={id:'v9',familyId:'r9',name:'Incline press',equipment:'Dumbbell',primaryMuscles:['Chest'],secondaryMuscles:['Front delts']};
 
+test('completing a warm-up never fills RIR',()=>{
+ const ph={weightKg:40,reps:8,rir:2},log=makeLog();
+ const mk=(over,kind)=>({...log,exercises:[exercise('e1',[set('w',{kind,...over})]),...log.exercises.slice(1)]});
+ assert.deepEqual(toggleSetDone(mk({},'warmup'),'e1','w',ph).log.exercises[0].sets[0],{id:'w',kind:'warmup',weightKg:40,reps:8,rir:null,done:true});
+ assert.equal(toggleSetDone(mk({},'working'),'e1','w',ph).log.exercises[0].sets[0].rir,2);
+ assert.equal(toggleSetDone(mk({rir:3},'warmup'),'e1','w',ph).log.exercises[0].sets[0].rir,3);
+});
+
 test('swapExercise keeps sets and clears target',()=>{
  const log=makeLog(),before=copy(log);
  const next=swapExercise(log,'e1',entry);

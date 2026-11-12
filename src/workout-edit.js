@@ -78,7 +78,7 @@ export function toggleSetDone(log,exerciseId,setId,placeholder){
  if(!current)return {log};
  if(current.done)return {log:updateSet(log,exerciseId,setId,{done:false})};
  const ph=placeholder||{};
- const filled={weightKg:current.weightKg??ph.weightKg??null,reps:current.reps??ph.reps??null,rir:current.rir??ph.rir??null};
+ const filled={weightKg:current.weightKg??ph.weightKg??null,reps:current.reps??ph.reps??null,rir:current.rir??(current.kind==='warmup'?null:ph.rir)??null};
  if(filled.reps===null)return {error:'Enter reps'};
  return {log:updateSet(log,exerciseId,setId,{...filled,done:true})};
 }
