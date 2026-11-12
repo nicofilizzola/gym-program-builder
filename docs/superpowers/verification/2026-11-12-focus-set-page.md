@@ -18,7 +18,7 @@ Commits: `bf4ff7d` (`5+`), `e3817b7` (no warm-up RIR), `0168132` (note icon and 
 ### RIR border (Task 4)
 
 - Added `'a deselected RIR option returns to the plain border on touch'` (390x844, `hasTouch`, `isMobile`) and `'a suggested RIR option keeps a dashed non-accent border'`.
-- **The bug did not reproduce in emulation.** Before the CSS change the touch test already passed: after `tap()` on option 2 twice, `aria-pressed` is `false` and the border is `rgb(44, 55, 70)` (`--border`). Playwright's touch emulation does not leave Chromium's sticky `:hover` state the way a real phone can, so the tests stay as guards. The fix the spec asks for was applied regardless: the hover rule is wrapped in `@media (hover:hover) and (pointer:fine)`, and `:focus-visible` on an option is a `--text` ring (2px, offset 1px) instead of the inherited accent outline. Only `[aria-pressed="true"]` uses the accent border.
+- **The bug did not reproduce in emulation.** Before the CSS change the touch test already passed: after `tap()` on option 2 twice, `aria-pressed` is `false` and the border is `rgb(44, 55, 70)` (`--border`). So emulation did not reproduce the report (the cause on a real phone is unconfirmed), and the tests stay as guards. The fix the spec asks for was applied regardless: the hover rule is wrapped in `@media (hover:hover) and (pointer:fine)`, and `:focus-visible` on an option is a `--text` ring (2px, offset 1px) instead of the inherited accent outline. Only `[aria-pressed="true"]` uses the accent border.
 
 ### Defect found and fixed during inspection
 

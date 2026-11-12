@@ -2,7 +2,7 @@
 
 ## Focus set page (2026-11-12)
 
-Design: docs/superpowers/specs/2026-11-12-focus-set-page-design.md; plan: docs/superpowers/plans/2026-11-12-focus-set-page.md; evidence: docs/superpowers/verification/2026-11-12-focus-set-page.md. Part 1 (small fixes) is shipped; Parts 2 (input) and 3 (tags) follow. Supersedes the Focus, warm-up and note rules below where they conflict.
+Design: docs/superpowers/specs/2026-11-12-focus-set-page-design.md; plan: docs/superpowers/plans/2026-11-12-focus-set-page.md; evidence: docs/superpowers/verification/2026-11-12-focus-set-page.md. Part 1 (small fixes) is implemented, not deployed; Parts 2 (input) and 3 (tags) follow. Supersedes the Focus, warm-up and note rules below where they conflict.
 
 - A stored RIR of 5 means five or more: it stays 5 in the log and reads `5+` (accessible name `5 or more`) everywhere through `formatRir` (`src/workout-sets.js`): the sixth button, `@5+` in Last time and summaries, `5+ RIR` in the overview.
 - Warm-up sets have no RIR control (regular tracker, finished logs and Focus, where the card has no RIR row). Completing or repeating a warm-up never fills RIR; RIR already stored on old warm-ups stays valid, is kept and is never shown or copied to a new warm-up.
