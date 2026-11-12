@@ -157,3 +157,55 @@ test('last time RIR 5 suggests 5+',async({page})=>{
  await expect(card.locator('.log-last-time')).toContainText('@5+');
  await expect(card.locator('.log-rir').first().getByRole('button',{name:'5 or more',exact:true})).toHaveClass(/is-placeholder/);
 });
+
+test('a deselected RIR option returns to the plain border on touch',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+ const page=await context.newPage();
+ await setup(page);
+ // Focus shows the viewed set's RIR strip; the options are borrowed canonical nodes.
+ const rir=page.locator('.workout-focus .log-rir:visible').first();
+ const two=rir.locator('[data-rir="2"]'),three=rir.locator('[data-rir="3"]');
+ const border=l=>l.evaluate(el=>getComputedStyle(el).borderTopColor);
+ const rootColor=name=>page.evaluate(n=>{const p=document.createElement('i');p.style.color=`var(${n})`;document.body.append(p);const c=getComputedStyle(p).color;p.remove();return c;},name);
+ const plain=await rootColor('--border'),accent=await rootColor('--accent');
+ expect(plain).toBe('rgb(44, 55, 70)');
+ await two.tap();await expect(two).toHaveAttribute('aria-pressed','true');expect(await border(two)).toBe(accent);
+ await two.tap();await expect(two).toHaveAttribute('aria-pressed','false');
+ await page.waitForTimeout(250);// border-color transition is 150ms
+ expect(await border(two)).toBe(plain);
+ expect(await border(three)).toBe(plain);
+ await context.close();
+});
+
+test('a suggested RIR option keeps a dashed non-accent border',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});
+ await login(page);await resetWorkouts(page);
+ const {id}=await createLinkedTemplate(page,'Push A');
+ const template=(await (await page.request.get(`/api/documents/${id}`)).json()).record;
+ let past=createWorkoutLog({id:makeId(),now:new Date(Date.now()-3*3600000),makeId,template});
+ past={...past,exercises:past.exercises.map((e,i)=>i?e:{...e,sets:[{id:makeId(),kind:'working',weightKg:80,reps:8,rir:2,done:true}]})};
+ const saved=await page.request.put(`/api/workouts/${past.id}`,{headers,data:{revision:0,log:finishWorkout(past,new Date(Date.now()-2*3600000)).log}});
+ expect(saved.ok(),await saved.text()).toBeTruthy();
+ const log=createWorkoutLog({id:makeId(),now:new Date(Date.now()-5*60000),makeId,template});
+ expect((await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}})).ok()).toBeTruthy();
+ await page.goto('/#/workouts/'+log.id);
+ const suggested=page.locator('.log-exercise').first().locator('.log-rir').first().locator('.is-placeholder');
+ await expect(suggested).toHaveCount(1);
+ const s=await suggested.evaluate(el=>{const c=getComputedStyle(el);return [c.borderTopStyle,c.borderTopColor];});
+ const accent=await page.evaluate(()=>{const p=document.createElement('i');p.style.color='var(--accent)';document.body.append(p);const c=getComputedStyle(p).color;p.remove();return c;});
+ expect(s[0]).toBe('dashed');expect(s[1]).not.toBe(accent);
+});
+
+test('a saved set note shows the note icon inline before its text',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ const name=await setupFinished(page,'80');
+ await page.getByRole('button',{name:`Set 1 actions, ${name}`,exact:true}).click();
+ await page.getByRole('group',{name:'Set actions'}).getByRole('button',{name:'Add note',exact:true}).click();
+ const input=page.getByLabel(`Note, set 1, ${name}`,{exact:true});await input.fill('Felt strong');await input.press('Enter');
+ const m=await page.locator('.log-set-note-text').first().evaluate(btn=>{
+  const svg=btn.querySelector('svg'),range=document.createRange();range.selectNodeContents(btn.lastChild);
+  const s=svg.getBoundingClientRect(),t=range.getBoundingClientRect();
+  return {display:getComputedStyle(svg).display,w:s.width,dy:Math.abs((s.top+s.height/2)-(t.top+t.height/2)),before:s.right<=t.left+1};
+ });
+ expect(m.display).toBe('inline-block');expect(m.w).toBe(15);expect(m.dy).toBeLessThanOrEqual(4);expect(m.before).toBe(true);
+});
