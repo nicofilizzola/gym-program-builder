@@ -9,7 +9,8 @@ async function mount(page){
   const props=()=>({exerciseName:'Bench press',set:value,kindIndex:1,placeholder:{weightKg:80,reps:8,rir:null}});
   window.refresh=()=>{updateSetRow(row,props());for(const [kind,w] of Object.entries(widgets))w.update({value:kind==='weight'?value.weightKg:value.reps,placeholder:kind==='weight'?80:8,increment:kind==='weight'?increment:1,range:kind==='reps'?{min:8,max:10}:null,enabled:true});};
   window.row=createSetRow({...props(),onPatch:patch=>{patches.push(patch);value={...value,...patch};refresh();},onToggle:()=>{},onMenu:()=>{}});document.querySelector('#fixture').append(row);window.inputs=setRowBindings(row).inputs;
-  for(const kind of ['weight','reps'])widgets[kind]=mountWorkoutRuler(inputs[kind].closest('.log-stepper'),{input:inputs[kind],kind,onAdjust:n=>setRowBindings(row).applyValue(kind,n),onInteraction:()=>{}});
+  window.caption=document.createElement('label');caption.id='reps-caption';document.querySelector('#fixture').before(caption);
+  for(const kind of ['weight','reps'])widgets[kind]=mountWorkoutRuler(inputs[kind].closest('.log-stepper'),{input:inputs[kind],kind,caption:kind==='reps'?caption:null,onAdjust:n=>setRowBindings(row).applyValue(kind,n),onInteraction:()=>{}});
   document.querySelector('select').onchange=e=>{increment=+e.target.value;refresh();};refresh();
  });
 }
@@ -38,8 +39,11 @@ test('range updates from the current typed value and omits invalid or absent tar
  await reps.fill('6');await expect(hint).toHaveText('2 below target · Aim for 8–10 reps');
  await reps.fill('12');await expect(hint).toHaveText('2 above target · Aim for 8–10 reps');
  for(const n of ['8','10']){await reps.fill(n);await expect(hint).toHaveText('Within target · 8–10 reps');}
- await reps.fill('101');await expect(hint).toBeHidden();
- await page.evaluate(()=>widgets.reps.update({value:null,placeholder:null,range:null,increment:1,enabled:true}));await expect(hint).toBeHidden();
+ const caption=page.locator('#reps-caption');
+ await reps.fill('6');await expect(caption).toHaveText('Reps · 2 below 8–10');await expect(caption).toHaveClass(/is-outside/);
+ await reps.fill('8');await expect(caption).toHaveText('Reps · 8–10');await expect(caption).not.toHaveClass(/is-outside/);
+ await reps.fill('101');await expect(hint).toBeHidden();await expect(caption).toHaveText('Reps');
+ await page.evaluate(()=>widgets.reps.update({value:null,placeholder:null,range:null,increment:1,enabled:true}));await expect(hint).toBeHidden();await expect(caption).toHaveText('Reps');
 });
 test('horizontal drag adjusts while vertical intent and cancellation do not write',async({page})=>{
  await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true}),box=await slider.boundingBox();

@@ -25,7 +25,7 @@ const fits=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'
 const peek=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),[card,next]=f.querySelectorAll(':scope>.log-set'),fb=f.getBoundingClientRect();
  const visible=el=>{const b=el.getBoundingClientRect();return Math.max(0,Math.min(fb.bottom,b.bottom)-Math.max(fb.top,b.top));},header=next.querySelector('.focus-context');
  return {titlePx:visible(next.querySelector('.focus-exercise-title')),headerPx:visible(header),headerH:header.getBoundingClientRect().height,peekless:card.classList.contains('is-peekless'),cardH:card.getBoundingClientRect().height,feedH:fb.height};});
-for(const [width,height,peekless] of [[360,660,true],[390,664,null],[393,659,true],[412,660,null],[412,760,null],[412,839,null]/* header 44px costs the <1px of peek slack until the help row goes (Task 6) */,[412,850,false],[393,750,null],[440,770,null],[390,844,false],[430,932,false]])
+for(const [width,height,peekless] of [[360,660,false],[390,664,null],[393,659,false],[412,660,null],[412,760,null],[412,839,false],[412,850,false],[393,750,null],[440,770,null],[390,844,false],[430,932,false]])
  test(`whole card fits with a clean peek at ${width}x${height}`,async({browser})=>{
   const {page,context}=await open(browser,{width,height,history:true,previousNote:false});
   await expect(page.locator('.focus-feed>.log-set').first().locator('.log-best')).toBeVisible();
@@ -77,8 +77,8 @@ test('opening the keyboard keeps the focused reps input above the pinned Complet
 });
 // Vertical gaps between consecutive card sections, top to bottom; the last one runs to the card's separator.
 const rhythm=page=>page.evaluate(()=>{const card=document.querySelector('.focus-feed>.log-set'),box=s=>card.querySelector(s).getBoundingClientRect(),R=Math.round;
- const [ctx,id,hist,ctl,help,rir,done]=['.focus-context','.focus-identity','.focus-history','.focus-number-controls','.focus-input-help','.focus-rir-strip','.log-done'].map(box);
- return {ctxToTitle:R(id.top-ctx.bottom),titleToHistory:R(hist.top-id.bottom),historyToControls:R(ctl.top-hist.bottom),controlsToHelp:R(help.top-ctl.bottom),helpToRir:R(rir.top-help.bottom),rirToDone:R(done.top-rir.bottom),doneToEnd:R(card.getBoundingClientRect().bottom-1-done.bottom)};});
+ const [ctx,id,hist,ctl,rir,done]=['.focus-context','.focus-identity','.focus-history','.focus-number-controls','.focus-rir-strip','.log-done'].map(box);
+ return {ctxToTitle:R(id.top-ctx.bottom),titleToHistory:R(hist.top-id.bottom),historyToControls:R(ctl.top-hist.bottom),controlsToRir:R(rir.top-ctl.bottom),rirToDone:R(done.top-rir.bottom),doneToEnd:R(card.getBoundingClientRect().bottom-1-done.bottom)};});
 for(const [width,height] of [[360,660],[390,664],[393,659],[393,750],[412,660],[412,760],[412,839],[412,850],[440,770],[390,844],[430,932]])
  test(`consistent rhythm at ${width}x${height}`,async({browser})=>{
   const {page,context}=await open(browser,{width,height,history:true,previousNote:false});
@@ -86,12 +86,24 @@ for(const [width,height] of [[360,660],[390,664],[393,659],[393,750],[412,660],[
   const r=await rhythm(page),g=Object.values(r);
   expect(Math.min(...g),JSON.stringify(r)).toBeGreaterThanOrEqual(6);
   expect(Math.max(...g)-Math.min(...g),JSON.stringify(r)).toBeLessThanOrEqual(16);
-  expect(r.rirToDone,JSON.stringify(r)).toBeGreaterThanOrEqual(r.controlsToHelp);
+  expect(r.rirToDone,JSON.stringify(r)).toBeGreaterThanOrEqual(r.controlsToRir);
   await context.close();
  });
 test('feeds of 560px and taller use the large inputs',async({browser})=>{
  const {page,context}=await open(browser,{width:412,height:839});
  expect(await page.locator('.focus-feed').evaluate(f=>f.clientHeight)).toBeGreaterThanOrEqual(560);
  await expect(page.locator('.focus-feed>.log-set').first().locator('[data-field="reps"]')).toHaveCSS('font-size','52px');
+ await context.close();
+});
+test('the help row and kg-steps select are gone',async({browser})=>{
+ const {page,context}=await open(browser,{width:412,height:839});
+ await expect(page.locator('.focus-input-help')).toHaveCount(0);await expect(page.locator('.focus-increment')).toHaveCount(0);
+ await context.close();
+});
+test('an out-of-target caption still fits at 360x660',async({browser})=>{
+ const {page,context}=await open(browser,{width:360,height:660,history:true,previousNote:false});
+ const card=page.locator('.focus-feed>.log-set').first(),reps=card.locator('[data-field="reps"]');
+ await reps.fill('2');await expect(card.locator('.focus-control-label.is-outside')).toContainText('below');
+ await expect.poll(()=>fits(page)).toMatchObject({doneInside:true,overflowX:false});
  await context.close();
 });

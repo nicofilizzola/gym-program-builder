@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {focusFixture} from './fixtures/workout-focus.js';
-import {setKey,projectWorkout,focusFallback,repRangeHint,completionMilestone} from '../src/workout-focus-model.js';
+import {setKey,projectWorkout,focusFallback,repRangeHint,repsCaption,completionMilestone} from '../src/workout-focus-model.js';
 
 test('projects pair warmups then rounds without changing storage',()=>{
  const log=focusFixture(),before=structuredClone(log),p=projectWorkout(log);
@@ -33,6 +33,17 @@ test('range is inclusive and advisory, never invented for warmups or absent targ
  assert.equal(repRangeHint({kind:'working',reps:8,range,invalid:true}),null);
  assert.equal(repRangeHint({kind:'warmup',reps:8,range}),null);
  assert.equal(repRangeHint({kind:'working',reps:8,range:null}),null);
+});
+test('repsCaption folds the target into the Reps label',()=>{
+ const range={min:8,max:12},c=(reps,extra={})=>repsCaption({kind:'working',reps,range,...extra});
+ assert.deepEqual(c(null),{text:'Reps · 8–12',outside:false});
+ assert.deepEqual(c(10),{text:'Reps · 8–12',outside:false});
+ assert.deepEqual(c(6),{text:'Reps · 2 below 8–12',outside:true});
+ assert.deepEqual(c(13),{text:'Reps · 1 above 8–12',outside:true});
+ assert.deepEqual(c(8,{invalid:true}),{text:'Reps',outside:false});
+ assert.deepEqual(repsCaption({kind:'warmup',reps:8,range}),{text:'Reps',outside:false});
+ assert.deepEqual(repsCaption({kind:'working',reps:8,range:null}),{text:'Reps',outside:false});
+ assert.equal(repsCaption({kind:'working',reps:8,range:{min:8,max:8}}).text,'Reps · 8');
 });
 test('milestones require real completed work and a completed partner',()=>{
  const before=focusFixture(),after=structuredClone(before);after.exercises[2].sets[1].done=true;

@@ -40,27 +40,24 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const noteText=node('button','focus-exercise-note-text');noteText.type='button';
   const exerciseEditor=node('div','focus-exercise-editor');identity.append(titleRow,noteText,exerciseEditor);
   const historyHost=node('div','focus-history focus-only');row.querySelector('.log-set-clip').prepend(context,identity,historyHost);row.classList.add('focus-card');row.dataset.exerciseId=ref.exerciseId;
-  const controls=node('div','focus-number-controls focus-only'),help=node('div','focus-input-help focus-only'),rirStrip=node('div','focus-rir-strip focus-only'),notes=node('div','focus-note-area focus-only'),complete=node('div','focus-complete focus-only'),feedback=node('p','focus-feedback visually-hidden');
-  const grid=row.querySelector('.log-set-row');grid.append(controls,help,rirStrip,notes,feedback);
+  const controls=node('div','focus-number-controls focus-only'),rirStrip=node('div','focus-rir-strip focus-only'),notes=node('div','focus-note-area focus-only'),complete=node('div','focus-complete focus-only'),feedback=node('p','focus-feedback visually-hidden');
+  const grid=row.querySelector('.log-set-row');grid.append(controls,rirStrip,notes,feedback);
   // Complete sits on the whole card (not the controls grid) so, when pinned, it can stick anywhere the card is in view.
   row.querySelector('.log-set-clip').append(complete);
   feedback.setAttribute('role','status');
   const caption=row.querySelector('.log-rir-label');caption.innerHTML='RIR<small>Optional</small>';
-  const increment=document.createElement('select');increment.className='focus-increment';for(const n of [.25,1,2.5,5]){const option=document.createElement('option');option.value=n;option.textContent=`${n} kg steps`;increment.append(option);}increment.value=state.weightIncrement;
-  increment.onchange=()=>{state.weightIncrement=+increment.value;onInteraction({type:'preference',patch:{weightIncrement:state.weightIncrement}});update(snapshot);};help.append(increment);
   function borrowAll(){caption.innerHTML='RIR<small>Optional</small>';borrow(b.number,marker);for(const kind of ['weight','reps'])borrow(b.inputs[kind].closest('.log-stepper'),controls);borrow(caption,rirStrip);borrow(b.rir,rirStrip);borrow(b.noteHost,notes);borrow(b.done,complete);}
   port.relocate(borrowAll);
-  const observed=[context,identity,historyHost,controls,help,rirStrip,notes,complete];for(const el of observed)resize.observe(el);
+  const observed=[context,identity,historyHost,controls,rirStrip,notes,complete];for(const el of observed)resize.observe(el);
   for(const kind of ['weight','reps']){
    const input=b.inputs[kind],stepper=input.closest('.log-stepper');if(!input.id)input.id='focus-input-'+crypto.randomUUID();
    const caption=node('label','focus-control-label focus-only',kind==='weight'?'Weight · kg':'Reps');caption.htmlFor=input.id;stepper.prepend(caption);disposers.push(()=>caption.remove());
    if(kind==='weight'){const bw=node('span','focus-bodyweight focus-only','BW');bw.setAttribute('aria-hidden','true');stepper.append(bw);const refresh=()=>{bw.hidden=input.value!==''||input.placeholder!=='';};input.addEventListener('input',refresh,{signal});refresh();disposers.push(()=>bw.remove());}
-   const widget=mountWorkoutRuler(stepper,{input,kind,onAdjust:value=>b.applyValue(kind,value),onInteraction:()=>interaction('ruler')});widgets.push({kind,widget});
-   if(kind==='reps'){const guide=stepper.querySelector('.workout-rep-guidance');help.prepend(guide);}
+   const widget=mountWorkoutRuler(stepper,{input,kind,caption:kind==='reps'?caption:null,onAdjust:value=>b.applyValue(kind,value),onInteraction:()=>interaction('ruler')});widgets.push({kind,widget});
   }
   let title=null,history=null;
   exerciseAction.onclick=noteText.onclick=()=>{interaction('note');port.command({type:'exercise-note',exerciseId:ref.exerciseId,host:exerciseEditor});};
-  const card={milestone:null,ref,key,row,b,contextText,eyebrow,label,heading,exerciseAction,exerciseEditor,historyHost,widgets,increment,action,feedback,borrowAll,
+  const card={milestone:null,ref,key,row,b,contextText,eyebrow,label,heading,exerciseAction,exerciseEditor,historyHost,widgets,action,feedback,borrowAll,
    update(item,ex,set,index){
     label.textContent=item.preview.label;rirStrip.hidden=item.kind==='warmup';
     contextText.setAttribute('aria-label',`${item.preview.label}, ${ex.name}`);
@@ -73,7 +70,6 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     if(!title){title=mountWorkoutTitle(heading,{text:ex.name,onInteraction:()=>interaction('title')});}else title.update({text:ex.name});
     const historyState={exercise:ex,lastTime:snapshot.lastTime,bestPerformance:snapshot.bestPerformance,bestStatus:snapshot.bestStatus,unavailable:snapshot.unavailable};if(!history)history=mountWorkoutHistory(historyHost,historyState);else history.update(historyState);
     const setIndex=ex.sets.findIndex(s=>s.id===set.id),kindIndex=ex.sets.slice(0,setIndex+1).filter(s=>s.kind===set.kind).length;
-    increment.value=state.weightIncrement;increment.setAttribute('aria-label',`Weight increment, ${item.preview.label}, ${ex.name}`);
     action.setAttribute('aria-label',`Add set note, ${item.kind==='warmup'?'Warm-up set':'Set'} ${kindIndex}, ${ex.name}`);action.hidden=Boolean(b.noteHost.querySelector('.log-set-note-part:not(.is-removing)'));
     b.done.dataset.label=set.done?`${card.milestone??'Set complete'} · Tap to undo`:item.kind==='warmup'?'Complete warm-up':'Complete set';
     const bw=row.querySelector('.focus-bodyweight');if(bw)bw.hidden=b.inputs.weight.value!==''||b.inputs.weight.placeholder!=='';
@@ -83,7 +79,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    },
    syncTitle(){title?.update({active:enabled&&same(ref,viewed),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
    restore(){for(const {widget} of widgets)widget.update({enabled:false});port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';title?.update({active:false});},
-   destroy(){title?.destroy();history?.destroy();for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();identity.remove();action.remove();historyHost.remove();controls.remove();help.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed','is-peekless');row.style.removeProperty('--focus-card-min');for(const el of observed)resize.unobserve(el);}
+   destroy(){title?.destroy();history?.destroy();for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();identity.remove();action.remove();historyHost.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed','is-peekless');row.style.removeProperty('--focus-card-min');for(const el of observed)resize.unobserve(el);}
   };
   b.disposers.add(()=>{for(const {widget} of widgets)widget.destroy();title?.destroy();});
   return card;
@@ -96,7 +92,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const anchorRow=inView().row,anchor=anchorRow.offsetTop-feed.scrollTop;
   const fits=rows.map(row=>{const clip=row.querySelector('.log-set-clip'),cs=getComputedStyle(clip),heights=sections(clip).map(el=>{const m=getComputedStyle(el);return el.getBoundingClientRect().height+parseFloat(m.marginTop)+parseFloat(m.marginBottom);});
    const next=row.nextElementSibling?.classList.contains('focus-card')?row.nextElementSibling.querySelector('.focus-context'):null;
-   return focusCardFit({feedHeight,contentHeight:stackHeight(heights,parseFloat(cs.rowGap)||0,parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom))+parseFloat(getComputedStyle(row).borderBottomWidth),peekHeight:next?next.getBoundingClientRect().height:0});});
+   return focusCardFit({feedHeight,contentHeight:stackHeight(heights,parseFloat(cs.rowGap)||0,parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+(parseFloat(cs.rowGap)||0))+parseFloat(getComputedStyle(row).borderBottomWidth),peekHeight:next?next.getBoundingClientRect().height:0});});
   rows.forEach((row,i)=>{const min=fits[i].minHeight+'px';if(row.style.getPropertyValue('--focus-card-min')!==min)row.style.setProperty('--focus-card-min',min);row.classList.toggle('is-peekless',fits[i].peekless);});
   const moved=anchorRow.offsetTop-feed.scrollTop-anchor;if(Math.abs(moved)>.5){programmatic=true;feed.scrollTop+=moved;programmatic=false;}
  }

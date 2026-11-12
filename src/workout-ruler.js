@@ -1,25 +1,24 @@
 import {parseWeight,parseReps,stepWeight,stepReps} from './workout-sets.js';
-import {repRangeHint} from './workout-focus-model.js';
+import {repRangeHint,repsCaption} from './workout-focus-model.js';
 
 const text=value=>value===null||value===undefined?'':String(value);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 
 /** A presentation attached to the canonical input; only a deliberate adjustment writes. */
-export function mountWorkoutRuler(host,{input,kind,onAdjust,onInteraction=()=>{}}){
+export function mountWorkoutRuler(host,{input,kind,caption=null,onAdjust,onInteraction=()=>{}}){
  const events=new AbortController(),{signal}=events,parse=kind==='weight'?parseWeight:parseReps,min=kind==='weight'?0:1,max=kind==='weight'?999.75:100;
  const root=document.createElement('div');root.className='workout-ruler';root.setAttribute('role','slider');root.hidden=true;
  root.innerHTML='<div class="workout-ruler-track" aria-hidden="true"></div><span class="workout-ruler-needle" aria-hidden="true"></span>';
- const track=root.firstElementChild,guide=document.createElement('p');guide.className='workout-rep-guidance';guide.hidden=true;guide.id='rep-hint-'+crypto.randomUUID();
+ const track=root.firstElementChild,guide=document.createElement('p');guide.className='workout-rep-guidance visually-hidden';guide.hidden=true;guide.id='rep-hint-'+crypto.randomUUID();
  host.append(root);if(kind==='reps'){host.append(guide);input.setAttribute('aria-describedby',[input.getAttribute('aria-describedby'),guide.id].filter(Boolean).join(' '));root.setAttribute('aria-describedby',guide.id);}
  let state={value:null,placeholder:null,increment:kind==='weight'?2.5:1,range:null,enabled:false},offset=0,drag=null,destroyed=false,settleTimer=null;
  const reduced=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
  const effective=()=>state.value??state.placeholder??min;
  function updateHint(){
-  const parsed=parse(input.value),hint=repRangeHint({kind:'working',reps:parsed.value,range:state.range,invalid:Boolean(parsed.error)});
+  const parsed=parse(input.value),args={kind:'working',reps:parsed.value,range:state.range,invalid:Boolean(parsed.error)},hint=repRangeHint(args);
   guide.hidden=kind!=='reps'||!state.enabled||!hint;guide.textContent=hint?.text||'';
-  guide.classList.toggle('is-outside',hint?.state==='below'||hint?.state==='above');
-  host.classList.toggle('is-outside-range',!guide.hidden&&(hint.state==='below'||hint.state==='above'));
-  if(hint&&(hint.state==='below'||hint.state==='above'))guide.dataset.warning='true';else delete guide.dataset.warning;
+  const outside=hint?.state==='below'||hint?.state==='above';host.classList.toggle('is-outside-range',!guide.hidden&&outside);
+  if(caption&&kind==='reps'){const c=repsCaption(args);caption.textContent=c.text;caption.classList.toggle('is-outside',c.outside);}
  }
  function draw(){
   if(destroyed||!state.enabled)return;
@@ -33,7 +32,7 @@ export function mountWorkoutRuler(host,{input,kind,onAdjust,onInteraction=()=>{}
   }
   const actual=state.value,n=effective();root.setAttribute('aria-valuenow',n);root.setAttribute('aria-valuetext',actual===null?(state.placeholder===null?'Not entered':`Suggested ${n}${kind==='weight'?' kg':' reps'}`):`${n}${kind==='weight'?' kg':' reps'}`);
   root.setAttribute('aria-valuemin',min);root.setAttribute('aria-valuemax',max);root.setAttribute('aria-label','Adjust '+input.getAttribute('aria-label'));root.setAttribute('aria-orientation','horizontal');
-  root.classList.toggle('is-suggestion',actual===null);updateHint();
+  root.classList.toggle('is-suggestion',actual===null);
  }
  function syncPosition(){if(!drag?.locked)offset=(effective()-min)/state.increment*32;draw();}
  function adjust(n){const next=Number(clamp(n,min,max).toFixed(2));if(next!==state.value)onAdjust(next);}
@@ -57,7 +56,7 @@ export function mountWorkoutRuler(host,{input,kind,onAdjust,onInteraction=()=>{}
  input.addEventListener('input',updateHint,{signal});
  const observer=new ResizeObserver(()=>syncPosition());observer.observe(root);
  return {
-  update(next){if(destroyed)return;state={...state,...next};root.hidden=!state.enabled;root.tabIndex=state.enabled?0:-1;if(!state.enabled){drag=null;track.replaceChildren();guide.hidden=true;return;}syncPosition();},
+  update(next){if(destroyed)return;state={...state,...next};updateHint();root.hidden=!state.enabled;root.tabIndex=state.enabled?0:-1;if(!state.enabled){drag=null;track.replaceChildren();guide.hidden=true;return;}syncPosition();},
   destroy(){if(destroyed)return;destroyed=true;events.abort();observer.disconnect();clearTimeout(settleTimer);root.remove();guide.remove();host.classList.remove('is-outside-range');input.setAttribute('aria-describedby',(input.getAttribute('aria-describedby')||'').split(' ').filter(id=>id!==guide.id).join(' '));}
  };
 }

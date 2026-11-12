@@ -49,6 +49,12 @@ export function repRangeHint({kind,reps,range,invalid=false}){
  return {state:'within',delta:0,text:`Within target · ${target}`};
 }
 
+export function repsCaption({kind,reps,range,invalid=false}){
+ const hint=repRangeHint({kind,reps,range,invalid});if(!hint)return {text:'Reps',outside:false};
+ const target=range.min===range.max?`${range.min}`:`${range.min}–${range.max}`,outside=hint.state==='below'||hint.state==='above';
+ return {text:`Reps · ${outside?`${hint.delta} ${hint.state} `:''}${target}`,outside};
+}
+
 export function completionMilestone(before,after,ref){
  const p=projectWorkout(after),item=p.items.find(i=>i.key===setKey(ref)),ex=after.exercises.find(e=>e.id===ref.exerciseId);
  if(!item||!p.doneKeys.has(item.key))return {kind:'set',text:'Set reopened. Your values are retained.'};

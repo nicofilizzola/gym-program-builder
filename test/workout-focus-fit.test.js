@@ -20,6 +20,9 @@ test('fractional header rounds the min-height',()=>{
 test('content taller than the feed stays peekless',()=>{
  assert.deepEqual(focusCardFit({feedHeight:418,contentHeight:600,peekHeight:43}),{minHeight:418,peekless:true});
 });
+test('stackHeight sums seven sections',()=>{
+ assert.equal(stackHeight([40,50,60,30,44,44,48],8,0),40+50+60+30+44+44+48+48);
+});
 test('stackHeight adds gaps between items and padding',()=>{
  assert.equal(stackHeight([40,50,60],10,12),40+50+60+20+12);
  assert.equal(stackHeight([40],10,0),40);

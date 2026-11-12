@@ -2479,9 +2479,6 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-ruler-target {position:absolute;top:2px;height:17px;background:var(--accent-soft);border-bottom:1px solid var(--accent-deep)}
 .workout-ruler.is-suggestion .workout-ruler-needle {opacity:.5}
 .workout-ruler.is-settling .workout-ruler-track {transition:transform 150ms ease-out}
-.workout-rep-guidance {grid-column:1/-1;flex:0 0 100%;margin:4px 0 0;font-size:.75rem;line-height:1.4;color:var(--muted);white-space:normal}
-.workout-rep-guidance.is-outside {color:var(--accent)}
-.workout-rep-guidance[data-warning]::before {content:'';display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-width='1.7' stroke-linejoin='round' d='m12 3 10 18H2Z M12 9v5m0 3v.1'/%3E%3C/svg%3E") center/contain no-repeat}
 @media(prefers-reduced-motion:reduce){.workout-ruler.is-settling .workout-ruler-track {transition:none}}
 .workout-title {min-width:0;overflow:hidden;white-space:nowrap}
 .workout-title-control {display:block;min-height:44px;line-height:44px;min-width:0;overflow:hidden}
@@ -2511,7 +2508,9 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-feed.is-unsnapped {scroll-snap-type:none}
 .workout-focus .focus-card {--focus-gap:clamp(6px,calc((100cqh - 400px) / 10),20px);position:relative;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1fr;min-height:var(--focus-card-min,var(--focus-feed-height));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
 .workout-focus .focus-card.is-closed {min-height:0;grid-template-rows:0fr}
-.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;justify-content:space-between;gap:var(--focus-gap);min-height:0;overflow:clip;margin:0;padding:0 0 var(--focus-gap)}
+.workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;justify-content:space-between;gap:var(--focus-gap);min-height:0;overflow:clip;margin:0;padding:0}
+/* A zero-height last item gives Complete the same share of the residual as every other gap. */
+.workout-logger .workout-focus .focus-card>.log-set-clip::after {content:'';flex:none}
 .workout-focus .focus-context {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0}
 .focus-context-text {flex:1;min-width:0}
 .focus-eyebrow {margin:2px 0 0;color:var(--muted);font-size:.625rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;overflow-wrap:anywhere}
@@ -2544,15 +2543,13 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .log-stepper {grid-area:auto;display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;background:var(--surface);min-width:0;padding:8px 0 0}
 .workout-focus .log-stepper .log-step,.workout-focus .log-stepper::after {display:none}
 .workout-focus .log-stepper .focus-control-label {display:block;padding:0 4px;margin:0 0 5px;color:var(--muted);font-size:.625rem;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+.workout-focus .log-stepper .focus-control-label.is-outside {color:var(--under)}
 .workout-focus .log-stepper input[type="text"] {flex:none;font-size:2.75rem;line-height:1;min-height:46px;padding:0 4px;border-radius:0;font-family:var(--font-display);font-weight:600}
 .workout-focus .workout-ruler {height:42px;flex:none}
 .workout-focus .workout-ruler[hidden] {display:block!important;visibility:hidden;pointer-events:none}
 .workout-focus .workout-ruler-track {height:42px}
 .workout-focus .workout-ruler-tick {top:22px;font-size:.625rem}
 .workout-focus .is-outside-range {border-color:var(--accent-deep)}
-.workout-focus .focus-input-help {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
-.workout-focus .workout-rep-guidance {flex:1;min-width:0;max-width:70%;margin:0;font-size:.6875rem}
-.focus-increment {max-width:125px;min-height:44px;margin-left:auto;padding:4px;background:transparent;color:var(--muted);border:0;font:inherit;font-size:.6875rem}
 .workout-focus .focus-rir-strip {display:grid;grid-template-columns:36px minmax(0,1fr);gap:4px;align-items:center;margin:0}
 .workout-focus .log-rir-label {display:block;grid-area:auto;margin:0;font-size:.8125rem;line-height:1.2;text-align:left;color:var(--text)}
 .workout-focus .log-rir-label small {display:block;margin-top:5px;font-size:.5rem;font-weight:400;color:var(--muted)}
