@@ -44,8 +44,8 @@ test('card with Last time, previous note and Best still fits at 412x760',async({
  expect((await fits(page)).preview).toBeGreaterThanOrEqual(0);
  await context.close();
 });
-async function enlarged(browser){
- const opened=await open(browser,{width:390,height:664});
+async function enlarged(browser,options={}){
+ const opened=await open(browser,{width:390,height:664,...options});
  await opened.page.addStyleTag({content:'html{font-size:200%}'});await opened.page.evaluate(()=>window.dispatchEvent(new Event('resize')));
  return opened;
 }
@@ -82,6 +82,22 @@ test('200% text pins only the name row and keeps Complete reachable at the secon
  const {page,context}=await enlarged(browser);await toSet(page,1);
  await expect(page.locator('.focus-feed .focus-group').first()).toHaveClass(/is-name-only/);
  await expect.poll(async()=>(await fits(page,1)).doneInside).toBe(true);
+ await context.close();
+});
+// Set 1 of a name-only group snaps under the whole block; when the details are taller than the feed, its Complete is reached by scrolling within the set.
+test('200% text with tall details lets the user scroll to set 1 Complete and back to the details',async({browser})=>{
+ const {page,context}=await enlarged(browser,{history:true,tags:{...oneLine,note:'Keep the elbows tucked, pause one second at the bottom. '.repeat(5).trim()}});
+ const feed=page.locator('.focus-feed'),group=feed.locator('.focus-group').first();await expect(group.locator('.log-best')).toBeVisible();await expect(group).toHaveClass(/is-name-only/);
+ await toSet(page,0);
+ const read=()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),fb=f.getBoundingClientRect(),row=f.querySelector('.focus-card'),d=row.querySelector('.log-done').getBoundingClientRect(),g=row.closest('.focus-group'),det=g.querySelector('.focus-group-details').getBoundingClientRect(),name=g.querySelector('.focus-group-name').getBoundingClientRect();
+  return {doneInside:d.top>=fb.top-.5&&d.bottom<=fb.bottom+.5,detailsTop:Math.round(det.top-name.bottom),viewed:row.classList.contains('is-viewed'),scrollTop:f.scrollTop};});
+ let r=await read();expect(r.doneInside,JSON.stringify(r)).toBe(false); // the scenario: set 1 starts below the fold
+ const box=await feed.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+ for(let i=0;i<20&&!(r=await read()).doneInside;i++){await page.mouse.wheel(0,60);await page.waitForTimeout(250);}
+ await page.waitForTimeout(600);r=await read();
+ expect(r.doneInside,JSON.stringify(r)).toBe(true);expect(r.viewed,JSON.stringify(r)).toBe(true);
+ for(let i=0;i<20&&Math.abs((r=await read()).detailsTop)>1;i++){await page.mouse.wheel(0,-60);await page.waitForTimeout(250);}
+ await page.waitForTimeout(600);r=await read();expect(Math.abs(r.detailsTop),JSON.stringify(r)).toBeLessThanOrEqual(1); // the details start right under the name row again
  await context.close();
 });
 // The feed never drops below 180px, so only enlarged text makes the Complete margin push the input under the name row; the top edge wins.
