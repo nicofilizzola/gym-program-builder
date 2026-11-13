@@ -6,6 +6,7 @@ import {mountWorkoutTitle} from './workout-title.js';
 import {mountWorkoutHistory} from './workout-history-summary.js';
 import {actionIcon} from './action-controls.js';
 import {fitGroup,stackHeight} from './workout-focus-fit.js';
+import {mountProgressScrub} from './workout-progress-scrub.js';
 
 const node=(tag,className,text)=>{const el=document.createElement(tag);el.className=className;if(text!==undefined)el.textContent=text;return el;};
 const same=(a,b)=>a===b||Boolean(a&&b&&setKey(a)===setKey(b));
@@ -25,8 +26,12 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  const review=node('li','focus-review');review.innerHTML='<p class="focus-eyebrow">Your workout</p><h2 tabindex="-1">Make it a good finish.</h2><p class="focus-review-copy"></p><button type="button" class="add-btn">Finish workout</button><p class="focus-muted">Finishing is always your choice.</p>';review.querySelector('button').onclick=()=>onFinish();feed.append(review);
  const empty=node('div','focus-empty');empty.innerHTML='<h2>No sets yet</h2><p>Add an exercise or use the overview to add sets.</p><button type="button" class="secondary-btn">Add exercise</button><div class="focus-picker"></div>';
  empty.querySelector('button').onclick=()=>port.command({type:'add-exercise',host:empty.querySelector('.focus-picker')});
- const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};progress.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:progress});};current.onclick=()=>{advance.cancel();jump(projection.current,{animate:true,focus:true});};
+ const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};progress.onclick=()=>{if(scrub.consumeClick())return;advance.cancel();onInteraction({type:'overview',opener:progress});};current.onclick=()=>{advance.cancel();jump(projection.current,{animate:true,focus:true});};
  const autoLabel=node('label','focus-auto'),auto=document.createElement('input');auto.type='checkbox';auto.checked=state.autoNext;autoLabel.append(auto,document.createTextNode('Auto-next'));auto.onchange=()=>{advance.cancel();state.autoNext=auto.checked;onInteraction({type:'preference',patch:{autoNext:state.autoNext}});};toolbar.append(overview,current,autoLabel);
+ const scrub=mountProgressScrub(progress,{strip:segments,
+  targets:()=>{const byKey=new Map(projection.items.map(i=>[i.key,i]));return [...segments.querySelectorAll('.focus-progress-segment')].map(el=>({ref:byKey.get(el.dataset.key)?.ref,el})).filter(t=>t.ref);},
+  describe:ref=>{const item=projection.items.find(i=>same(i.ref,ref));return {exercise:snapshot.log.exercises[item.exerciseIndex].name,set:item.preview.label};},
+  onStart:()=>{advance.cancel();cancelTravel();},onRelease:ref=>{if(!same(ref,viewed))jump(ref,{animate:true,focus:true});}});
  root.append(progress,feed,empty,toolbar);root.hidden=true;host.append(root);
  const logger=host.closest('.workout-logger');
  // Section size changes (notes, wrapping, feedback) refit the peek once per frame.
@@ -247,6 +252,6 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   },
   setWeightIncrement(n){if(destroyed||state.weightIncrement===n)return;state.weightIncrement=n;onInteraction({type:'preference',patch:{weightIncrement:n}});if(enabled)update(snapshot);},
   jump,celebrate,setFeedHeight,isEnabled:()=>enabled&&!destroyed,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value){advance.cancel();cancelTravel();}syncActive();},restore,
-  destroy(){if(destroyed)return;cancelTravel();advance.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();resize.disconnect();cancelAnimationFrame(scrollFrame);cancelAnimationFrame(fitFrame);for(const card of cards.values())card.destroy();cards.clear();for(const group of groups.values())group.destroy();groups.clear();root.remove();}
+  destroy(){if(destroyed)return;cancelTravel();advance.destroy();scrub.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();resize.disconnect();cancelAnimationFrame(scrollFrame);cancelAnimationFrame(fitFrame);for(const card of cards.values())card.destroy();cards.clear();for(const group of groups.values())group.destroy();groups.clear();root.remove();}
  };
 }

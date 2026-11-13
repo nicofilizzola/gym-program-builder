@@ -2510,6 +2510,14 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-progress-segment {flex:1;min-width:0;background:var(--border);overflow:hidden}
 .focus-progress-fill {display:block;height:100%;background:var(--accent);transform:scaleX(0);transform-origin:left}
 .focus-progress-segment.is-done .focus-progress-fill {transform:scaleX(1)}
+.focus-scrub-bubble {position:fixed;inset:auto;margin:0;display:flex;gap:4px;max-width:calc(100vw - 16px);padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--text);font-size:.8125rem;line-height:1.3;white-space:nowrap;pointer-events:none;box-shadow:0 4px 16px #0006;opacity:0;transform:translateY(4px);transition:opacity 150ms ease-out,transform 150ms ease-out,display 150ms allow-discrete,overlay 150ms allow-discrete}
+.focus-scrub-bubble:not(:popover-open) {display:none}
+.focus-scrub-bubble:popover-open {opacity:1;transform:none}
+@starting-style {.focus-scrub-bubble:popover-open {opacity:0;transform:translateY(4px)}}
+.focus-scrub-name {min-width:0;overflow:hidden;text-overflow:ellipsis}
+.focus-scrub-set {flex:none}
+.focus-scrub-set::before {content:'· '}
+@media(prefers-reduced-motion:reduce){.focus-scrub-bubble {transition:none}}
 .focus-feed {position:relative;container:focus-feed / size;height:var(--focus-feed-height);overflow-y:auto;overflow-x:hidden;list-style:none;margin:0;padding:0;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain}
 .focus-feed::-webkit-scrollbar {display:none}
 .focus-feed.is-unsnapped {scroll-snap-type:none}

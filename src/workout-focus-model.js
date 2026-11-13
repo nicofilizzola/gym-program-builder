@@ -94,3 +94,6 @@ export function progressClusters(items){
  }
  return clusters;
 }
+
+/** The index of the centre nearest `x` (the lower on a tie), −1 when there is none. */
+export function nearestIndex(centers,x){let best=-1;centers.forEach((c,i)=>{if(best<0||Math.abs(c-x)<Math.abs(centers[best]-x))best=i;});return best;}

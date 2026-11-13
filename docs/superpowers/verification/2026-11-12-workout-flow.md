@@ -63,3 +63,41 @@ Tests in `e2e/workout-focus-motion.spec.js` (motion on): `an overview chip trave
 Headless Chromium does produce intermediate scroll samples for programmatic smooth scrolls (the tests assert at least three between start and end), so the Step 2 fallback was not needed. The browser sets the duration; how long jumps feel against snapping on a real phone: `pending (user)`.
 
 Known flake, not from this task: `e2e/workout-focus-view.spec.js` `opening a long exercise note keeps the viewed set anchored` misses its 2px tolerance by 1px in about half of runs, on HEAD 487bfe3 before this change as well.
+
+## Part 3 task 8: progress scrubbing (2026-11-13)
+
+Resumed from the interrupted implementation on `39b7f30` (task 7, progress row button). The scrub module, integration, styles and tests were already present as uncommitted changes. They were inspected and retained; no original Task 8 RED run is available from this resumed session. The results below are fresh verification of that implementation, not a claimed test-first cycle. Implemented on localhost only; not deployed.
+
+### Commands
+
+Commands use `npm.cmd` / `npx.cmd` on Windows because PowerShell blocks the installed `.ps1` launchers. Logs are in `.superpowers/sdd/2026-11-12-workout-flow/` (git-ignored).
+
+- `node --test test/workout-focus-model.test.js`: 9 passed, 0 failed (`task-8-model.log`), including nearest-centre selection, clamping, a tie, a single segment and an empty list.
+- `npx.cmd playwright test e2e/workout-focus-progress.spec.js`: 7 passed, 0 failed, exit 0 (`task-8-progress-clean.log`). Coverage includes the row's tap/Enter/Space behavior, clusters and extended target; smooth travel after scrubbing; end clamps and bubble bounds; far release, pointer cancellation and lost capture; Auto-next cancellation; and `touch-action:none` with button semantics.
+- `npm.cmd test`: 497 passed, 0 failed, exit 0 (`task-8-npm-test.log`).
+- `npm.cmd run test:e2e`: **exit 1**, 649 passed, 21 failed, 7 skipped (25.6 min; `task-8-full-e2e.log`). All seven progress/scrub tests passed in this full run. The suite is not green.
+- `npm.cmd run build`: exit 0, `Built public assets.` (`task-8-build.log`).
+
+Full-suite failures (Windows, Node 24.22.1, Chromium, one Playwright worker, localhost test server):
+
+- `e2e/root-cache-refresh.spec.js:110`, cold Catalog heading: loading/loaded heading Y differs by 2px against a 1px tolerance (assertion at line 121).
+- Nine `e2e/workout-focus-integration.spec.js` cases (lines 29, 42, 56, 74, 79, 110, 121, 129, 140) timed out at 20s in the login helper's `page.goto('/')`, waiting for `load`.
+- `e2e/workout-history-edit.spec.js:99` timed out waiting for the Password field in the login helper.
+- Nine `e2e/workout-notes.spec.js` cases (lines 86, 100, 113, 142, 159, 176, 184, 209, 220): eight navigation/reload/login timeouts, and the warm-up-note case at line 142 timed out taking its screenshot after waiting for fonts.
+- `e2e/workout-overview.spec.js:105`, six-exercise density: the last chips end at 853.671875px against the dialog bottom at 844px (assertion at line 109).
+
+Exact names and stack locations are in `.superpowers/sdd/2026-11-12-workout-flow/task-8-report.md` and the full log. These failures were recorded for the controller's consolidated fix/review wave; their root causes and relationship to this change were not established, and they were not waived or repaired in Task 8. The previously reported `opening a long exercise note keeps the viewed set anchored` test passed in this run. The suite rewrites mobile-library screenshot artifacts; those are excluded from this commit and the controller retains their pre-resume backup.
+
+### Visual inspection
+
+A scratch Playwright script (`.superpowers/sdd/2026-11-12-workout-flow/task-8-inspect.mjs`) mounted the real logger and Focus presentation with a populated straight exercise (brand and focus tag), a superset with a long exercise name, warm-ups, working sets and a zero-set exercise. All checks used Chromium, touch emulation and `reducedMotion: reduce` at real browser viewport sizes. Measurements are in `task-8-inspect.json` beside the script; screenshots were opened and inspected.
+
+- 360×800, 390×844 and 412×915: no horizontal page overflow; the bubble sits above the strip, contains the exercise and `A1 · Round 1` label, and remains inside the viewport (left/right: 23.5/342.2px, 38.5/357.2px and 49.5/368.2px respectively). The row and strip retain their compact height; the bubble overlays the header area without moving the feed. Its transition duration is `0s` with reduced motion. Screenshots: `task-8-360x800.png`, `task-8-390x844.png`, `task-8-412x915.png` in the scratch directory.
+- Short tier, 360×560 (290px feed): the bubble remains in bounds with no horizontal page overflow; the viewed card uses the existing compact layout and sticky Complete. Screenshot: `task-8-360x560.png`.
+- 390×844 with a 200% root font-size override: the bubble's long exercise name ellipsizes while `A1 · Round 1` stays readable; its edges are at 8px and 382px, with no horizontal page overflow. This is a font override, not real browser text zoom. Screenshot: `task-8-390x844-200pct.png`.
+
+### Phone checks and limits
+
+- Long travels against snapping: `pending (user)`.
+- Scrub comfort and that dragging the row never scrolls the page on a phone: `pending (user)`. The browser test checks the CSS touch policy and mouse-pointer behavior; it does not establish physical-device behavior.
+- Existing pinning/momentum and enlarged-text phone checks above remain pending. No physical phone or deployment was verified. Task 9's conditional travel tween was not run; no user phone-failure report was provided.
