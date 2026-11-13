@@ -14,7 +14,7 @@ test('note opening cancels auto-next and undo recheck does not replay celebratio
  await page.evaluate(async()=>{await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});});await expect(page.locator('.is-celebrating')).toHaveCount(0);
 });
 test('warmup completion advances without filling working progress',async({page})=>{
- await page.clock.install();await mountFocusFixture(page);await page.evaluate(()=>{focusView.jump({exerciseId:'straight',setId:'sw'});port.command({type:'patch',ref:{exerciseId:'straight',setId:'sw'},patch:{reps:5}});});await page.locator('.focus-card[data-set-id="sw"] .log-done').click();await expect(page.locator('.focus-progress-segment.is-done')).toHaveCount(0);await page.clock.runFor(650);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});
+ await page.clock.install();await mountFocusFixture(page);await page.evaluate(()=>{focusView.jump({exerciseId:'straight',setId:'sw'});port.command({type:'patch',ref:{exerciseId:'straight',setId:'sw'},patch:{reps:5}});});await page.locator('.focus-card[data-set-id="sw"] .log-done').click();await expect(page.locator('.focus-progress-segment.is-done')).toHaveCount(0);await page.clock.runFor(650);await expect.poll(()=>page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});
 });
 test('reduced motion is instant and browsing old sets never advances',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await prepare(page);await page.locator('.focus-card[data-set-id="s1"] .log-done').click();expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s2'});await expect(page.locator('.is-celebrating')).toHaveCount(0);
@@ -38,3 +38,42 @@ test('presentation switches stop animation and pending advancement',async({page}
  await prepare(page);await page.locator('.focus-card[data-set-id="s1"] .log-done').click();await expect(page.locator('.is-celebrating')).toHaveCount(2);expect(await page.evaluate(()=>{focusView.setEnabled(false);focusView.setEnabled(true);return document.querySelectorAll('.is-celebrating').length;})).toBe(0);await page.clock.runFor(1000);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});
 });
 
+// Travel: a page-side listener, added after mount, samples every scroll with the viewed set at that moment.
+const snapTop=(page,id)=>page.evaluate(id=>{const r=id?document.querySelector(`.focus-card[data-set-id="${id}"]`):document.querySelector('.focus-review');return r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0);},id);
+const record=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed');window.samples=[];window.firstSample=new Promise(r=>f.addEventListener('scroll',r,{once:true}));f.addEventListener('scroll',()=>samples.push({top:f.scrollTop,viewed:focusView.visibleRef()?.setId??null}));return f.scrollTop;});
+async function travelled(page,from,to){
+ await expect.poll(()=>page.evaluate(()=>focusView.visibleRef()?.setId)).toBe(to);
+ const end=await snapTop(page,to),{top,samples}=await page.evaluate(()=>({top:document.querySelector('.focus-feed').scrollTop,samples}));
+ expect(Math.abs(top-end)).toBeLessThanOrEqual(1);
+ const lo=Math.min(from,end)+1,hi=Math.max(from,end)-1;expect(samples.filter(s=>s.top>lo&&s.top<hi).length).toBeGreaterThanOrEqual(3);
+ return {end,samples};
+}
+test('an overview chip travels through the sets in between',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(async()=>{const {mountWorkoutOverview}=await import('/src/workout-overview.js');window.overview=mountWorkoutOverview({port,onJump:ref=>focusView.jump(ref,{animate:true,focus:true}),onActivity:v=>focusView.suspend(v),onClose:()=>focusView.update(port.read())});focusView.jump({exerciseId:'straight',setId:'sw'});});
+ const from=await record(page);await page.evaluate(()=>{overview.update(port.read(),focusView.visibleRef());overview.open(document.querySelector('.focus-overview'));});
+ await page.getByRole('dialog',{name:'Workout overview'}).getByRole('button',{name:'Working set 1, Single-arm incline dumbbell chest press',exact:true}).click();
+ const {end,samples}=await travelled(page,from,'a1');for(const s of samples)if(Math.abs(s.top-end)>1)expect(s.viewed).toBe('sw');
+ await expect(page.locator('.focus-card[data-set-id="a1"] .focus-context-text')).toBeFocused();
+});
+test('Back to current travels too',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>{const l=port.read().log;for(const s of l.exercises[0].sets.slice(0,2))Object.assign(s,{done:true,reps:8});logger.setLog(l);focusView.jump({exerciseId:'a',setId:'a2'});});
+ const from=await record(page);await page.getByRole('button',{name:'Back to current',exact:true}).click();await travelled(page,from,'s2');
+ await expect(page.locator('.focus-card[data-set-id="s2"] .focus-context-text')).toBeFocused();
+});
+test('a touch during travel stops at a set',async({page})=>{
+ await mountFocusFixture(page);await record(page);
+ await page.evaluate(()=>{const f=document.querySelector('.focus-feed');firstSample.then(()=>f.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true})));focusView.jump({exerciseId:'a',setId:'a2'},{animate:true});});
+ const settled=()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),ref=focusView.visibleRef(),r=ref?document.querySelector(`.focus-card[data-set-id="${ref.setId}"]`):document.querySelector('.focus-review');return Math.abs(f.scrollTop-(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)))<=1;});
+ await expect.poll(settled).toBe(true);await page.waitForTimeout(300);expect(await settled()).toBe(true);expect(await page.evaluate(()=>focusView.visibleRef()?.setId)).not.toBe('a2');
+});
+test('an interrupted travel never sticks',async({page})=>{
+ await mountFocusFixture(page);const scrollTo=async id=>{const top=await snapTop(page,id);await page.evaluate(top=>document.querySelector('.focus-feed').scrollTo({top,behavior:'instant'}),top);};
+ await record(page);await page.evaluate(async()=>{focusView.jump({exerciseId:'a',setId:'a2'},{animate:true});await firstSample;focusView.suspend(true);focusView.suspend(false);});
+ await scrollTo('s2');await expect.poll(()=>page.evaluate(()=>focusView.visibleRef()?.setId)).toBe('s2');
+ await record(page);await page.evaluate(async()=>{focusView.jump({exerciseId:'a',setId:'a2'},{animate:true});await firstSample;await port.command({type:'remove-set',ref:{exerciseId:'a',setId:'a2'}});});
+ await scrollTo('s1');await expect.poll(()=>page.evaluate(()=>focusView.visibleRef()?.setId)).toBe('s1');
+});
+test('reduced motion jumps at once',async({page})=>{
+ await mountFocusFixture(page);await page.emulateMedia({reducedMotion:'reduce'});
+ expect(await page.evaluate(()=>{focusView.jump({exerciseId:'a',setId:'a2'},{animate:true});const f=document.querySelector('.focus-feed'),r=document.querySelector('.focus-card[data-set-id="a2"]');return {gap:Math.abs(f.scrollTop-(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)))<=1,viewed:focusView.visibleRef()?.setId};})).toEqual({gap:true,viewed:'a2'});
+});

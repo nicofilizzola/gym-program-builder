@@ -505,7 +505,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  if(focusSession&&active&&editable){
   const host=document.createElement('div');page.append(host);
   focusView=mountWorkoutFocus(host,{port:presentationPort,ui:focusSession.read(log.id),onViewed:ref=>focusSession.patch(log.id,{viewed:ref}),onInteraction:event=>{if(event.type==='preference')focusSession.patch(log.id,event.patch);if(event.type==='overview'){overview.update(presentationPort.read(),focusView.visibleRef());overview.open(event.opener);}},onFinish:()=>finish.click()});
-  overview=mountWorkoutOverview({port:presentationPort,onJump:ref=>focusView.jump(ref,{focus:true}),onActivity:value=>focusView.suspend(value),onClose:()=>focusView.update(presentationPort.read())});
+  overview=mountWorkoutOverview({port:presentationPort,onJump:ref=>focusView.jump(ref,{animate:true,focus:true}),onActivity:value=>focusView.suspend(value),onClose:()=>focusView.update(presentationPort.read())});
   // Once the recap is shown it stays until an explicit action; resizing never revives the active controls.
   const responsive=()=>{if(recap||!focusView)return;overview.close();setFocusChrome(mobile.matches);focusView.setEnabled(mobile.matches);measureFocus();};
   mobile.addEventListener('change',responsive,{signal});window.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('resize',measureFocus,{signal});window.visualViewport?.addEventListener('scroll',measureFocus,{signal});

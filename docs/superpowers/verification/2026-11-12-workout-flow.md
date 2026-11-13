@@ -55,3 +55,11 @@ Not inspected: real text zoom, the menu popup under the 200% font override.
 ### Phone checks
 
 - Chip tapping accuracy and reading the sheet at a glance on a real phone: `pending (user)`.
+
+## Part 3 task 6: animated jumps (travel)
+
+Tests in `e2e/workout-focus-motion.spec.js` (motion on): `an overview chip travels through the sets in between` (real overview open, chip click, travel after the sheet closes), `Back to current travels too`, `a touch during travel stops at a set`, `an interrupted travel never sticks` (suspend and target removal mid-travel), `reduced motion jumps at once`; `warmup completion advances…` now polls the viewed set. RED before the change: the chip and Back to current tests failed (viewed set changed at the start; Back to current was instant) and the touch test ended on the target.
+
+Headless Chromium does produce intermediate scroll samples for programmatic smooth scrolls (the tests assert at least three between start and end), so the Step 2 fallback was not needed. The browser sets the duration; how long jumps feel against snapping on a real phone: `pending (user)`.
+
+Known flake, not from this task: `e2e/workout-focus-view.spec.js` `opening a long exercise note keeps the viewed set anchored` misses its 2px tolerance by 1px in about half of runs, on HEAD 487bfe3 before this change as well.
