@@ -268,7 +268,8 @@ test('logger touch targets and reduced motion',async({browser})=>{
  await context.close();
 });
 
-const focusRow=(page,n,name)=>page.locator('.focus-feed > li').filter({has:page.getByLabel(`Set ${n} weight, ${name}`,{exact:true})});
+// Last time lives on the group, so a Focus "row" here is the set's exercise group.
+const focusRow=(page,n,name)=>page.locator('.focus-feed .focus-group').filter({has:page.getByLabel(`Set ${n} weight, ${name}`,{exact:true})});
 test.describe('Focus at 390px',()=>{
  test.use({viewport:{width:390,height:844},hasTouch:true});
  test('placeholders, one-tap done, RIR and invalid drafts save through the shell',async({page})=>{

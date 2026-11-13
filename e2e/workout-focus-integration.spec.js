@@ -19,8 +19,8 @@ test('Auto-next off survives route reentry without changing the saved log',async
  const log=await start(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();await page.getByRole('link',{name:'History',exact:true}).click();await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.getByLabel('Auto-next',{exact:true})).not.toBeChecked();const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log).not.toHaveProperty('autoNext');
 });
 test('feed re-measures without losing the viewed set',async({page})=>{
- await start(page);const feed=page.locator('.focus-feed');const anchored=()=>feed.evaluate(f=>{const rows=[...f.querySelectorAll(':scope>.log-set')];return {index:rows.findIndex(r=>Math.abs(r.offsetTop-f.scrollTop)<2),snapped:!f.classList.contains('is-unsnapped')};});
- await feed.evaluate(f=>{const row=f.querySelectorAll(':scope>.log-set')[2];f.scrollTo({top:row.offsetTop,behavior:'instant'});});await expect.poll(anchored).toEqual({index:2,snapped:true});
+ await start(page);const feed=page.locator('.focus-feed');const anchored=()=>feed.evaluate(f=>{const rows=[...f.querySelectorAll('.focus-card')];return {index:rows.findIndex(r=>Math.abs(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop)<2),snapped:!f.classList.contains('is-unsnapped')};});
+ await feed.evaluate(f=>{const r=f.querySelectorAll('.focus-card')[2];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});await expect.poll(anchored).toEqual({index:2,snapped:true});
  await page.setViewportSize({width:390,height:700});await expect.poll(anchored).toEqual({index:2,snapped:true});
  // The logger re-measures on the next frame after a resize; wait for it instead of reading once.
  await expect.poll(async()=>{const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.getByRole('link',{name:'History',exact:true}).boundingBox();return box.y+box.height<=toolbar.y+1&&toolbar.y+toolbar.height<=nav.y+1;}).toBe(true);
@@ -97,24 +97,24 @@ test.describe('with motion',()=>{
  test.use({reducedMotion:'no-preference'});
  // iOS Safari has no scroll anchoring; without it Chromium shows the same drift instead of compensating for it.
  const noAnchoring=page=>page.addStyleTag({content:'.focus-feed{overflow-anchor:none}'});
- const anchor=page=>page.locator('.focus-feed').evaluate(f=>{const rows=[...f.querySelectorAll(':scope>.log-set')];return rows.findIndex(r=>Math.abs(r.offsetTop-f.scrollTop)<2);});
+ const anchor=page=>page.locator('.focus-feed').evaluate(f=>{const rows=[...f.querySelectorAll('.focus-card')];return rows.findIndex(r=>Math.abs(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop)<2);});
  // Typing turns snapping off, so the browser cannot mask drift while the keyboard shrinks the viewport.
  test('a height change while typing re-anchors the viewed set after card transitions settle',async({page})=>{
   // A tall phone so card height comes from min-height rather than content.
   await page.setViewportSize({width:390,height:1100});await start(page);await noAnchoring(page);
-  await page.locator('.focus-feed').evaluate(f=>{const row=f.querySelectorAll(':scope>.log-set')[2];f.scrollTo({top:row.offsetTop,behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(2);
-  await page.locator('.focus-feed>.log-set').nth(2).locator('[data-field="reps"]').click();await expect(page.locator('.focus-feed')).toHaveClass(/is-unsnapped/);
+  await page.locator('.focus-feed').evaluate(f=>{const r=f.querySelectorAll('.focus-card')[2];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(2);
+  await page.locator('.focus-feed .focus-card').nth(2).locator('[data-field="reps"]').click();await expect(page.locator('.focus-feed')).toHaveClass(/is-unsnapped/);
   await page.setViewportSize({width:390,height:900});
   await expect.poll(()=>anchor(page)).toBe(2);
  });
  test('an overview warm-up added before the viewed set keeps that set in view',async({page})=>{
   await page.setViewportSize({width:390,height:1100});await start(page);await noAnchoring(page);
-  const ids=await page.locator('.focus-feed>.log-set').evaluateAll(rows=>rows.map(r=>r.dataset.setId));
-  await page.locator('.focus-feed').evaluate(f=>{const row=f.querySelectorAll(':scope>.log-set')[1];f.scrollTo({top:row.offsetTop,behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(1);
+  const ids=await page.locator('.focus-feed .focus-card').evaluateAll(rows=>rows.map(r=>r.dataset.setId));
+  await page.locator('.focus-feed').evaluate(f=>{const r=f.querySelectorAll('.focus-card')[1];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(1);
   await page.getByRole('button',{name:'Workout overview',exact:true}).click();
   const d=page.getByRole('dialog',{name:'Workout overview'});await d.getByRole('button',{name:/^Add warm-up/}).first().click();
   await d.getByRole('button',{name:'Close overview',exact:true}).click();await expect(d).toHaveCount(0);await page.waitForTimeout(500);
-  const shown=await page.locator('.focus-feed').evaluate(f=>{const rows=[...f.querySelectorAll(':scope>.log-set')];return rows.find(r=>Math.abs(r.offsetTop-f.scrollTop)<2)?.dataset.setId;});
+  const shown=await page.locator('.focus-feed').evaluate(f=>{const rows=[...f.querySelectorAll('.focus-card')];return rows.find(r=>Math.abs(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop)<2)?.dataset.setId;});
   expect(shown).toBe(ids[1]);
  });
 });
@@ -127,7 +127,7 @@ test('tapping a set input while the workout note is open moves focus to that inp
 });
 // Input.synthesizeScrollGesture with touch dispatches no touchmove in headless Chromium here, so the swipe is raw CDP touch events.
 test('a swipe that starts on a ruler never scrolls the feed',async({page})=>{
- const log=await start(page),fields=()=>Promise.all(['weight','reps'].map(f=>page.getByLabel(`Set 1 ${f}, ${log.exercises[0].name}`,{exact:true}).inputValue()));const feed=page.locator('.focus-feed'),card=feed.locator(':scope>.log-set').first(),cdp=await page.context().newCDPSession(page);
+ const log=await start(page),fields=()=>Promise.all(['weight','reps'].map(f=>page.getByLabel(`Set 1 ${f}, ${log.exercises[0].name}`,{exact:true}).inputValue()));const feed=page.locator('.focus-feed'),card=feed.locator('.focus-card').first(),cdp=await page.context().newCDPSession(page);
  await feed.evaluate(f=>f.addEventListener('scroll',()=>{window.maxTop=Math.max(window.maxTop,f.scrollTop);}));
  const swipe=async locator=>{await page.evaluate(()=>{window.maxTop=0;});const b=await locator.boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
@@ -135,11 +135,11 @@ test('a swipe that starts on a ruler never scrolls the feed',async({page})=>{
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(300);
   return page.evaluate(()=>window.maxTop);}; // snapping returns a short swipe to the same card, so read the furthest scroll
  const before=await fields();expect(await swipe(card.locator('.workout-ruler').first())).toBe(0);expect(await fields()).toEqual(before); // and never nudges
- expect(await swipe(card.locator('.focus-exercise-title'))).toBeGreaterThan(50);
+ expect(await swipe(feed.locator('.focus-group').first().locator('.focus-exercise-title'))).toBeGreaterThan(50);
 });
 test('a diagonal touch drag on a ruler holds until release',async({page})=>{
  const log=await start(page),weight=page.getByLabel(`Set 1 weight, ${log.exercises[0].name}`,{exact:true});await weight.fill('80');
- const b=await page.locator('.focus-feed>.log-set').first().locator('.workout-ruler').first().boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2),cdp=await page.context().newCDPSession(page);
+ const b=await page.locator('.focus-feed .focus-card').first().locator('.workout-ruler').first().boundingBox(),x=Math.round(b.x+b.width/2),y=Math.round(b.y+b.height/2),cdp=await page.context().newCDPSession(page);
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
  // 120px left with 100px of vertical drift (well outside the strip) is +4 steps of 2.5kg on the ruler
  for(let i=1;i<=10;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-i*12,y:y+i*10}]});await page.waitForTimeout(16);}

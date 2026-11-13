@@ -14,7 +14,7 @@ test('zero-set exercise remains manageable and escape restores opener',async({pa
 test('reorder moves pairs as blocks and unlink preserves set identity',async({page})=>{
  const d=await mount(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));
  await d.getByRole('button',{name:/Reorder superset/}).press('ArrowUp');expect(await page.evaluate(()=>port.read().log.exercises.slice(0,2).map(e=>e.id))).toEqual(['a','b']);
- expect(await page.evaluate(()=>({ref:focusView.visibleRef(),top:document.querySelector('.focus-feed').scrollTop,rows:[...document.querySelectorAll('.focus-feed>.focus-card')].map(r=>[r.dataset.setId,r.offsetTop])}))).toMatchObject({ref:{exerciseId:'a',setId:'a2'}});
+ expect(await page.evaluate(()=>({ref:focusView.visibleRef(),top:document.querySelector('.focus-feed').scrollTop,rows:[...document.querySelectorAll('.focus-feed .focus-card')].map(r=>[r.dataset.setId,r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)])}))).toMatchObject({ref:{exerciseId:'a',setId:'a2'}});
  await d.getByRole('button',{name:'Unlink superset',exact:true}).click();expect(await page.evaluate(()=>port.read().log.exercises[0].superset)).toBeUndefined();expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a2'});
  await expect(d.getByRole('button',{name:/Swap exercise/})).toHaveCount(4);await expect(d.getByRole('button',{name:/Remove exercise/})).toHaveCount(4);
 });
