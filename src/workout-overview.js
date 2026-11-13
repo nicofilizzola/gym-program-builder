@@ -40,10 +40,10 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
   const byId=new Map(items.map(i=>[i.ref.setId,i])),live=[];
   for(const s of ex.sets){const item=byId.get(s.id);if(!item)continue;
    let chip=m.chips.get(item.key);
-   if(!chip){chip=el('button','overview-chip');chip.type='button';chip.dataset.setId=s.id;chip.append(el('span','overview-chip-text'));m.chips.set(item.key,chip);
+   if(!chip){chip=el('button','overview-chip');chip.type='button';chip.dataset.setId=s.id;chip.append(chip.label=el('span','overview-chip-text'));m.chips.set(item.key,chip);
     if(m.rendered){chip.classList.add('is-entering');requestAnimationFrame(()=>requestAnimationFrame(()=>chip.classList.remove('is-entering')));}}
    const {text,label}=setChip(s,{kindIndex:item.kindIndex,exercise:ex.name}),next=current&&item.key===setKey(current),partnerless=item.preview.label.includes('No partner');
-   chip.firstChild.textContent=text;chip.setAttribute('aria-label',label+(next?', up next':'')+(partnerless?', no partner set this round':''));
+   chip.label.textContent=text;chip.setAttribute('aria-label',label+(next?', up next':'')+(partnerless?', no partner set this round':''));
    chip.classList.toggle('is-warmup',s.kind==='warmup');chip.classList.toggle('is-next',Boolean(next));chip.classList.toggle('is-done',Boolean(s.done));
    if(s.done&&!chip.querySelector('svg'))chip.insertAdjacentHTML('afterbegin',CHECK);else if(!s.done)chip.querySelector('svg')?.remove();
    if(viewed&&setKey(viewed)===item.key)chip.setAttribute('aria-current','step');else chip.removeAttribute('aria-current');

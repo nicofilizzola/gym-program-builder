@@ -74,3 +74,11 @@ test.describe('chip motion',()=>{
   expect(await page.evaluate(async()=>{await port.command({type:'add-set',exerciseId:'straight'});const c=[...document.querySelectorAll('.workout-overview [aria-label="Sets, Bench press"] .overview-chip')].at(-1);await port.command({type:'remove-set',ref:{exerciseId:'straight',setId:c.dataset.setId}});return c.isConnected;})).toBe(false);
  });
 });
+test('a done chip keeps its check and refreshes its text on re-render',async({page})=>{
+ const log=focusFixture();Object.assign(log.exercises[0].sets[1],{weightKg:80,reps:8,done:true});const d=await mount(page,log);
+ const chip=d.locator('.overview-chip[data-set-id="s1"]');await expect(chip).toHaveText('80×8');
+ await page.evaluate(()=>{const l=port.read().log;l.exercises[0].sets[1].weightKg=85;logger.setLog(l);});
+ await expect(chip).toHaveText('85×8');await expect(chip.locator('svg path')).toHaveCount(1);
+ await page.evaluate(()=>{const l=port.read().log;l.exercises[0].sets[1].done=false;logger.setLog(l);});
+ await expect(chip.locator('svg')).toHaveCount(0);await expect(chip).toHaveText('85×8');
+});
