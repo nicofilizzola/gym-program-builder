@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {focusFixture} from './fixtures/workout-focus.js';
-import {setKey,projectWorkout,focusFallback,repRangeHint,repsCaption,completionMilestone} from '../src/workout-focus-model.js';
+import {setKey,projectWorkout,focusFallback,focusGroups,repRangeHint,repsCaption,completionMilestone} from '../src/workout-focus-model.js';
 
 test('projects pair warmups then rounds without changing storage',()=>{
  const log=focusFixture(),before=structuredClone(log),p=projectWorkout(log);
@@ -54,4 +54,17 @@ test('milestones require real completed work and a completed partner',()=>{
  assert.equal(completionMilestone(before,after,{exerciseId:'a',setId:'a2'}).kind,'pair');
  after.exercises[0].sets.slice(1).forEach(s=>s.done=true);
  assert.equal(completionMilestone(before,after,{exerciseId:'straight',setId:'s2'}).kind,'exercise');
+});
+
+test('focusGroups follows runs of one exercise and keeps keys through changes',()=>{
+ const k=(e,s)=>setKey({exerciseId:e,setId:s}),groups=focusGroups(projectWorkout(focusFixture()).items);
+ assert.deepEqual(groups.map(g=>[g.exerciseId,g.keys]),[['straight',[k('straight','sw'),k('straight','s1'),k('straight','s2')]],['a',[k('a','aw')]],['b',[k('b','bw')]],['a',[k('a','a1')]],['b',[k('b','b1')]],['a',[k('a','a2')]]]);
+ assert.deepEqual(groups.map(g=>g.key),groups.map(g=>g.keys[0]));
+ assert.equal(groups[3].exerciseIndex,1);
+ const noWarmup=focusFixture();noWarmup.exercises[0].sets.shift();
+ assert.equal(focusGroups(projectWorkout(noWarmup).items,groups)[0].key,groups[0].key);
+ const unlinked=focusFixture();delete unlinked.exercises[1].superset;
+ const after=focusGroups(projectWorkout(unlinked).items,groups);
+ assert.deepEqual(after.map(g=>g.key),[groups[0].key,groups[1].key,groups[2].key]);
+ assert.equal(new Set(after.map(g=>g.key)).size,after.length);
 });

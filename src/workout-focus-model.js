@@ -68,3 +68,19 @@ export function completionMilestone(before,after,ref){
  }else if(complete(ex))return {kind:'exercise',text:`${ex.name} complete.`};
  return {kind:'set',text:'Set complete. Keep building.'};
 }
+
+/** Exercise groups: runs of one exercise. A key survives regrouping by sharing an item with an unused previous group. */
+export function focusGroups(items,previous=[]){
+ const runs=[];
+ for(const item of items){
+  const last=runs.at(-1);
+  if(last&&last.exerciseId===item.ref.exerciseId)last.keys.push(item.key);
+  else runs.push({exerciseId:item.ref.exerciseId,exerciseIndex:item.exerciseIndex,keys:[item.key]});
+ }
+ const used=new Set();
+ return runs.map(run=>{
+  const at=previous.findIndex((g,i)=>!used.has(i)&&g.keys.some(k=>run.keys.includes(k)));
+  if(at>=0)used.add(at);
+  return {...run,key:at>=0?previous[at].key:run.keys[0]};
+ });
+}
