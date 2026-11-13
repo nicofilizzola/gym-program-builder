@@ -17,9 +17,9 @@ async function open(browser,{width,height,history=false,previousNote=true,tags=n
  await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();
  return {page,context};
 }
-const fits=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),card=f.querySelector('.focus-card'),done=card.querySelector('.log-done');
+const fits=(page,i=0)=>page.evaluate(i=>{const f=document.querySelector('.focus-feed'),card=f.querySelectorAll('.focus-card')[i],done=card.querySelector('.log-done');
  const fb=f.getBoundingClientRect(),cb=card.getBoundingClientRect(),db=done.getBoundingClientRect();
- return {doneInside:db.top>=fb.top-0.5&&db.bottom<=fb.bottom+0.5,preview:Math.round(fb.bottom-cb.bottom),overflowX:document.documentElement.scrollWidth>innerWidth};});
+ return {doneInside:db.top>=fb.top-0.5&&db.bottom<=fb.bottom+0.5,preview:Math.round(fb.bottom-cb.bottom),overflowX:document.documentElement.scrollWidth>innerWidth};},i);
 
 // The next card shows its whole header (set label, eyebrow, marker) or nothing; it carries no title.
 const peek=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),[card,next]=f.querySelectorAll('.focus-card'),fb=f.getBoundingClientRect();
@@ -72,6 +72,24 @@ test('opening the keyboard keeps the focused reps input above the pinned Complet
  const card=page.locator('.focus-feed .focus-card').first(),reps=card.locator('[data-field="reps"]');await reps.click();
  await page.setViewportSize({width:390,height:380});
  await expect.poll(async()=>{const [i,c,f]=await Promise.all([reps.boundingBox(),card.locator('.focus-complete').boundingBox(),page.locator('.focus-feed').boundingBox()]);return i.y>=f.y-1&&i.y+i.height<=Math.min(c.y,f.y+f.height)+1;}).toBe(true);
+ await expect(reps).toBeFocused();
+ await context.close();
+});
+const toSet=(page,i)=>page.locator('.focus-feed').evaluate((f,i)=>{const r=f.querySelectorAll('.focus-card')[i];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});},i);
+// The input's top against the pinned block's bottom: the details, or the name row alone under the fallback.
+const clearOfPin=(page,input)=>input.evaluate(el=>{const g=el.closest('.focus-group'),pin=g.querySelector(g.classList.contains('is-name-only')?'.focus-group-name':'.focus-group-details');return el.getBoundingClientRect().top-pin.getBoundingClientRect().bottom;});
+test('200% text pins only the name row and keeps Complete reachable at the second set',async({browser})=>{
+ const {page,context}=await enlarged(browser);await toSet(page,1);
+ await expect(page.locator('.focus-feed .focus-group').first()).toHaveClass(/is-name-only/);
+ await expect.poll(async()=>(await fits(page,1)).doneInside).toBe(true);
+ await context.close();
+});
+// The feed never drops below 180px, so only enlarged text makes the Complete margin push the input under the name row; the top edge wins.
+test('opening the keyboard at the second set at 200% text keeps the reps input clear of the pinned block',async({browser})=>{
+ const {page,context}=await enlarged(browser);await toSet(page,1);
+ const reps=page.locator('.focus-feed .focus-card').nth(1).locator('[data-field="reps"]');await reps.click();
+ await page.setViewportSize({width:390,height:380});
+ await expect.poll(()=>clearOfPin(page,reps)).toBeGreaterThanOrEqual(-1);
  await expect(reps).toBeFocused();
  await context.close();
 });

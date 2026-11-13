@@ -206,8 +206,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   fitCards();
   measuring++;syncActive();const ref=viewed,target=ref?cards.get(setKey(ref))?.row:review;
   if(target){programmatic=true;feed.scrollTo({top:snapTop(target),behavior:'instant'});
-   // The keyboard shrinks the feed while typing: keep the focused field above the pinned Complete (64px).
-   const active=document.activeElement;if(typingField()&&target.contains(active)){const f=active.getBoundingClientRect(),box=feed.getBoundingClientRect(),below=f.bottom+64-box.bottom;if(below>0)feed.scrollTop+=Math.min(below,f.top-box.top);}
+   // The keyboard shrinks the feed while typing: keep the focused field above the pinned Complete (64px), but never under the pinned block (the top edge wins).
+   const active=document.activeElement;if(typingField()&&target.contains(active)){const f=active.getBoundingClientRect(),box=feed.getBoundingClientRect(),pin=parseFloat(target.closest('.focus-group')?.style.getPropertyValue('--focus-pin'))||0,below=f.bottom+64-box.bottom;if(below>0)feed.scrollTop+=Math.min(below,f.top-box.top-pin);}
    programmatic=false;}
   requestAnimationFrame(()=>{measuring--;if(destroyed)return;syncActive();if(!measuring&&enabled&&!suspended)track();});
  }

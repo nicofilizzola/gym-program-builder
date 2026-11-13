@@ -137,6 +137,44 @@ test('opening a long exercise note keeps the viewed set anchored',async({page})=
  expect(Math.abs(await delta()-before)).toBeLessThanOrEqual(2);
  await expect.poll(async()=>{const h=await shown(page,'.focus-card[data-set-id="s2"] .focus-context');return h.px<=1||Math.abs(h.px-h.h)<=1;}).toBe(true);
 });
+const snapDelta=(page,setId)=>page.evaluate(setId=>{const f=document.querySelector('.focus-feed'),r=f.querySelector(`[data-set-id="${setId}"]`);return r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop;},setId);
+// 390x740: the logger's own 14rem cap is taller than 40% of this feed, so only the Focus cap holds the editor.
+test('an open exercise note stays pinned and capped',async({page})=>{
+ await page.setViewportSize({width:390,height:740});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s2'}));
+ const before=await snapDelta(page,'s2'),group=page.locator('.focus-group[data-exercise-id="straight"]');
+ await group.getByRole('button',{name:'Add exercise note, Bench press',exact:true}).click();
+ await page.getByRole('textbox',{name:'Note, Bench press',exact:true}).fill('Note '.repeat(200));await page.waitForTimeout(400);
+ await expect(group).not.toHaveClass(/is-name-only/);
+ const g=await group.evaluate(g=>{const f=document.querySelector('.focus-feed'),fb=f.getBoundingClientRect();return {editor:g.querySelector('textarea').getBoundingClientRect().height,feed:f.clientHeight,details:g.querySelector('.focus-group-details').getBoundingClientRect().top-fb.top,name:g.querySelector('.focus-group-name').getBoundingClientRect().height};});
+ expect(g.editor,JSON.stringify(g)).toBeLessThanOrEqual(g.feed*.4+1);expect(Math.abs(g.details-g.name),JSON.stringify(g)).toBeLessThanOrEqual(1);
+ expect(Math.abs(await snapDelta(page,'s2')-before)).toBeLessThanOrEqual(2);
+});
+test('tight screens pin only the name row',async({page})=>{
+ const log=focusFixture();log.exercises[0].note='A long exercise note. '.repeat(45).slice(0,1000);
+ await page.setViewportSize({width:360,height:740});await mountFocusFixture(page,{log});await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s2'}));
+ const group=page.locator('.focus-group[data-exercise-id="straight"]');await expect(group).toHaveClass(/is-name-only/);
+ const read=()=>group.evaluate(g=>{const fb=document.querySelector('.focus-feed').getBoundingClientRect(),name=g.querySelector('.focus-group-name').getBoundingClientRect(),d=g.querySelector('.focus-group-details').getBoundingClientRect(),done=g.querySelector('[data-set-id="s2"] .log-done').getBoundingClientRect();
+  return {name:name.top-fb.top,details:Math.max(0,Math.min(fb.bottom,d.bottom)-Math.max(name.bottom,d.top)),doneInside:done.top>=fb.top-.5&&done.bottom<=fb.bottom+.5};});
+ const p=await read();expect(Math.abs(p.name),JSON.stringify(p)).toBeLessThanOrEqual(1);expect(p.details,JSON.stringify(p)).toBeLessThanOrEqual(1);expect(p.doneInside,JSON.stringify(p)).toBe(true);
+ await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'sw'}));expect((await read()).details).toBeGreaterThan(1);
+});
+test('a focused field clears the pinned block',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s2'}));
+ const p=await page.evaluate(()=>{const f=document.querySelector('.focus-feed'),g=f.querySelector('.focus-group[data-exercise-id="straight"]'),reps=f.querySelector('[data-set-id="s2"] [data-field="reps"]'),details=g.querySelector('.focus-group-details');
+  f.classList.add('is-unsnapped');f.scrollTop+=reps.getBoundingClientRect().top-details.getBoundingClientRect().bottom+20; // the input's top 20px under the block
+  const under=reps.getBoundingClientRect().top<details.getBoundingClientRect().bottom;reps.focus();return {under};});
+ expect(p.under).toBe(true);await settle(page);
+ const r=await page.evaluate(()=>{const g=document.querySelector('.focus-group[data-exercise-id="straight"]');return {input:document.activeElement.getBoundingClientRect().top,pin:g.querySelector('.focus-group-details').getBoundingClientRect().bottom};});
+ expect(r.input,JSON.stringify(r)).toBeGreaterThanOrEqual(r.pin-1);
+});
+test('structure changes keep the group and the viewed set',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>{focusView.jump({exerciseId:'a',setId:'a1'});window.row=port.row({exerciseId:'a',setId:'a1'});window.group=row.closest('.focus-group');});
+ const before=await snapDelta(page,'a1'),same=()=>page.evaluate(()=>({ref:focusView.visibleRef(),row:port.row({exerciseId:'a',setId:'a1'})===row&&document.contains(row),group:row.closest('.focus-group')===group}));
+ await page.evaluate(()=>port.command({type:'add-warmup',exerciseId:'b'}));await expect(page.locator('.focus-group[data-exercise-id="b"] .focus-card')).toHaveCount(3);
+ expect(await same()).toEqual({ref:{exerciseId:'a',setId:'a1'},row:true,group:true});expect(Math.abs(await snapDelta(page,'a1')-before)).toBeLessThanOrEqual(2);
+ await page.evaluate(()=>port.command({type:'unlink',exerciseId:'a'}));await expect.poll(()=>page.evaluate(()=>port.read().log.exercises[1].superset??null)).toBe(null);
+ expect(await same()).toMatchObject({ref:{exerciseId:'a',setId:'a1'},row:true});
+});
 // Frame-order races: a refit queued before a user scroll, and a scroll landing just after a feed measurement.
 const settle=page=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(r)))));
 test('a refit queued before a user scroll keeps the scrolled-to set in place',async({page})=>{

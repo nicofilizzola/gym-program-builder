@@ -2519,6 +2519,8 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-group.is-name-only .focus-group-details {position:static}
 .focus-group.is-name-only .focus-group-name {border-bottom:1px solid var(--border)}
 .focus-group-sets {list-style:none;margin:0;padding:0}
+/* The open exercise-note editor stays pinned with its block, so it grows to 40% of the feed and then scrolls inside. */
+.focus-group-details .focus-exercise-editor textarea {max-height:calc(var(--focus-feed-height) * .4);overflow-y:auto}
 .workout-focus .focus-card {position:relative;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:1fr;min-height:var(--focus-card-min,var(--focus-feed-height));margin:0;border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always;transition:grid-template-rows 200ms ease-out,opacity 200ms ease-out}
 .workout-focus .focus-card.is-closed {min-height:0;grid-template-rows:0fr}
 .workout-logger .workout-focus .focus-card>.log-set-clip {display:flex;flex-direction:column;justify-content:space-between;gap:var(--focus-gap);min-height:0;overflow:clip;margin:0;padding:0}
@@ -2578,6 +2580,8 @@ body {padding-bottom:var(--tab-bar-height)}
 /* Fallback when the viewed card outgrows the feed (enlarged text, tiny phones): Complete stays reachable. */
 .workout-focus .focus-card.is-viewed .focus-complete {position:sticky;bottom:0;z-index:1;margin-top:calc(-1 * var(--focus-gap));padding-top:var(--focus-gap);background:var(--bg)}
 .workout-focus .focus-card.is-viewed :is(input,button,select):focus {scroll-margin-bottom:64px}
+/* Focused controls clear the pinned block above them (the whole block, or the name row under the fallback). */
+.workout-focus .focus-card :is(input,button,select,textarea):focus {scroll-margin-top:var(--focus-pin,0px)}
 .workout-focus .log-done {display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;padding:8px 12px;border:0;border-radius:8px;background:var(--accent);color:var(--on-accent);font:600 1rem/1.3 var(--font-display);text-transform:uppercase;letter-spacing:.02em}
 .workout-focus .log-done::after {content:attr(data-label);white-space:normal;text-align:center}
 .workout-focus .log-done svg {width:17px;height:17px}
