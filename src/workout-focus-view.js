@@ -44,16 +44,18 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const group={key,li,list,editor,keys:[],exerciseId:null,
    update(ex){
     li.dataset.exerciseId=group.exerciseId=ex.id;
-    const note=ex.note||'',editing=editor.hasChildNodes();exerciseAction.setAttribute('aria-label',`${note?'Edit':'Add'} exercise note, ${ex.name}`);exerciseAction.title=note;exerciseAction.classList.toggle('has-note',Boolean(note));exerciseAction.hidden=editing;
-    // The full note stays readable below the title; it opens the same editor.
-    noteText.textContent=note;noteText.setAttribute('aria-label',`Edit exercise note, ${ex.name}: ${note}`);noteText.hidden=!note||editing;
+    const note=ex.note||'';exerciseAction.setAttribute('aria-label',`${note?'Edit':'Add'} exercise note, ${ex.name}`);exerciseAction.title=note;exerciseAction.classList.toggle('has-note',Boolean(note));
+    // The full note stays readable below the title; it opens the same editor. Once borrowed, the logger's note part shows it instead.
+    noteText.textContent=note;noteText.setAttribute('aria-label',`Edit exercise note, ${ex.name}: ${note}`);noteText.hidden=!note||editor.hasChildNodes();
     const tags=[ex.brand&&['Brand: ',ex.brand,'is-brand'],...(ex.focusTags||[]).map(t=>['Focus: ',t,''])].filter(Boolean),tagsKey=JSON.stringify([ex.name,tags]);
     if(tagsKey!==tagKey){tagKey=tagsKey;tagList?.remove();tagList=null;if(tags.length){tagList=node('ul','focus-tags');tagList.setAttribute('role','list');tagList.setAttribute('aria-label','Tags, '+ex.name);for(const [prefix,text,cls] of tags){const li=node('li','focus-tag'+(cls?' '+cls:'')),hidden=node('span','visually-hidden',prefix);li.append(hidden,text);tagList.append(li);}details.prepend(tagList);}}
     if(!title){title=mountWorkoutTitle(heading,{text:ex.name,onInteraction:()=>interaction('title')});}else title.update({text:ex.name});
     const historyState={exercise:ex,lastTime:snapshot.lastTime,bestPerformance:snapshot.bestPerformance,bestStatus:snapshot.bestStatus,unavailable:snapshot.unavailable};if(!history)history=mountWorkoutHistory(historyHost,historyState);else history.update(historyState);
-    group.syncTitle();
+    group.sync();
    },
-   syncTitle(){title?.update({active:enabled&&Boolean(viewed)&&group.keys.includes(setKey(viewed)),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
+   // The borrowed note host stays after closing; only an open (not closing) field counts as editing.
+   editing:()=>Boolean(editor.querySelector('.log-note-part:not(.is-removing) .log-note-input')),
+   sync(){exerciseAction.hidden=group.editing();title?.update({active:enabled&&Boolean(viewed)&&group.keys.includes(setKey(viewed)),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
    destroy(){port.relocate(()=>port.restoreExerciseNotes(li));title?.destroy();history?.destroy();for(const el of [name,details])resize.unobserve(el);li.remove();}
   };
   return group;
@@ -107,7 +109,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function fitCards(){
   if(!enabled||destroyed)return;const feedHeight=feed.clientHeight;
   const anchorRow=inView().row,anchor=snapTop(anchorRow)-feed.scrollTop;
-  const fits=[...feed.querySelectorAll(':scope>.focus-group')].map(li=>{
+  const fits=lastGroups.map(g=>groups.get(g.key)).map(group=>{const li=group.li;
    const [name,details,list]=li.children,rows=[...list.children].filter(r=>r.classList.contains('focus-card'));if(!rows.length)return null;
    const contentHeights=rows.map(row=>{const clip=row.querySelector('.log-set-clip'),cs=getComputedStyle(clip),heights=sections(clip).map(el=>{const m=getComputedStyle(el);return height(el)+parseFloat(m.marginTop)+parseFloat(m.marginBottom);});
     // the extra rowGap is the zero-height .log-set-clip::after item that shares the residual
@@ -116,7 +118,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    const nextName=li.nextElementSibling?.classList.contains('focus-group')?li.nextElementSibling.firstElementChild:null;
    const peekHeights=rows.map((row,i)=>rows[i+1]?height(rows[i+1].querySelector('.focus-context')):nextName?height(nextName):0);
    const nameHeight=height(name);
-   return {li,rows,nameHeight,fit:fitGroup({feedHeight,nameHeight,detailsHeight:height(details),contentHeights,peekHeights,editing:details.querySelector('.focus-exercise-editor').hasChildNodes()})};
+   return {li,rows,nameHeight,fit:fitGroup({feedHeight,nameHeight,detailsHeight:height(details),contentHeights,peekHeights,editing:group.editing()})};
   }).filter(Boolean);
   for(const {li,rows,nameHeight,fit} of fits){
    li.classList.toggle('is-name-only',fit.nameOnly);setStyle(li,'--focus-name-h',nameHeight+'px');setStyle(li,'--focus-pin',fit.pinned+'px');
@@ -129,7 +131,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  // Logger renders (saves, RIR taps, hydration) call this for every row: a row already in the feed stays in its group; update() groups new ones.
  function place({ref,row}){if(!enabled)return;ensureCard(ref,row);if(!feed.contains(row))feed.insertBefore(row,review);}
  function typingField(){return Boolean(document.activeElement?.matches('input[type="text"],input:not([type]),textarea,select,[contenteditable="true"]'));}
- function syncActive(){for(const group of groups.values())group.syncTitle();feed.classList.toggle('is-unsnapped',suspended||Boolean(measuring)||typingField());}
+ function syncActive(){for(const group of groups.values())group.sync();feed.classList.toggle('is-unsnapped',suspended||Boolean(measuring)||typingField());}
  function update(next){
   if(destroyed)return;snapshot=next;if(!enabled)return;const previous=projection.items,oldViewed=viewed;projection=projectWorkout(snapshot.log);
   if(viewed&&!projection.items.some(i=>same(i.ref,viewed)))viewed=focusFallback(previous,projection.items,viewed);
@@ -209,7 +211,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    programmatic=false;}
   requestAnimationFrame(()=>{measuring--;if(destroyed)return;syncActive();if(!measuring&&enabled&&!suspended)track();});
  }
- function restore(){port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const group of groups.values())group.syncTitle();}
+ function restore(){port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const group of groups.values())group.sync();}
  return {
   update,
   setEnabled(value){if(destroyed||enabled===value)return;advance.cancel();stopCelebration();if(!value){enabled=false;logger?.classList.remove('is-focus');restore();root.hidden=true;return;}

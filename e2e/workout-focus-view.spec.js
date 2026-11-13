@@ -107,6 +107,7 @@ test('each superset round set brings its own block',async({page})=>{
   expect(await page.evaluate(()=>{const top=document.querySelector('.focus-feed').getBoundingClientRect().top;return [...document.querySelectorAll('.focus-group-name')].find(n=>{const b=n.getBoundingClientRect();return Math.abs(b.top-top)<=1&&b.bottom>top+1;})?.querySelector('.focus-exercise-title').getAttribute('aria-label');})).toBe(name);
  }
 });
+// Logger renders call place() for every row; some (opening a set note) publish nothing afterwards, so update() never regroups.
 test('a logger save keeps rows in their groups',async({page})=>{
  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s2'}));
  const read=()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),r=f.querySelector('.focus-card[data-set-id="s2"]'),snapTop=r=>r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0);
@@ -114,7 +115,19 @@ test('a logger save keeps rows in their groups',async({page})=>{
  const before=await read();
  await page.locator('.focus-card[data-set-id="s2"]').getByRole('group',{name:/RIR/}).getByRole('button',{name:'2',exact:true}).click();
  await expect.poll(async()=>(await read()).saves).toBeGreaterThan(before.saves);
- const after=await read();expect(after.grouped).toBe(true);expect(Math.abs(after.delta)).toBeLessThanOrEqual(2);
+ let after=await read();expect(after.grouped).toBe(true);expect(Math.abs(after.delta)).toBeLessThanOrEqual(2);
+ await page.locator('.focus-card[data-set-id="s2"] .focus-context').getByRole('button',{name:'Add set note, Set 2, Bench press',exact:true}).click();
+ await expect(page.getByLabel('Note, set 2, Bench press',{exact:true})).toBeFocused();
+ after=await read();expect(after.grouped).toBe(true);expect(Math.abs(after.delta)).toBeLessThanOrEqual(2);
+});
+test('closing the exercise note returns the group to its measured state',async({page})=>{
+ const log=focusFixture();log.exercises[0].note='A long exercise note. '.repeat(45).slice(0,1000);
+ await page.setViewportSize({width:360,height:740});await mountFocusFixture(page,{log});await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
+ const group=page.locator('.focus-group[data-exercise-id="straight"]');await expect(group).toHaveClass(/is-name-only/);
+ await group.locator('.focus-group-name').getByRole('button',{name:'Edit exercise note, Bench press',exact:true}).click();
+ const note=page.getByRole('textbox',{name:'Note, Bench press',exact:true});await expect(note).toBeFocused();await expect(group).not.toHaveClass(/is-name-only/);
+ await note.blur();await expect(note).toHaveCount(0);
+ await expect(group).toHaveClass(/is-name-only/);await expect(group.locator('.focus-group-name .focus-exercise-note')).toBeVisible();
 });
 test('opening a long exercise note keeps the viewed set anchored',async({page})=>{
  await page.setViewportSize({width:390,height:900});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
