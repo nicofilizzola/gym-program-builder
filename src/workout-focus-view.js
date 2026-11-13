@@ -1,4 +1,4 @@
-import {projectWorkout,focusFallback,setKey,completionMilestone,focusGroups} from './workout-focus-model.js';
+import {projectWorkout,focusFallback,setKey,completionMilestone,focusGroups,progressClusters} from './workout-focus-model.js';
 import {createWorkoutAdvance} from './workout-focus-advance.js';
 import {setRowBindings} from './workout-set-row.js';
 import {mountWorkoutRuler} from './workout-ruler.js';
@@ -19,13 +19,13 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  const state={autoNext:ui.autoNext,weightIncrement:ui.weightIncrement},cards=new Map(),groups=new Map(),events=new AbortController(),{signal}=events;
  const rewarded=new Set(),animationTimers=new Set(),reduced=matchMedia('(prefers-reduced-motion:reduce)');
  const advance=createWorkoutAdvance({read:()=>({log:snapshot.log,viewed,autoNext:state.autoNext,suspended:!enabled||suspended||typingField()||Boolean(document.querySelector('dialog[open]'))}),onAdvance:ref=>jump(ref,{animate:true,focus:true}),reduced:()=>reduced.matches});
- const root=node('section','workout-focus'),progress=node('div','focus-progress'),meta=node('div','focus-progress-meta'),position=node('span',''),count=node('span',''),segments=node('div','focus-progress-segments');
- meta.append(position,count);progress.append(meta,segments);
+ const root=node('section','workout-focus'),progress=node('button','focus-progress'),meta=node('span','focus-progress-meta'),position=node('span',''),count=node('span',''),segments=node('span','focus-progress-segments');
+ progress.type='button';progress.setAttribute('aria-haspopup','dialog');meta.append(position,count);progress.append(meta,segments);
  const feed=node('ol','focus-feed');feed.tabIndex=0;feed.setAttribute('aria-label','Workout sets');
  const review=node('li','focus-review');review.innerHTML='<p class="focus-eyebrow">Your workout</p><h2 tabindex="-1">Make it a good finish.</h2><p class="focus-review-copy"></p><button type="button" class="add-btn">Finish workout</button><p class="focus-muted">Finishing is always your choice.</p>';review.querySelector('button').onclick=()=>onFinish();feed.append(review);
  const empty=node('div','focus-empty');empty.innerHTML='<h2>No sets yet</h2><p>Add an exercise or use the overview to add sets.</p><button type="button" class="secondary-btn">Add exercise</button><div class="focus-picker"></div>';
  empty.querySelector('button').onclick=()=>port.command({type:'add-exercise',host:empty.querySelector('.focus-picker')});
- const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};current.onclick=()=>{advance.cancel();jump(projection.current,{animate:true,focus:true});};
+ const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};progress.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:progress});};current.onclick=()=>{advance.cancel();jump(projection.current,{animate:true,focus:true});};
  const autoLabel=node('label','focus-auto'),auto=document.createElement('input');auto.type='checkbox';auto.checked=state.autoNext;autoLabel.append(auto,document.createTextNode('Auto-next'));auto.onchange=()=>{advance.cancel();state.autoNext=auto.checked;onInteraction({type:'preference',patch:{autoNext:state.autoNext}});};toolbar.append(overview,current,autoLabel);
  root.append(progress,feed,empty,toolbar);root.hidden=true;host.append(root);
  const logger=host.closest('.workout-logger');
@@ -152,10 +152,14 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   });
   for(const [key,group] of groups)if(!taken.has(key)){groups.delete(key);group.destroy();}
   if(travel?.ref&&!projection.items.some(i=>same(i.ref,travel.ref)))cancelTravel();
-  const existing=new Map([...segments.children].map(el=>[el.dataset.key,el]));
-  projection.workingKeys.forEach((key,index)=>{let el=existing.get(key);if(!el){el=node('span','focus-progress-segment');el.dataset.key=key;el.append(node('span','focus-progress-fill'));}el.classList.toggle('is-done',projection.doneKeys.has(key));if(segments.children[index]!==el)segments.insertBefore(el,segments.children[index]||null);existing.delete(key);});for(const el of existing.values())el.remove();
+  const existing=new Map([...segments.querySelectorAll('.focus-progress-segment')].map(el=>[el.dataset.key,el])),oldClusters=new Map([...segments.children].map(el=>[el.dataset.key,el]));
+  progressClusters(projection.items).forEach(({key,keys},index)=>{
+   let box=oldClusters.get(key);if(!box){box=node('span','focus-progress-cluster');box.dataset.key=key;}oldClusters.delete(key);box.style.flexGrow=keys.length;
+   keys.forEach((k,i)=>{let el=existing.get(k);if(!el){el=node('span','focus-progress-segment');el.dataset.key=k;el.append(node('span','focus-progress-fill'));}el.classList.toggle('is-done',projection.doneKeys.has(k));if(box.children[i]!==el)box.insertBefore(el,box.children[i]||null);existing.delete(k);});
+   if(segments.children[index]!==box)segments.insertBefore(box,segments.children[index]||null);
+  });for(const el of existing.values())el.remove();for(const box of oldClusters.values())box.remove();
   const completed=projection.workingKeys.filter(k=>projection.doneKeys.has(k)).length;count.textContent=`${completed} / ${projection.workingKeys.length} working sets`;
-  const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';
+  const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';progressName(item,completed);
   current.hidden=same(viewed,projection.current);empty.hidden=projection.items.length>0;feed.hidden=projection.items.length===0;
   review.querySelector('.focus-review-copy').textContent=completed===projection.workingKeys.length&&completed?'Your working sets are complete. Review your work, then finish.':'Review your completed work or keep training.';
   fitCards();
@@ -183,8 +187,9 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  }
  // A touch, wheel, key, dialog or resize ends the travel where it is; snapping and track() pick the set.
  function cancelTravel(){if(!travel)return;clearTimeout(travel.timer);travel=null;feed.scrollTo({top:feed.scrollTop,behavior:'instant'});if(enabled&&!destroyed)track();}
+ function progressName(item,completed=projection.workingKeys.filter(k=>projection.doneKeys.has(k)).length){progress.setAttribute('aria-label',`Workout overview, ${item?`exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'workout review'}, ${completed} of ${projection.workingKeys.length} working sets`);}
  function renderCursor(){
-  const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';current.hidden=same(viewed,projection.current);onViewed(viewed);
+  const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';progressName(item);current.hidden=same(viewed,projection.current);onViewed(viewed);
   // Geometry is enabled only around the destination; canonical inputs always remain mounted.
   const index=viewedIndex();for(const card of cards.values())card.row.classList.toggle('is-viewed',same(card.ref,viewed));
   for(const [key,card] of cards){const at=projection.items.findIndex(i=>i.key===key);if(Math.abs(at-index)<=1){const ex=snapshot.log.exercises[projection.items[at].exerciseIndex];card.update(projection.items[at],ex,ex.sets.find(s=>s.id===card.ref.setId),at);}else{for(const {widget} of card.widgets)widget.update({enabled:false});}}
@@ -207,7 +212,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   if(!enabled)return;const key=setKey(ref),card=cards.get(key);if(!card)return;
   card.milestone=card.feedback.textContent=completionMilestone(before,after,ref).text;card.b.done.dataset.label=`${card.milestone} · Tap to undo`;
   if(rewarded.has(key))return;rewarded.add(key);if(reduced.matches)return;
-  const segment=[...segments.children].find(n=>n.dataset.key===key);card.row.classList.add('is-celebrating');segment?.classList.add('is-celebrating');
+  const segment=[...segments.querySelectorAll('.focus-progress-segment')].find(n=>n.dataset.key===key);card.row.classList.add('is-celebrating');segment?.classList.add('is-celebrating');
   const timer=setTimeout(()=>{card.row.classList.remove('is-celebrating');segment?.classList.remove('is-celebrating');animationTimers.delete(timer);},500);animationTimers.add(timer);
  }
  const unsubscribe=port.subscribe(event=>{

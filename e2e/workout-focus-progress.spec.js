@@ -1,0 +1,21 @@
+import {test,expect} from '@playwright/test';
+import {mountFocusFixture} from './workout-focus-helper.js';
+test.use({viewport:{width:390,height:844},hasTouch:true});
+test('the progress row is the overview button',async({page})=>{
+ await mountFocusFixture(page);
+ await page.evaluate(async()=>{const {mountWorkoutOverview}=await import('/src/workout-overview.js');
+  const overview=mountWorkoutOverview({port,onJump:ref=>focusView.jump(ref),onActivity:v=>focusView.suspend(v),onClose:()=>focusView.update(port.read())});
+  activity.push=e=>{if(e.type==='overview'){overview.update(port.read(),focusView.visibleRef());overview.open(e.opener);}};
+  focusView.jump({exerciseId:'straight',setId:'s1'});});
+ const row=page.getByRole('button',{name:'Workout overview, exercise 1 of 4, 0 of 5 working sets'}),dialog=page.getByRole('dialog',{name:'Workout overview'});
+ await row.click();await expect(dialog).toBeVisible();await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(row).toBeFocused();
+ await page.keyboard.press('Enter');await expect(dialog).toBeVisible();await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
+ const clusters=row.locator('.focus-progress-cluster');await expect(clusters).toHaveCount(2);
+ const gaps=await row.evaluate(r=>{const b=[...r.querySelectorAll('.focus-progress-cluster')].map(c=>c.getBoundingClientRect()),s=[...r.querySelectorAll('.focus-progress-cluster')[0].children].map(c=>c.getBoundingClientRect());return {between:b[1].left-b[0].right,within:s[1].left-s[0].right};});
+ expect(Math.abs(gaps.between-8)).toBeLessThanOrEqual(.5);expect(Math.abs(gaps.within-3)).toBeLessThanOrEqual(.5);
+ expect(await row.evaluate(r=>getComputedStyle(r,'::after').height)).toBe('44px');
+ const box=await row.boundingBox();expect(box.height).toBeLessThan(44);
+ for(const dy of[-18,0,18])expect(await row.evaluate((r,[x,y])=>r.contains(document.elementFromPoint(x,y)),[box.x+box.width/2,box.y+box.height/2+dy])).toBe(true);
+ await page.evaluate(()=>focusView.jump(null));
+ await expect(page.getByRole('button',{name:'Workout overview, workout review, 0 of 5 working sets'})).toBeVisible();
+});

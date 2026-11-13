@@ -2501,9 +2501,12 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-logger.is-focus>.logger-note {margin:0 0 8px}
 .logger-note-indicator[hidden] {display:none}
 .workout-logger.is-focus>.log-exercises,.workout-logger.is-focus>.log-empty,.workout-logger.is-focus>.log-add-exercise {display:none}
-.focus-progress {margin:0 0 8px}
+.focus-progress {position:relative;display:block;width:100%;margin:0 0 8px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:inherit;cursor:pointer;touch-action:none}
+.focus-progress::after {content:'';position:absolute;inset:50% 0 auto;height:44px;transform:translateY(-50%)}
+.focus-progress:focus-visible {outline:2px solid var(--text);outline-offset:2px}
 .focus-progress-meta {display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:.6875rem;line-height:1.4;margin-bottom:7px}
-.focus-progress-segments {display:flex;gap:3px;height:4px;overflow:hidden}
+.focus-progress-segments {display:flex;gap:8px;height:4px}
+.focus-progress-cluster {display:flex;gap:3px;flex-basis:0;min-width:0}
 .focus-progress-segment {flex:1;min-width:0;background:var(--border);overflow:hidden}
 .focus-progress-fill {display:block;height:100%;background:var(--accent);transform:scaleX(0);transform-origin:left}
 .focus-progress-segment.is-done .focus-progress-fill {transform:scaleX(1)}

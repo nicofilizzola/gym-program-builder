@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {focusFixture} from './fixtures/workout-focus.js';
-import {setKey,projectWorkout,focusFallback,focusGroups,repRangeHint,repsCaption,completionMilestone} from '../src/workout-focus-model.js';
+import {setKey,projectWorkout,focusFallback,focusGroups,repRangeHint,repsCaption,completionMilestone,progressClusters} from '../src/workout-focus-model.js';
 
 test('projects pair warmups then rounds without changing storage',()=>{
  const log=focusFixture(),before=structuredClone(log),p=projectWorkout(log);
@@ -67,4 +67,11 @@ test('focusGroups follows runs of one exercise and keeps keys through changes',(
  const after=focusGroups(projectWorkout(unlinked).items,groups);
  assert.deepEqual(after.map(g=>g.key),[groups[0].key,groups[1].key,groups[2].key]);
  assert.equal(new Set(after.map(g=>g.key)).size,after.length);
+});
+
+test('progressClusters groups working sets by exercise and superset',()=>{
+ const k=(e,s)=>setKey({exerciseId:e,setId:s});
+ assert.deepEqual(progressClusters(projectWorkout(focusFixture()).items),[{key:'straight',keys:[k('straight','s1'),k('straight','s2')]},{key:'a',keys:[k('a','a1'),k('b','b1'),k('a','a2')]}]);
+ const log=focusFixture();log.exercises.forEach(e=>{e.sets=e.sets.filter(s=>s.kind==='warmup');});
+ assert.deepEqual(progressClusters(projectWorkout(log).items),[]);
 });

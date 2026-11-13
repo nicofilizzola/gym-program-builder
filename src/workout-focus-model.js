@@ -84,3 +84,13 @@ export function focusGroups(items,previous=[]){
   return {...run,key:at>=0?previous[at].key:run.keys[0]};
  });
 }
+
+/** Progress segments grouped per exercise or superset, in execution order. */
+export function progressClusters(items){
+ const clusters=[];
+ for(const item of items){
+  if(item.kind!=='working')continue;const key=item.pairId??item.ref.exerciseId,last=clusters.at(-1);
+  if(last?.key===key)last.keys.push(item.key);else clusters.push({key,keys:[item.key]});
+ }
+ return clusters;
+}
