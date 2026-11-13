@@ -2536,6 +2536,10 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-exercise-note-text {display:block;width:100%;min-height:32px;padding:4px 0;border:0;background:none;color:var(--muted);font:inherit;font-size:.75rem;line-height:1.4;text-align:left;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}
 .focus-exercise-note svg,.focus-set-note svg {width:15px;height:15px;flex-shrink:0;fill:none;stroke:currentColor}
 .focus-exercise-note:hover,.focus-set-note:hover {color:var(--text)}
+/* shortcut: tags past two lines are clipped, revisit with a +N pill when a variant needs more */
+.focus-tags {display:flex;flex-wrap:wrap;gap:4px 6px;margin:4px 0 0;padding:0;list-style:none;max-height:44px;overflow:hidden}
+.focus-tag {height:20px;max-width:100%;padding:0 8px;border-radius:999px;font-size:.6875rem;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid var(--muted);color:var(--muted)}
+.focus-tag.is-brand {background:var(--text);border-color:var(--text);color:var(--bg)}
 .focus-history {border-top:1px solid var(--border);padding-top:8px}
 .focus-history .log-last-time,.focus-history .log-best {margin:0 0 4px;font-size:.75rem;line-height:1.4;overflow-wrap:anywhere}
 .focus-history .log-last-note {margin:0 0 5px}

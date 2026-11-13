@@ -39,6 +39,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const identity=node('div','focus-identity focus-only'),titleRow=node('div','focus-identity-row'),heading=node('h2','focus-exercise-title'),exerciseAction=node('button','focus-exercise-note');exerciseAction.type='button';exerciseAction.innerHTML=noteIcon();titleRow.append(heading,exerciseAction);
   const noteText=node('button','focus-exercise-note-text');noteText.type='button';
   const exerciseEditor=node('div','focus-exercise-editor');identity.append(titleRow,noteText,exerciseEditor);
+  let tagList=null,tagKey='';
   const historyHost=node('div','focus-history focus-only');row.querySelector('.log-set-clip').prepend(context,identity,historyHost);row.classList.add('focus-card');row.dataset.exerciseId=ref.exerciseId;
   const controls=node('div','focus-number-controls focus-only'),rirStrip=node('div','focus-rir-strip focus-only'),notes=node('div','focus-note-area focus-only'),complete=node('div','focus-complete focus-only'),feedback=node('p','focus-feedback visually-hidden');
   const grid=row.querySelector('.log-set-row');grid.append(controls,rirStrip,notes,feedback);
@@ -67,6 +68,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     const partner=item.pairId?snapshot.log.exercises.find((e,i,a)=>item.member?.endsWith('1')?a[i-1]?.id===ex.id:a[i+1]?.id===ex.id):null;
     const rest=item.pairId?`Paired with ${partner?.name||'partner'} · ${snapshot.log.exercises.find(e=>e.id===item.pairId)?.superset.restBetweenSeconds??0}s between · ${snapshot.log.exercises.find(e=>e.id===item.pairId)?.superset.restAfterRoundSeconds??0}s after round`:ex.target?`Rest ${ex.target.restSeconds}s`:ex.equipment||'';
     eyebrow.textContent=[item.kind==='warmup'?'Warm-up':item.pairId?`Superset ${item.member}`:item.kindIndex===1?'First working set':'Next set',rest].filter(Boolean).join(' · ');
+    const tags=[ex.brand&&['Brand: ',ex.brand,'is-brand'],...(ex.focusTags||[]).map(t=>['Focus: ',t,''])].filter(Boolean),key=JSON.stringify([ex.name,tags]);
+    if(key!==tagKey){tagKey=key;tagList?.remove();tagList=null;if(tags.length){tagList=node('ul','focus-tags');tagList.setAttribute('aria-label','Tags, '+ex.name);for(const [prefix,text,cls] of tags){const li=node('li','focus-tag'+(cls?' '+cls:'')),hidden=node('span','visually-hidden',prefix);li.append(hidden,text);tagList.append(li);}titleRow.after(tagList);}}
     if(!title){title=mountWorkoutTitle(heading,{text:ex.name,onInteraction:()=>interaction('title')});}else title.update({text:ex.name});
     const historyState={exercise:ex,lastTime:snapshot.lastTime,bestPerformance:snapshot.bestPerformance,bestStatus:snapshot.bestStatus,unavailable:snapshot.unavailable};if(!history)history=mountWorkoutHistory(historyHost,historyState);else history.update(historyState);
     const setIndex=ex.sets.findIndex(s=>s.id===set.id),kindIndex=ex.sets.slice(0,setIndex+1).filter(s=>s.kind===set.kind).length;
@@ -79,7 +82,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    },
    syncTitle(){title?.update({active:enabled&&same(ref,viewed),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
    restore(){for(const {widget} of widgets)widget.update({enabled:false});port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';title?.update({active:false});},
-   destroy(){title?.destroy();history?.destroy();for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();identity.remove();action.remove();historyHost.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed','is-peekless');row.style.removeProperty('--focus-card-min');for(const el of observed)resize.unobserve(el);}
+   destroy(){title?.destroy();history?.destroy();for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();tagList?.remove();context.remove();identity.remove();action.remove();historyHost.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed','is-peekless');row.style.removeProperty('--focus-card-min');for(const el of observed)resize.unobserve(el);}
   };
   b.disposers.add(()=>{for(const {widget} of widgets)widget.destroy();title?.destroy();});
   return card;

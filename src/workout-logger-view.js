@@ -5,6 +5,7 @@ import {mountWorkoutRecap} from './workout-recap.js';
 import {mountWorkoutHistory} from './workout-history-summary.js';
 import {confirmAction} from './confirm-dialog.js';
 import {actionIcon,mountActionTooltips} from './action-controls.js';
+import {renderVariantMetadata} from './catalog-metadata.js';
 import {mountExercisePicker} from './exercise-picker.js';
 import {mountSortable} from './sortable.js';
 import {mountReorderMenu} from './reorder-menu.js';
@@ -173,7 +174,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   if(input){input.focus({preventScroll:false});input.setSelectionRange(input.value.length,input.value.length);}
  }
  function updateCard(card,ex,animate,label=''){
-  card.heading.textContent=label?`${label} ${ex.name}`:ex.name;card.reorder.hidden=!!label;card.equipment.textContent=ex.equipment||'';card.equipment.hidden=!ex.equipment;
+  card.heading.textContent=label?`${label} ${ex.name}`:ex.name;card.reorder.hidden=!!label;renderVariantMetadata(card.equipment,{equipment:ex.equipment,brand:ex.brand,focusTags:ex.focusTags});
   card.history.update({exercise:ex,lastTime:last,bestPerformance:best,bestStatus,unavailable});
   syncNote(card,ex);
   card.swap.setAttribute('aria-label',`Swap exercise ${ex.name}`);card.reorder.setAttribute('aria-label',`Reorder ${ex.name}`);card.remove.setAttribute('aria-label',`Remove exercise ${ex.name}`);

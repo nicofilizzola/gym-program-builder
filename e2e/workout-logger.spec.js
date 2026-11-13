@@ -353,3 +353,47 @@ test('chooseAction resolves its choice, or null on Cancel',async({page})=>{
  await expect(dialog).toHaveCount(0);
  await expect.poll(()=>page.evaluate(()=>window.choice)).toBe(null);
 });
+
+test.describe('variant tags on tracker cards',()=>{
+ const tags=log=>({...log,exercises:log.exercises.map((e,i)=>i===0?{...e,brand:'Hammer Strength',focusTags:['Upper chest']}:e)});
+ const expectTags=async(page,name)=>{const meta=card(page,name).locator('.log-equipment');await expect(meta).toContainText('Brand: Hammer Strength');await expect(meta).toContainText('Focus: Upper chest');return meta;};
+ async function finished(page){
+  await login(page);await resetWorkouts(page);
+  const {id}=await createLinkedTemplate(page,'Push A'),template=(await (await page.request.get('/api/documents/'+id)).json()).record;
+  let log=tags(createWorkoutLog({id:makeId(),now:hours(3),makeId,template}));
+  log={...log,exercises:log.exercises.map((e,i)=>i===0?{...e,sets:[{id:makeId(),kind:'working',weightKg:80,reps:8,rir:2,done:true}]}:e)};
+  const done=finishWorkout(log,hours(2)).log;await put(page,done);return {log:done,name:done.exercises[0].name};
+ }
+ test('active card at 1366px lists equipment, brand and focus tags',async({page})=>{
+  await page.setViewportSize({width:1366,height:768});
+  const {log,names:[first]}=await setup(page,{mutate:tags,history:false});
+  await expect(await expectTags(page,first)).toContainText(log.exercises[0].equipment);
+ });
+ for(const width of [1366,390])
+  test(`finished log shows tags at ${width}px`,async({page})=>{
+   await page.setViewportSize({width,height:width>760?768:844});
+   const {log,name}=await finished(page);await page.goto('/#/workouts/'+log.id);
+   await expect(page.locator('.log-exercise').first()).toBeVisible();await expectTags(page,name);
+  });
+});
+
+test('an added and a swapped catalog variant bring their brand and focus tags to the tracker and Focus cards',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});
+ const {log,names:[first]}=await setup(page,{history:false});
+ const made=await page.evaluate(async()=>{
+  const {createApiClient}=await import('/src/api-client.js'),api=createApiClient(),suffix=crypto.randomUUID().slice(0,8);
+  const ref=await api.createReference({id:crypto.randomUUID(),name:'Tagged ref '+suffix,exerciseType:'compound',equipment:'Barbell',description:''});
+  const brand=await api.createTag({id:crypto.randomUUID(),kind:'brand',name:'Brand '+suffix});
+  const focus=[];for(const n of ['Upper '+suffix,'Stretch '+suffix])focus.push(await api.createTag({id:crypto.randomUUID(),kind:'focus',name:n}));
+  const variant=async name=>api.createCatalog({id:crypto.randomUUID(),familyId:ref.id,entry:{name,primaryMuscles:['Chest'],secondaryMuscles:[],description:'',brandId:brand.id,focusTagIds:focus.map(t=>t.id)}});
+  return {brand:brand.name,focus:focus.map(t=>t.name),added:(await variant('Added press '+suffix)).name,swapped:(await variant('Swapped press '+suffix)).name};
+ });
+ await page.reload();await expect(page.getByRole('button',{name:'Finish',exact:true})).toBeVisible();
+ const pick=async name=>{const combo=page.getByRole('combobox',{name:'Exercise'});await expect(combo).toBeFocused();await combo.fill(name);await page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').filter({hasText:name}).first().click();};
+ await page.getByRole('button',{name:'Add exercise',exact:true}).click();await pick(made.added);
+ await page.getByRole('button',{name:`Swap exercise ${first}`,exact:true}).click();await pick(made.swapped);
+ for(const name of [made.added,made.swapped]){const meta=card(page,name).locator('.log-equipment');await expect(meta).toContainText('Barbell');await expect(meta).toContainText('Brand: '+made.brand);for(const f of made.focus)await expect(meta).toContainText('Focus: '+f);}
+ await expect.poll(async()=>(await serverLog(page,log.id)).exercises.map(e=>[e.name,e.brand,[...e.focusTags].sort()])).toEqual(expect.arrayContaining([[made.swapped,made.brand,[...made.focus].sort()],[made.added,made.brand,[...made.focus].sort()]]));
+ await page.setViewportSize({width:390,height:844});
+ for(const name of [made.added,made.swapped]){const list=page.getByRole('list',{name:'Tags, '+name}).first();await expect(list.getByRole('listitem')).toHaveCount(3);await expect(list.locator('.is-brand')).toHaveText('Brand: '+made.brand);for(const f of made.focus)await expect(list).toContainText('Focus: '+f);}
+});

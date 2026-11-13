@@ -3,7 +3,7 @@ import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper
 import {createWorkoutLog} from '../src/workout-log.js';
 
 // Heights are visible browser viewports (browser UI already subtracted), not device screen sizes.
-async function open(browser,{width,height,history=false,previousNote=true}){
+async function open(browser,{width,height,history=false,previousNote=true,tags=null}){
  const context=await browser.newContext({viewport:{width,height},hasTouch:true,isMobile:true,baseURL:'http://127.0.0.1:3199'}),page=await context.newPage();
  await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Fit');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();
  const make=()=>createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});
@@ -13,7 +13,7 @@ async function open(browser,{width,height,history=false,previousNote=true}){
   for(const ex of past.exercises)for(const set of ex.sets)Object.assign(set,{weightKg:62.5,reps:10,done:true});
   const r=await page.request.put('/api/workouts/'+past.id,{headers,data:{revision:0,log:past}});expect(r.ok(),await r.text()).toBeTruthy();
  }
- const log=make();const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();
+ const log=make();if(tags)Object.assign(log.exercises[0],tags);const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();
  await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();
  return {page,context};
 }
@@ -114,3 +114,24 @@ for(const [width,height,ruler] of [[412,839,56],[412,760,48],[360,660,44]])
   await expect(strip).toHaveCSS('height',ruler+'px');await expect(strip.locator('.workout-ruler-track')).toHaveCSS('height',ruler+'px');
   await context.close();
  });
+const long='L'.repeat(80),oneLine={brand:'Hammer',focusTags:['Upper chest','Stretch']},twoLines={brand:'Hammer Strength',focusTags:[long,'Upper chest','Stretch','Lower chest','Mid chest','Long head','Short head']};
+test('one line of tags fits at 360x660',async({browser})=>{
+ const {page,context}=await open(browser,{width:360,height:660,history:true,previousNote:false,tags:oneLine});
+ await expect(page.locator('.focus-feed>.log-set').first().locator('.focus-tags')).toBeVisible();
+ await expect.poll(()=>fits(page)).toMatchObject({doneInside:true,overflowX:false});
+ const p=await peek(page);expect(p.cardH,JSON.stringify(p)).toBeLessThanOrEqual(p.feedH+1);
+ await context.close();
+});
+test('two lines of tags drop the peek, then pin Complete',async({browser})=>{
+ let o=await open(browser,{width:393,height:750,history:true,previousNote:false,tags:twoLines});
+ await expect(o.page.locator('.focus-feed>.log-set').first().locator('.focus-tags')).toBeVisible();
+ await expect.poll(async()=>(await peek(o.page)).peekless).toBe(true);
+ let p=await peek(o.page);expect(p.cardH,JSON.stringify(p)).toBeLessThanOrEqual(p.feedH+1);await o.context.close();
+ o=await open(browser,{width:360,height:660,history:true,previousNote:false,tags:twoLines});
+ const {page,context}=o;await expect(page.locator('.focus-feed>.log-set').first().locator('.focus-tags')).toBeVisible();
+ await expect.poll(async()=>(await peek(page)).peekless).toBe(true);
+ await expect.poll(()=>fits(page)).toMatchObject({doneInside:true,overflowX:false});
+ const tags=await page.locator('.focus-feed>.log-set').first().evaluate(card=>{const l=card.querySelector('.focus-tags'),long=[...l.children].find(li=>li.textContent.includes('LLLL'));return {h:l.getBoundingClientRect().height,clipped:long.scrollWidth>long.clientWidth};});
+ expect(tags.h).toBeLessThanOrEqual(44);expect(tags.clipped).toBe(true);
+ await context.close();
+});

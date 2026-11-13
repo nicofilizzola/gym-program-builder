@@ -4,7 +4,7 @@ Design: [specification](../specs/2026-11-12-focus-set-page-design.md). Plan: [im
 
 ## Part 1: small fixes (2026-11-12)
 
-Commits: `bf4ff7d` (`5+`), `e3817b7` (no warm-up RIR), `0168132` (note icon and header-row set note), and the Task 4 commit (RIR border, docs). Part 3 (tags) is not yet implemented; this file is extended as it ships.
+Commits: `bf4ff7d` (`5+`), `e3817b7` (no warm-up RIR), `0168132` (note icon and header-row set note), and the Task 4 commit (RIR border, docs). Part 3 (tags) is recorded below.
 
 ### Commands (localhost, Chromium via Playwright)
 
@@ -85,5 +85,44 @@ A scratch Playwright spec (not committed) opened a populated active workout with
 - Tapping either side of the needle nudges one step, and stops at the limits: `pending (user)`.
 - A swipe that starts on a ruler never scrolls the feed by accident, while the rest of the card still scrolls: `pending (user)`.
 - Logging a whole workout with rulers and taps only: `pending (user)`.
+
+
+## Part 3: variant tags (2026-11-12)
+
+Commits: Task 8 `67d2432` (log tag fields, validation, copy at start/add/swap) and the Task 9 commit (Focus and tracker display, docs).
+
+### Commands (localhost, Chromium via Playwright)
+
+- RED (`npx playwright test <focus-view, focus-fit, workout-logger> -g tags`): all six new tests failed before the change (no `Tags, Bench press` list; tracker `.log-equipment` read only `Barbell`).
+- `npm test`: 492 passed, 0 failed.
+- `npm run build`: passed. `npm run test:e2e` (one invocation, 15.1 min): 634 passed, 7 skipped, 1 failed: the known flake `workout-focus-integration.spec.js:102` ("a height change while typing re-anchors..."), unrelated to tags. Screenshot rewrites under `verification/assets` were reverted.
+
+### Tests added
+
+- `e2e/workout-focus-view.spec.js`: the list under the title (`Brand: …`, `Focus: …`, hidden prefixes, no button or link, no list without tags).
+- `e2e/workout-focus-fit.spec.js`: one line of tags at 360x660 (Complete inside, card within the feed, no overflow); eight tags including an 80-character name at 393x750 (peekless, card within the feed) and at 360x660 (peekless, Complete inside, no overflow, list at most 44px, long pill ellipsized).
+- `e2e/workout-logger.spec.js`: tracker cards show brand and focus tags on an active log at 1366px and on a finished log at 1366 and 390px; a catalog variant added and one swapped in through the picker bring their catalog brand and focus tags to the tracker card, to the stored log and (resized to 390px) to the Focus card, confirming the catalog entry shape Task 8 assumed.
+
+### What was inspected
+
+Scratch Playwright specs (not committed) measured and screenshotted a populated active log with Last time and Best (touch, `isMobile`).
+
+| Viewport | No tags | One line (2 pills) | Two lines (long name plus six pills) |
+|---|---|---|---|
+| 360x660 (feed 419px) | card 375, peek kept | list 20px, peekless, card = feed | list 44px, peekless, card 422 (3px past the feed, Complete sticky and inside) |
+| 390x664 (feed 423px) | card 379, peek kept | list 20px, peekless, card = feed | list 44px, peekless, card = feed |
+| 412x760 (feed 519px) | card 475, peek kept | list 20px, peek kept | list 44px, peekless, card = feed |
+| 412x839 (feed 598px) | card 554, peek kept | peek kept | list 44px, peek kept |
+| 390x664 at 200% text | peekless | peekless | peekless, Complete inside the feed |
+
+No horizontal overflow in any cell; Complete is inside the feed in every cell. Screenshots viewed at 360x660 (two lines: brand pill, then the 80-character pill ellipsized on its own row, the other focus tags clipped as designed) and 412x760 (one line). Tracker cards at 1366x768, 1440x900, 1920x1080 and 1366x768 at 200% text show equipment, `Brand: …` and `Focus: …` pills in one wrapping line with no page overflow (screenshot viewed at 1366). An unbroken 80-character name wraps inside the tracker pill (existing `.variant-tag` wrapping); it is not clipped.
+
+### Not inspected
+
+- Real devices, hybrid input, browsers other than Chromium; 1920x1080 and 1440x900 were checked by measurement only.
+
+### Phone checks
+
+- Tags read well and do not crowd the title on the user's phone, with zero, one and two lines of tags: `pending (user)`.
 
 No physical-device or deployment verification is claimed; everything above is localhost Chromium emulation.

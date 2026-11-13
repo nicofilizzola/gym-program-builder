@@ -114,3 +114,13 @@ test('a scroll right after a feed measurement still moves the viewed set',async(
  await settle(page);
  expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s2'});
 });
+test('the card lists the variant tags under the title',async({page})=>{
+ const log=focusFixture();Object.assign(log.exercises[0],{brand:'Hammer Strength',focusTags:['Upper chest','Stretch']});
+ await mountFocusFixture(page,{log});await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
+ const card=page.locator('.focus-card[data-set-id="s1"]'),list=card.getByRole('list',{name:'Tags, Bench press'});
+ await expect(list.getByRole('listitem')).toHaveText(['Brand: Hammer Strength','Focus: Upper chest','Focus: Stretch']);
+ await expect(list.locator('li .visually-hidden')).toHaveText(['Brand: ','Focus: ','Focus: ']);
+ await expect(list.locator('button,a')).toHaveCount(0);await expect(list.locator('.is-brand')).toHaveCount(1);
+ await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));
+ await expect(page.locator('.focus-card[data-set-id="a2"] .focus-tags')).toHaveCount(0);
+});
