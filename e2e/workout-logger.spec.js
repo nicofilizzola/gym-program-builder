@@ -314,7 +314,7 @@ test.describe('Focus at 390px',()=>{
   await page.getByLabel(`Set 1 weight, ${first}`,{exact:true}).fill('60');
   await page.getByRole('button',{name:'Workout overview',exact:true}).click();
   const d=page.getByRole('dialog',{name:'Workout overview'});
-  await d.getByRole('button',{name:`Swap exercise ${first}`,exact:true}).click();
+  await d.getByRole('button',{name:`Actions, ${first}`,exact:true}).click();await page.getByRole('button',{name:'Swap exercise',exact:true}).click();
   const combo=d.getByRole('combobox',{name:'Exercise'});await expect(combo).toBeFocused();await combo.fill(spare.name);
   await page.getByRole('listbox',{name:'Exercise suggestions'}).getByRole('option').filter({hasText:spare.name}).first().click();
   await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0]).toMatchObject({variantId:spare.id,name:spare.name,target:null});

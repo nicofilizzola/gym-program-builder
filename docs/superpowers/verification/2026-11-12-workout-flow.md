@@ -41,3 +41,17 @@ Check: `200% text with tall details lets the user scroll to set 1 Complete and b
 - Pinning under momentum scrolling (block stays put while sets snap underneath; it leaves with the group's last set): `pending (user)`.
 - Scrolling within a tall first set (200% text or a long note) to its Complete without snapping back: `pending (user)`.
 - The open exercise-note editor and a focused field with the keyboard open, on a real phone: `pending (user)`.
+
+## Part 2 task 5: compact rows and actions menu
+
+Tests in `e2e/workout-overview.spec.js`: `the actions menu holds every exercise command`, `rows show reorder, name, tags and actions; pairs show one header`, `six exercises with four sets fit without scrolling at 390x844`, `removing an exercise from its menu keeps focus in the sheet`; the other overview tests, `e2e/workout-logger.spec.js` (overview swap) and `e2e/workout-focus-integration.spec.js` (overview warm-up) now open `Actions, {name}` first. RED before the change: 11 of the 18 overview tests failed (no `Actions, ...` buttons).
+
+### What was inspected
+
+A scratch Playwright script (not committed) rendered the sheet populated (a tagged straight exercise with a done set, a superset pair, a zero-set exercise) at 360x800, 390x844 and 412x915 on touch, 1366x768 with a fine pointer and 390x844 with reduced motion: no horizontal overflow in any (scrollWidth equals clientWidth), the actions button is 44px on touch and 32px on the fine pointer, tags sit muted beside the name, the pair shows one header with `A1`/`A2` members. At 390x844 with the root font size at 200% the sheet still had no horizontal overflow; the superset summary wraps to three lines and the tags line wraps under the name. That 200% check is a font-size override, not browser text zoom. Screenshots are in `.superpowers/sdd/2026-11-12-workout-flow/` (git-ignored). The density test passes at 390x844 (six exercises, four sets each, no scrolling) by arithmetic and measurement in that test; no spare margin was measured beyond the assertion.
+
+Not inspected: real text zoom, the menu popup under the 200% font override.
+
+### Phone checks
+
+- Chip tapping accuracy and reading the sheet at a glance on a real phone: `pending (user)`.

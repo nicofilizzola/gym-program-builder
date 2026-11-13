@@ -2608,17 +2608,19 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-bodyweight {position:absolute;top:26px;left:0;right:0;line-height:46px;text-align:center;font-size:2rem;font-variant-numeric:tabular-nums;pointer-events:none;color:var(--muted)}
 .log-stepper:focus-within>.focus-bodyweight {visibility:hidden}
 .workout-overview {width:min(680px,calc(100vw - 32px));max-height:88dvh;padding:0;overflow:auto}
-.overview-body {padding:20px;display:grid;gap:18px}
-.overview-header,.overview-block-head {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.overview-header h2,.overview-block h3,.overview-block h4 {margin:0}
-.overview-blocks {list-style:none;padding:0;margin:0;display:grid;gap:20px}
-.overview-block {border-top:2px solid var(--border);padding-top:14px;min-width:0;transition:opacity 200ms ease-out}
-.overview-block:has(.overview-block-head>button:not([hidden]):last-child) {border-left:3px solid var(--accent);padding-left:12px}
-.overview-block-head h3 {flex:1;overflow-wrap:anywhere}
-.overview-members {display:grid;gap:14px;margin-top:12px}
-.overview-exercise h4 {overflow-wrap:anywhere}
-.overview-actions {display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.overview-actions button {min-height:44px;font-size:.75rem}
+.overview-body {padding:12px 12px max(12px,env(safe-area-inset-bottom));display:grid;gap:8px}
+.overview-header {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.overview-header h2 {margin:0}
+.overview-blocks {list-style:none;padding:0;margin:0;display:grid;gap:0}
+.overview-block {border-top:0;padding:8px 0;min-width:0;transition:opacity 200ms ease-out}
+.overview-block:not(:last-child) {border-bottom:1px solid var(--border)}
+.overview-block.is-pair {border-left:3px solid var(--accent);padding-left:12px}
+.overview-pair-head,.overview-line {display:flex;align-items:center;gap:4px;min-height:44px}
+.overview-pair-head[hidden],.overview-member[hidden] {display:none}
+.overview-members {display:grid;gap:4px}
+.overview-name {flex:1;min-width:0;margin:0;overflow-wrap:anywhere}
+.overview-member {flex:0 0 auto;color:var(--accent);font-weight:700}
+.overview-tags {display:inline-block;max-width:100%;margin-left:6px;color:var(--muted);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 /* One chip per set; tapping jumps to it. */
 .overview-chips {display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .overview-chip {display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:44px;min-width:56px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.8125rem;font-weight:600;font-variant-numeric:tabular-nums;transition:opacity 200ms ease-out}
@@ -2630,7 +2632,7 @@ body {padding-bottom:var(--tab-bar-height)}
 @media (hover:hover) and (pointer:fine){.overview-chip {min-height:32px}}
 .overview-editor {min-width:0}.overview-editor textarea {width:100%}
 .overview-block.is-removing {opacity:0}
-@media(max-width:760px){.workout-overview {margin:auto 0 0;width:100%;max-width:none;max-height:88dvh;border-radius:18px 18px 0 0}.overview-body {padding:20px 12px max(20px,env(safe-area-inset-bottom))}.workout-overview.catalog-modal-motion {transition:transform 200ms ease-out,opacity 200ms ease-out}.workout-overview.is-entering,.workout-overview.is-closing {transform:translateY(100%)}}
+@media(max-width:760px){.workout-overview {margin:auto 0 0;width:100%;max-width:none;max-height:88dvh;border-radius:18px 18px 0 0}.workout-overview.catalog-modal-motion {transition:transform 200ms ease-out,opacity 200ms ease-out}.workout-overview.is-entering,.workout-overview.is-closing {transform:translateY(100%)}}
 @media(prefers-reduced-motion:reduce){.overview-block,.overview-chip,.workout-overview {transition:none!important}}
 .focus-progress-segment.is-celebrating .focus-progress-fill {animation:focus-fill 480ms cubic-bezier(.2,.8,.2,1) both}
 .focus-card.is-done.is-celebrating .focus-complete-marker {animation:focus-pop 480ms ease-out}

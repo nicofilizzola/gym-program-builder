@@ -112,7 +112,7 @@ test.describe('with motion',()=>{
   const ids=await page.locator('.focus-feed .focus-card').evaluateAll(rows=>rows.map(r=>r.dataset.setId));
   await page.locator('.focus-feed').evaluate(f=>{const r=f.querySelectorAll('.focus-card')[1];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});await expect.poll(()=>anchor(page)).toBe(1);
   await page.getByRole('button',{name:'Workout overview',exact:true}).click();
-  const d=page.getByRole('dialog',{name:'Workout overview'});await d.getByRole('button',{name:/^Add warm-up/}).first().click();
+  const d=page.getByRole('dialog',{name:'Workout overview'});await d.getByRole('button',{name:/^Actions, /}).first().click();await page.getByRole('button',{name:'Add warm-up',exact:true}).click();
   await d.getByRole('button',{name:'Close overview',exact:true}).click();await expect(d).toHaveCount(0);await page.waitForTimeout(500);
   const shown=await page.locator('.focus-feed').evaluate(f=>{const rows=[...f.querySelectorAll('.focus-card')];return rows.find(r=>Math.abs(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop)<2)?.dataset.setId;});
   expect(shown).toBe(ids[1]);
