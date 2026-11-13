@@ -112,3 +112,12 @@ test('removing an exercise from its menu keeps focus in the sheet',async({page})
  const d=await mount(page);await act(page,d,'Cable raise','Remove exercise');await page.waitForTimeout(250);
  await expect(d.getByRole('button',{name:'Actions, Single-arm incline dumbbell chest press',exact:true})).toBeFocused();
 });
+test('removing either member of a pair from its menu keeps focus on an actions button',async({page})=>{
+  for(const [gone,next] of [['Chest-supported row','Cable raise'],['Single-arm incline dumbbell chest press','Chest-supported row']]){
+   const d=await mount(page);await act(page,d,gone,'Remove exercise');await page.waitForTimeout(250);
+   await expect(d.getByRole('button',{name:/^Actions, /}).and(page.locator(':focus'))).toHaveCount(1);
+   await expect(d.getByRole('button',{name:`Actions, ${next}`,exact:true})).toBeFocused();
+   await page.reload();
+  }
+ });
+ 

@@ -31,7 +31,7 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
   more.type='button';more.innerHTML=actionIcon('more');more.setAttribute('aria-haspopup','true');nameEl.append(nameText);line.append(letter,nameEl,more);
   chipsEl.setAttribute('role','group');chipsEl.setAttribute('aria-label',`Sets, ${ex.name}`);
   const m={member,line,letter,nameText,nameEl,more,editor,host,chipsEl,empty,name:null,tags:'',chips:new Map(),rendered:false};
-  more.onclick=()=>{const cur=snapshot.log.exercises.find(e=>e.id===ex.id);menuTrigger=more;if(cur)menu.toggle(more,menuItems(cur,m));};
+  more.onclick=()=>{const cur=snapshot.log.exercises.find(e=>e.id===ex.id);if(cur)menu.toggle(more,menuItems(cur,m).map(i=>({...i,run:()=>{menuTrigger=more;Promise.resolve(i.run()).finally(()=>{menuTrigger=null;});}})));};
   member.append(line,empty,chipsEl,editor,host);return m;
  }
  function menuItems(ex,m){
@@ -71,16 +71,18 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
    reconcileChips(m,ex,items.filter(i=>i.ref.exerciseId===ex.id),current);m.rendered=true;
   }
  }
- function update(next,ref=viewed){snapshot=next;viewed=ref;if(!dialog||dialog.classList.contains('is-closing'))return;const projection=projectWorkout(snapshot.log),seen=new Set();
+ function update(next,ref=viewed){snapshot=next;viewed=ref;if(!dialog||dialog.classList.contains('is-closing'))return;const projection=projectWorkout(snapshot.log),seen=new Set(),mores=[...list.querySelectorAll('.overview-more')].filter(n=>!n.closest('.is-removing')),fa=document.activeElement===document.body?menuTrigger:document.activeElement,own=fa?.closest?.('.overview-exercise')?.querySelector('.overview-more')??(fa?.classList?.contains('overview-more')?fa:null);
   supersetBlocks(snapshot.log.exercises).forEach((b,index)=>{const exercises=snapshot.log.exercises.slice(b.start,b.start+b.length),key=exercises[0].id,pair=b.length===2;seen.add(key);let block=blocks.get(key);if(!block){block=makeBlock(key);blocks.set(key,block);}
    block.li.classList.toggle('is-pair',pair);block.head.hidden=!pair;if(pair)block.summary.textContent=supersetSummary(exercises[0].superset);
    const label=pair?`Reorder superset ${exercises.map(e=>e.name).join(' + ')}`:`Reorder ${exercises[0].name}`;block.reorder.setAttribute('aria-label',label);block.reorder.dataset.actionTooltip=label;
    fillBlock(block,exercises,projection.items.filter(i=>exercises.some(e=>e.id===i.ref.exerciseId)),pair,projection.current);
    const home=pair?block.head:block.members.get(key).line;if(block.reorder.parentNode!==home)home.prepend(block.reorder);
    if(list.children[index]!==block.li)list.insertBefore(block.li,list.children[index]||null);});
-  for(const [key,b] of blocks)if(!seen.has(key)){blocks.delete(key);const had=b.li.contains(document.activeElement)||(document.activeElement===document.body&&b.li.contains(menuTrigger));b.li.inert=true;b.li.classList.add('is-removing');closing.add(b.li);
-   if(had){const near=dir=>{let n=b.li[dir];while(n&&n.classList.contains('is-removing'))n=n[dir];return n?.querySelector('.overview-more');};(near('nextElementSibling')??near('previousElementSibling')??add).focus({preventScroll:true});}
+  for(const [key,b] of blocks)if(!seen.has(key)){blocks.delete(key);b.li.inert=true;b.li.classList.add('is-removing');closing.add(b.li);
    if(reduced()){b.li.remove();closing.delete(b.li);}else setTimeout(()=>{b.li.remove();closing.delete(b.li);},200);}
+  // A removed exercise takes focus with it: move to the next actions button, else the previous, else Add exercise.
+  const live=n=>n.isConnected&&!n.closest('.is-removing'),at=mores.indexOf(own),now=[...list.querySelectorAll('.overview-more')].filter(live);
+  if(own&&at>=0&&!live(own))(now[at]??now[at-1]?.closest(".overview-block").querySelector(".overview-more")??add).focus({preventScroll:true});
   add.disabled=snapshot.log.exercises.length>=WORKOUT_LIMITS.exercises;
  }
  function close(after){if(!dialog)return;menu?.close();port.command({type:'close-transient'});dialog.querySelector('form').inert=true;dialog._after=typeof after==='function'?after:null;motion.close();}
