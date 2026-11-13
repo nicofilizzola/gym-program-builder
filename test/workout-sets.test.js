@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {formatLastTime,formatRir,setPlaceholder,parseWeight,parseReps,stepWeight,stepReps,formatElapsed} from '../src/workout-sets.js';
+import {setChip,formatLastTime,formatRir,setPlaceholder,parseWeight,parseReps,stepWeight,stepReps,formatElapsed} from '../src/workout-sets.js';
 
 test('formatLastTime shows weight × reps, bodyweight and RIR',()=>{
  assert.equal(formatLastTime([{weightKg:80,reps:8,rir:2},{weightKg:80,reps:7,rir:null},{weightKg:77.5,reps:8,rir:null}]),'80×8 @2 · 80×7 · 77.5×8');
@@ -49,4 +49,14 @@ test('placeholders follow the set kind',()=>{
  assert.deepEqual(setPlaceholder(ex,1,last),{weightKg:40,reps:10,rir:null});
  assert.deepEqual(setPlaceholder(ex,2,last),{weightKg:80,reps:8,rir:2});
  assert.deepEqual(setPlaceholder({...ex,sets:[ex.sets[0]]},0,[]),{weightKg:null,reps:null,rir:null});
+});
+
+test('setChip names values, bodyweight, warm-ups and completion',()=>{
+ const c=(set,kindIndex=1,exercise='Bench press')=>setChip({kind:'working',weightKg:null,reps:null,rir:null,done:false,...set},{kindIndex,exercise});
+ assert.deepEqual(c({weightKg:80,reps:8,rir:2,done:true},2),{text:'80×8',label:'Working set 2, Bench press, 80 kg × 8, 2 RIR, complete'});
+ assert.deepEqual(c({reps:8}),{text:'BW×8',label:'Working set 1, Bench press, bodyweight × 8'});
+ assert.equal(c({weightKg:0,reps:8}).text,'BW×8');
+ assert.deepEqual(c({weightKg:80},3),{text:'—',label:'Working set 3, Bench press'});
+ assert.deepEqual(c({kind:'warmup',weightKg:40,reps:10,rir:3,done:true}),{text:'W 40×10',label:'Warm-up 1, Bench press, 40 kg × 10, complete'});
+ assert.equal(c({weightKg:82.5,reps:8,rir:5}).label,'Working set 1, Bench press, 82.5 kg × 8, 5+ RIR');
 });

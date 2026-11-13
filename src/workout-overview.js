@@ -1,10 +1,9 @@
 import {supersetBlocks} from './superset.js';
 import {projectWorkout,setKey} from './workout-focus-model.js';
 import {WORKOUT_LIMITS} from './workout-log.js';
-import {formatRir} from './workout-sets.js';
+import {setChip} from './workout-sets.js';
 import {mountDialogMotion} from './dialog-motion.js';
 import {mountSortable} from './sortable.js';
-import {actionIcon} from './action-controls.js';
 
 const el=(tag,cls,text)=>{const n=document.createElement(tag);n.className=cls;if(text!==undefined)n.textContent=text;return n;};
 const button=(label,run,text=label)=>{const n=el('button','secondary-btn',text);n.type='button';n.setAttribute('aria-label',label);n.onclick=run;return n;};
@@ -26,27 +25,51 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
   const li=el('li','overview-block'),head=el('header','overview-block-head'),title=el('h3',''),reorder=button('Reorder',()=>port.command({type:'reorder',exerciseId:key,opener:reorder})),unlink=button('Unlink superset',()=>port.command({type:'unlink',exerciseId:key})),content=el('div','overview-members');
   li.dataset.blockId=key;reorder.classList.add('reorder-action');reorder.setAttribute('aria-expanded','false');head.append(title,reorder,unlink);li.append(head,content);
   reorder.onkeydown=e=>{if(!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const all=supersetBlocks(snapshot.log.exercises),at=all.findIndex(b=>snapshot.log.exercises[b.start].id===key),to=at+(e.key==='ArrowUp'?-1:1);if(to>=0&&to<all.length)port.command({type:'move-block',exerciseId:key,toBlockIndex:to});};
-  return {li,title,reorder,unlink,content,signature:null,rows:new Map(),members:new Map()};
+  return {li,title,reorder,unlink,content,members:new Map()};
  }
- function fillBlock(block,exercises,items,pair){
-  const signature=JSON.stringify(exercises.map(e=>[e.id,e.name,e.sets.map(s=>[s.id,s.kind]),Boolean(e.superset)]));
-  if(block.signature!==signature){
-   // Preserve a borrowed editor even when the set structure changes.
-   const editors=[...block.members].map(([id,m])=>[id,m.editor]);
-   block.content.replaceChildren();block.rows.clear();block.members.clear();block.signature=signature;
-   for(const ex of exercises){const member=el('section','overview-exercise'),h=el('h4','',ex.name),editor=editors.find(([id])=>id===ex.id)?.[1]??el('div','overview-editor'),host=el('div','overview-picker');h.hidden=!pair;member.append(h,commands(ex,editor),editor,host);member.querySelectorAll('button').forEach(b=>{if(b.getAttribute('aria-label')?.startsWith('Swap exercise'))b.onclick=()=>port.command({type:'swap',exerciseId:ex.id,host});});block.content.append(member);block.members.set(ex.id,{member,editor});}
-   const rounds=el('div','overview-rounds');block.content.append(rounds);let group=null,last=null;
-   for(const item of items){const groupKey=item.kind==='warmup'?'Warm-ups':pair?`Round ${item.round}`:'Working sets';if(last!==groupKey){group=el('section','overview-set-group');group.append(el('h4','',groupKey));rounds.append(group);last=groupKey;}
-    const ex=exercises.find(e=>e.id===item.ref.exerciseId),line=el('div','overview-set-line'),label=`${item.kind==='warmup'?'Warm-up':'Working set'} ${item.kindIndex}, ${ex.name}`,jump=button(label,()=>{selected=item.ref;close();}),summary=el('span','overview-set-summary'),note=button(`Set note, ${label}`,()=>{selected=item.ref;close(()=>port.command({type:'set-note',ref:item.ref}));}),remove=button(`Remove ${label}`,()=>port.command({type:'remove-set',ref:item.ref}));
-    jump.textContent=`${item.kind==='warmup'?'Warm-up':'Set'} ${item.kindIndex}${pair?' · '+ex.name:''}`;note.innerHTML=actionIcon('note');remove.innerHTML=actionIcon('delete');note.classList.add('action-button');remove.classList.add('action-button');
-    line.append(jump,summary,note,remove);if(pair&&item.kind==='working'&&item.preview.label.includes('No partner'))line.append(el('p','focus-muted','No partner set this round'));group.append(line);block.rows.set(item.key,{jump,summary,ref:item.ref});
-   }
+ const reduced=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
+ const CHECK='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+ function makeMember(ex,pair){
+  const member=el('section','overview-exercise'),h=el('h4','',ex.name),editor=el('div','overview-editor'),host=el('div','overview-picker'),chipsEl=el('div','overview-chips'),empty=el('p','focus-muted','No sets');
+  chipsEl.setAttribute('role','group');chipsEl.setAttribute('aria-label',`Sets, ${ex.name}`);
+  const m={member,h,editor,chipsEl,empty,name:ex.name,actions:null,chips:new Map(),rendered:false};
+  m.actions=memberActions(ex,editor,host);member.append(h,m.actions,empty,chipsEl,editor,host);return m;
+ }
+ function memberActions(ex,editor,host){const actions=commands(ex,editor);actions.querySelectorAll('button').forEach(b=>{if(b.getAttribute('aria-label')?.startsWith('Swap exercise'))b.onclick=()=>port.command({type:'swap',exerciseId:ex.id,host});});return actions;}
+ function reconcileChips(m,ex,items,current){
+  const byId=new Map(items.map(i=>[i.ref.setId,i])),live=[];
+  for(const s of ex.sets){const item=byId.get(s.id);if(!item)continue;
+   let chip=m.chips.get(item.key);
+   if(!chip){chip=el('button','overview-chip');chip.type='button';chip.dataset.setId=s.id;chip.append(el('span','overview-chip-text'));m.chips.set(item.key,chip);
+    if(m.rendered){chip.classList.add('is-entering');requestAnimationFrame(()=>requestAnimationFrame(()=>chip.classList.remove('is-entering')));}}
+   const {text,label}=setChip(s,{kindIndex:item.kindIndex,exercise:ex.name}),next=current&&item.key===setKey(current),partnerless=item.preview.label.includes('No partner');
+   chip.firstChild.textContent=text;chip.setAttribute('aria-label',label+(next?', up next':'')+(partnerless?', no partner set this round':''));
+   chip.classList.toggle('is-warmup',s.kind==='warmup');chip.classList.toggle('is-next',Boolean(next));chip.classList.toggle('is-done',Boolean(s.done));
+   if(s.done&&!chip.querySelector('svg'))chip.insertAdjacentHTML('afterbegin',CHECK);else if(!s.done)chip.querySelector('svg')?.remove();
+   if(viewed&&setKey(viewed)===item.key)chip.setAttribute('aria-current','step');else chip.removeAttribute('aria-current');
+   chip.onclick=()=>{if(!viewed||setKey(viewed)!==item.key)selected=item.ref;close();};
+   live.push([item.key,chip]);
   }
-  for(const ex of exercises){const member=block.members.get(ex.id);const adds=member.member.querySelectorAll('.overview-actions button');adds[0].disabled=adds[1].disabled=ex.sets.length>=WORKOUT_LIMITS.sets;}
-  for(const item of items){const row=block.rows.get(item.key),ex=exercises.find(e=>e.id===item.ref.exerciseId),s=ex.sets.find(s=>s.id===item.ref.setId);row.jump.setAttribute('aria-current',viewed&&setKey(viewed)===item.key?'step':'false');row.summary.textContent=`${s.done?'Complete · ':''}${s.weightKg??'BW'}${s.weightKg===null?'':' kg'} · ${s.reps??'—'} reps${s.rir===null||item.kind==='warmup'?'':` · ${formatRir(s.rir)} RIR`}`;}
+  const keep=new Set(live.map(([k])=>k));
+  for(const [k,chip] of m.chips)if(!keep.has(k)){m.chips.delete(k);chip.inert=true;chip.classList.add('is-removing');closing.add(chip);if(reduced()){chip.remove();closing.delete(chip);}else setTimeout(()=>{chip.remove();closing.delete(chip);},200);}
+  let pos=m.chipsEl.firstChild;
+  for(const [,chip] of live){while(pos&&pos!==chip&&pos.classList.contains('is-removing'))pos=pos.nextSibling;if(pos===chip)pos=pos.nextSibling;else m.chipsEl.insertBefore(chip,pos);}
+  m.empty.hidden=ex.sets.length>0;
+ }
+ function fillBlock(block,exercises,items,pair,current){
+  for(const [id,m] of block.members)if(!exercises.some(e=>e.id===id)){m.member.remove();block.members.delete(id);}
+  let at=null;
+  for(const ex of exercises){
+   let m=block.members.get(ex.id);if(!m){m=makeMember(ex,pair);block.members.set(ex.id,m);}
+   if(m.name!==ex.name){m.name=ex.name;m.h.textContent=ex.name;m.chipsEl.setAttribute('aria-label',`Sets, ${ex.name}`);const next=memberActions(ex,m.editor,m.member.querySelector('.overview-picker'));m.actions.replaceWith(next);m.actions=next;}
+   m.h.hidden=!pair;
+   const adds=m.actions.querySelectorAll('button');adds[0].disabled=adds[1].disabled=ex.sets.length>=WORKOUT_LIMITS.sets;
+   if(block.content.children[exercises.indexOf(ex)]!==m.member)block.content.insertBefore(m.member,block.content.children[exercises.indexOf(ex)]||null);
+   reconcileChips(m,ex,items.filter(i=>i.ref.exerciseId===ex.id),current);m.rendered=true;
+  }
  }
  function update(next,ref=viewed){snapshot=next;viewed=ref;if(!dialog||dialog.classList.contains('is-closing'))return;const projection=projectWorkout(snapshot.log),seen=new Set();
-  supersetBlocks(snapshot.log.exercises).forEach((b,index)=>{const exercises=snapshot.log.exercises.slice(b.start,b.start+b.length),key=exercises[0].id;seen.add(key);let block=blocks.get(key);if(!block){block=makeBlock(key);blocks.set(key,block);}block.title.textContent=b.length===2?'Superset':exercises[0].name;block.reorder.textContent=b.length===2?`Reorder superset ${exercises.map(e=>e.name).join(' + ')}`:`Reorder ${exercises[0].name}`;block.unlink.hidden=b.length!==2;fillBlock(block,exercises,projection.items.filter(i=>exercises.some(e=>e.id===i.ref.exerciseId)),b.length===2);if(list.children[index]!==block.li)list.insertBefore(block.li,list.children[index]||null);});
+  supersetBlocks(snapshot.log.exercises).forEach((b,index)=>{const exercises=snapshot.log.exercises.slice(b.start,b.start+b.length),key=exercises[0].id;seen.add(key);let block=blocks.get(key);if(!block){block=makeBlock(key);blocks.set(key,block);}block.title.textContent=b.length===2?'Superset':exercises[0].name;block.reorder.textContent=b.length===2?`Reorder superset ${exercises.map(e=>e.name).join(' + ')}`:`Reorder ${exercises[0].name}`;block.unlink.hidden=b.length!==2;fillBlock(block,exercises,projection.items.filter(i=>exercises.some(e=>e.id===i.ref.exerciseId)),b.length===2,projection.current);if(list.children[index]!==block.li)list.insertBefore(block.li,list.children[index]||null);});
   for(const [key,b] of blocks)if(!seen.has(key)){blocks.delete(key);b.li.inert=true;b.li.classList.add('is-removing');closing.add(b.li);if(matchMedia('(prefers-reduced-motion:reduce)').matches){b.li.remove();closing.delete(b.li);}else setTimeout(()=>{b.li.remove();closing.delete(b.li);},200);}
   for(const b of blocks.values()){b.reorder.setAttribute('aria-label',b.reorder.textContent);b.reorder.textContent='Reorder';}
   add.disabled=snapshot.log.exercises.length>=WORKOUT_LIMITS.exercises;
@@ -57,7 +80,7 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
   dialog.addEventListener('cancel',e=>{e.preventDefault();close();});dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
   motion=mountDialogMotion(dialog,{duration:200,onClosed(){const after=dialog?._after,closed=dialog;dialog=null;sortable?.destroy();sortable=null;blocks.clear();port.restoreExerciseNotes(closed);onActivity(false);if(selected)onJump(selected);else opener?.isConnected&&opener.focus({preventScroll:true});after?.();onClose();}});
   sortable=mountSortable(list,{itemSelector:'.overview-block:not(.is-removing)',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'overview'}],getKey:n=>n.dataset.blockId,onCommit:({key,beforeKey})=>{const ids=supersetBlocks(snapshot.log.exercises).map(b=>snapshot.log.exercises[b.start].id).filter(id=>id!==key),to=beforeKey?ids.indexOf(beforeKey):ids.length;port.command({type:'move-block',exerciseId:key,toBlockIndex:to});}});
-  update(port.read());onActivity(true);motion.open();form.querySelector('button').focus({preventScroll:true});
+  update(port.read());onActivity(true);motion.open();const cur=dialog.querySelector('[aria-current=step]');cur?.scrollIntoView({block:'nearest'});(cur||form.querySelector('button')).focus({preventScroll:true});
  }
  unsubscribe=port.subscribe(()=>update(port.read()));
  return {open,update,close,destroy(){if(destroyed)return;destroyed=true;unsubscribe();port.command({type:'close-transient'});sortable?.destroy();motion?.destroy();if(dialog)port.restoreExerciseNotes(dialog);for(const n of closing)n.remove();closing.clear();dialog=null;blocks.clear();onActivity(false);}};

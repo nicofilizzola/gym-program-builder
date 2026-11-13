@@ -2615,23 +2615,23 @@ body {padding-bottom:var(--tab-bar-height)}
 .overview-block {border-top:2px solid var(--border);padding-top:14px;min-width:0;transition:opacity 200ms ease-out}
 .overview-block:has(.overview-block-head>button:not([hidden]):last-child) {border-left:3px solid var(--accent);padding-left:12px}
 .overview-block-head h3 {flex:1;overflow-wrap:anywhere}
-.overview-members,.overview-rounds {display:grid;gap:14px;margin-top:12px}
+.overview-members {display:grid;gap:14px;margin-top:12px}
 .overview-exercise h4 {overflow-wrap:anywhere}
 .overview-actions {display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.overview-actions button,.overview-set-line button {min-height:44px;font-size:.75rem}
-.overview-set-group {border-top:1px solid var(--border);padding-top:10px}
-.overview-set-line {display:grid;grid-template-columns:minmax(0,1fr) 44px 44px;gap:0 6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
-.overview-set-line>button:first-child {grid-column:1;grid-row:1;text-align:left;overflow-wrap:anywhere;border:0;padding-left:0;font-family:inherit;text-transform:none}
-.overview-set-line>.action-button {grid-row:1 / span 2;border:0}
-.overview-set-line>.action-button:nth-of-type(2) {grid-column:2}
-.overview-set-line>.action-button:nth-of-type(3) {grid-column:3}
-.overview-set-line>p {grid-column:1 / -1}
-.overview-set-line>button[aria-current=step] {color:var(--accent);border-color:var(--accent)}
-.overview-set-summary {grid-column:1;grid-row:2;font-size:.8rem;color:var(--muted)}
+.overview-actions button {min-height:44px;font-size:.75rem}
+/* One chip per set; tapping jumps to it. */
+.overview-chips {display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.overview-chip {display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:44px;min-width:56px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.8125rem;font-weight:600;font-variant-numeric:tabular-nums;transition:opacity 200ms ease-out}
+.overview-chip.is-warmup {color:var(--muted)}
+.overview-chip.is-done {background:var(--accent-soft);color:var(--accent)}
+.overview-chip[aria-current=step] {outline:2px solid var(--accent);outline-offset:1px}
+.overview-chip.is-next::before {content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.overview-chip.is-entering,.overview-chip.is-removing {opacity:0}
+@media (hover:hover) and (pointer:fine){.overview-chip {min-height:32px}}
 .overview-editor {min-width:0}.overview-editor textarea {width:100%}
 .overview-block.is-removing {opacity:0}
 @media(max-width:760px){.workout-overview {margin:auto 0 0;width:100%;max-width:none;max-height:88dvh;border-radius:18px 18px 0 0}.overview-body {padding:20px 12px max(20px,env(safe-area-inset-bottom))}.workout-overview.catalog-modal-motion {transition:transform 200ms ease-out,opacity 200ms ease-out}.workout-overview.is-entering,.workout-overview.is-closing {transform:translateY(100%)}}
-@media(prefers-reduced-motion:reduce){.overview-block,.workout-overview {transition:none!important}}
+@media(prefers-reduced-motion:reduce){.overview-block,.overview-chip,.workout-overview {transition:none!important}}
 .focus-progress-segment.is-celebrating .focus-progress-fill {animation:focus-fill 480ms cubic-bezier(.2,.8,.2,1) both}
 .focus-card.is-done.is-celebrating .focus-complete-marker {animation:focus-pop 480ms ease-out}
 .focus-card.is-done.is-celebrating .focus-complete-marker .log-set-number {display:block;position:absolute;animation:focus-number 300ms ease-out both}

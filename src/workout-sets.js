@@ -11,6 +11,17 @@ export const warmupLastSets=sets=>Array.isArray(sets)?sets.filter(isWarmup):[];
 
 export const formatRir=value=>value===WORKOUT_LIMITS.rirMax?`${value}+`:String(value);
 
+/** Overview chip: compact text plus the full accessible name; a warm-up never shows RIR. */
+export function setChip(set,{kindIndex,exercise}){
+ const warm=set.kind==='warmup',bw=!set.weightKg,has=set.reps!==null&&set.reps!==undefined;
+ const text=has?`${warm?'W ':''}${bw?'BW':set.weightKg}×${set.reps}`:warm?'W —':'—';
+ const parts=[`${warm?'Warm-up':'Working set'} ${kindIndex}`,exercise];
+ if(has)parts.push(`${bw?'bodyweight':set.weightKg+' kg'} × ${set.reps}`);
+ if(!warm&&set.rir!==null&&set.rir!==undefined)parts.push(`${formatRir(set.rir)} RIR`);
+ if(set.done)parts.push('complete');
+ return {text,label:parts.join(', ')};
+}
+
 export function formatLastTime(sets){
  const working=workingLastSets(sets);
  if(!working.length)return 'No history';
