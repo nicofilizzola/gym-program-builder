@@ -81,6 +81,14 @@ test('taps respect limits and off-grid values',async({page})=>{
  await weight.fill('24.25');expect(await writes('weight',1)).toEqual([{weightKg:26.75}]);
  await expect(strip('weight').locator('.workout-ruler-nudge')).toHaveText(['‹','›']);await expect(strip('weight').locator('.workout-ruler-nudge').first()).toHaveAttribute('aria-hidden','true');
 });
+test('taps and keys from an empty field without a placeholder step from the shown minimum',async({page})=>{
+ await mount(page);
+ await page.evaluate(()=>{for(const [kind,w] of Object.entries(widgets))w.update({value:null,placeholder:null,increment:kind==='weight'?2.5:1,range:null,enabled:true});});
+ const tap=async(kind,side)=>{const box=await page.getByRole('slider',{name:`Adjust Set 1 ${kind}, Bench press`,exact:true}).boundingBox();await page.mouse.click(box.x+box.width*(side<0?.25:.75),box.y+15);};
+ await tap('weight',-1);await tap('reps',-1);expect(await page.evaluate(()=>patches)).toEqual([]);
+ await page.getByRole('slider',{name:'Adjust Set 1 reps, Bench press',exact:true}).press('ArrowLeft');expect(await page.evaluate(()=>patches)).toEqual([]);
+ await tap('reps',1);expect(await page.evaluate(()=>patches)).toEqual([{reps:2}]);
+});
 test('a cancelled press writes nothing and a cancelled drag settles on a step',async({page})=>{
  await mount(page);
  const run=end=>page.evaluate(end=>{const s=document.querySelector('[role="slider"]'),at=x=>({pointerId:7,isPrimary:true,button:0,clientX:x,clientY:20,bubbles:true}),before=patches.length;

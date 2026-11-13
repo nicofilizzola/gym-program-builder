@@ -126,3 +126,4 @@ No horizontal overflow in any cell; Complete is inside the feed in every cell. S
 - Tags read well and do not crowd the title on the user's phone, with zero, one and two lines of tags: `pending (user)`.
 
 No physical-device or deployment verification is claimed; everything above is localhost Chromium emulation.
+- Final review fix: ruler taps and arrow keys step from the shown value (the minimum when an empty field has no placeholder) and write nothing when it would not move; `ul.focus-tags` gets `role="list"`.

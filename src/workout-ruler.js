@@ -37,7 +37,7 @@ export function mountWorkoutRuler(host,{input,kind,caption=null,onAdjust,onInter
  function syncPosition(){if(!drag?.moved)offset=(effective()-min)/state.increment*32;draw();}
  function adjust(n){const next=Number(clamp(n,min,max).toFixed(2));if(next!==state.value)onAdjust(next);}
  /** Arrow keys and taps share one step, so a tap equals the key from placeholders, off-grid values and limits. */
- function step(direction){adjust(kind==='weight'?stepWeight(state.value,state.placeholder,direction*state.increment):stepReps(state.value,state.placeholder,direction));syncPosition();}
+ function step(direction){const from=effective(),n=kind==='weight'?stepWeight(from,null,direction*state.increment):stepReps(from,null,direction);if(n!==from)adjust(n);syncPosition();} // steps from the shown value; no write when it would not move
  function settle(){
   drag=null;root.classList.remove('is-dragging');root.classList.toggle('is-settling',!reduced());syncPosition();
   clearTimeout(settleTimer);settleTimer=setTimeout(()=>root.classList.remove('is-settling'),170);

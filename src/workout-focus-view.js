@@ -68,8 +68,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     const partner=item.pairId?snapshot.log.exercises.find((e,i,a)=>item.member?.endsWith('1')?a[i-1]?.id===ex.id:a[i+1]?.id===ex.id):null;
     const rest=item.pairId?`Paired with ${partner?.name||'partner'} · ${snapshot.log.exercises.find(e=>e.id===item.pairId)?.superset.restBetweenSeconds??0}s between · ${snapshot.log.exercises.find(e=>e.id===item.pairId)?.superset.restAfterRoundSeconds??0}s after round`:ex.target?`Rest ${ex.target.restSeconds}s`:ex.equipment||'';
     eyebrow.textContent=[item.kind==='warmup'?'Warm-up':item.pairId?`Superset ${item.member}`:item.kindIndex===1?'First working set':'Next set',rest].filter(Boolean).join(' · ');
-    const tags=[ex.brand&&['Brand: ',ex.brand,'is-brand'],...(ex.focusTags||[]).map(t=>['Focus: ',t,''])].filter(Boolean),key=JSON.stringify([ex.name,tags]);
-    if(key!==tagKey){tagKey=key;tagList?.remove();tagList=null;if(tags.length){tagList=node('ul','focus-tags');tagList.setAttribute('aria-label','Tags, '+ex.name);for(const [prefix,text,cls] of tags){const li=node('li','focus-tag'+(cls?' '+cls:'')),hidden=node('span','visually-hidden',prefix);li.append(hidden,text);tagList.append(li);}titleRow.after(tagList);}}
+    const tags=[ex.brand&&['Brand: ',ex.brand,'is-brand'],...(ex.focusTags||[]).map(t=>['Focus: ',t,''])].filter(Boolean),tagsKey=JSON.stringify([ex.name,tags]);
+    if(tagsKey!==tagKey){tagKey=tagsKey;tagList?.remove();tagList=null;if(tags.length){tagList=node('ul','focus-tags');tagList.setAttribute('role','list');tagList.setAttribute('aria-label','Tags, '+ex.name);for(const [prefix,text,cls] of tags){const li=node('li','focus-tag'+(cls?' '+cls:'')),hidden=node('span','visually-hidden',prefix);li.append(hidden,text);tagList.append(li);}titleRow.after(tagList);}}
     if(!title){title=mountWorkoutTitle(heading,{text:ex.name,onInteraction:()=>interaction('title')});}else title.update({text:ex.name});
     const historyState={exercise:ex,lastTime:snapshot.lastTime,bestPerformance:snapshot.bestPerformance,bestStatus:snapshot.bestStatus,unavailable:snapshot.unavailable};if(!history)history=mountWorkoutHistory(historyHost,historyState);else history.update(historyState);
     const setIndex=ex.sets.findIndex(s=>s.id===set.id),kindIndex=ex.sets.slice(0,setIndex+1).filter(s=>s.kind===set.kind).length;
@@ -95,6 +95,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const anchorRow=inView().row,anchor=anchorRow.offsetTop-feed.scrollTop;
   const fits=rows.map(row=>{const clip=row.querySelector('.log-set-clip'),cs=getComputedStyle(clip),heights=sections(clip).map(el=>{const m=getComputedStyle(el);return el.getBoundingClientRect().height+parseFloat(m.marginTop)+parseFloat(m.marginBottom);});
    const next=row.nextElementSibling?.classList.contains('focus-card')?row.nextElementSibling.querySelector('.focus-context'):null;
+   // the extra rowGap is the zero-height .log-set-clip::after item that shares the residual
    return focusCardFit({feedHeight,contentHeight:stackHeight(heights,parseFloat(cs.rowGap)||0,parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+(parseFloat(cs.rowGap)||0))+parseFloat(getComputedStyle(row).borderBottomWidth),peekHeight:next?next.getBoundingClientRect().height:0});});
   rows.forEach((row,i)=>{const min=fits[i].minHeight+'px';if(row.style.getPropertyValue('--focus-card-min')!==min)row.style.setProperty('--focus-card-min',min);row.classList.toggle('is-peekless',fits[i].peekless);});
   const moved=anchorRow.offsetTop-feed.scrollTop-anchor;if(Math.abs(moved)>.5){programmatic=true;feed.scrollTop+=moved;programmatic=false;}
