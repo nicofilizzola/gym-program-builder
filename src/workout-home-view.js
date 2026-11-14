@@ -6,7 +6,7 @@ import {durationLabel} from './duration.js';
 const text=(node,value)=>{if(node.textContent!==value)node.textContent=value;};
 export function mountWorkoutHome(root,{state,onStart,onResume,onChoose,onSetup,onRetry}){
  const page=document.createElement('main');page.className='workout-home';
- page.innerHTML=`<header class="home-heading"><h1>Your training</h1><p data-today></p></header>
+ page.innerHTML=`<div class="home-first"><header class="home-heading"><h1>Your training</h1><p data-today></p></header>
  <section class="home-cover" aria-labelledby="home-session-title">
  <img class="home-cover-image" alt=""><p class="home-program" data-program></p>
  <div class="home-cover-content"><p class="home-timing"><time data-timing></time></p><h2 id="home-session-title"></h2>
@@ -14,7 +14,7 @@ export function mountWorkoutHome(root,{state,onStart,onResume,onChoose,onSetup,o
  <p class="home-hint" data-hint></p><button type="button" class="add-btn home-start"><span data-primary-label></span></button></div></section>
  <button type="button" class="home-alternative">Choose another workout</button>
  <div class="home-feedback"><p role="status" data-status></p><p role="alert" class="error" data-error></p>
- <button type="button" class="secondary-btn" data-retry>Retry</button><button type="button" class="secondary-btn" data-setup></button></div>`;
+ <button type="button" class="secondary-btn" data-retry>Retry</button><button type="button" class="secondary-btn" data-setup></button></div></div><div class="home-history-host"></div>`;
  root.append(page);const $=selector=>page.querySelector(selector),events=new AbortController();
  const primary=$('.home-start'),alternative=$('.home-alternative'),image=$('img'),program=$('[data-program]'),timing=$('[data-timing]'),title=$('h2'),meta=$('[data-meta]'),progress=$('.home-progress'),track=$('progress'),hint=$('[data-hint]'),status=$('[data-status]'),error=$('[data-error]'),retry=$('[data-retry]'),setup=$('[data-setup]');
  let current=state,coverId=null;
@@ -64,5 +64,5 @@ export function mountWorkoutHome(root,{state,onStart,onResume,onChoose,onSetup,o
   }
  }
  update(state);
- return {update,focusTarget:()=>[primary,alternative,retry,setup].find(button=>!button.disabled&&!button.closest('[hidden]')),destroy(){events.abort();observer?.disconnect();page.remove();}};
+ return {update,historyHost:$('.home-history-host'),focusTarget:()=>[primary,alternative,retry,setup].find(button=>!button.disabled&&!button.closest('[hidden]')),destroy(){events.abort();observer?.disconnect();page.remove();}};
 }

@@ -20,6 +20,7 @@ import {createTemplate,createProgram,duplicateProgram} from './program.js';
 import {parseRoute,resolveEntryHash} from './router.js';
 import {createWorkoutHomeController} from './workout-home-controller.js';
 import {mountWorkoutHome} from './workout-home-view.js';
+import {mountHomeHistory} from './home-history-view.js';
 import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
@@ -496,13 +497,23 @@ async function prepareRoute(route,version,prepared=null){
  if(route.view==='workouts')return prepareMobileHistory(version);
  if(!prepared&&mobileNavigation.matches&&['programs','templates','catalog','workouts'].includes(route.view))return prepareMobileRoot(route,version);
  if(route.view==='home')return ()=>{
-  let view,latest,settled=false;
+  let view,latest,settled=false,destroyed=false,interacted=false,restored=false;
+  const current=()=>!destroyed&&version===routeVersion&&authenticated,events=new AbortController(),saved=mobileNavigationState.readPage('#/home');
+  for(const type of ['wheel','touchstart','pointerdown','keydown'])window.addEventListener(type,()=>interacted=true,{passive:true,signal:events.signal});
   const launcher=createWorkoutStartLauncher({api,onStart:options=>workouts.start(options),onNavigate:hash=>action(()=>navigate(hash))(),onError:report,focusFallback:()=>view?.focusTarget()});
-  const controller=createWorkoutHomeController({api,workouts,launcher,onNavigate:hash=>action(()=>navigate(hash))(),onError:report,
+  const homeApi={...api,listWorkouts:async()=>{const result=await rootCache.load('history:first',()=>api.listWorkouts());if(result.status!=='accepted')throw Error('History changed. Retry.');return result.snapshot.value;}};
+  const controller=createWorkoutHomeController({api:homeApi,workouts,launcher,onNavigate:hash=>action(()=>navigate(hash))(),onError:report,
    onState:state=>{latest=state;if(settled)view?.update(state);}});
   view=mountWorkoutHome(createViewHost(),{state:latest,onStart:()=>controller.start(),onResume:()=>controller.resume(),onChoose:()=>controller.choose(),
    onRetry:()=>controller.refresh(),onSetup:kind=>kind==='set-active'?controller.choose({setup:true}):action(()=>navigate(kind==='open-program'?'#/programs/'+latest.program.id:'#/programs'))()});
-  mounted={suspend(){settled=false;},settled(){settled=true;if(latest)view.update(latest);},onAuthHidden(){controller.destroy();},destroy(){controller.destroy();view.destroy();}};
+  const historyView=mountHomeHistory(view.historyHost,{onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id,onRetry:()=>data.refresh(),onLoadMore:()=>data.loadMore()});
+  const data=createHistoryPageData({api,cache:rootCache,pendingSummary:()=>workouts.pendingSummary(),isCurrent:current,onAuthError:report,onState:state=>{
+   historyView.setState(state);
+   if(state.data&&!restored){restored=true;if(current()&&!interacted)window.scrollTo(0,saved?.scrollY??0);}
+  }});
+  const teardown=()=>{if(destroyed)return;destroyed=true;events.abort();data.destroy();controller.destroy();historyView.destroy();view.destroy();};
+  mounted={getNavigationState:()=>historyView.getNavigationState(),suspend(){settled=false;data.suspend();},settled(){settled=true;if(latest)view.update(latest);data.settled();},onAuthHidden:teardown,destroy:teardown};
+  data.start({visibleCount:saved?.state?.visibleCount??0});
  };
  if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){

@@ -18,6 +18,7 @@ test('Home shows one start, date and two exercises without history',async({page}
  await expect(page.getByText(/2 exercises/)).toBeVisible();
  await expect(page.locator('time[datetime="2026-11-06"]')).toBeVisible();
  await expect(page.getByText(/history/i)).toHaveCount(0);
+ await expect(page.locator('.home-history-host')).toBeEmpty();
  await page.screenshot({path:'.superpowers/sdd/2026-11-06-mobile-training-home/home-view-390.png'});
  const alternative=page.getByRole('button',{name:'Choose another workout'});await alternative.focus();
  await page.evaluate(()=>window.home.update({...window.state,refreshing:true,canStart:false}));

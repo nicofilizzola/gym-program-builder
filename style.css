@@ -1,6 +1,7 @@
 
 :root {
   --home-shell-height: 56px;
+  --home-history-peek: 112px;
   --catalog-overlay-width: 520px;
   --review-width: 340px;
   --bg: #0e131a;
@@ -50,7 +51,8 @@
 /* A shared template's optional photographic identity. */
 .workout-cover-controls { margin:0; width:9rem; min-width:0; }
 .workout-cover-controls:has([aria-expanded=true]) { flex-basis:100%; width:100%; order:3; }
-.workout-home { width:calc(100% - 24px); max-width:480px; margin:0 auto 8px; min-height:max(580px,calc(100dvh - var(--home-shell-height) - var(--tab-bar-height) - 8px)); display:flex; flex-direction:column; gap:12px; }
+.workout-home { width:calc(100% - 24px); max-width:480px; margin:0 auto 8px; display:flex; flex-direction:column; gap:12px; }
+.home-first { display:flex; flex-direction:column; gap:12px; min-height:calc(100dvh - var(--home-shell-height) - var(--tab-bar-height) - 8px - var(--home-history-peek)); }
 .home-heading { flex:none; padding:0 4px; }
 .home-heading h1 { margin:0; font:600 22px/1.2 var(--font-body); }
 .home-heading h1,.home-cover h2,.workout-home .home-start { text-transform:none; letter-spacing:normal; }

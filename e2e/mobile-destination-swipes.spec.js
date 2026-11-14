@@ -27,7 +27,7 @@ test('cancellation has no history side effect and a skipped tap opens only User'
 test('failed destination stays on Retry and newer tap supersedes held load',async({page})=>{
  await login(page);await page.goto('/#/user');await ready(page,'#/user');
  await page.route('**/api/workouts',r=>r.fulfill({status:503,json:{error:{message:'History unavailable'}}}));
- await dragDestination(page,{direction:'previous'});await expect(page.locator('.root-page-feedback')).toContainText('History unavailable');await ready(page,'#/workouts');
+ await dragDestination(page,{direction:'previous'});await expect(page.locator('.root-page-feedback')).toContainText("Couldn't refresh. Showing previously loaded data.");await ready(page,'#/workouts');
  await page.unroute('**/api/workouts');
  let release,seen;const held=new Promise(r=>release=r),requested=new Promise(r=>seen=r);
  await page.route('**/api/documents?kind=program',async r=>{seen();await held;await r.continue();});
