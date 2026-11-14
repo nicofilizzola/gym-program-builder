@@ -468,7 +468,7 @@ function prepareMobileHistory(version){
   const saved=mobileNavigationState.readPage('#/workouts');
   const data=createHistoryPageData({api,cache:rootCache,pendingSummary:()=>workouts.pendingSummary(),isCurrent:current,onAuthError:report,onState:state=>{
    surface.show(state);
-   view.setData({records:state.data?.records??[],hasMore:state.data?.hasMore??false,pending:state.pending,error:state.error?(state.data?"Couldn't refresh. Showing previously loaded data.":'Workouts could not be loaded. Connect to see your history.'):state.data?'':'Loading...'});
+   view.setData({records:state.data?.records??[],hasMore:state.data?.hasMore??false,pending:state.pending,error:(state.error||state.moreError)?(state.data?"Couldn't refresh. Showing previously loaded data.":'Workouts could not be loaded. Connect to see your history.'):state.data?'':'Loading...'});
    if(state.data&&!restored){restored=true;if(current()&&!interacted)window.scrollTo(0,saved?.scrollY??0);}
   }});
   const teardown=()=>{if(destroyed)return;destroyed=true;events.abort();data.destroy();view.destroy();surface.destroy();launcher.destroy();};

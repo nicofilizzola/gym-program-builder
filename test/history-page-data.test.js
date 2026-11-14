@@ -4,6 +4,29 @@ import {createRootResourceCache} from '../src/root-resource-cache.js';
 import {createHistoryPageData} from '../src/history-page-data.js';
 const tick=()=>new Promise(r=>setImmediate(r));
 const row=id=>({id,startedAt:id});
+
+test('a failed page reports moreError and keeps the rows',async()=>{
+ const cache=createRootResourceCache(),states=[];cache.replace('history:visible',{records:[row('a')],hasMore:true});
+ let fail=true;const api={listWorkouts:args=>args?(fail?Promise.reject(Error('offline')):Promise.resolve({records:[row('b')],hasMore:false})):Promise.resolve({records:[row('a')],hasMore:true})};
+ const adapter=createHistoryPageData({cache,api,onState:s=>states.push(s)});adapter.start();adapter.settled();await tick();await adapter.loadMore();
+ assert.equal(states.at(-1).phase,'ready');assert.equal(states.at(-1).error,null);assert.equal(states.at(-1).moreError.message,'offline');assert.equal(states.at(-1).loadingMore,false);assert.deepEqual(states.at(-1).data.records.map(r=>r.id),['a']);
+ fail=false;await adapter.loadMore();assert.equal(states.at(-1).moreError,null);assert.deepEqual(states.at(-1).data.records.map(r=>r.id),['a','b']);adapter.destroy();
+});
+
+test('one page request at a time, published while in flight',async()=>{
+ const cache=createRootResourceCache(),states=[];cache.replace('history:visible',{records:[row('a')],hasMore:true});
+ let release,calls=0;const api={listWorkouts:args=>args?new Promise(r=>{calls++;release=r;}):Promise.resolve({records:[row('a')],hasMore:true})};
+ const adapter=createHistoryPageData({cache,api,onState:s=>states.push(s)});adapter.start();adapter.settled();await tick();
+ const more=adapter.loadMore();assert.equal(states.at(-1).loadingMore,true);await adapter.loadMore();assert.equal(calls,1);
+ release({records:[row('b')],hasMore:false});await more;assert.equal(states.at(-1).loadingMore,false);assert.equal(states.at(-1).moreError,null);assert.deepEqual(states.at(-1).data.records.map(r=>r.id),['a','b']);adapter.destroy();
+});
+
+test('a successful refresh clears the page error',async()=>{
+ const cache=createRootResourceCache(),states=[];
+ const adapter=createHistoryPageData({cache,api:{listWorkouts:args=>args?Promise.reject(Error('offline')):Promise.resolve({records:[row('a')],hasMore:true})},onState:s=>states.push(s)});
+ adapter.start();adapter.settled();await tick();await adapter.loadMore();assert.ok(states.at(-1).moreError);
+ await adapter.refresh();assert.equal(states.at(-1).moreError,null);adapter.destroy();
+});
 test('cached extent is published before refresh and first page remains distinct',async()=>{
  const cache=createRootResourceCache(),states=[];cache.replace('history:visible',{records:[row('a'),row('b')],hasMore:false,visibleCount:2});
  let release;const adapter=createHistoryPageData({cache,api:{listWorkouts:()=>new Promise(r=>release=r)},pendingSummary:()=>null,onState:s=>states.push(s)});

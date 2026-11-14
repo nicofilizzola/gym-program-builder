@@ -1,6 +1,17 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate,saveFinishedLog} from './workout-helper.js';
 
+test('a failed older page keeps the desktop rows and refresh message',async({page})=>{
+ await login(page);await resetWorkouts(page);
+ for(let i=0;i<45;i++)await saveFinishedLog(page,{name:'Session '+i,startedAt:Date.now()-i*86400000});
+ await page.route('**/api/workouts?**',route=>route.request().url().includes('before=')?route.abort():route.continue());
+ await page.getByRole('link',{name:'Workouts',exact:true}).click();
+ await expect(page.locator('.workout-history-row')).toHaveCount(30);
+ await page.getByRole('button',{name:'Load more',exact:true}).click();
+ await expect(page.getByText("Couldn't refresh. Showing previously loaded data.",{exact:true})).toBeVisible();
+ await expect(page.locator('.workout-history-row')).toHaveCount(30);
+});
+
 test('Workouts nav shows History with empty state and Start workout',async({page})=>{
  await login(page);await resetWorkouts(page);
  await page.getByRole('link',{name:'Workouts',exact:true}).click();
