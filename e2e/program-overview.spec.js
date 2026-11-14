@@ -232,7 +232,7 @@ test('workout mutations retain highlights and replacements clear them',async({pa
 });
 
 for(const webFonts of [true,false])test(`program overview fits narrow, tablet, desktop and landscape layouts (${webFonts?'web':'fallback'} fonts)`,async({page})=>{
-  if(!webFonts)await page.route('https://fonts.googleapis.com/**',route=>route.abort());
+  if(!webFonts)await page.route('**/e2e/fixtures/fonts/fonts.css',route=>route.abort());
   await openProgram(page);
   await page.evaluate(()=>document.fonts.ready);
   const program=programFixture();program.name='Long program name '.repeat(6);

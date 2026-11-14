@@ -16,7 +16,7 @@ const snapTop=el=>el.offsetTop-(parseFloat(el.style.scrollMarginTop)||0);
 
 /** Borrows canonical row/control nodes. All edits still go through the logger port. */
 export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()=>{},onFinish=()=>{}}){
- let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,fitFrame=null,programmatic=false,measuring=0,feedHeight=null,lastGroups=[],travel=null;
+ let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,fitFrame=null,programmatic=false,measuring=0,feedHeight=null,lastGroups=[],travel=null,noteAnchor=null;
  const state={autoNext:ui.autoNext,weightIncrement:ui.weightIncrement},cards=new Map(),groups=new Map(),events=new AbortController(),{signal}=events;
  const rewarded=new Set(),animationTimers=new Set(),reduced=matchMedia('(prefers-reduced-motion:reduce)');
  const advance=createWorkoutAdvance({read:()=>({log:snapshot.log,viewed,autoNext:state.autoNext,suspended:!enabled||suspended||typingField()||Boolean(document.querySelector('dialog[open]'))}),onAdvance:ref=>jump(ref,{animate:true,focus:true}),reduced:()=>reduced.matches});
@@ -44,7 +44,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const noteText=node('button','focus-exercise-note-text');noteText.type='button';
   const editor=node('div','focus-exercise-editor'),historyHost=node('div','focus-history');details.append(noteText,editor,historyHost);li.append(name,details,list);
   let tagList=null,tagKey='',title=null,history=null;
-  exerciseAction.onclick=noteText.onclick=()=>{interaction('note');port.command({type:'exercise-note',exerciseId:group.exerciseId,host:editor});};
+  exerciseAction.onclick=noteText.onclick=()=>{holdNoteAnchor();interaction('note');port.command({type:'exercise-note',exerciseId:group.exerciseId,host:editor});};
   for(const el of [name,details])resize.observe(el);
   const group={key,li,list,editor,keys:[],exerciseId:null,
    update(ex){
@@ -112,8 +112,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  const height=el=>el.getBoundingClientRect().height,setStyle=(el,name,value)=>{if(el.style.getPropertyValue(name)!==value)el.style.setProperty(name,value);};
  // Reads every group, then writes: each row rests under its pinned block and leaves room for a whole peek, or fills the rest.
  function fitCards(){
-  if(!enabled||destroyed)return;const feedHeight=feed.clientHeight;
-  const anchorRow=inView().row,anchor=snapTop(anchorRow)-feed.scrollTop;
+  if(!enabled||destroyed)return;syncActive();const feedHeight=feed.clientHeight;
+  const anchorRow=noteAnchor?.row.isConnected?noteAnchor.row:inView().row,anchor=noteAnchor?.row===anchorRow?noteAnchor.delta:snapTop(anchorRow)-feed.scrollTop;
   const fits=lastGroups.map(g=>groups.get(g.key)).map(group=>{const li=group.li;
    const [name,details,list]=li.children,rows=[...list.children].filter(r=>r.classList.contains('focus-card'));if(!rows.length)return null;
    const contentHeights=rows.map(row=>{const clip=row.querySelector('.log-set-clip'),cs=getComputedStyle(clip),heights=sections(clip).map(el=>{const m=getComputedStyle(el);return height(el)+parseFloat(m.marginTop)+parseFloat(m.marginBottom);});
@@ -155,7 +155,12 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    });
    group.update(ex);
   });
-  for(const [key,group] of groups)if(!taken.has(key)){groups.delete(key);group.destroy();}
+  for(const [key,group] of groups)if(!taken.has(key)){
+   // Transfer the canonical note host before retiring its group; restoring it would hide the live editor.
+   const survivor=[...groups.values()].find(g=>taken.has(g.key)&&g.exerciseId===group.exerciseId);
+   if(survivor&&group.editor.hasChildNodes())port.relocate(()=>survivor.editor.append(...group.editor.childNodes));
+   groups.delete(key);group.destroy();survivor?.update(snapshot.log.exercises.find(ex=>ex.id===survivor.exerciseId));
+  }
   if(travel?.ref&&!projection.items.some(i=>same(i.ref,travel.ref)))cancelTravel();
   const existing=new Map([...segments.querySelectorAll('.focus-progress-segment')].map(el=>[el.dataset.key,el])),oldClusters=new Map([...segments.children].map(el=>[el.dataset.key,el]));
   progressClusters(projection.items).forEach(({key,keys},index)=>{
@@ -174,7 +179,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function focusContext(ref){(ref?cards.get(setKey(ref))?.contextText:review.querySelector('h2'))?.focus({preventScroll:true});}
  function jump(ref,{animate=false,focus=false}={}){
   if(!enabled||destroyed)return;const target=ref?cards.get(setKey(ref))?.row:review;if(!target)return;
-  if(animate&&!reduced.matches)return startTravel(ref,target,focus);
+  noteAnchor=null;if(animate&&!reduced.matches)return startTravel(ref,target,focus);
   cancelTravel();viewed=ref;programmatic=true;renderCursor();feed.scrollTo({top:snapTop(target),behavior:'instant'});programmatic=false;
   if(focus)focusContext(ref);syncActive();
  }
@@ -208,10 +213,15 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  });},{signal});
  // The set the scroll position shows (null = review), read from geometry rather than the possibly stale `viewed`.
  function inView(){let ref=null,row=null;for(const item of projection.items){const r=cards.get(item.key)?.row;if(r&&snapTop(r)<=feed.scrollTop+40){ref=item.ref;row=r;}}return review.offsetTop<=feed.scrollTop+40?{ref:null,row:review}:{ref,row:row||review};}
- function track(){const {ref}=inView();if(!same(ref,viewed)){viewed=ref;renderCursor();}}
- for(const name of ['pointerdown','wheel','touchstart'])feed.addEventListener(name,()=>interaction(name),{signal,passive:true});
+ function track(){if(noteAnchor)return;const {ref}=inView();if(!same(ref,viewed)){viewed=ref;renderCursor();}}
+ for(const name of ['pointerdown','wheel','touchstart'])feed.addEventListener(name,e=>{if(!e.target.closest('.focus-exercise-editor')||name==='wheel')noteAnchor=null;interaction(name);},{signal,passive:true});
  feed.addEventListener('scrollend',arrive,{signal});feed.addEventListener('wheel',cancelTravel,{signal,passive:true});
  for(const name of ['pointerdown','keydown'])document.addEventListener(name,cancelTravel,{signal,capture:true});
+ // Keep the pre-edit set position through note growth and its collapse, including every animated frame.
+ function holdNoteAnchor(){const row=viewed?cards.get(setKey(viewed))?.row:review;if(row)noteAnchor={row,delta:snapTop(row)-feed.scrollTop};}
+ root.addEventListener('input',e=>{if(!noteAnchor&&e.target.closest('.focus-exercise-editor'))holdNoteAnchor();},{signal,capture:true});
+ root.addEventListener('click',e=>{if(e.target.closest('.focus-exercise-editor button'))holdNoteAnchor();},{signal,capture:true});
+ feed.addEventListener('keydown',()=>{if(!typingField())noteAnchor=null;},{signal});
  root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
  function celebrate({before,after,ref}){
   if(!enabled)return;const key=setKey(ref),card=cards.get(key);if(!card)return;
@@ -233,7 +243,10 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  document.addEventListener('visibilitychange',()=>{if(document.hidden)advance.cancel();},{signal});
  // Height changes move card offsets; hold snapping and scroll tracking until the viewed set is re-anchored.
  function setFeedHeight(px){
-  if(destroyed||px===feedHeight)return;cancelTravel();feedHeight=px;root.style.setProperty('--focus-feed-height',px+'px');if(!enabled)return;
+  if(destroyed||px===feedHeight)return;
+  // A user's scroll can land before its tracking frame; read it before changing the geometry.
+  if(enabled&&!suspended&&!measuring&&feedHeight!==null)track();
+  cancelTravel();noteAnchor=null;feedHeight=px;root.style.setProperty('--focus-feed-height',px+'px');if(!enabled)return;
   fitCards();
   measuring++;syncActive();const ref=viewed,target=ref?cards.get(setKey(ref))?.row:review;
   if(target){programmatic=true;feed.scrollTo({top:snapTop(target),behavior:'instant'});
@@ -242,7 +255,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    programmatic=false;}
   requestAnimationFrame(()=>{measuring--;if(destroyed)return;syncActive();if(!measuring&&enabled&&!suspended)track();});
  }
- function restore(){port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const group of groups.values())group.sync();}
+ function restore(){noteAnchor=null;port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const group of groups.values())group.sync();}
  return {
   update,
   setEnabled(value){if(destroyed||enabled===value)return;advance.cancel();stopCelebration();if(!value){cancelTravel();enabled=false;logger?.classList.remove('is-focus');restore();root.hidden=true;return;}
@@ -251,7 +264,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    enabled=true;root.hidden=false;port.relocate(()=>{port.setRowPlacement(place);update(port.read());if(exerciseId&&focused?.matches('textarea')){const group=[...groups.values()].find(g=>g.keys.includes(setKey(viewed)));if(group)port.command({type:'exercise-note',exerciseId,host:group.editor});}logger?.classList.add('is-focus');});jump(viewed??projection.current);
   },
   setWeightIncrement(n){if(destroyed||state.weightIncrement===n)return;state.weightIncrement=n;onInteraction({type:'preference',patch:{weightIncrement:n}});if(enabled)update(snapshot);},
-  jump,celebrate,setFeedHeight,isEnabled:()=>enabled&&!destroyed,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value){advance.cancel();cancelTravel();}syncActive();},restore,
+  jump,celebrate,setFeedHeight,isEnabled:()=>enabled&&!destroyed,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value){noteAnchor=null;advance.cancel();cancelTravel();}syncActive();},restore,
   destroy(){if(destroyed)return;cancelTravel();advance.destroy();scrub.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();resize.disconnect();cancelAnimationFrame(scrollFrame);cancelAnimationFrame(fitFrame);for(const card of cards.values())card.destroy();cards.clear();for(const group of groups.values())group.destroy();groups.clear();root.remove();}
  };
 }

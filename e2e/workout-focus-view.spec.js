@@ -205,3 +205,45 @@ test('the card lists the variant tags under the title',async({page})=>{
  await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));
  await expect(page.locator('.focus-group:has([data-set-id="a2"]) .focus-tags')).toHaveCount(0);
 });
+
+for(const motion of ['reduce','no-preference'])test(`exercise note growth anchors without native anchoring (${motion})`,async({page})=>{
+ await page.route('**/e2e/fixtures/fonts/fonts.css',r=>r.abort());await page.emulateMedia({reducedMotion:motion});
+ await page.setViewportSize({width:390,height:900});await mountFocusFixture(page);await page.addStyleTag({content:'.focus-feed{overflow-anchor:none}'});
+ await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));const before=await snapDelta(page,'s1');
+ await page.locator('.focus-group[data-exercise-id="straight"]').getByRole('button',{name:'Add exercise note, Bench press',exact:true}).click();
+ const note=page.getByRole('textbox',{name:'Note, Bench press',exact:true});await note.click();await note.fill('Note '.repeat(80));
+ await settle(page);await note.evaluate(n=>Promise.all(n.closest('.focus-group').getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{}))));await settle(page);
+ expect(Math.abs(await snapDelta(page,'s1')-before)).toBeLessThanOrEqual(2);
+ expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});await expect(note).toBeFocused();
+ await page.locator('.focus-card[data-set-id="s1"] .focus-context').hover();await page.mouse.wheel(0,800);
+ await expect.poll(()=>page.evaluate(()=>focusView.visibleRef())).not.toEqual({exerciseId:'straight',setId:'s1'});
+});
+test('unlink transfers the open canonical exercise editor with focus and composition',async({page})=>{
+ await page.route('**/e2e/fixtures/fonts/fonts.css',r=>r.abort());await mountFocusFixture(page);
+ await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));
+ await page.locator('.focus-group:has([data-set-id="a1"]) .focus-exercise-note').click();
+ const note=page.getByRole('textbox',{name:'Note, Single-arm incline dumbbell chest press',exact:true});await note.fill('retained draft');
+ await note.evaluate(n=>{window.openEditor=n;n.setSelectionRange(3,5);n.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'draft'}));});
+ await page.evaluate(()=>port.command({type:'unlink',exerciseId:'a'}));
+ await expect(note).toBeVisible();await expect(note).toBeFocused();
+ expect(await note.evaluate(n=>({same:n===openEditor,value:n.value,start:n.selectionStart,end:n.selectionEnd,group:!!n.closest('.focus-group[data-exercise-id="a"]')}))).toEqual({same:true,value:'retained draft',start:3,end:5,group:true});
+ await note.evaluate(n=>n.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'draft'})));
+ await note.fill('continued draft');expect(await page.evaluate(()=>port.read().log.exercises.find(e=>e.id==='a').note)).toBe('continued draft');
+});
+
+test('a height measurement before the scroll frame keeps the focused set in view',async({page})=>{
+ await mountFocusFixture(page);await page.addStyleTag({content:'.focus-feed{overflow-anchor:none}'});
+ await page.evaluate(()=>focusView.setFeedHeight(700));await settle(page);
+ await page.evaluate(()=>{
+  focusView.jump({exerciseId:'straight',setId:'s1'});
+  const feed=document.querySelector('.focus-feed'),row=feed.querySelector('[data-set-id="s2"]');
+  row.querySelector('[data-field="reps"]').focus({preventScroll:true});
+  feed.scrollTop=row.offsetTop-(parseFloat(row.style.scrollMarginTop)||0);
+  // A keyboard measurement can beat the rAF that publishes the user's scroll.
+  focusView.setFeedHeight(560);
+ });
+ await settle(page);
+ expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s2'});
+ expect(Math.abs(await snapDelta(page,'s2'))).toBeLessThanOrEqual(2);
+ await expect(page.locator('.focus-card[data-set-id="s2"] [data-field="reps"]')).toBeFocused();
+});

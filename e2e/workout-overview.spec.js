@@ -102,7 +102,8 @@ test('rows show reorder, name, tags and actions; pairs show one header',async({p
  await expect(pair.locator('.overview-member')).toHaveText(['A1','A2']);await expect(pair.locator('.overview-line .reorder-action')).toHaveCount(0);
  await d.getByRole('button',{name:'Unlink superset',exact:true}).focus();await expect(page.getByRole('tooltip')).toHaveText('Unlink superset');
 });
-test('six exercises with four sets fit without scrolling at 390x844',async({page})=>{
+for(const fallback of [false,true])test(`six exercises with four sets fit without scrolling at 390x844 (${fallback?'explicitly blocked':'default policy'} fonts)`,async({page})=>{
+ if(fallback)await page.route('**/e2e/fixtures/fonts/fonts.css',r=>r.abort());
  const log=focusFixture(),base=log.exercises[0],set=(id,kind,done,w,r)=>({id,kind,weightKg:w,reps:r,rir:null,done,note:''});
  log.exercises=Array.from({length:6},(_,i)=>({...base,id:'r'+i,name:`Row ${i+1}`,sets:[set('w','warmup',true,40,10),set('a','working',true,80,8),set('b','working',true,80,8),set('c','working',false,null,null)]}));
  const d=await mount(page,log);const m=await d.evaluate(dlg=>({top:dlg.scrollTop,bottom:dlg.getBoundingClientRect().bottom,last:[...dlg.querySelectorAll('.overview-chips')].at(-1).getBoundingClientRect().bottom,h:[...dlg.querySelectorAll('.overview-chips')].map(c=>c.getBoundingClientRect().height)}));
