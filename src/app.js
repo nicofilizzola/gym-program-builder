@@ -84,7 +84,7 @@ function report(error){message.textContent=errorText(error);if(error.status===40
 const action=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(report);
 function createViewHost(){return (hydrationHost||app).appendChild(document.createElement('div'));}
 const workoutBar=mountWorkoutBar(document.querySelector('#workout-bar-host'),{onResume:id=>action(()=>navigate('#/workouts/'+id))()});
-const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
+const workouts=createWorkoutController({api,navigate:hash=>navigate(hash),onExit:exitWorkout,bar:workoutBar,onError:report,onSignIn:()=>{if(authenticated)showLogin(true);}});
 rootInvalidation=bindRootCacheInvalidation({cache:rootCache,workouts});
 let barRendered=false;
 const startWorkout=action(options=>workouts.start(options));
@@ -125,6 +125,10 @@ async function leave(){
  if(mounted?.hasUnsavedDraft?.()&&!await confirmCurrent({title:'Discard unsaved changes?',message:'A set without reps is not saved. Discard it and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;
  if(!queue?.isDirty())return true;
  try{await queue.flush();return true;}catch(error){report(error);if(error.status===401)return false;if(!await confirmCurrent({title:'Discard unsaved changes?',message:'Changes could not be saved. Discard them and leave?',confirmLabel:'Discard and leave',destructive:true}))return false;return true;}
+}
+function exitWorkout(){
+ if(mobileNavigation.matches){mobileNavigationState.forget('#/home');return navigate('#/home');}
+ return navigate('#/workouts');
 }
 async function navigate(hash,{push=true,gesture=null}={}){
  hash=entryHash(hash);
@@ -388,7 +392,7 @@ async function prepareWorkout(route){
    if(disposed||binding!==owner)return;
    if(!result.accepted){await owner.onFinish();return;}
    const state=finishState?.record?finishState:result.state;
-   recapView=logger.showRecap({state,onDone:action(()=>navigate('#/workouts')),onView:action(()=>navigate('#/workouts/'+route.id)),onNote:recapNote});
+   recapView=logger.showRecap({state,onDone:action(exitWorkout),onView:action(()=>navigate('#/workouts/'+route.id)),onNote:recapNote});
    applyFinishState(state);
   }
   const handlers={setStatus:text=>logger?.setStatus(text),setFinishState:applyFinishState,
@@ -401,7 +405,7 @@ async function prepareWorkout(route){
     await queue.flush();
     await api.deleteWorkout({id:active.id,revision:active.revision});
     queue?.dispose();queue=null;active=null;saveStatus('');
-    await navigate('#/workouts');
+    await exitWorkout();
    },
    onFinish:(value,{recap=false}={})=>recap?finishWithRecap():binding?.onFinish(),
    onDiscard:()=>binding?.onDiscard(),

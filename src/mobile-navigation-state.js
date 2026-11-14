@@ -22,6 +22,7 @@ export function createMobileNavigationState(){
   commit(hash){if(destinationFor(hash)==='library')library=libraryRoot(parseRoute(hash).view);},
   readPage:hash=>pages.has(hash)?structuredClone(pages.get(hash)):null,
   writePage(hash,value){if(isSwipeRoot(hash))pages.set(hash,structuredClone(value));},
+  forget(hash){pages.delete(hash);},
   clear(){library='#/programs';pages.clear();}
  };
 }

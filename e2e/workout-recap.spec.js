@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper.js';
+import {login,resetWorkouts,createLinkedTemplate,saveFinishedLog,openStartSheet,headers} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
 
 test.use({viewport:{width:390,height:844},hasTouch:true});
@@ -26,7 +26,7 @@ async function finishWithOneSet(page,name){
 }
 const recap=page=>page.locator('.workout-recap');
 
-test('a Focus finish shows an honest recap, hands off the note and Done goes to History',async({page})=>{
+test('a Focus finish shows an honest recap, hands off the note and Done goes to Home',async({page})=>{
  const {id,names:[first],sets,count}=await start(page);
  await finishWithOneSet(page,first);
  await expect(recap(page)).toBeVisible();await expect(page).toHaveURL(new RegExp(`#/workouts/${id}$`));
@@ -45,7 +45,19 @@ test('a Focus finish shows an honest recap, hands off the note and Done goes to 
  await expect.poll(async()=>(await serverRecord(page,id)).log.note).toBe('Felt strong');
  await expect(note).toBeFocused();
  await page.getByRole('button',{name:'Done',exact:true}).click();
- await expect(page).toHaveURL(/#\/workouts$/);await expect(page.locator('.workout-history-row')).toHaveCount(1);
+ await expect(page).toHaveURL(/#\/home$/);await expect(page.locator('.home-history .workout-history-row')).toHaveCount(1);
+});
+
+test('Done lands on Home at the top with the workout first',async({page})=>{
+ await login(page);await resetWorkouts(page);for(let i=0;i<45;i++)await saveFinishedLog(page,{name:'Previous workout '+i,startedAt:Date.now()-(i+1)*86400000});
+ const name='Workout started from Home';await createLinkedTemplate(page,name);await page.goto('/#/home');await page.reload();
+ await expect(page.locator('.home-history .workout-history-row')).toHaveCount(30);await page.evaluate(()=>scrollTo(0,800));await openStartSheet(page);
+ await page.getByRole('tab',{name:'Template',exact:true}).click();await page.getByRole('button',{name:'Start '+name,exact:true}).click();
+ await expect(page.locator('.workout-focus')).toBeVisible();
+ await expect(page.locator('.logger-status')).toHaveText('Saved');
+ const {record}=await (await page.request.get('/api/workouts/active')).json();await finishWithOneSet(page,record.log.exercises[0].name);
+ await page.getByRole('button',{name:'Done',exact:true}).click();await expect(page).toHaveURL(/#\/home$/);await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(0);
+ const row=page.locator('.home-history .workout-history-row').first();await expect(row).toContainText(name);expect((await row.boundingBox()).y).toBeLessThan((await page.getByRole('navigation',{name:'Main'}).boundingBox()).y);
 });
 
 test('View workout opens the regular finished record; reload never replays the recap',async({page})=>{
@@ -75,7 +87,7 @@ test('an offline finish is described as local, keeps the note read-only and sync
  await expect(recap(page).getByRole('button',{name:'Add workout note',exact:true})).toHaveCount(0);
  await expect(recap(page).locator('.logger-status')).not.toHaveText('');
  await page.getByRole('button',{name:'Done',exact:true}).click();
- await expect(page).toHaveURL(/#\/workouts$/);
+ await expect(page).toHaveURL(/#\/home$/);
  await expect(page.locator('.workout-history-row')).toHaveCount(1);await expect(page.locator('.workout-history-row')).toContainText('Not synced yet');
  await reconnect(page);
  await expect.poll(async()=>(await serverRecord(page,id))?.log.status).toBe('finished');

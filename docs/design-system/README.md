@@ -18,7 +18,7 @@ placeholder uses the destination's mobile page gutter (16px at ≤600px) and
 heading style (Library or Catalog header) so the heading never jumps when
 content mounts. The refresh
 status is a compact surface pill pinned above the tab bar and any active workout
-bar, with a 44px Retry on failure; it appears and disappears without motion.
+bar, with a 44px Retry on failure; it appears and disappears without motion. Home History keeps its status inside the section instead.
 
 The mobile training Home uses a single immersive equipment photograph with a dark
 readability gradient and one orange Start/Resume action. Its template cover picker
@@ -26,9 +26,9 @@ is a collapsed disclosure with four labeled native radios; choices use the exist
 border/radius and focus colors. Covers are local WebP assets with bundled credits.
 The disclosure follows the shared 200ms collapsible pattern and is inert when closed.
 
-At ≤760px the four bottom destinations are Home, Library, History and User;
+At ≤760px the three bottom destinations are Home, Library and User;
 Home is the empty-entry landing page. Desktop retains its four
-navigation items and Programs entry. Home shows no history. Use 12px gutters,
+navigation items and Programs entry. History follows Home's cover and feedback. Use 12px gutters,
 about 20px cover inset, condensed session type around 48px, a ≥54px Start/Resume
 button and ≥44px secondary actions. Fit normal phone heights with a flexible
 minimum-height composition; enlarged text may grow the page and scroll above the
@@ -43,12 +43,20 @@ controls. A removed focused setup action transfers focus to the surviving action
 
 ## Mobile navigation (2026-11-07)
 
-At 760px and below, use four fixed, labeled destinations: Home, Library,
-History and User. Library groups Programs, Templates and Exercises using
+At 760px and below, use three fixed, labeled destinations: Home, Library
+and User. Library groups Programs, Templates and Exercises using
 the existing canonical routes. User is a full page with Training profile
 and a separated Log out action. Keep the existing typography, surfaces,
 orange accent, safe-area padding and 44px targets. Desktop retains its
 four navigation links and account controls.
+
+### Home History (2026-11-12)
+
+Home keeps its heading, cover, Choose action and feedback in a flexible `.home-first`, followed by `section.home-history`. The measured `--home-history-peek:112px` leaves the History heading whole and cuts the first row at 390×844. The cover stays at least 340px tall; enlarged text and short screens can scroll. The History section has a viewport-sized minimum so an empty section can also align its heading at the top.
+
+History reuses `.workout-history-row` and its metadata, with an `h2` History, `h3` days and `h4` workout links. A pending finish comes first with `Not synced yet`. Loading, refresh errors and `Retry loading history` stay inside the section. Older pages load near the end, with an end-of-list status, Retry on failure and a 44px Load more fallback. Data updates have no added animation. The empty copy is `No workouts yet. Your finished workouts appear here.`
+
+Swipes traverse Home ↔ Library ↔ User. Workout pages select Home; mobile `#/workouts` canonicalizes to Home focused at History without an extra entry. Ending a workout returns to Home at the top; ordinary returns restore loaded extent and scroll. A Home-tab re-tap only scrolls to the top, smoothly or instantly with reduced motion. Desktop Workouts is unchanged. Cover and History requests fail independently and share the deduplicated first page; memory clears on auth changes. Physical-phone peek and scrolling checks remain pending (user).
 
 ## Feature design and review checklist
 
@@ -470,7 +478,7 @@ See "Workout start points and active workout bar" above for behaviour. Authorita
 At ≤760px the main `<nav>` becomes a bottom tab bar; above 760px the header is unchanged (icons hidden, full labels).
 
 - **Bar:** `position: fixed` at the bottom, `z-index: 21`, height `--tab-bar-height` (`calc(max(56px, 34px + .9rem) + env(safe-area-inset-bottom))`: 56px, growing with enlarged text; `0px` above 760px), `--surface` with a 1px `--border` top edge. `index.html` uses `viewport-fit=cover` so the inset applies.
-- **Tabs:** four equal columns (`Home`, `Library`, `History`, `User`; accessible names equal the visible labels), a 24px icon (`home`, `template`, `history`, `profile`) above a 12px 600-weight label, at least 44×44px. The current tab is accent-coloured with a 2px accent indicator on the top edge and keeps `aria-current="page"`; root changes follow a horizontal finger-tracked transition and a synchronized indicator; settling takes approximately 220ms ease-out and cancellation 180ms. Reduced motion switches instantly. Library section changes retain the existing route fade.
+- **Tabs:** three equal columns (`Home`, `Library`, `User`; accessible names equal the visible labels), a 24px icon (`home`, `template`, `profile`) above a 12px 600-weight label, at least 44×44px. The current tab is accent-coloured with a 2px accent indicator on the top edge and keeps `aria-current="page"`; root changes follow a horizontal finger-tracked transition and a synchronized indicator; settling takes approximately 220ms ease-out and cancellation 180ms. Reduced motion switches instantly. Library section changes retain the existing route fade.
 - **Stacking:** `body` reserves `--tab-bar-height` at the bottom. The active workout bar sits at `bottom: var(--tab-bar-height)` and reserves `calc(var(--tab-bar-height) + its height)`. The session editor's pinned volume panel sticks at `bottom: var(--tab-bar-height)`.
 - **Typing:** `src/typing-state.js` sets `body.is-typing` while the user types in a text field in `#app` (focus that follows their own press or key; script focus never hides the bars). The tab bar and resume bar slide out (`translateY`, 150ms ease-out; instant with reduced motion) and the pinned panel drops to `bottom: 0`; reserved padding never changes. Leaving a field by tapping restores them only after that tap's click (700ms fallback), so a returning bar never takes a tap meant for the page.
 

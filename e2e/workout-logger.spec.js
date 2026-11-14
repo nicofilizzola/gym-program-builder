@@ -184,9 +184,9 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    await page.getByRole('button',{name:'Finish',exact:true}).click();
    await expect(dialog).toContainText('1 set not completed — finish anyway? Uncompleted sets will be removed.');
    await dialog.getByRole('button',{name:'Finish workout'}).click();
-   // Phones finish into the recap; Done continues to History.
+   // Phones finish into the recap; Done continues to Home.
    if(viewport.width<=760){await expect(page.locator('.workout-recap')).toBeVisible();await page.getByRole('button',{name:'Done',exact:true}).click();}
-   await expect(page).toHaveURL(/#\/workouts$/);
+   await expect(page).toHaveURL(viewport.width<=760?/#\/home$/:/#\/workouts$/);
    await expect(page.locator('.workout-history-row').first()).toContainText('4 sets');
    expect((await serverLog(page,log.id)).status).toBe('finished');
    // Nothing done: Finish is refused; Discard removes the log.
@@ -199,8 +199,8 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    const discard=page.getByRole('dialog',{name:'Discard workout?'});
    await expect(discard).toContainText('This workout and its sets will be deleted. This cannot be undone.');
    await discard.getByRole('button',{name:'Discard workout'}).click();
-   await expect(page).toHaveURL(/#\/workouts$/);
-   await expect(page.getByRole('heading',{level:1,name:'Workouts'})).toBeVisible();
+   await expect(page).toHaveURL(viewport.width<=760?/#\/home$/:/#\/workouts$/);
+   await expect(page.getByRole('heading',{level:1,name:viewport.width<=760?'Your training':'Workouts'})).toBeVisible();
    expect((await page.request.get(`/api/workouts/${blank.id}`)).status()).toBe(404);
    expect(await page.evaluate(()=>localStorage.getItem('gpb.activeWorkout'))).toBeNull();
   });

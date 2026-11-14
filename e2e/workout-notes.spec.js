@@ -34,9 +34,9 @@ async function openSetNote(page,n,name,{warm=false,edit=false}={}){
 const finish=async page=>{
  await page.getByRole('button',{name:'Finish',exact:true}).click();
  await page.getByRole('dialog',{name:'Finish workout?'}).getByRole('button',{name:'Finish workout'}).click();
- // Phones finish into the recap; Done continues to History.
+ // Phones finish into the recap; Done continues to Home.
  if(page.viewportSize().width<=760){await expect(page.locator('.workout-recap')).toBeVisible();await page.getByRole('button',{name:'Done',exact:true}).click();}
- await expect(page).toHaveURL(/#\/workouts$/);
+ await expect(page).toHaveURL(page.viewportSize().width<=760?/#\/home$/:/#\/workouts$/);
 };
 
 for(const [label,viewport,hasTouch] of [['390 touch',{width:390,height:800},true],['1366',{width:1366,height:768},false]]){

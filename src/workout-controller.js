@@ -14,7 +14,7 @@ export const linkedVariantIds=log=>[...new Set(log.exercises.map(e=>e.variantId)
  * while the user is elsewhere and two logs never write the single mirror. Loggers attach to it; they never create one.
  */
 export function createWorkoutController({api,storage=globalThis.localStorage,choose=chooseAction,confirm=confirmAction,navigate=async()=>{},bar=null,
- onError=()=>{},onSignIn=()=>{},now=()=>new Date(),makeId=()=>crypto.randomUUID(),timers=globalThis,events=globalThis}){
+ onExit=()=>navigate('#/workouts'),onError=()=>{},onSignIn=()=>{},now=()=>new Date(),makeId=()=>crypto.randomUUID(),timers=globalThis,events=globalThis}){
  let owned=null,view=null,booted=false,booting=null,resolving=false,starting=false,session=0;
  const observers=new Set(),barSuppression=new Set();
  let lastPublished='';
@@ -152,7 +152,7 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
    if(reason==='active_exists')other=await api.activeWorkout().catch(()=>null);
    if(other&&!owned)own(other);
    refreshBar();
-   await navigate(other?'#/workouts/'+other.id:'#/workouts');
+   if(other)await navigate('#/workouts/'+other.id);else await onExit();
    return;
   }
   if(view?.id===id)view.setLog?.(server.log);
@@ -307,15 +307,15 @@ export function createWorkoutController({api,storage=globalThis.localStorage,cho
   const watch=(event,value)=>{if(!current())return;if(event==='released')finishing.record=structuredClone(value);mine.setFinishState?.(finishState());};
   return {
    onChange(log){const target=forMe();if(target&&log.status==='finished'&&!finishing){finishing={entry:target,log:structuredClone(log),record:null};target.watchers.add(watch);}target?.sync.change(log);},
-   /** Legacy: flush, then History. With `stay`, report the accepted finish at once and keep syncing without navigating. */
+   /** Legacy: flush, then exit. With `stay`, report the accepted finish at once and keep syncing without navigating. */
    async onFinish({stay=false}={}){
     // An attachment left (route change or sign-out) while flushing no longer decides where the app goes.
-    if(!stay){const target=forMe();await target?.sync.flush().catch(()=>{});if(current())await navigate('#/workouts');return {accepted:true};}
+    if(!stay){const target=forMe();await target?.sync.flush().catch(()=>{});if(current())await onExit();return {accepted:true};}
     if(!finishing||!current())return {accepted:false};
     if(owned===finishing.entry)void finishing.entry.sync.flush().catch(()=>{});
     return {accepted:true,state:finishState()};
    },
-   async onDiscard(){if(forMe()&&await discard())await navigate('#/workouts');},
+   async onDiscard(){if(forMe()&&await discard())await onExit();},
    /** Retry after a paused non-network failure (`Couldn’t save`). */
    onRetry(){return forMe()?.sync.resume().catch(()=>{});},
    onBestPerformanceNeeded:refreshBest,

@@ -56,6 +56,11 @@ test('a short first page keeps loading on a tall screen',async({page})=>{
  await update(page,ready(6,{data:{records:records(6),hasMore:true}}));await expect.poll(()=>page.evaluate(()=>window.calls.more)).toBe(2);
  await update(page,ready(6));await page.waitForTimeout(100);expect(await page.evaluate(()=>window.calls.more)).toBe(2);
 });
+test('the next page loads within one viewport height below the viewport',async({page})=>{
+ await mount(page,ready(11,{data:{records:records(11),hasMore:true}}));
+ const end=await page.locator('.home-history-end').boundingBox();expect(end.y).toBeGreaterThan(844+390);expect(end.y).toBeLessThan(844*2);
+ await expect.poll(()=>page.evaluate(()=>window.calls.more)).toBe(1);
+});
 test('focus stays on a row link across updates',async({page})=>{
  await mount(page,ready());const link=page.locator('.workout-history-row a').nth(1);await link.focus();await update(page,ready(4));await expect(link).toBeFocused();
 });

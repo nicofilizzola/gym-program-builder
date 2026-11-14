@@ -32,3 +32,8 @@ test('adjacency stops at both ends',()=>{
  assert.equal(adjacentDestination('home','next'),'library');
  assert.equal(adjacentDestination('library','next'),'user');assert.equal(adjacentDestination('user','previous'),'library');
 });
+
+test('forget Home removes only its page memory',()=>{
+ const state=createMobileNavigationState();state.writePage('#/home',{scrollY:800,state:{visibleCount:45}});state.writePage('#/catalog',{scrollY:100});
+ state.forget('#/home');assert.equal(state.readPage('#/home'),null);assert.deepEqual(state.readPage('#/catalog'),{scrollY:100});
+});

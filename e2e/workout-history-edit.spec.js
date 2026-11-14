@@ -132,8 +132,9 @@ test('valid edits save beside an incomplete set, and leaving asks before droppin
  await expect(page).toHaveURL(/#\/workouts$/);
 });
 
-test('delete and conflict on finished workouts',async({page})=>{
+for(const width of [1366,390])test('delete and conflict on finished workouts at '+width,async({page})=>{
  const {log,names:[first]}=await setup(page);
+ await page.setViewportSize({width,height:844});
  await open(page,log.id);
  // Conflict: a newer revision saved elsewhere.
  const record=await serverRecord(page,log.id);
@@ -153,7 +154,7 @@ test('delete and conflict on finished workouts',async({page})=>{
  const dialog=page.getByRole('dialog',{name:'Delete workout?'});
  await expect(dialog).toContainText('This workout will be deleted. This cannot be undone.');
  await dialog.getByRole('button',{name:'Delete workout'}).click();
- await expect(page).toHaveURL(/#\/workouts$/);
+ await expect(page).toHaveURL(width<=760?/#\/home$/:/#\/workouts$/);
  await expect(page.locator('.workout-history-row')).toHaveCount(0);
  expect((await page.request.get(`/api/workouts/${log.id}`)).status()).toBe(404);
 });

@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate,openStartSheet} from './workout-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
-test('History and its picker open without lists; Blank stays available',async({page})=>{
+test('Home and its picker open without lists; Blank stays available',async({page})=>{
  await login(page);await resetWorkouts(page);await page.reload();await expect(page.locator('#app h1').first()).toBeVisible();let release;const held=new Promise(r=>release=r);
  await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'User',exact:true}).click();
  for(const pattern of ['**/api/documents?kind=program','**/api/documents?kind=template','**/api/settings'])await page.route(pattern,async route=>{await held;await route.continue().catch(()=>{});});

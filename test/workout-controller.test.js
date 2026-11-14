@@ -60,10 +60,10 @@ function fakeApi(over={}){
   ...over};
  return api;
 }
-function make({api=fakeApi(),storage=memoryStorage(),choices=[],confirms=[]}={}){
+function make({api=fakeApi(),storage=memoryStorage(),choices=[],confirms=[],onExit}={}){
  const navigations=[],errors=[],asked=[],bar={shown:null,show(d){this.shown=d;},hide(){this.shown=null;}};
  let clock=Date.parse('2026-11-03T18:00:00Z');
- const controller=createWorkoutController({api,storage,timers:idleTimers,now:()=>new Date(clock+=60000),events:new EventTarget(),bar,
+ const controller=createWorkoutController({api,storage,timers:idleTimers,now:()=>new Date(clock+=60000),events:new EventTarget(),bar,onExit,
   choose:async options=>{asked.push(options);return choices.shift()??null;},confirm:async options=>{asked.push(options);return confirms.shift()??false;},
   navigate:async hash=>{navigations.push(hash);},onError:error=>errors.push(error)});
  return {controller,api,storage,navigations,errors,asked,bar};
@@ -405,6 +405,20 @@ test('legacy finish still flushes and navigates to History',async()=>{
  const {binding,finished,navigations,release}=await finishing();
  binding.onChange(finished);const done=binding.onFinish();await release();await done;
  assert.deepEqual(navigations,['#/workouts']);
+});
+
+test('a workout end leaves through onExit',async()=>{
+ for(const path of ['finish','discard','gone']){
+  let exits=0;const {controller,api,navigations}=make({onExit:()=>{exits++;},choices:['saved'],confirms:[true]});
+  await controller.boot();await controller.start();await controller.current.sync.flush();const id=controller.current.log.id;const binding=controller.attach(id,{});navigations.length=0;
+  if(path==='finish')await binding.onFinish();
+  if(path==='discard')await binding.onDiscard();
+  if(path==='gone'){
+   api.saveWorkout=async()=>{throw httpError(409,'revision_conflict');};api.records.delete(id);
+   binding.onChange({...controller.current.log,name:'Local'});await controller.current.sync.flush().catch(()=>{});for(let i=0;i<5;i++)await settle();
+  }
+  assert.equal(exits,1,path);assert.deepEqual(navigations,[],path);controller.signOut();
+ }
 });
 test('legacy finish does not navigate for an attachment left while flushing',async()=>{
  for(const leave of ['detach','signOut']){
