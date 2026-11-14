@@ -93,7 +93,8 @@ export function openCatalogForm({api,entry,families=[],tags=[],mode='create',onS
    invalidateCatalog(api);if(closed)return;await onSaved(saved);close();
   }catch(e){
    if(closed)return;error.textContent=e.message;
-   if(e.status===409&&operation==='edit'){
+   if(e.details?.reason==='duplicate-variant')fields.exerciseName.focus();
+   else if(e.status===409&&operation==='edit'){
     recovery.append(button('Reload saved version',async()=>{try{const data=await api.catalog();if(closed)return;families=data.families;tags=data.tags||[];tagFields.setTags(tags);current=data.entries.find(e=>e.id===current.id);if(!current)throw Error('Exercise not found.');populate();error.textContent='';recovery.replaceChildren();await preview();}catch(err){error.textContent=err.message;}}));
     recovery.append(button('Save as variant',()=>{operation='variant';id=crypto.randomUUID();presentation();dialog.querySelector('[data-impact]').textContent='';error.textContent='Give this variant a distinct name, then save.';recovery.replaceChildren();fields.exerciseName.focus();}));
     recovery.append(button('Refresh usage preview',()=>{recovery.replaceChildren();error.textContent='';preview();}));

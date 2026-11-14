@@ -52,7 +52,7 @@ export function searchCatalog(entries,query='',{equipment='',limit=8}={}) {
   const q=normalizeSearch(query),words=q.split(/\s+/).filter(Boolean);
   const rank=e=>normalizeSearch(e.name)===q?0:normalizeSearch(e.name).startsWith(q)?1:2;
   return entries.filter(e=>!e.archived&&e.equipmentConfigured!==false&&(!equipment||e.equipment===equipment)&&words.every(word=>catalogSearchText(e).includes(word)))
-    .sort((a,b)=>rank(a)-rank(b)||a.name.localeCompare(b.name)||a.id.localeCompare(b.id)).slice(0,limit);
+    .sort((a,b)=>rank(a)-rank(b)||compareVariants(a,b)).slice(0,limit);
 }
 export function snapshotExercise(exercise,entry) {
   return {...exercise,name:entry.name,primaryMuscles:[...entry.primaryMuscles],secondaryMuscles:[...entry.secondaryMuscles],catalogId:entry.id,catalogRevision:entry.revision,familyId:entry.familyId,...(entry.equipment?{equipment:entry.equipment}:{}),referenceDescription:entry.referenceDescription||'',variantDescription:entry.description||'',brand:entry.brand?.name||'',focusTags:(entry.focusTags||[]).map(t=>t.name)};

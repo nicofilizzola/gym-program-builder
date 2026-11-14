@@ -53,3 +53,9 @@ test('empty references and reference search cannot bypass variant-role filters',
  const data=structuredClone(filteredData);data.families.find(f=>f.id==='empty').defaultPrimaryMuscles=['Chest'];
  assert.ok(!groupCatalog(data,'',{primaryMuscle:'Chest'}).some(g=>g.reference.id==='empty'));
 });
+
+test('same-name variants sort by brand then focus',()=>{
+ const make=(id,brand=null,focusTags=[])=>({...variant(id,'r1','Chest press'),brand:brand&&{name:brand},focusTags:focusTags.map(name=>({name}))});
+ const data={families:[families[0]],entries:[make('4','Technogym'),make('2','Hammer',['Stretch']),make('1'),make('3','Hammer')]};
+ for(const mode of ['catalog','picker'])for(const query of ['','chest press'])assert.deepEqual(flattenVariantOptions(groupCatalog(data,query,{mode})).map(v=>v.id),['1','3','2','4']);
+});

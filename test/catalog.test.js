@@ -49,3 +49,8 @@ test('compareVariants keeps same-name variants together',()=>{
  const list=[e('4','Chest press','Technogym'),e('2','Chest press','Hammer',['Stretch']),e('1','Chest press'),e('5','Arm curl'),e('3','Chest press','Hammer')];
  assert.deepEqual(list.sort(catalog.compareVariants).map(x=>x.id),['5','1','3','2','4']);
 });
+
+test('search ranks equal-name variants by tags before ID',()=>{
+ const entries=[{...definition,id:'a',brand:{name:'Technogym'}},{...definition,id:'z',brand:{name:'Hammer'}}];
+ assert.deepEqual(catalog.searchCatalog(entries,'bench').map(e=>e.id),['z','a']);
+});
