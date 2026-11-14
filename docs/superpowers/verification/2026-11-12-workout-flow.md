@@ -101,3 +101,47 @@ A scratch Playwright script (`.superpowers/sdd/2026-11-12-workout-flow/task-8-in
 - Long travels against snapping: `pending (user)`.
 - Scrub comfort and that dragging the row never scrolls the page on a phone: `pending (user)`. The browser test checks the CSS touch policy and mouse-pointer behavior; it does not establish physical-device behavior.
 - Existing pinning/momentum and enlarged-text phone checks above remain pending. No physical phone or deployment was verified. Task 9's conditional travel tween was not run; no user phone-failure report was provided.
+
+
+## Consolidated final review fixes (2026-11-13)
+
+The final whole-plan review reproduced three defects beyond Task 8: note growth selected its fit anchor after layout had shifted; unlink restored a retired group's borrowed open editor into the hidden regular tracker; fallback fonts made the overview header wrap and pushed the sixth set-chip row below the sheet. These are fixed locally, not deployed.
+
+- Focus captures the viewed row/snap delta before opening an exercise note and retains it through its growth, input and collapse, without native scroll anchoring. User feed interactions, explicit jumps, resize, suspension and presentation restoration release that hold. The fit pass refreshes the canonical editor state directly; closing a removed textarea no longer relies on an incidental scroll/focusout to reveal the exercise-note button.
+- Regrouping transfers the exact borrowed canonical note host to the surviving exercise group before retiring its old group. The regression preserves field identity, value, focus and selection 3-5, dispatches synthetic composition events and continues editing after unlink. This is not hardware IME verification.
+- The overview's existing close button visibly reads `Close` and retains the accessible name `Close overview`. The compact header fits with the intended and fallback fonts, preserving 44px touch controls, wrapping exercise names and the specified exercise-row spacing. The sixth chip row measures 815.28125px against the sheet bottom at 844px, at 390x844/default text. Add exercise may be below the fold as allowed by the plan.
+
+Test readiness is now deterministic: the `--test` server serves local copies of the same five Barlow/Barlow Condensed Latin WOFF2 faces, with upstream OFL licenses and provenance under `e2e/fixtures/fonts`. Normal server/index, product hosting and build output are unchanged. A browser regression blocks external font hosts and loads all five intended faces successfully. Explicit fallback variants abort the local stylesheet; the pre-existing program-overview fallback check was updated to preserve its meaning. No timeout or geometry tolerance was increased.
+
+An initial fallback-only full-suite policy was stopped after 238/681 cases: it exposed two unrelated existing typography assumptions (`compact-desktop.spec.js:102`, one complete card instead of two; `library-navigation.spec.js:74` template New/Import Y difference 52px). Both existing assertions pass unchanged with the intended fonts served locally. That stopped run is recorded as a failed infrastructure experiment, not a completed release gate or a waiver.
+
+Fresh logs and detailed per-case dispositions: `.superpowers/sdd/2026-11-12-workout-flow/final-fix-report.md` (scratch), with logs in the same directory.
+
+- `final-red.log`: 5 expected failures before production changes: native-anchoring-disabled growth drifts 94/124px, hidden editor after unlink, original density and fallback density at 853.671875 > 844px.
+- `final-focused.log`: 151 passed, 1 failed, 4 pre-existing skips; every one of Task 8's 21 failing cases reached and passed. The one failure was the related close-note button-state issue, corrected above.
+- `final-focus-view-green.log`: all 27 Focus view tests passed after that correction, including the original 2px anchor check, both motion modes without native anchoring, browser wheel scrolling after editing and canonical-editor unlink.
+- `final-font-wiring-red.log`: the new test-font check failed with five empty loaded-face arrays before server wiring.
+- `final-local-font-green.log`: 10 passed (9.7s): all five intended font faces with external hosts blocked, both typography-sensitive existing checks, close-note state, original/no-native-anchor regressions, editor unlink and intended/fallback density.
+- `final-font-diagnostic.json`: separate browser diagnostics confirmed actual loaded Barlow/Barlow Condensed faces and request timings; native-anchoring-disabled delta stays 0.406 -> 0.406px with both motion modes at 390x900, viewed set and focused field retained. The original historical 3px observation's precise font/settlement cause is not claimed to have been reconstructed.
+
+The final unit/browser/build gate is recorded below. No physical phone, real OS text zoom, Safari/Firefox, deployment or production verification is claimed. Existing user phone checks remain `pending (user)`; Task 9 remains conditional on a user phone-failure report, which is absent.
+
+
+### Final correction and gate (2026-11-14)
+
+Source commits: `6aae2ca` (consolidated fixes and deterministic test typography), `22720d6` (keyboard departure correction). Source stayed frozen during the final complete browser run.
+
+The first complete intended-font run exposed a resize race (`674 passed, 1 failed, 7 skipped`, `final-full-e2e-before-resize-fix.log`): geometry had reached another set before the scroll rAF published its viewed ref. A deterministic same-turn scroll/height-measurement regression failed with s1 instead of s2 before the fix (`final-resize-race-red.log`). Height measurement now synchronizes the set actually in view before changing geometry, only when enabled, unsuspended, previously measured and not already measuring; a held note anchor still protects note growth. The original resize case passed ten unchanged repeats before this deterministic reproduction; those repeats were not used to waive the failure.
+
+Scoped review then found that Tab could leave the exercise-note editor while its temporary anchor remained held. Actual browser Tab focused a warm-up button above the feed after the refit (top -91/-89px vs feed top 186px). The new check failed in both motion modes (`final-keyboard-red.log`, 2 failed/2 passed). Non-composing Tab now releases the hold before native focus moves; Shift+Tab is covered too. Ordinary editing/composition keys retain their hold. The four checks assert caret/selection and stable position for ArrowRight before leaving, then correct visible keyboard focus for Tab/Shift+Tab in both motion modes. These are browser/synthetic-keyboard checks, not hardware IME verification. `final-keyboard-affected.log`: 110 passed (1.5m).
+
+Final commands on `22720d6`:
+
+- `npm.cmd test`: **exit 0, 497 passed, 0 failed**, 10775.7793ms (`final-npm-test.log`).
+- `npm.cmd run test:e2e`: **exit 0, 680 passed, 7 pre-existing skipped (12.7m)**, 687 total (`final-full-e2e.log`). All 21 original failures, the original resize failure and every new regression passed. Entire-log failure/timeout scan is empty; no assertion tolerance was increased and no test newly skipped.
+- `npm.cmd run build`: **exit 0**, `Built public assets.` (`final-build.log`).
+- `git diff --check`: exit 0.
+
+An intermediate complete run before the final keyboard correction was stopped at 382/683 checks with no failures; `final-full-e2e-before-keyboard-partial.log` is explicitly a partial baseline, not a full result. Earlier unit runs twice hit existing Windows SQLite cleanup `EBUSY` at `test/repository.test.js:30` (496 passed/1 failed; logs `final-npm-test-concurrent-failure.log` and `final-npm-test-isolated-cleanup-failure.log`). A focused repository rerun passed 3/3, and the final unchanged unit run passed 497/497. No repository/dependency or cleanup-test changes were made; this intermittent environment issue remains disclosed in the detailed report.
+
+Physical-phone momentum pinning, long travel/snapping, scrub comfort and native page-scroll suppression remain `pending (user)`. No deployment or production verification. Task 9 remains conditional on the absent user phone-failure report.
