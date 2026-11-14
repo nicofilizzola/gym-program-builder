@@ -20,15 +20,7 @@ export function groupByLocalDate(summaries) {
 
 const sourceText=source=>source?.kind==='program'?`${source.programName} · ${source.templateName}`:source?.kind==='template'?source.templateName:'Blank';
 
-/** History of finished workouts, newest first, with an optional unsynced local workout on top. */
-export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:initialError='',onLoadMore,onStart,onOpen,workoutHref}) {
-  const page=document.createElement('section');page.className='workout-history';
-  page.innerHTML='<header class="library-heading"><h1>Workouts</h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-start>'+actionIcon('start')+'Start workout</button></div></header><div data-pending></div><div data-groups></div><p class="empty" data-empty hidden>No workouts yet. Start one from a program, a session template or a blank workout.</p><p class="error" role="alert" data-error></p><div class="workout-history-more"><button type="button" class="secondary-btn" data-more hidden>Load more</button></div>';
-  const groupsHost=page.querySelector('[data-groups]'),pendingHost=page.querySelector('[data-pending]'),empty=page.querySelector('[data-empty]'),
-    more=page.querySelector('[data-more]'),error=page.querySelector('[data-error]'),events=new AbortController(),{signal}=events;
-  let loaded=[...records],more_=hasMore,destroyed=false,loading=false;
-
-  function row(item,{unsynced=false}={}) {
+export function historyRow(item,{unsynced=false,titleTag='h3',onOpen,workoutHref,signal}) {
     const li=document.createElement('li');li.className='workout-history-row';
     const started=new Date(item.startedAt),finished=item.finishedAt?new Date(item.finishedAt):null;
     const link=document.createElement('a');link.href=workoutHref(item.id);link.textContent=item.name;
@@ -36,7 +28,7 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
       if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
       event.preventDefault();onOpen(item.id);
     },{signal});
-    const title=document.createElement('h3');title.append(link);
+    const title=document.createElement(titleTag);title.append(link);
     const meta=document.createElement('p');meta.className='workout-history-meta';
     const parts=[sourceText(item.source),started.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}),
       ...(finished?[formatElapsed(finished-started)]:[]),`${item.doneSets} ${item.doneSets===1?'set':'sets'}`];
@@ -46,6 +38,16 @@ export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:ini
     li.append(meta);
     return li;
   }
+
+/** History of finished workouts, newest first, with an optional unsynced local workout on top. */
+export function mountWorkoutHistory(root,{records,hasMore,pending=null,error:initialError='',onLoadMore,onStart,onOpen,workoutHref}) {
+  const page=document.createElement('section');page.className='workout-history';
+  page.innerHTML='<header class="library-heading"><h1>Workouts</h1><div class="toolbar library-toolbar"><button type="button" class="add-btn" data-start>'+actionIcon('start')+'Start workout</button></div></header><div data-pending></div><div data-groups></div><p class="empty" data-empty hidden>No workouts yet. Start one from a program, a session template or a blank workout.</p><p class="error" role="alert" data-error></p><div class="workout-history-more"><button type="button" class="secondary-btn" data-more hidden>Load more</button></div>';
+  const groupsHost=page.querySelector('[data-groups]'),pendingHost=page.querySelector('[data-pending]'),empty=page.querySelector('[data-empty]'),
+    more=page.querySelector('[data-more]'),error=page.querySelector('[data-error]'),events=new AbortController(),{signal}=events;
+  let loaded=[...records],more_=hasMore,destroyed=false,loading=false;
+
+  const row=(item,options={})=>historyRow(item,{...options,onOpen,workoutHref,signal});
 
   function render() {
     const focused=document.activeElement,href=groupsHost.contains(focused)||pendingHost.contains(focused)?focused.closest('a')?.getAttribute('href'):null;
