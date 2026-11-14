@@ -1,6 +1,6 @@
 import {answerNextConfirmation} from './confirmation-helper.js';
 import {test,expect} from '@playwright/test';
-import {login,createLinkedTemplate,saveFinishedLog,resetWorkouts} from './workout-helper.js';
+import {login,createLinkedTemplate,saveFinishedLog,resetWorkouts,openStartSheet} from './workout-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 test('feedback identity and focused recovery survive responsive moves',async({page})=>{
  await login(page);const {id}=await createLinkedTemplate(page,'Feedback');await page.goto('/#/templates/'+id);
@@ -35,7 +35,7 @@ test('finished logger uses shared heading feedback and active logger keeps owned
  await page.goto('/#/workouts/'+id);
  await expect(page.locator('.logger-header [data-testid=save-status]')).toBeVisible();
  await expect(page.locator('.logger-status')).not.toBeVisible();
- await page.goto('/#/workouts');await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await page.goto('/#/home');await openStartSheet(page);
  await page.getByRole('button',{name:'Blank workout',exact:true}).click();
  await expect(page.locator('.logger-status')).toBeVisible();
  await expect(page.getByTestId('save-status')).not.toBeVisible();

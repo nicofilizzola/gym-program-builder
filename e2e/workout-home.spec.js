@@ -14,14 +14,14 @@ async function program(page){
  await page.request.put('/api/settings/active-program',{headers,data:{programId:id}});
  return {id,templateId};
 }
-test('mobile defaults to Home, history stays separate and explicit routes survive resize',async({page})=>{
+test('mobile defaults to Home with History and explicit routes survive resize',async({page})=>{
  await page.goto('/');await expect(page.getByRole('heading',{name:'Your training'})).toBeVisible();
  const names=await nav(page).getByRole('link').evaluateAll(links=>links.map(link=>link.innerText.trim()));
- expect(names).toEqual(['Home','Library','History','User']);
+ expect(names).toEqual(['Home','Library','User']);
  await expect(nav(page).getByRole('link',{name:'Home',exact:true})).toHaveAttribute('aria-current','page');
- const box=await nav(page).getByRole('link',{name:'Home',exact:true}).boundingBox();expect(box.x+box.width/2).toBeCloseTo(390/8,0);
+ const box=await nav(page).getByRole('link',{name:'Home',exact:true}).boundingBox();expect(box.x+box.width/2).toBeCloseTo(390/6,0);
  await expect(page.locator('.home-history h2')).toHaveText('History');
- await nav(page).getByRole('link',{name:'History',exact:true}).click();await expect(page).toHaveURL(/#\/workouts$/);
+ await page.setViewportSize({width:1366,height:768});await page.goto('/#/workouts');await expect(page).toHaveURL(/#\/workouts$/);
  await page.setViewportSize({width:1366,height:768});await expect(page).toHaveURL(/#\/workouts$/);
  await expect(nav(page).getByRole('link',{name:'Workouts',exact:true})).toBeVisible();await expect(nav(page).getByRole('link',{name:'Home',exact:true})).toBeHidden();
  await page.goto('/');await expect(page.getByRole('heading',{name:'Programs',exact:true})).toBeVisible();

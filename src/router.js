@@ -1,4 +1,5 @@
 export function resolveEntryHash(hash,{mobile=false}={}){
+ if(mobile&&hash==='#/workouts')return '#/home?section=history';
  return ['', '#', '/', '#/'].includes(String(hash||''))?(mobile?'#/home':'#/programs'):hash;
 }
 export function parseRoute(hash) {
@@ -11,7 +12,7 @@ export function parseRoute(hash) {
   if(/^#?\/catalog$/.test(hash))return {view:'catalog'};
   if(/^#?\/profile$/.test(hash))return {view:'profile'};
   if(/^#?\/user$/.test(hash))return {view:'user'};
-  if(/^#?\/home$/.test(hash))return {view:'home'};
+  if(/^#?\/home$/.test(hash))return {view:'home',...(new URLSearchParams(query).get('section')==='history'?{section:'history'}:{})};
   if(/^#?\/workouts$/.test(hash))return {view:'workouts'};
   const log=/^#?\/workouts\/([\w-]+)$/.exec(hash);
   if(log)return {view:'workout',id:log[1]};

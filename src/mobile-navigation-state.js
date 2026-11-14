@@ -1,12 +1,12 @@
 import {parseRoute} from './router.js';
 
-export const MOBILE_DESTINATIONS=Object.freeze(['home','library','history','user']);
-const roots={home:'#/home',history:'#/workouts',user:'#/user'};
+export const MOBILE_DESTINATIONS=Object.freeze(['home','library','user']);
+const roots={home:'#/home',user:'#/user'};
 const libraryRoot=view=>view.startsWith('catalog')?'#/catalog':view==='template'||view==='templates'?'#/templates':'#/programs';
 export function destinationFor(hash){
  const {view}=parseRoute(hash);
  if(['programs','program','program-workout','templates','template','catalog','catalog-reference','catalog-variant','catalog-tags'].includes(view))return 'library';
- if(['workouts','workout'].includes(view))return 'history';
+ if(['workouts','workout'].includes(view))return 'home';
  if(['user','profile'].includes(view))return 'user';
  return view==='home'?'home':null;
 }

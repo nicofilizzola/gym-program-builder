@@ -1,6 +1,10 @@
 import {expect} from '@playwright/test';
 export const headers={origin:'http://127.0.0.1:3199'};
 
+export async function openStartSheet(page){
+ await page.locator('.home-alternative:not([hidden]), .home-start:not([hidden])').filter({hasText:/^Choose (another workout|a workout)$/}).click();
+}
+
 export async function login(page){
  await page.goto('/');await page.getByLabel('Password',{exact:true}).fill('test-password');
  await page.getByRole('button',{name:'Sign in',exact:true}).click();

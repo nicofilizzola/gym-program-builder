@@ -19,7 +19,7 @@ export function createMobilePageTransition({app,stage,navigation,media,reduced})
  function layer(kind,saved,hash){
   const node=document.createElement('div');node.className='mobile-page-layer';node.dataset.pageLayer=kind;
   if(saved?.width===innerWidth)node.append(saved.node.cloneNode(true));
-  else{const loading=document.createElement('div');loading.className='mobile-page-loading';const h=document.createElement('h2');h.textContent=({home:'Home',library:'Library',history:'History',user:'User'})[destinationFor(hash)];const p=document.createElement('p');p.textContent='Loading…';loading.append(h,p);node.append(loading);}
+  else{const loading=document.createElement('div');loading.className='mobile-page-loading';const h=document.createElement('h2');h.textContent=({home:'Home',library:'Library',user:'User'})[destinationFor(hash)];const p=document.createElement('p');p.textContent='Loading…';loading.append(h,p);node.append(loading);}
   stage.append(node);return node;
  }
  function update(offset){

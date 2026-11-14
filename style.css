@@ -78,7 +78,7 @@
 .home-feedback [role=status] { color:var(--muted); }
 .home-feedback button { min-height:44px; margin:0 8px 0 0; }
 .home-feedback p:empty { display:none; }
-.home-history { padding:8px 4px 0; }
+.home-history { padding:8px 4px 0; min-height:calc(100dvh - var(--home-shell-height) - var(--tab-bar-height)); }
 .home-history h2 { margin:0 0 8px; font:600 20px/1.2 var(--font-body); text-transform:none; scroll-margin-top:var(--home-shell-height); }
 .home-history-status p { margin:0 0 8px; color:var(--muted); }
 .home-history-end { min-height:44px; display:grid; place-items:center; }
@@ -2393,14 +2393,14 @@ body {padding-bottom:var(--tab-bar-height)}
  .app-header nav [data-nav=workouts] {order:4}
 }
 @media (max-width:760px) {
-  .app-header nav [data-nav=programs],.app-header nav [data-nav=templates],.app-header nav [data-nav=catalog],.save-controls #profile,.save-controls #logout {display:none}
+  .app-header nav [data-nav=programs],.app-header nav [data-nav=templates],.app-header nav [data-nav=catalog],.app-header nav [data-nav=workouts],.save-controls #profile,.save-controls #logout {display:none}
   .app-header nav [data-nav=library],.app-header nav [data-nav=user] {display:flex}
   /* 56px, growing with enlarged text: 24px icon + 2px gap + one 0.9rem label line + 8px padding. */
   :root {--tab-bar-height:calc(max(56px, 34px + .9rem) + env(safe-area-inset-bottom,0px))}
   .app-header {min-height:48px;padding:2px 12px;flex-wrap:nowrap;gap:8px}
   .save-controls {flex:1 1 auto;min-width:0;gap:8px}
   .save-controls #profile {margin-left:auto}
-  .app-header nav {position:fixed;right:0;bottom:0;left:0;z-index:21;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;height:var(--tab-bar-height);padding:0 0 env(safe-area-inset-bottom,0px);border-top:1px solid var(--border);background:var(--surface);transition:transform 150ms ease-out}
+  .app-header nav {position:fixed;right:0;bottom:0;left:0;z-index:21;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;height:var(--tab-bar-height);padding:0 0 env(safe-area-inset-bottom,0px);border-top:1px solid var(--border);background:var(--surface);transition:transform 150ms ease-out}
   .app-header nav [data-nav=home] {display:flex}
   .app-header nav a {position:relative;flex-direction:column;justify-content:center;gap:2px;min-width:0;min-height:0;padding:4px 2px;border:0;border-radius:0;background:none;font-size:.75rem;font-weight:600;line-height:1.2;text-align:center}
   .app-header nav a span {max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

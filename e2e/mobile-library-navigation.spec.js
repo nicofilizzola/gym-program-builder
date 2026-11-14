@@ -2,9 +2,9 @@ import {test,expect} from '@playwright/test';
 import {login,resetWorkouts} from './workout-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 const main=page=>page.getByRole('navigation',{name:'Main'});
-test('four mobile destinations are links and Library selects canonical sections',async({page})=>{
+test('three mobile destinations are links and Library selects canonical sections',async({page})=>{
  await login(page);
- expect(await main(page).getByRole('link').evaluateAll(links=>links.filter(a=>a.getClientRects().length).map(a=>a.innerText.trim()))).toEqual(['Home','Library','History','User']);
+ expect(await main(page).getByRole('link').evaluateAll(links=>links.filter(a=>a.getClientRects().length).map(a=>a.innerText.trim()))).toEqual(['Home','Library','User']);
  await main(page).getByRole('link',{name:'Library',exact:true}).click();
  await expect(page).toHaveURL(/#\/programs$/);
  for(const [name,path] of [['Templates','templates'],['Exercises','catalog'],['Programs','programs']]){

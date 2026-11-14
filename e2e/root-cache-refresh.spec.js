@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {login,headers,resetWorkouts} from './workout-helper.js';
+import {login,headers,resetWorkouts,openStartSheet} from './workout-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 const nav=(page,name)=>page.getByRole('navigation',{name:'Main'}).getByRole('link',{name,exact:true});
 test('cached rows remain usable during a held refresh and changed rows preserve focus',async({page})=>{
@@ -97,7 +97,7 @@ test('refresh failure on a long list stays in view above the tab bar and the act
  await page.route('**/api/documents?kind=program',route=>route.fulfill({status:503,json:{error:{message:'Unavailable'}}}));
  await nav(page,'Library').click();await expectFeedbackAboveBars(page);
  await page.unroute('**/api/documents?kind=program');
- await nav(page,'History').click();await page.getByRole('button',{name:'Start workout',exact:true}).click();
+ await nav(page,'Home').click();await openStartSheet(page);
  await page.getByRole('dialog').getByRole('button',{name:'Blank workout',exact:true}).click();
  await expect(page.locator('.logger-title')).toBeVisible();
  await nav(page,'Library').click();await expect(page.getByRole('region',{name:'Active workout'})).toBeVisible();

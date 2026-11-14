@@ -1,6 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parseRoute,resolveEntryHash} from '../src/router.js';
+
+test('mobile Workouts entry opens the History section of Home',()=>{
+ assert.equal(resolveEntryHash('#/workouts',{mobile:true}),'#/home?section=history');
+ assert.equal(resolveEntryHash('#/workouts'),'#/workouts');assert.equal(resolveEntryHash('#/workouts/w',{mobile:true}),'#/workouts/w');
+ assert.deepEqual(parseRoute('#/home?section=history'),{view:'home',section:'history'});
+ for(const hash of ['#/home','#/home?section=unknown','#/home?other=history'])assert.deepEqual(parseRoute(hash),{view:'home'});
+});
 test('empty entry chooses device home without changing explicit deep links',()=>{
  for(const hash of ['','#','/','#/']){
   assert.equal(resolveEntryHash(hash,{mobile:true}),'#/home');

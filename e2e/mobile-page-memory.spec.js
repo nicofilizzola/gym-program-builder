@@ -17,16 +17,16 @@ test('History restores cached extent before scroll and retains it when refresh f
  const records=Array.from({length:50},(_,i)=>({id:'memory-'+i,name:'History row '+i,startedAt:new Date(Date.UTC(2026,10,6,12)-i*3600000).toISOString(),finishedAt:new Date(Date.UTC(2026,10,6,13)-i*3600000).toISOString(),source:{kind:'blank'},doneSets:3}));
  await page.route('**/api/workouts',r=>r.fulfill({json:{records:records.slice(0,25),hasMore:true}}));
  await page.route('**/api/workouts?*',r=>r.fulfill({json:{records:records.slice(25),hasMore:false}}));
- await main(page).getByRole('link',{name:'History',exact:true}).click();await page.getByRole('button',{name:'Load more',exact:true}).click();
+ await main(page).getByRole('link',{name:'User',exact:true}).click();await main(page).getByRole('link',{name:'Home',exact:true}).click();await expect(page.locator('.home-history .workout-history-row')).toHaveCount(25);await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await expect(page.locator('.home-history .workout-history-row')).toHaveCount(50);
  await page.getByRole('link',{name:'History row 40',exact:true}).scrollIntoViewIfNeeded();
  const saved=await page.evaluate(()=>scrollY);
- await main(page).getByRole('link',{name:'User',exact:true}).click();await main(page).getByRole('link',{name:'History',exact:true}).click();
+ await main(page).getByRole('link',{name:'User',exact:true}).click();await main(page).getByRole('link',{name:'Home',exact:true}).click();
  await expect(page.getByRole('link',{name:'History row 40',exact:true})).toBeVisible();
  expect(Math.abs(await page.evaluate(()=>scrollY)-saved)).toBeLessThanOrEqual(2);
  await main(page).getByRole('link',{name:'User',exact:true}).click();
  await page.unroute('**/api/workouts');await page.route('**/api/workouts',r=>r.fulfill({status:503,json:{error:{message:'History unavailable'}}}));
- await main(page).getByRole('link',{name:'History',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Workouts',exact:true})).toBeVisible();await expect(page.locator('.root-page-feedback')).toContainText("Couldn't refresh. Showing previously loaded data.");await expect(page.getByRole('link',{name:'History row 40',exact:true})).toBeVisible();
+ await main(page).getByRole('link',{name:'Home',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Your training',exact:true})).toBeVisible();await expect(page.locator('.home-history-status')).toContainText("Couldn't refresh. Showing previously loaded data.");await expect(page.getByRole('link',{name:'History row 40',exact:true})).toBeVisible();
 });
 test('Back and Forward preserve each root departure scroll independently',async({page})=>{
  await login(page);
@@ -36,10 +36,10 @@ test('Back and Forward preserve each root departure scroll independently',async(
  await page.route('**/api/workouts',r=>r.fulfill({json:{records,hasMore:false}}));
  await page.goto('/#/programs');await expect(page.locator('.library-item')).toHaveCount(30);
  await page.evaluate(()=>scrollTo(0,1000));
- await main(page).getByRole('link',{name:'History',exact:true}).click();await expect(page.locator('.workout-history-row')).toHaveCount(30);
+ await main(page).getByRole('link',{name:'Home',exact:true}).click();await expect(page.locator('.workout-history-row')).toHaveCount(30);
  await page.evaluate(()=>scrollTo(0,500));
  await page.goBack();await expect(page).toHaveURL(/#\/programs$/);await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
  await expect.poll(()=>page.evaluate(()=>Math.abs(scrollY-1000))).toBeLessThanOrEqual(2);
- await page.goForward();await expect(page).toHaveURL(/#\/workouts$/);await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
+ await page.goForward();await expect(page).toHaveURL(/#\/home$/);await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');
  await expect.poll(()=>page.evaluate(()=>Math.abs(scrollY-500))).toBeLessThanOrEqual(2);
 });

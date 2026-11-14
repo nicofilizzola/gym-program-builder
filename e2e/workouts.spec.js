@@ -1,6 +1,13 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate,saveFinishedLog} from './workout-helper.js';
 
+test('desktop keeps its four links and Workouts current on a workout',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await login(page);await resetWorkouts(page);
+ const {id}=await saveFinishedLog(page,{name:'Desktop navigation',startedAt:Date.now()});await page.goto('/#/workouts/'+id);
+ const nav=page.getByRole('navigation',{name:'Main'});expect(await nav.locator('a:visible').evaluateAll(links=>links.map(link=>link.innerText.trim()))).toEqual(['Programs','Session templates','Exercise catalog','Workouts']);
+ await expect(nav.getByRole('link',{name:'Workouts',exact:true})).toHaveAttribute('aria-current','page');
+});
+
 test('a failed older page keeps the desktop rows and refresh message',async({page})=>{
  await login(page);await resetWorkouts(page);
  for(let i=0;i<45;i++)await saveFinishedLog(page,{name:'Session '+i,startedAt:Date.now()-i*86400000});

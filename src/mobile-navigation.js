@@ -1,5 +1,6 @@
 import {actionIcon} from './action-controls.js';
-import {destinationFor,isSwipeRoot} from './mobile-navigation-state.js';
+import {destinationFor} from './mobile-navigation-state.js';
+import {parseRoute} from './router.js';
 
 export function mountMobileNavigation(nav,{state,onNavigate}){
  const media=matchMedia('(max-width:760px)'),events=new AbortController();
@@ -10,8 +11,7 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
  let current=location.hash,lastMobile=media.matches,lastFocused=null,geometry=new Map();
  document.addEventListener('focusin',event=>{lastFocused=nav.contains(event.target)?event.target:null;},{signal:events.signal});
  nav.addEventListener('focusout',()=>{if(lastMobile===media.matches)lastFocused=null;},{signal:events.signal});
- const key=dest=>dest==='history'?'workouts':dest;
- function position(dest){if(geometry.has(dest))return geometry.get(dest);const a=links.get(key(dest)),r=a?.getBoundingClientRect(),n=nav.getBoundingClientRect();const value=r?{left:r.left-n.left+r.width*.25,width:r.width*.5}:null;geometry.set(dest,value);return value;}
+ function position(dest){if(geometry.has(dest))return geometry.get(dest);const a=links.get(dest),r=a?.getBoundingClientRect(),n=nav.getBoundingClientRect();const value=r?{left:r.left-n.left+r.width*.25,width:r.width*.5}:null;geometry.set(dest,value);return value;}
  function preview({from,to,progress}){
   const a=position(from),b=position(to);if(!a||!b)return;
   indicator.style.transform='translateX('+(a.left+(b.left-a.left)*progress)+'px)';
@@ -21,8 +21,9 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
  function commit(hash,{preservePreview=false}={}){
   current=hash;state.commit(hash);links.get('library').href=state.href('library');
   const dest=destinationFor(hash);
+  const desktop=['workouts','workout'].includes(parseRoute(hash).view)?'workouts':dest==='library'?(hash.startsWith('#/catalog')?'catalog':hash.startsWith('#/templates')?'templates':'programs'):dest;
   for(const [name,a] of links){
-   const selected=media.matches?name===key(dest):name===({library:hash.startsWith('#/catalog')?'catalog':hash.startsWith('#/templates')?'templates':'programs',history:'workouts'}[dest]??dest);
+   const selected=name===(media.matches?dest:desktop);
    if(selected)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
   }
   if(!preservePreview)resetPreview();
@@ -30,7 +31,7 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
  function arrange(){
   const changed=lastMobile!==media.matches;lastMobile=media.matches;
   const focused=changed&&document.activeElement===document.body?lastFocused:document.activeElement,had=Boolean(focused&&nav.contains(focused));
-  for(const name of media.matches?['home','library','workouts','user','programs','templates','catalog']:['programs','templates','catalog','workouts','home','library','user'])nav.append(links.get(name));
+  for(const name of media.matches?['home','library','user','workouts','programs','templates','catalog']:['programs','templates','catalog','workouts','home','library','user'])nav.append(links.get(name));
   nav.append(indicator);commit(current);
   if(had){
    const target=focused.getClientRects().length?focused:[...nav.querySelectorAll('[aria-current=page]')].find(a=>a.getClientRects().length)||document.querySelector('#app h1')||links.get(media.matches?'home':'programs');
@@ -40,7 +41,9 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
  }
  nav.addEventListener('click',event=>{
   const a=event.target.closest('[data-nav]');if(!a||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-  event.preventDefault();onNavigate(a.hash);
+  event.preventDefault();
+  if(media.matches&&a.dataset.nav==='home'&&parseRoute(current).view==='home'){window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});return;}
+  onNavigate(a.hash);
  },{signal:events.signal});
  media.addEventListener('change',arrange,{signal:events.signal});
  const resize=new ResizeObserver(resetPreview);resize.observe(nav);arrange();
