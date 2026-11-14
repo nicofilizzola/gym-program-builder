@@ -3,6 +3,20 @@ import {MUSCLE_GROUPS} from './muscles.js';
 export const CATALOG_NAME_MAX=200;
 export const EQUIPMENT=['Barbell','Dumbbell','Cable','Machine','Bodyweight','Kettlebell','Resistance band','Other'];
 export const normalizeSearch=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim();
+export function variantTagIds(entry){
+ return [entry.brandId??entry.brand?.id,...(entry.focusTagIds??entry.focusTags?.map(t=>t.id)??[])].filter(Boolean).sort();
+}
+export function variantConflict(a,b){return normalizeSearch(a.name)===normalizeSearch(b.name)&&JSON.stringify(variantTagIds(a))===JSON.stringify(variantTagIds(b));}
+const tagName=tag=>typeof tag==='string'?tag:tag?.name||'';
+export function variantLabels(items){
+ const identity=e=>JSON.stringify([normalizeSearch(tagName(e.brand)),(e.focusTags||[]).map(t=>normalizeSearch(tagName(t))).sort()]);
+ const names=new Map();
+ for(const e of items){const name=normalizeSearch(e.name);if(!names.has(name))names.set(name,new Set());names.get(name).add(identity(e));}
+ return items.map(e=>names.get(normalizeSearch(e.name)).size>1?[e.name,tagName(e.brand),...(e.focusTags||[]).map(tagName)].filter(Boolean).join(' · '):e.name);
+}
+export function compareVariants(a,b){
+ return a.name.localeCompare(b.name)||tagName(a.brand).localeCompare(tagName(b.brand))||(a.focusTags||[]).map(tagName).join(' · ').localeCompare((b.focusTags||[]).map(tagName).join(' · '))||a.id.localeCompare(b.id);
+}
 export function catalogSearchText(entry,reference){return normalizeSearch([entry.name,reference?.name||entry.familyName,entry.equipment,typeof entry.brand==='string'?entry.brand:entry.brand?.name,...(entry.focusTags||[]).map(t=>typeof t==='string'?t:t.name)].filter(Boolean).join(' '));}
 export function descriptionText(value=''){
  if(typeof value!=='string'||value.length>2000)throw Error('Description must be at most 2,000 characters.');

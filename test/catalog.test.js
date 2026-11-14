@@ -27,3 +27,25 @@ test('explicit seed reruns never overwrite edited or archived catalog entries',a
     await seedCatalog(db);const found=await db.execute({sql:'SELECT name,archived FROM catalog_entries WHERE id=?',args:[id]});assert.equal(found.rows[0].name,'My edited exercise');assert.equal(Number(found.rows[0].archived),1);
   }finally{db.close();}
 });
+
+test('variantConflict needs the same name and the same tags',()=>{
+ const v=(name,brandId=null,focusTagIds=[])=>({name,brandId,focusTagIds});
+ assert.equal(catalog.variantConflict(v('Chest press'),v(' chést PRESS ')),true);
+ assert.equal(catalog.variantConflict(v('Chest press'),v('Chest press','hammer')),false);
+ assert.equal(catalog.variantConflict(v('Chest press','hammer'),v('Chest press','technogym')),false);
+ assert.equal(catalog.variantConflict(v('Chest press','hammer',['a','b']),v('Chest press','hammer',['b','a'])),true);
+ assert.equal(catalog.variantConflict(v('Chest press','hammer',['a']),v('Chest press','hammer')),false);
+ assert.equal(catalog.variantConflict({name:'Chest press',brand:{id:'hammer'},focusTags:[{id:'a'}]},v('Chest press','hammer',['a'])),true);
+ assert.equal(catalog.variantConflict(v('Chest press'),v('Incline press')),false);
+});
+test('variantLabels add tags only where names collide',()=>{
+ assert.deepEqual(catalog.variantLabels([{name:'Chest press',brand:'Hammer'},{name:'Lateral raise',brand:'Hammer'}]),['Chest press','Lateral raise']);
+ assert.deepEqual(catalog.variantLabels([{name:'Chest press',brand:'Hammer',focusTags:['Stretch']},{name:'chest press',brand:{name:'Technogym'}},{name:'Chest press'}]),['Chest press · Hammer · Stretch','chest press · Technogym','Chest press']);
+ assert.deepEqual(catalog.variantLabels([{name:'Chest press',brand:'Hammer'},{name:'Chest press',brand:'Hammer'},{name:'Chest press',brand:'Technogym'}]),['Chest press · Hammer','Chest press · Hammer','Chest press · Technogym']);
+ assert.deepEqual(catalog.variantLabels([{name:'Chest press',brand:'Hammer'},{name:'Chest press',brand:'Hammer'}]),['Chest press','Chest press']);
+});
+test('compareVariants keeps same-name variants together',()=>{
+ const e=(id,name,brand=null,focus=[])=>({id,name,brand:brand&&{name:brand},focusTags:focus.map(name=>({name}))});
+ const list=[e('4','Chest press','Technogym'),e('2','Chest press','Hammer',['Stretch']),e('1','Chest press'),e('5','Arm curl'),e('3','Chest press','Hammer')];
+ assert.deepEqual(list.sort(catalog.compareVariants).map(x=>x.id),['5','1','3','2','4']);
+});
