@@ -12,7 +12,8 @@ Implemented locally; not deployed.
 - Task 2: seven new server/migration/move tests failed before implementation, then passed. Full unit suite: 514 passing, including catalog and reference APIs.
 - Task 3: grouping and search tests demonstrated incorrect ID-based ordering; browser checks demonstrated missing conflict focus. After implementation, 516 unit tests and 28 catalog/form/reference browser tests passed. Create and edit refusals retain name, brand and muscles without recovery buttons; creating from a variant succeeds after adding a focus tag; picker options announce tags.
 - Task 4: recap and move preview tests failed on missing labels before implementation, then all 22 recap/reference browser checks passed.
-- Final unit suite: 516 passing. Build: passed. Full browser suite: 706 passed, 7 skipped, 0 failed (13.8 minutes).
+- Final unit suite: 516 passing. Build: passed. Full browser suite: 706 passed, 7 skipped, 0 failed (13.8 minutes). The seven existing skips are regular phone tracker/note cases replaced by Focus coverage.
+- A repeated final unit run stalled in the existing file-backed repository test. Stopped its owned processes; the isolated repository tests passed 3/3 and the full unit rerun passed 516/516. No repository behavior was changed.
 
 ## Migration rehearsal
 
@@ -50,3 +51,9 @@ No additional name-only exercise lists required changes.
 ## Browser inspection
 
 Inspected catalog and open picker screenshots at 390×844 touch and 1366×768 fine-pointer/touch, each at default and 200% text. Three same-name variants remain adjacent (untagged, Hammer, Technogym), brand text wraps, and no page has horizontal overflow. Enlarged pickers scroll to reach remaining options. These are Chromium emulation checks, not physical-device verification.
+
+## Independent branch review
+
+Reviewed the complete acd71c2..19e9df5 diff and connected server, API, form, picker, metadata, propagation and recap flows. Review Focus 1–5 satisfied; no Critical, Important or Minor findings. Verdict: ready to merge.
+
+The reviewer set aside unchanged contextual action and replacement-confirmation names. Decision: preserve these names because they are not independent collision lists and their surrounding selection flows already show tag metadata, as specified in §3. Cost if wrong: a future contextual wording adjustment.
