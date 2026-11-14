@@ -1,3 +1,4 @@
+import {variantLabels} from './catalog.js';
 import {mountWorkoutNote} from './workout-note.js';
 import {formatElapsed} from './workout-sets.js';
 import {actionIcon} from './action-controls.js';
@@ -39,10 +40,11 @@ export function mountWorkoutRecap(host,{state,planned=new Map(),onDone=()=>{},on
   eyebrow.textContent=current.record?'Workout complete':'Workout finished';
   summary.textContent=[log.name,minutes].filter(Boolean).join(' · ');
   sync.textContent=syncLine(current);statusSlot.hidden=Boolean(current.record);
-  list.replaceChildren(...log.exercises.map(ex=>{
+  const labels=variantLabels(log.exercises);
+  list.replaceChildren(...log.exercises.map((ex,i)=>{
    const logged=working(ex).length,total=Math.max(planned.get(ex.id)??logged,logged),row=el('li','recap-exercise'),icon=el('span','recap-icon');
    icon.setAttribute('aria-hidden','true');icon.innerHTML=logged===total?actionIcon('check'):'';
-   const text=el('div','recap-exercise-text'),name=el('span','recap-exercise-name',ex.name);
+   const text=el('div','recap-exercise-text'),name=el('span','recap-exercise-name',labels[i]);
    text.append(name,el('small','',logged===total?`Completed · ${logged} working ${logged===1?'set':'sets'}`:`${logged} of ${total} working sets logged`));
    row.append(icon,text);return row;
   }));

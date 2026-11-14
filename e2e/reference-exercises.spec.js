@@ -218,3 +218,19 @@ test('nested catalog searches expand matches and move retains variant identity',
  const moved=await page.evaluate(async id=>(await (await fetch('/api/catalog')).json()).entries.find(e=>e.id===id),fixture.entry.id);
  expect(moved.familyId).toBe(fixture.target.id);expect(moved.primaryMuscles).toEqual(['Chest']);
 });
+
+test('the move preview tells same-name variants apart',async({page})=>{
+ await login(page);
+ const fixture=await page.evaluate(async()=>{
+  const {createApiClient}=await import('/src/api-client.js'),api=createApiClient(),suffix=crypto.randomUUID(),refs=[];
+  for(const name of ['Source '+suffix,'Press '+suffix,'Press '+suffix])refs.push(await api.createReference({id:crypto.randomUUID(),name,exerciseType:'compound',equipment:'Machine'}));
+  const create=(familyId,name,brandId=null)=>api.createCatalog({id:crypto.randomUUID(),familyId,entry:{name,brandId,primaryMuscles:['Chest'],secondaryMuscles:[]}});
+  const source=await create(refs[0].id,'Source press');
+  for(const name of ['Hammer','Technogym']){const tag=await api.createTag({id:crypto.randomUUID(),name:name+' '+suffix,kind:'brand'});await create(refs[1].id,'Chest press',tag.id);}
+  return {source,refs,suffix};
+ });
+ await openLibrarySection(page,'catalog');await page.getByLabel('Search catalog',{exact:true}).fill(fixture.refs[0].name);
+ await page.getByRole('button',{name:'Move variant Source press to reference exercise',exact:true}).click();
+ const option=page.getByRole('dialog').getByLabel('Destination reference exercise',{exact:true}).locator('option[value="'+fixture.refs[1].id+'"]');
+ await expect(option).toHaveText(fixture.refs[1].name+' — Chest press · Hammer '+fixture.suffix+', Chest press · Technogym '+fixture.suffix);
+});

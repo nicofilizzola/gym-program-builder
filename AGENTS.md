@@ -1,5 +1,15 @@
 # Gym Program Builder
 
+## Same-name variants (2026-11-12)
+
+Design: docs/superpowers/specs/2026-11-12-same-name-variants-design.md; plan: docs/superpowers/plans/2026-11-12-same-name-variants.md; evidence: docs/superpowers/verification/2026-11-12-same-name-variants.md. Implemented, not deployed.
+
+- Inside one reference exercise, a conflict needs the same normalized name and complete tag-ID set. Archived variants and tags count; tag order does not. Create, create from, edit and move check inside the write transaction, excluding the edited variant itself.
+- Exact refusal: `A variant with this name and the same tags already exists in this reference exercise, possibly archived. Change the name or a tag.` It carries `details: {field:'name', reason:'duplicate-variant'}`. The form keeps every field, focuses Variant name and offers no revision-recovery buttons for this refusal.
+- Migration 010 drops `catalog_family_name`; run it explicitly per environment, never during builds or requests. Old-index refusals map to the same conflict until it runs. Seeding skips conflicting starters. Preview and production migrations remain pending.
+- Catalog and picker variants sort by name, brand (none first), focus names, then ID; reference order stays unchanged. Name-only recap rows and move destination previews append brand then focus names with ` · ` for normalized name collisions with different tags. Untagged entries stay bare, and repeated identical entries receive identical labels. Already tagged lists stay unchanged.
+- No export/import, log schema, history, Last time, Best, volume or AI review changes. Browser emulation does not establish physical-device or production verification; Turso concurrency remains unverified.
+
 ## Home and history (2026-11-12)
 
 Design: docs/superpowers/specs/2026-11-12-home-history-design.md; plan: docs/superpowers/plans/2026-11-12-home-history.md; evidence: docs/superpowers/verification/2026-11-12-home-history.md. Implemented, not deployed. Supersedes earlier Home and mobile History/navigation rules where they conflict.
@@ -265,7 +275,7 @@ Design: docs/superpowers/specs/2026-10-25-reference-exercises-design.md; plan: d
 - A reference exercise is a named grouping, never a selectable workout exercise. Variants own equipment and muscle mappings. Reference CRUD includes independent empty-group creation, reading, rename, archive and restore.
 - Catalog groups start collapsed and search expands matches. Autocomplete shows labeled reference groups with selectable variants only; arrows follow rendered variant order and skip headings. Preserve active selection by variant ID on refresh.
 - Reference archive state is independent of individual variant archive state. Restoring a reference never restores individually archived variants. Archived references cannot receive new variants or move destinations; existing links and verified copies remain usable.
-- Moving a variant preserves identity, effective archive state, mappings and workout prescriptions, and transactionally updates reference IDs and revisions in linked snapshots. Guard source/destination/reference/impact revisions; never merge colliding variant names.
+- Moving a variant preserves identity, effective archive state, mappings and workout prescriptions, and transactionally updates reference IDs and revisions in linked snapshots. Guard source/destination/reference/impact revisions; never merge colliding variant names (same name and same tags).
 - Keep legacy familyId/table/wire names as internal compatibility identifiers. All user-facing catalog copy uses reference exercise and variant. Preserve JSON versions 1/2 and stable IDs.
 - Migration 003 adds parent archive state. Run it explicitly per environment; builds/requests never migrate or seed. Preserve prior async-save, cache, focus, layout and accessibility regressions.
 

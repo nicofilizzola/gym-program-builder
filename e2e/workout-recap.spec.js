@@ -99,3 +99,14 @@ test('desktop Finish keeps the regular navigation to History',async({page})=>{
  await finishWithOneSet(page,first);
  await expect(page).toHaveURL(/#\/workouts$/);await expect(recap(page)).toHaveCount(0);
 });
+
+test('same-name exercises read with their tags in the recap',async({page})=>{
+ await login(page);await resetWorkouts(page);
+ const exercise=(name,brand='')=>({name,brand,focusTags:[],sets:1,repRange:{min:8,max:12},restSeconds:90,primaryMuscles:['Chest'],secondaryMuscles:[]});
+ const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template:{id:'same-name',document:{name:'Same names',exercises:[exercise('Chest press','Hammer'),exercise('Chest press','Technogym'),exercise('Lateral raise')]}}});
+ for(const ex of log.exercises)Object.assign(ex.sets[0],{reps:8,done:true});
+ const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();
+ await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();
+ await page.getByRole('button',{name:'Finish',exact:true}).click();
+ await expect(recap(page).locator('.recap-exercise-name')).toHaveText(['Chest press · Hammer','Chest press · Technogym','Lateral raise']);
+});

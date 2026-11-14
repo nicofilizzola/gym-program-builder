@@ -19,6 +19,7 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
  const title=referenceName,references=createReferenceRepository(db),tags=createTagRepository(db);
  const checkRevision=(entry,revision)=>{if(!Number.isInteger(revision)||entry.revision!==revision)throw domainError('CONFLICT','This exercise changed. Reload the saved version or save your edits as a variant.');};
  const duplicateVariant=()=>Object.assign(domainError('CONFLICT','A variant with this name and the same tags already exists in this reference exercise, possibly archived. Change the name or a tag.'),{details:{field:'name',reason:'duplicate-variant'}});
+ // Local libSQL rejects overlapping write transactions instead of waiting.
  let writes=Promise.resolve();
  function write(fn){const result=writes.then(async()=>{const tx=await db.transaction('write');try{const v=await fn(tx);await tx.commit();return v;}catch(error){if(/UNIQUE/i.test(error.message)&&/catalog_family_name|catalog_entries\.family_id/.test(error.message))throw duplicateVariant();throw error;}finally{tx.close();}});writes=result.catch(()=>{});return result;}
  async function assertDistinct(tx,familyId,candidate,except=''){

@@ -1,7 +1,7 @@
 import {renderVariantMetadata} from './catalog-metadata.js';
 import {mountEquipmentPills} from './equipment-controls.js';
 import {mountMuscleChoices,mountDescriptionField} from './catalog-controls.js';
-import {validateReference} from './catalog.js';
+import {validateReference,variantLabels,compareVariants} from './catalog.js';
 import {mountDialogMotion} from './dialog-motion.js';
 import {invalidateCatalog} from './catalog-store.js';
 function modal(title,{onClosed}){
@@ -63,7 +63,7 @@ export function openVariantMove({api,entry,references,entries,onSaved=()=>{},onC
  function render(){
   const selected=destination.value;destination.replaceChildren(new Option('Choose destination',''));
   for(const ref of refs.filter(r=>!r.archived&&r.equipment&&r.id!==current.familyId).sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id))){
-   const duplicate=refs.filter(r=>r.name===ref.name).length>1,preview=variants.filter(e=>e.familyId===ref.id).slice(0,2).map(e=>e.name).join(', ')||'No variants yet';
+   const duplicate=refs.filter(r=>r.name===ref.name).length>1,preview=variantLabels(variants.filter(e=>e.familyId===ref.id).sort(compareVariants)).slice(0,2).join(', ')||'No variants yet';
    destination.add(new Option(ref.name+(duplicate?' — '+preview:''),ref.id));
   }
   if([...destination.options].some(o=>o.value===selected))destination.value=selected;
