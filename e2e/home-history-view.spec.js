@@ -64,3 +64,31 @@ test('the next page loads within one viewport height below the viewport',async({
 test('focus stays on a row link across updates',async({page})=>{
  await mount(page,ready());const link=page.locator('.workout-history-row a').nth(1);await link.focus();await update(page,ready(4));await expect(link).toBeFocused();
 });
+
+test('pagination Retry keeps its focus through loading and another failure',async({page})=>{
+ const data={records:records(3),hasMore:true};await mount(page,ready(3,{data,moreError:{message:'offline'}}));
+ const retry=page.locator('.home-history-end button');await retry.focus();await retry.evaluate(node=>window.retryNode=node);await page.keyboard.press('Enter');
+ await update(page,ready(3,{data,loadingMore:true,moreError:{message:'offline'}}));await expect(retry).toBeFocused();await expect(retry).toHaveAttribute('aria-disabled','true');await page.keyboard.press('Enter');expect(await page.evaluate(()=>window.calls.more)).toBe(1);
+ await update(page,ready(3,{data,moreError:{message:'offline'}}));await expect(retry).toBeFocused();expect(await retry.evaluate(node=>node===window.retryNode)).toBe(true);
+});
+
+test('Load more stays focused until the final page transfers focus to its first new row',async({page})=>{
+ await mount(page,ready(3,{data:{records:records(3),hasMore:true}}));const more=page.locator('.home-history-end button');await more.focus();await more.evaluate(node=>window.moreNode=node);
+ await update(page,ready(3,{data:{records:records(3),hasMore:true}}));await expect(more).toBeFocused();expect(await more.evaluate(node=>node===window.moreNode)).toBe(true);
+ await page.keyboard.press('Enter');await update(page,ready(3,{data:{records:records(3),hasMore:true},loadingMore:true}));await expect(more).toBeFocused();
+ await update(page,ready(6));await expect(page.locator('.workout-history-row a').nth(3)).toBeFocused();await expect(page.locator('.home-history-end')).toBeEmpty();
+ await page.locator('.workout-history-row a').first().focus();await update(page,ready(7));await expect(page.locator('.workout-history-row a').first()).toBeFocused();
+});
+
+test('fast pages stop loading when the appended end leaves the near-end zone',async({page})=>{
+ await page.goto('/');await page.evaluate(async records=>{
+  const {mountHomeHistory}=await import('/src/home-history-view.js'),{createHistoryPageData}=await import('/src/history-page-data.js'),{createRootResourceCache}=await import('/src/root-resource-cache.js');
+  document.body.innerHTML='<div id="fixture"></div>';window.pageCalls=0;
+  const view=mountHomeHistory(document.querySelector('#fixture'),{onOpen(){},workoutHref:id=>'#/workouts/'+id,onRetry:()=>loader.refresh(),onLoadMore:()=>loader.loadMore()});
+  const loader=createHistoryPageData({cache:createRootResourceCache(),api:{listWorkouts:async args=>{window.pageCalls++;const start=args?records.findIndex(row=>row.id===args.beforeId)+1:0;return {records:records.slice(start,start+30),hasMore:start+30<records.length};}},onState:state=>view.setState(state)});
+  window.loader=loader;loader.start();loader.settled();
+ },records(150));
+ await expect(page.locator('.workout-history-row')).toHaveCount(30);await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
+ await expect(page.locator('.workout-history-row')).toHaveCount(60);await page.waitForTimeout(100);expect(await page.evaluate(()=>window.pageCalls)).toBe(2);
+ expect((await page.locator('.home-history-end').boundingBox()).y).toBeGreaterThan(844*2);
+});

@@ -7,13 +7,15 @@ export function mountHomeHistory(root,{onOpen,workoutHref,onRetry,onLoadMore}){
  page.innerHTML='<h2 id="home-history-title" tabindex="-1">History</h2><div data-pending></div><div class="home-history-status"><p role="status"></p><button type="button" class="secondary-btn" aria-label="Retry loading history" hidden>Retry</button></div><div data-groups></div><p class="home-history-empty" hidden>No workouts yet. Your finished workouts appear here.</p><div class="home-history-end"></div>';
  root.append(page);
  const $=selector=>page.querySelector(selector),heading=$('h2'),pending=$('[data-pending]'),groups=$('[data-groups]'),status=$('[role=status]'),retry=$('button'),empty=$('.home-history-empty'),end=$('.home-history-end'),events=new AbortController();
- let state={phase:'loading'},nearEnd=false,requested=false;
+ const endStatus=document.createElement('p'),more=document.createElement('button');endStatus.setAttribute('role','status');more.type='button';more.className='secondary-btn';
+ more.addEventListener('click',()=>{if(!state.loadingMore)onLoadMore();},{signal:events.signal});
+ let state={phase:'loading'},requested=false;
  const row=(item,unsynced=false)=>historyRow(item,{unsynced,titleTag:'h4',onOpen,workoutHref,signal:events.signal});
- function autoLoad(){if(!requested&&canAutoLoad({nearEnd,phase:state.phase,hasMore:state.data?.hasMore,loadingMore:state.loadingMore,moreError:state.moreError})){requested=true;onLoadMore();}}
- const observer=new IntersectionObserver(entries=>{nearEnd=entries.at(-1).isIntersecting;autoLoad();},{rootMargin:'0px 0px 100% 0px'});
+ function autoLoad(){const rect=end.getBoundingClientRect();if(!requested&&canAutoLoad({nearEnd:rect.top<=innerHeight*2&&rect.bottom>=0,phase:state.phase,hasMore:state.data?.hasMore,loadingMore:state.loadingMore,moreError:state.moreError})){requested=true;onLoadMore();}}
+ const observer=new IntersectionObserver(autoLoad,{rootMargin:'0px 0px 100% 0px'});
  observer.observe(end);retry.addEventListener('click',onRetry,{signal:events.signal});
  function setState(next){
-  state=next;requested=false;
+  const previousCount=state.data?.records.length??0;state=next;requested=false;
   const focused=document.activeElement,href=page.contains(focused)?focused.closest('a')?.getAttribute('href'):null;
   pending.replaceChildren();groups.replaceChildren();
   if(state.pending){const list=document.createElement('ul');list.className='workout-history-list';list.append(row(state.pending,true));pending.append(list);}
@@ -25,10 +27,12 @@ export function mountHomeHistory(root,{onOpen,workoutHref,onRetry,onLoadMore}){
   status.textContent=state.error?(state.data?"Couldn't refresh. Showing previously loaded data.":'Workouts could not be loaded. Connect to see your history.'):state.phase==='loading'?'Loading…':'';
   status.hidden=!status.textContent;retry.hidden=!state.error;
   empty.hidden=state.phase!=='ready'||Boolean(state.error||state.pending||state.data?.records.length);
-  end.replaceChildren();
-  if(state.loadingMore||state.moreError){const text=document.createElement('p');text.setAttribute('role','status');text.textContent=state.loadingMore?'Loading…':"Couldn't load older workouts.";end.append(text);}
-  if(!state.loadingMore&&(state.moreError||state.data?.hasMore)){
-   const button=document.createElement('button');button.type='button';button.className='secondary-btn';button.textContent=state.moreError?'Retry':'Load more';button.addEventListener('click',onLoadMore,{signal:events.signal});end.append(button);
+  endStatus.textContent=state.loadingMore?'Loading…':state.moreError?"Couldn't load older workouts.":'';
+  if(endStatus.textContent){if(!endStatus.isConnected)end.prepend(endStatus);}else endStatus.remove();
+  more.textContent=state.moreError?'Retry':'Load more';more.setAttribute('aria-disabled',String(Boolean(state.loadingMore)));
+  if(state.moreError||state.data?.hasMore){if(!more.isConnected)end.append(more);}else{
+   more.remove();
+   if(focused===more){const links=groups.querySelectorAll('.workout-history-row a');(links[Math.min(previousCount,links.length-1)]||heading).focus({preventScroll:true});}
   }
   if(href)(page.querySelector('a[href="'+CSS.escape(href)+'"]')||heading).focus({preventScroll:true});
   autoLoad();

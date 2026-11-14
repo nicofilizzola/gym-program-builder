@@ -2,7 +2,7 @@
 
 Spec: [Home and history](../specs/2026-11-12-home-history-design.md). Plan: [Implementation plan](../plans/2026-11-12-home-history.md).
 
-Implemented locally on 2026-11-14; final regression verification in progress. Not deployed. All browser checks use Chromium emulation, not a physical phone.
+Implemented and verified locally on 2026-11-14. Not deployed. All browser checks use Chromium emulation, not a physical phone.
 
 ## Behavior covered
 
@@ -24,9 +24,19 @@ Implemented locally on 2026-11-14; final regression verification in progress. No
 - Finished-edit, offline and recap browser checks: 20 passed, covering phone and desktop Delete and desktop Finish.
 - `npm run build`: passed.
 - `npm test -- --test-concurrency=1`: **504 passed**, 0 failed. The standard parallel run passed 503 and failed only the unchanged Windows database cleanup test; isolated `node --test test/repository.test.js` passed all 3. No test was skipped and no runner configuration changed.
-- Initial complete `npm run test:e2e`: **698 passed, 7 existing skips, 2 failed**. Both failures were older phone tests expecting `#/workouts` after Finish/Done. After migrating those assertions (desktop unchanged), `npx playwright test --last-failed`: **2 passed**. Final fresh-context review and the final complete regression run are recorded below when complete.
+- Initial complete `npm run test:e2e`: **698 passed, 7 existing skips, 2 failed**. Both failures were older phone tests expecting `#/workouts` after Finish/Done. After migrating those assertions (desktop unchanged), `npx playwright test --last-failed`: **2 passed**.
+- After the review fixes, `npm test -- --test-concurrency=1`: **504 passed**, 0 failed; `npm run build`: **passed**.
+- Final complete `npm run test:e2e -- --retries=1`: **703 passed, 7 existing skips**, exit 0, **no retry used** (13.1 minutes).
 
 The unchanged SQLite repository test intermittently fails during Windows temporary-database cleanup (`EBUSY`, after a concurrent write timeout). This also occurred in the clean baseline; passing reruns and any final occurrence are recorded with the final gates. No database or server changes were made for this feature.
+
+The post-review broad browser run also hit the unchanged Catalog mutation-focus test once; that case passed the earlier full run and all **3/3** isolated repeats. The interrupted run had no Home/History regression. The final complete browser gate therefore permits one CLI retry (`npm run test:e2e -- --retries=1`), with no Catalog code, test or runner-configuration change. Any retries are reported in the final result.
+
+## Final review
+
+One fresh-context, read-only review found three Important issues and no Critical or Minor issues. All four regression cases first failed and then passed: Retry focus through loading/failure; Load more focus through updates and the final-page handoff; fast-page loading stopping outside the near-end zone; and desktop page-error feedback/Retry. The corrected History view and desktop History group passed **14/14** browser tests, followed by the successful complete regression gate above. No review findings remain open.
+
+The controls now retain their nodes and focus while loading (`aria-disabled` with a guarded action). Removing the final Load more deliberately focuses the first new row only when that control owned focus. Automatic paging measures the current list end after each render rather than trusting the previous observer delivery. Desktop maps `error || moreError` to both its existing surface and inline message. No dependencies or abstractions were added. The reviewer set aside only the unchanged Windows SQLite cleanup issue, retained with the documented serial-test workaround.
 
 ## Visual inspection
 

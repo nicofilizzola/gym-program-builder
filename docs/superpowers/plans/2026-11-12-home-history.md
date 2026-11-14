@@ -62,15 +62,15 @@
   - `loadMore()` sets `loadingMore` and publishes. On failure it sets `moreError` (never `error`) and does not retry by itself. A successful `loadMore()` or `refresh()` clears `moreError`.
   - A 401 still goes to `onAuthError`.
 
-- [ ] **Step 1: Failing unit tests** in `test/history-page-data.test.js`:
+- [x] **Step 1: Failing unit tests** in `test/history-page-data.test.js`:
   - `'a failed page reports moreError and keeps the rows'`: the cache has `history:visible` `[a]` with `hasMore:true`. `listWorkouts()` resolves `{records:[a],hasMore:true}`, and with arguments it rejects `Error('offline')`. After `start`, `settled`, `tick` and `await loadMore()`, the last state has `phase:'ready'`, `error:null`, `moreError.message:'offline'`, `loadingMore:false` and records `['a']`.
   - `'one page request at a time, published while in flight'`: a pending page promise. After `loadMore()` (not awaited), the last state has `loadingMore:true`. A second `loadMore()` makes no second request (the call count stays 1). Resolving `{records:[b],hasMore:false}` gives `loadingMore:false`, `moreError:null` and records `['a','b']`.
   - `'a retried page clears its error'`: fail once, then resolve `[b]`. After the second `await loadMore()`, `moreError` is `null`.
-- [ ] **Step 2:** Run `node --test test/history-page-data.test.js`. Expected: FAIL (no `moreError`; the failure lands in `error`).
-- [ ] **Step 3:** Implement. In `app.js:471` the desktop/History mapping uses `state.error || state.moreError` where it used `state.error`.
-- [ ] **Step 4: e2e guard** (Review Focus 4), in `e2e/workouts.spec.js` at the default desktop viewport: seed 45 finished logs as the existing paging test does, and abort requests whose URL contains `before=`. Clicking `Load more` shows `Couldn't refresh. Showing previously loaded data.` and keeps 30 rows.
-- [ ] **Step 5:** Run `npm test` and `npx playwright test e2e/workouts.spec.js`. Expected: PASS.
-- [ ] **Step 6:** Commit `feat(history): report page loads separately from refreshes`.
+- [x] **Step 2:** Run `node --test test/history-page-data.test.js`. Expected: FAIL (no `moreError`; the failure lands in `error`).
+- [x] **Step 3:** Implement. In `app.js:471` the desktop/History mapping uses `state.error || state.moreError` where it used `state.error`.
+- [x] **Step 4: e2e guard** (Review Focus 4), in `e2e/workouts.spec.js` at the default desktop viewport: seed 45 finished logs as the existing paging test does, and abort requests whose URL contains `before=`. Clicking `Load more` shows `Couldn't refresh. Showing previously loaded data.` and keeps 30 rows.
+- [x] **Step 5:** Run `npm test` and `npx playwright test e2e/workouts.spec.js`. Expected: PASS.
+- [x] **Step 6:** Commit `feat(history): report page loads separately from refreshes`.
 
 ### Task 2: The Home History section view
 
@@ -92,8 +92,8 @@
     - `p.home-history-empty`;
     - `div.home-history-end`.
 
-- [ ] **Step 1: Failing unit test**, `'canAutoLoad needs the end near, a ready list, more pages and nothing pending'`: true for `{nearEnd:true,phase:'ready',hasMore:true,loadingMore:false,moreError:null}`; false when any one of `nearEnd:false`, `phase:'loading'`, `hasMore:false`, `loadingMore:true` or `moreError:Error()` is set.
-- [ ] **Step 2: Failing e2e** in `e2e/home-history-view.spec.js`. Mount the view in the page at 390×844 (the `workout-home-view.spec.js` pattern), with `window.calls` counting `onRetry` and `onLoadMore`.
+- [x] **Step 1: Failing unit test**, `'canAutoLoad needs the end near, a ready list, more pages and nothing pending'`: true for `{nearEnd:true,phase:'ready',hasMore:true,loadingMore:false,moreError:null}`; false when any one of `nearEnd:false`, `phase:'loading'`, `hasMore:false`, `loadingMore:true` or `moreError:Error()` is set.
+- [x] **Step 2: Failing e2e** in `e2e/home-history-view.spec.js`. Mount the view in the page at 390×844 (the `workout-home-view.spec.js` pattern), with `window.calls` counting `onRetry` and `onLoadMore`.
   - `'states read in the section'`:
     - loading without data → `Loading…`, no Retry;
     - error without data → `Workouts could not be loaded. Connect to see your history.` plus `Retry loading history`, and clicking it counts one `onRetry`;
@@ -106,19 +106,19 @@
   - `'scrolling near the end loads once at a time'`: 30 rows with `hasMore`. Scroll to the bottom → 1 call. Setting `loadingMore:true` and scrolling again → still 1. A `moreError` state → no calls until Retry.
   - `'a short first page keeps loading on a tall screen'` (Review Focus 1): at 390×1400 with 3 rows and `hasMore`, one call on mount. Then `setState` with 6 rows and `hasMore` → a second call without any scroll. Then `hasMore:false` → no third.
   - `'focus stays on a row link across updates'`: focus row 2's link, then `setState` with one more record → the same href stays focused.
-- [ ] **Step 3:** Run `node --test test/home-history-view.test.js` and `npx playwright test e2e/home-history-view.spec.js`. Expected: FAIL (module missing).
-- [ ] **Step 4: Implement.**
+- [x] **Step 3:** Run `node --test test/home-history-view.test.js` and `npx playwright test e2e/home-history-view.spec.js`. Expected: FAIL (module missing).
+- [x] **Step 4: Implement.**
   - `mountHomeHistory` renders from the state with `historyRow(…,{titleTag:'h4'})` and `groupByLocalDate`. It keeps the focused href as `mountWorkoutHistory.render` does.
   - The IntersectionObserver on `.home-history-end` uses `rootMargin:'0px 0px 100% 0px'` and keeps `nearEnd`. After each observer callback and each render, it calls `onLoadMore()` when `canAutoLoad` holds.
   - `getNavigationState` returns `{visibleCount: records.length}`.
   - Desktop `mountWorkoutHistory` switches to `historyRow` with no visible change (`e2e/workouts.spec.js` stays green).
-- [ ] **Step 5: CSS.**
+- [x] **Step 5: CSS.**
   - `.home-history {padding:8px 4px 0}`.
   - `.home-history h2 {margin:0 0 8px;font:600 20px/1.2 var(--font-body);text-transform:none;scroll-margin-top:var(--home-shell-height)}`.
   - Day `h3` reuses `.workout-history-day`; rows reuse the History row rules.
   - `.home-history-end {min-height:44px;display:grid;place-items:center}`; its button and Retry are ≥44px.
-- [ ] **Step 6:** Run `npm test`, `npx playwright test e2e/home-history-view.spec.js e2e/workouts.spec.js`. Expected: PASS.
-- [ ] **Step 7:** Commit `feat(home): a History section view that loads as you scroll`.
+- [x] **Step 6:** Run `npm test`, `npx playwright test e2e/home-history-view.spec.js e2e/workouts.spec.js`. Expected: PASS.
+- [x] **Step 7:** Commit `feat(home): a History section view that loads as you scroll`.
 
 ### Task 3: History on the Home page
 
@@ -130,27 +130,27 @@
 - Consumes: `mountHomeHistory`, `createHistoryPageData`, `mobileNavigationState.readPage('#/home')`.
 - Produces: `mountWorkoutHome` returns `historyHost: HTMLElement` (a `div.home-history-host` after the feedback). Heading, cover, alternative and feedback move into `div.home-first`. The Home route's `mounted` gains `getNavigationState()` and forwards `suspend`/`settled`/`destroy` to both the controller and the loader.
 
-- [ ] **Step 1: Failing e2e** in `e2e/workout-home.spec.js` (real app, `login`, `resetWorkouts`, `saveFinishedLog`):
+- [x] **Step 1: Failing e2e** in `e2e/workout-home.spec.js` (real app, `login`, `resetWorkouts`, `saveFinishedLog`):
   - `'History sits under the cover with a peek'`: at 390×844 with three finished logs, the History `h2` lies fully above the tab bar's top and the first row's top lies above the tab bar's top, so it is cut. At 360×660 the cover is ≥340px tall. At 200% text the cover is ≥340px and the page scrolls to every row.
   - `'older workouts load as you scroll'`: 45 finished logs; scrolling to the bottom gives 45 rows, and then no `Load more` and no `Loading…`.
   - `'returning restores history and scroll'`: load 45, scroll row 40 into the middle, open it, go back. 45 rows, and row 40's top is within 2px of where it was.
   - `'history and cover fail independently'` (Review Focus 2): with `/api/workouts` list requests aborted, the section shows its load error and `Retry loading history` while the cover's primary action stays enabled. With every API request aborted, both Retry controls exist with different accessible names, and `Retry loading history` re-requests only the list (one new `/api/workouts?` request, no settings or programs request).
   - `'a new session never sees the old history'` (Review Focus 3): on Home with rows, scroll down, log out and log in as the same user after `resetWorkouts`. Home shows the empty text and `scrollY` is 0.
   - In `e2e/workout-home-view.spec.js:14`, the view still renders no rows: mounting the view alone leaves `.home-history-host` empty.
-- [ ] **Step 2:** Run `npx playwright test e2e/workout-home.spec.js`. Expected: FAIL (no History section).
-- [ ] **Step 3: View.** Wrap the first screen in `div.home-first`, append `div.home-history-host` and return `historyHost`.
-- [ ] **Step 4: Route.**
+- [x] **Step 2:** Run `npx playwright test e2e/workout-home.spec.js`. Expected: FAIL (no History section).
+- [x] **Step 3: View.** Wrap the first screen in `div.home-first`, append `div.home-history-host` and return `historyHost`.
+- [x] **Step 4: Route.**
   - In the `home` branch, create the loader exactly as `prepareMobileHistory` does: `isCurrent`, `pendingSummary`, `onAuthError` and the `interacted` listeners.
   - Mount `mountHomeHistory(view.historyHost, {onOpen, workoutHref, onRetry: () => data.refresh(), onLoadMore: () => data.loadMore()})`.
   - `onState` calls `historyView.setState(state)`. On the first data, unless the user interacted, scroll to `readPage('#/home')?.scrollY`.
   - Start with `data.start({visibleCount: saved?.state?.visibleCount ?? 0})`.
-- [ ] **Step 5: CSS.**
+- [x] **Step 5: CSS.**
   - `:root {--home-history-peek:72px}`.
   - `.workout-home` drops its `min-height`.
   - `.home-first {display:flex;flex-direction:column;gap:12px;min-height:calc(100dvh - var(--home-shell-height) - var(--tab-bar-height) - 8px - var(--home-history-peek))}`; the cover keeps `flex:1 0 auto;min-height:340px`.
   - Measure at 390×844. If the first row is fully hidden or fully shown, adjust the peek token until the heading is whole and the first row is cut, and record the value in the Task 5 verification file.
-- [ ] **Step 6:** Run `npm test` and `npx playwright test e2e/workout-home.spec.js e2e/workout-home-view.spec.js e2e/home-history-view.spec.js e2e/mobile-page-memory.spec.js`. Expected: PASS. `mobile-page-memory` still passes, because the History tab is still there until Task 4.
-- [ ] **Step 7:** Commit `feat(home): show workout history under the cover`.
+- [x] **Step 6:** Run `npm test` and `npx playwright test e2e/workout-home.spec.js e2e/workout-home-view.spec.js e2e/home-history-view.spec.js e2e/mobile-page-memory.spec.js`. Expected: PASS. `mobile-page-memory` still passes, because the History tab is still there until Task 4.
+- [x] **Step 7:** Commit `feat(home): show workout history under the cover`.
 
 ---
 
@@ -179,32 +179,32 @@
   - `parseRoute('#/home?section=history')` deep-equals `{view:'home', section:'history'}`; any other query gives `{view:'home'}`.
   - New e2e helper `openStartSheet(page)` in `e2e/workout-helper.js` clicks Home's visible `Choose another workout` or `Choose a workout`.
 
-- [ ] **Step 1: Failing unit tests.**
+- [x] **Step 1: Failing unit tests.**
   - `test/mobile-navigation-state.test.js`: `#/workouts/w` and `#/workouts` map to `'home'`. `adjacentDestination('library','next')==='user'`, `adjacentDestination('user','previous')==='library'`, and `MOBILE_DESTINATIONS` deep-equals `['home','library','user']`.
   - `test/router.test.js`: the `resolveEntryHash` and `parseRoute` cases above. `resolveEntryHash('#/workouts')` and `resolveEntryHash('#/workouts/w',{mobile:true})` are unchanged, and `parseRoute('#/home')` still deep-equals `{view:'home'}`.
-- [ ] **Step 2:** Run `node --test test/mobile-navigation-state.test.js test/router.test.js`. Expected: FAIL.
-- [ ] **Step 3: Failing e2e** in `e2e/mobile-navigation.spec.js` (390×844):
+- [x] **Step 2:** Run `node --test test/mobile-navigation-state.test.js test/router.test.js`. Expected: FAIL.
+- [x] **Step 3: Failing e2e** in `e2e/mobile-navigation.spec.js` (390×844):
   - `'three tabs and workout pages under Home'`: the visible links are `['Home','Library','User']` in three equal columns (±1px). On `#/workouts/{id}`, Home has `aria-current="page"`.
   - `'#/workouts opens Home at History'`: from Home, set `location.hash='/workouts'`. The URL becomes `#/home` with `history.length` up by exactly 1, the History `h2` is focused, and its top is within 2px of the app header's bottom. `page.goBack()` returns to the previous Home entry.
   - `'tapping Home on Home scrolls to the top'`: with 45 logs, scroll to 2000 and keep `window.homeNode = document.querySelector('.workout-home')`. Tap Home: `scrollY` polls to 0, the same `.workout-home` node is still mounted, no `/api/` request is made, and the Home tab is focused. Under `reducedMotion:'reduce'`, `scrollY` is 0 right after the tap.
   - `'a desktop Workouts page resized to a phone'` (Review Focus 5): at 1366×768 on `#/workouts`, resize to 390×844. The Workouts page stays, Home is current, and a `dragDestination` next lands on Library.
   - Desktop guard in `e2e/workouts.spec.js`: at 1366×768 the links are Programs, Templates, Catalog, Workouts, and Workouts is `aria-current` on `#/workouts/{id}`.
-- [ ] **Step 4:** Run `npx playwright test e2e/mobile-navigation.spec.js`. Expected: FAIL.
-- [ ] **Step 5: Implement.**
+- [x] **Step 4:** Run `npx playwright test e2e/mobile-navigation.spec.js`. Expected: FAIL.
+- [x] **Step 5: Implement.**
   - Destinations, router and the loading label map (drop `history`).
   - `arrange()` drops `workouts` from the mobile order. CSS hides `[data-nav=workouts]` at ≤760px and uses `grid-template-columns:repeat(3,minmax(0,1fr))`.
   - Desktop selection derives `workouts` from the route view (`workouts` and `workout`) instead of from `destinationFor`.
   - The nav click handler: on mobile, when the tapped link is `home` and the committed route's view is `home`, call `preventDefault()` and `scrollTo({top:0, behavior: reduced ? 'instant' : 'smooth'})`; no navigation.
   - The Home route with `route.section==='history'`: set `commit.canonicalHash='#/home'` and `commit.focus` to scroll the History heading into view (`block:'start'`, instant) and focus it. Skip the page-memory scroll restore for that visit.
-- [ ] **Step 6: Move the existing tests.**
+- [x] **Step 6: Move the existing tests.**
   - Expected tab lists become `['Home','Library','User']`.
   - The swipe sequence becomes Home ↔ Library ↔ User, and the History-unavailable swipe case is deleted.
   - Page-memory tests use Home's History section (load more by scrolling; restore after User ↔ Home).
   - Links named `History` become `Home`.
   - Mobile tests that opened `#/workouts` to press Start workout use `openStartSheet(page)` from Home.
   - Mobile tests that open a finished workout from `#/workouts` open it from Home's `.home-history .workout-history-row a`.
-- [ ] **Step 7:** Run `npm test`, `npm run test:e2e`. Expected: PASS.
-- [ ] **Step 8:** Commit `feat(nav): three mobile tabs; Workouts opens Home at History`.
+- [x] **Step 7:** Run `npm test`, `npm run test:e2e`. Expected: PASS.
+- [x] **Step 8:** Commit `feat(nav): three mobile tabs; Workouts opens Home at History`.
 
 ### Task 5: Workouts end on Home, and docs
 
@@ -219,26 +219,26 @@
   - `createWorkoutController({…, onExit = () => navigate('#/workouts')})`.
   - `exitWorkout(): Promise`: on mobile, `forget('#/home')` then `navigate('#/home')`; on desktop, `navigate('#/workouts')`.
 
-- [ ] **Step 1: Failing unit tests.**
+- [x] **Step 1: Failing unit tests.**
   - `forget('#/home')` makes `readPage('#/home')` `null` and leaves other pages.
   - In `test/workout-controller.test.js`, `'a workout end leaves through onExit'`: with an `onExit` spy, a legacy finish, a discard and the saved-copy-gone path each call it once and never `navigate('#/workouts')`. The existing `'legacy finish still flushes and navigates to History'` keeps passing with the default.
-- [ ] **Step 2:** Run `node --test test/mobile-navigation-state.test.js test/workout-controller.test.js`. Expected: FAIL.
-- [ ] **Step 3: Failing e2e.**
+- [x] **Step 2:** Run `node --test test/mobile-navigation-state.test.js test/workout-controller.test.js`. Expected: FAIL.
+- [x] **Step 3: Failing e2e.**
   - `e2e/workout-recap.spec.js`, `'Done lands on Home at the top with the workout first'`: with enough logs to scroll, scroll Home to 800, then start the workout from Home; leaving Home saves that position. Finish it and press Done. The URL is `#/home`, `scrollY` is 0, and the first `.home-history .workout-history-row` contains the workout's name with its top above the tab bar's top. At 1366×768 the same flow lands on `#/workouts`.
   - `e2e/workout-offline.spec.js`: after an offline Finish on a phone, Home shows the `Not synced yet` row first, then the section's load error, and the cover's actions stay enabled. After reconnecting, the row loses the tag.
   - Delete in `e2e/workout-history-edit.spec.js:157` lands on `#/home` on a phone.
-- [ ] **Step 4:** Run those three files. Expected: FAIL.
-- [ ] **Step 5: Implement** `forget`, `onExit` and `exitWorkout`, and wire the recap's Done, Delete and the controller.
-- [ ] **Step 6:** Run `npm test`, `npm run test:e2e`, `npm run build`. Expected: PASS.
-- [ ] **Step 7: Docs.**
+- [x] **Step 4:** Run those three files. Expected: FAIL.
+- [x] **Step 5: Implement** `forget`, `onExit` and `exitWorkout`, and wire the recap's Done, Delete and the controller.
+- [x] **Step 6:** Run `npm test`, `npm run test:e2e`, `npm run build`. Expected: PASS.
+- [x] **Step 7: Docs.**
   - `AGENTS.md`: add a top section `## Home and history (2026-11-12)` naming the spec, this plan and the verification file, with the spec's rules (§1–§3).
   - Rewrite the replaced phrases the spec's table lists:
     - in "Mobile training home": "never a history section" and "`#/workouts` remains history";
     - in "Mobile Library navigation": the four destinations, the swipe order and the offline Finish exception;
     - in "Fluid root navigation": the History extent and the pinned status for this section.
   - Mirror them in the design system's Home and mobile navigation entries (three-column tab bar, `--home-history-peek`, the History section).
-- [ ] **Step 8: Verify and record.** Inspect Home populated with a recommendation, a Resume, an empty history and 45 workouts at 360, 390 and 412px, at 200% text, with reduced motion and with touch. Confirm 1366×768, 1440×900 and 1920×1080 are unchanged. Write the verification file with the commands and results, the peek value measured in Task 3, and `Phone checks` `pending (user)`: the peek, and scrolling past the cover.
-- [ ] **Step 9:** Commit `feat(home): workouts end on Home; document home and history`.
+- [x] **Step 8: Verify and record.** Inspect Home populated with a recommendation, a Resume, an empty history and 45 workouts at 360, 390 and 412px, at 200% text, with reduced motion and with touch. Confirm 1366×768, 1440×900 and 1920×1080 are unchanged. Write the verification file with the commands and results, the peek value measured in Task 3, and `Phone checks` `pending (user)`: the peek, and scrolling past the cover.
+- [x] **Step 9:** Commit `feat(home): workouts end on Home; document home and history`.
 
 ---
 

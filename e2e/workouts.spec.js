@@ -15,7 +15,9 @@ test('a failed older page keeps the desktop rows and refresh message',async({pag
  await page.getByRole('link',{name:'Workouts',exact:true}).click();
  await expect(page.locator('.workout-history-row')).toHaveCount(30);
  await page.getByRole('button',{name:'Load more',exact:true}).click();
- await expect(page.getByText("Couldn't refresh. Showing previously loaded data.",{exact:true})).toBeVisible();
+ await expect(page.locator('.workout-history [data-error]')).toHaveText("Couldn't refresh. Showing previously loaded data.");
+ await expect(page.locator('.root-page-feedback')).toContainText("Couldn't refresh. Showing previously loaded data.");
+ await expect(page.locator('.root-page-feedback').getByRole('button',{name:'Retry',exact:true})).toBeVisible();
  await expect(page.locator('.workout-history-row')).toHaveCount(30);
 });
 

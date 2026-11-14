@@ -472,7 +472,7 @@ function prepareMobileHistory(version){
   surface.setContent(host=>{view=mountWorkoutHistory(host,{records:[],hasMore:false,error:'Loading...',onLoadMore:()=>data.loadMore(),onStart:()=>launcher.open({data:{programs:rootCache.read('programs')?.value??null,templates:rootCache.read('templates')?.value??null,logs:null,activeProgramId:rootCache.read('settings')?.value.activeProgramId??null,listStatus:{programs:'loading',templates:'loading',settings:'loading',firstPage:'loading'}},loadLists:loadStartLists}),onOpen:id=>action(()=>navigate('#/workouts/'+id))(),workoutHref:id=>'#/workouts/'+id});});
   const saved=mobileNavigationState.readPage('#/workouts');
   const data=createHistoryPageData({api,cache:rootCache,pendingSummary:()=>workouts.pendingSummary(),isCurrent:current,onAuthError:report,onState:state=>{
-   surface.show(state);
+   surface.show({...state,error:state.error||state.moreError});
    view.setData({records:state.data?.records??[],hasMore:state.data?.hasMore??false,pending:state.pending,error:(state.error||state.moreError)?(state.data?"Couldn't refresh. Showing previously loaded data.":'Workouts could not be loaded. Connect to see your history.'):state.data?'':'Loading...'});
    if(state.data&&!restored){restored=true;if(current()&&!interacted)window.scrollTo(0,saved?.scrollY??0);}
   }});
