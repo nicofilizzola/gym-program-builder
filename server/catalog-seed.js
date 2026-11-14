@@ -1,4 +1,4 @@
-import {validateCatalogEntry} from '../src/catalog.js';
+import {validateCatalogEntry,variantConflict} from '../src/catalog.js';
 // Hand-curated starter definitions. Secondary muscles are counted as half sets.
 // IDs are stable; changes to this fixture must not overwrite personal edits.
 const groups=[
@@ -60,6 +60,8 @@ export async function seedCatalog(db) {
     if(!(await tx.execute('SELECT version FROM catalog_seed_versions WHERE version=1')).rows.length) {
       for(const e of STARTER_CATALOG) {
         await tx.execute({sql:'INSERT OR IGNORE INTO catalog_families(id,name,exercise_type,equipment) VALUES(?,?,?,?)',args:[e.familyId,e.familyName,e.exerciseType,e.equipment]});
+        const variants=await tx.execute({sql:'SELECT e.name,(SELECT json_group_array(tag_id) FROM catalog_variant_tags WHERE variant_id=e.id) AS tag_ids FROM catalog_entries e WHERE e.family_id=?',args:[e.familyId]});
+        if(variants.rows.some(v=>variantConflict({name:v.name,focusTagIds:JSON.parse(v.tag_ids)},e)))continue;
         const stamp=new Date().toISOString();
         await tx.execute({sql:'INSERT OR IGNORE INTO catalog_entries(id,family_id,name,equipment,primary_json,secondary_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',args:[e.id,e.familyId,e.name,e.equipment,JSON.stringify(e.primaryMuscles),JSON.stringify(e.secondaryMuscles),stamp,stamp]});
       }

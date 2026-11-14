@@ -41,3 +41,61 @@ test('catalog edits atomically update each linked document once and protect impa
  assert.deepEqual(p.document.workouts[0].exercises[0].primaryMuscles,['Front delts']);
  await assert.rejects(r.update({id:'t',revision:1,document:{...template,name:'Stale edit'}}),{code:'CONFLICT'});
 });
+
+const duplicateVariant={code:'CONFLICT',message:'A variant with this name and the same tags already exists in this reference exercise, possibly archived. Change the name or a tag.',details:{field:'name',reason:'duplicate-variant'}};
+async function sameNameFixture(t){
+ const f=await setup(t);
+ await f.c.createReference({id:'press',name:'Press',exerciseType:'compound',equipment:'Barbell'});
+ for(const [id,kind] of [['hammer','brand'],['technogym','brand'],['stretch','focus'],['upper','focus']])await f.c.createTag({id,kind,name:id});
+ return {...f,create:(id,brandId=null,focusTagIds=[],extra={})=>f.c.create({id,familyId:'press',entry:{...entry,name:'Chest press',brandId,focusTagIds},...extra})};
+}
+test('same-name variants need different tags',async t=>{
+ const {c,create}=await sameNameFixture(t);
+ await create('bare');await create('hammer','hammer');
+ await assert.rejects(create('duplicate','hammer'),duplicateVariant);
+ await assert.rejects(create('accent','hammer',[],{entry:{...entry,name:'Chest Préss',brandId:'hammer'}}),duplicateVariant);
+ const tech=await create('tech','technogym');await c.archive({id:tech.id,revision:tech.revision,archived:true});
+ await assert.rejects(create('archived','technogym'),duplicateVariant);
+ await create('focused','hammer',['stretch','upper']);
+ await assert.rejects(create('reordered','hammer',['upper','stretch']),duplicateVariant);
+ await c.archiveTag({id:'hammer',revision:1,archived:true});
+ await assert.rejects(create('archived-brand','hammer'),duplicateVariant);
+});
+test('create from and edit apply the same rule without self-conflict',async t=>{
+ const {c,create}=await sameNameFixture(t);await create('bare');await create('hammer','hammer');
+ await assert.rejects(create('copy','hammer',[],{sourceVariantId:'hammer'}),duplicateVariant);
+ await create('focused','hammer',['stretch'],{sourceVariantId:'hammer'});
+ await assert.rejects(c.update({id:'bare',revision:1,entry:{...entry,name:'Chest press',brandId:'hammer'},impact:[]}),duplicateVariant);
+ const edited=await c.update({id:'hammer',revision:1,entry:{...entry,name:'Chest press',brandId:'hammer',description:'New description'},impact:[]});
+ assert.equal(edited.description,'New description');assert.equal(edited.revision,2);
+});
+test('concurrent creates of the same name and tags let one through',async t=>{
+ const {create}=await sameNameFixture(t);
+ const results=await Promise.allSettled([create('one','hammer'),create('two','hammer')]);
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+ assert.equal(results.find(r=>r.status==='rejected').reason.details.reason,'duplicate-variant');
+});
+test('the old index refusal maps to the conflict',async t=>{
+ const {db,create,c}=await sameNameFixture(t);await create('hammer','hammer');
+ await db.execute('CREATE UNIQUE INDEX catalog_family_name ON catalog_entries(family_id, lower(name))');
+ await assert.rejects(create('tech','technogym'),duplicateVariant);
+ assert.deepEqual((await c.list()).entries.map(e=>e.id),['hammer']);
+});
+test('migration 010 drops the index once',async t=>{
+ const {db}=await setup(t);
+ assert.equal((await db.execute("SELECT name FROM sqlite_master WHERE name='catalog_family_name'")).rows.length,0);
+ const before=(await db.execute('SELECT * FROM schema_migrations')).rows;
+ assert.equal(before.filter(r=>Number(r.version)===10).length,1);
+ await migrate(db);assert.deepEqual((await db.execute('SELECT * FROM schema_migrations')).rows,before);
+});
+test('seed skips a starter that would conflict but allows different tags',async t=>{
+ const {STARTER_CATALOG,seedCatalog}=await import('../server/catalog-seed.js');const first=STARTER_CATALOG[0];
+ for(const tagged of [false,true]){
+  const {c,db}=await setup(t);
+  if(tagged)await c.createTag({id:'brand',kind:'brand',name:'Brand'});
+  await c.create({id:'personal',familyId:first.familyId,familyName:first.familyName,referenceExerciseType:first.exerciseType,entry:{...first,brandId:tagged?'brand':null}});
+  await seedCatalog(db);const ids=(await c.list()).entries.map(e=>e.id);
+  assert.equal(ids.includes(first.id),tagged);assert.ok(ids.includes('personal'));
+  for(const starter of STARTER_CATALOG.slice(1))assert.ok(ids.includes(starter.id));
+ }
+});

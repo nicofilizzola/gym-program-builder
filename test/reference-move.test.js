@@ -45,3 +45,17 @@ test('moves preserve inherited and individual archives and roll back failed prop
  await db.execute('DROP TRIGGER reject_move');
  const moved=await c.move(args);assert.equal(moved.archived,true);assert.equal(moved.individuallyArchived,true);assert.equal(moved.referenceArchived,false);
 });
+
+test('a move into an archived same-name same-tag variant is refused',async t=>{
+ const {c,request}=await fixture(t);
+ await c.createTag({id:'hammer',name:'Hammer',kind:'brand'});
+ await c.update({id:'v',revision:1,entry:{...definition,brandId:'hammer'},impact:await c.impact('v')});
+ const other=await c.create({id:'other',familyId:'r2',entry:{...definition,brandId:'hammer'}});
+ await c.archive({id:other.id,revision:other.revision,archived:true});
+ const args=await request();
+ await assert.rejects(c.move(args),{code:'CONFLICT',details:{field:'name',reason:'duplicate-variant'}});
+ const saved=(await c.list()).entries.find(e=>e.id==='v');assert.equal(saved.familyId,'r1');assert.equal(saved.revision,args.revision);
+ // A different tag set is allowed in the same destination.
+ await c.update({id:'v',revision:saved.revision,entry:definition,impact:await c.impact('v')});
+ assert.equal((await c.move(await request())).familyId,'r2');
+});

@@ -1,5 +1,5 @@
 import {syncVariantTags,tagRow,createTagRepository} from './tag-repository.js';
-import {validateCatalogEntry,validateReference,normalizeSearch} from '../src/catalog.js';
+import {validateCatalogEntry,validateReference,variantConflict} from '../src/catalog.js';
 import {domainError} from './repository.js';
 import {createReferenceRepository,readReference,referenceRow,referenceName,referenceType} from './reference-repository.js';
 import {catalogImpact,propagateCatalogEntry} from './catalog-propagation.js';
@@ -18,10 +18,12 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
  const validId=id=>{if(typeof id!=='string'||!id||id.length>100)throw domainError('INVALID','Invalid catalog ID.');};
  const title=referenceName,references=createReferenceRepository(db),tags=createTagRepository(db);
  const checkRevision=(entry,revision)=>{if(!Number.isInteger(revision)||entry.revision!==revision)throw domainError('CONFLICT','This exercise changed. Reload the saved version or save your edits as a variant.');};
- async function write(fn){const tx=await db.transaction('write');try{const v=await fn(tx);await tx.commit();return v;}finally{tx.close();}}
- async function unique(tx,familyId,name,except=''){
-  const rows=await tx.execute({sql:'SELECT id,name FROM catalog_entries WHERE family_id=? AND id<>?',args:[familyId,except]});
-  if(rows.rows.some(e=>normalizeSearch(e.name)===normalizeSearch(name)))throw domainError('CONFLICT','A variant with this name already exists in this reference exercise, possibly archived. Choose a distinct variant name.');
+ const duplicateVariant=()=>Object.assign(domainError('CONFLICT','A variant with this name and the same tags already exists in this reference exercise, possibly archived. Change the name or a tag.'),{details:{field:'name',reason:'duplicate-variant'}});
+ let writes=Promise.resolve();
+ function write(fn){const result=writes.then(async()=>{const tx=await db.transaction('write');try{const v=await fn(tx);await tx.commit();return v;}catch(error){if(/UNIQUE/i.test(error.message)&&/catalog_family_name|catalog_entries\.family_id/.test(error.message))throw duplicateVariant();throw error;}finally{tx.close();}});writes=result.catch(()=>{});return result;}
+ async function assertDistinct(tx,familyId,candidate,except=''){
+  const rows=await tx.execute({sql:'SELECT e.id,e.name,(SELECT json_group_array(tag_id) FROM catalog_variant_tags WHERE variant_id=e.id) AS tag_ids FROM catalog_entries e WHERE e.family_id=? AND e.id<>?',args:[familyId,except]});
+  if(rows.rows.some(e=>variantConflict({name:e.name,focusTagIds:JSON.parse(e.tag_ids)},candidate)))throw duplicateVariant();
  }
  return {
   listTags:tags.list,createTag:tags.create,updateTag:tags.update,archiveTag:tags.archive,referenceImpact:references.impact,createReference:references.create,getReference:references.get,updateReference:references.update,archiveReference:references.archive,renameFamily:references.update,
@@ -64,7 +66,7 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
     if(entry.equipment!==undefined&&entry.equipment!==reference.equipment)throw domainError('INVALID','Equipment is inherited from the reference exercise.');
     if(reference.archived)throw domainError('INVALID','Restore the reference exercise first.');
     if(referenceRevision!==undefined&&reference.revision!==referenceRevision)throw domainError('CONFLICT','This reference exercise changed. Reload the saved version.');
-    await unique(tx,familyId,clean.name);const stamp=now();
+    await assertDistinct(tx,familyId,clean);const stamp=now();
     await tx.execute({sql:'INSERT INTO catalog_entries(id,family_id,name,equipment,primary_json,secondary_json,created_at,updated_at,description) VALUES(?,?,?,?,?,?,?,?,?)',args:[id,familyId,clean.name,reference.equipment,JSON.stringify(clean.primaryMuscles),JSON.stringify(clean.secondaryMuscles),stamp,stamp,clean.description]});
     const source=sourceVariantId?await readCatalogEntry(tx,sourceVariantId):undefined;if(source&&source.familyId!==familyId)throw domainError('INVALID','Variant source belongs to another reference exercise.');
     await syncVariantTags(tx,id,clean,{source});
@@ -79,7 +81,7 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
     const old=await readCatalogEntry(tx,id);checkRevision(old,revision);
     if(entry.equipment!==undefined&&entry.equipment!==old.equipment)throw domainError('INVALID','Equipment is inherited from the reference exercise.');
     if(!Array.isArray(impact)||JSON.stringify(impact)!==JSON.stringify(await catalogImpact(tx,id)))throw domainError('CONFLICT','Affected workouts changed. Refresh the usage preview before saving.');
-    await unique(tx,old.familyId,clean.name,id);const stamp=now();
+    await assertDistinct(tx,old.familyId,clean,id);const stamp=now();
     await tx.execute({sql:'UPDATE catalog_entries SET name=?,description=?,primary_json=?,secondary_json=?,revision=revision+1,updated_at=? WHERE id=?',args:[clean.name,clean.description,JSON.stringify(clean.primaryMuscles),JSON.stringify(clean.secondaryMuscles),stamp,id]});
     await syncVariantTags(tx,id,clean,{previous:old});
     const next=await readCatalogEntry(tx,id);
@@ -99,7 +101,7 @@ export function createCatalogRepository(db,{now=()=>new Date().toISOString()}={}
     if(destination.archived)throw domainError('INVALID','Choose an active destination reference exercise.');
     if(source.revision!==sourceReferenceRevision||destination.revision!==destinationReferenceRevision)throw domainError('CONFLICT','A reference exercise changed. Reload the move preview.');
     if(!Array.isArray(impact)||JSON.stringify(impact)!==JSON.stringify(await catalogImpact(tx,id)))throw domainError('CONFLICT','Affected workouts changed. Refresh the usage preview before moving.');
-    await unique(tx,destinationReferenceId,old.name);
+    await assertDistinct(tx,destinationReferenceId,old);
     const stamp=now();
     await tx.execute({sql:'UPDATE catalog_entries SET family_id=?,archived=?,revision=revision+1,updated_at=? WHERE id=?',args:[destinationReferenceId,old.archived?1:0,stamp,id]});
     for(const ref of [source,destination])await tx.execute({sql:'UPDATE catalog_families SET revision=revision+1 WHERE id=?',args:[ref.id]});
