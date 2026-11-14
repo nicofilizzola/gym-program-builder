@@ -221,7 +221,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function holdNoteAnchor(){const row=viewed?cards.get(setKey(viewed))?.row:review;if(row)noteAnchor={row,delta:snapTop(row)-feed.scrollTop};}
  root.addEventListener('input',e=>{if(!noteAnchor&&e.target.closest('.focus-exercise-editor'))holdNoteAnchor();},{signal,capture:true});
  root.addEventListener('click',e=>{if(e.target.closest('.focus-exercise-editor button'))holdNoteAnchor();},{signal,capture:true});
- feed.addEventListener('keydown',()=>{if(!typingField())noteAnchor=null;},{signal});
+ feed.addEventListener('keydown',e=>{if((e.key==='Tab'&&!e.isComposing)||!typingField())noteAnchor=null;},{signal});
  root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
  function celebrate({before,after,ref}){
   if(!enabled)return;const key=setKey(ref),card=cards.get(key);if(!card)return;

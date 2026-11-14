@@ -247,3 +247,20 @@ test('a height measurement before the scroll frame keeps the focused set in view
  expect(Math.abs(await snapDelta(page,'s2'))).toBeLessThanOrEqual(2);
  await expect(page.locator('.focus-card[data-set-id="s2"] [data-field="reps"]')).toBeFocused();
 });
+
+for(const motion of ['reduce','no-preference'])for(const key of ['Tab','Shift+Tab'])test(`leaving an exercise note by ${key} keeps keyboard focus visible (${motion})`,async({page})=>{
+ await page.emulateMedia({reducedMotion:motion});await mountFocusFixture(page);await page.addStyleTag({content:'.focus-feed{overflow-anchor:none}'});
+ await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));const before=await snapDelta(page,'s1');
+ const group=page.locator('.focus-group[data-exercise-id="straight"]');await group.locator('.focus-exercise-note').click();
+ const note=page.getByRole('textbox',{name:'Note, Bench press',exact:true});await note.fill('Note '.repeat(80));
+ await settle(page);await group.evaluate(g=>Promise.all(g.getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{}))));await settle(page);
+ await note.evaluate(n=>n.setSelectionRange(3,5));await page.keyboard.press('ArrowRight');await expect(note).toBeFocused();
+ expect(await note.evaluate(n=>[n.selectionStart,n.selectionEnd])).toEqual([5,5]);expect(Math.abs(await snapDelta(page,'s1')-before)).toBeLessThanOrEqual(2);
+ await page.keyboard.press(key);await expect(note).toHaveCount(0);await settle(page);
+ if(key==='Shift+Tab'){await expect(page.locator('.focus-feed')).toBeFocused();await page.keyboard.press('Tab');await expect(group.locator('.focus-exercise-note')).toBeFocused();}
+ else{
+  const target=page.locator('.focus-card[data-set-id="sw"] .focus-set-note');await expect(target).toBeFocused();
+  await expect.poll(()=>page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'sw'});
+  const box=await target.boundingBox(),feed=await page.locator('.focus-feed').boundingBox();expect(box.y).toBeGreaterThanOrEqual(feed.y);expect(box.y+box.height).toBeLessThanOrEqual(feed.y+feed.height);
+ }
+});
