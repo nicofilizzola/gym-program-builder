@@ -1482,7 +1482,7 @@ button:disabled {opacity:.5;cursor:default}
 
 /* Shared drag previews keep the capture owner mounted while its placeholder moves. */
 .sort-source {position:absolute !important;visibility:hidden !important;pointer-events:none !important;height:0 !important;margin:0 !important;overflow:hidden !important}
-.sort-drag-host {position:fixed;left:0;top:0;z-index:1000;pointer-events:none;will-change:transform}
+.sort-drag-host {inset:auto;margin:0;padding:0;border:0;background:transparent;max-width:none;max-height:none;overflow:visible;position:fixed;left:0;top:0;z-index:1000;pointer-events:none;will-change:transform}
 .sort-drag-copy {margin:0 !important;list-style:none;box-shadow:0 14px 38px #0007;border-color:var(--accent);opacity:.96}
 .sort-drag-copy.is-invalid-drop {opacity:.6}
 /* A superset frame has no surface of its own: its copy gets the page background so content behind it never shows
@@ -2707,3 +2707,6 @@ body {padding-bottom:var(--tab-bar-height)}
 .root-page-feedback .secondary-btn { flex: none; min-height: 44px; }
 .root-page-feedback p:empty { display: none; }
 .root-page-feedback:has(> p:empty):has(> button[hidden]) { display: none; }
+
+.overview-block.sort-drag-copy {background:var(--bg);opacity:1}
+.overview-block.sort-drag-copy.is-invalid-drop {opacity:.6}

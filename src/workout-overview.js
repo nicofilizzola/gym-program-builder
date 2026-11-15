@@ -85,7 +85,7 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
   if(own&&at>=0&&!live(own))(now[at]??now[at-1]?.closest(".overview-block").querySelector(".overview-more")??add).focus({preventScroll:true});
   add.disabled=snapshot.log.exercises.length>=WORKOUT_LIMITS.exercises;
  }
- function close(after){if(!dialog)return;menu?.close();port.command({type:'close-transient'});dialog.querySelector('form').inert=true;dialog._after=typeof after==='function'?after:null;motion.close();}
+ function close(after){if(!dialog)return;sortable?.cancel();menu?.close();port.command({type:'close-transient'});dialog.querySelector('form').inert=true;dialog._after=typeof after==='function'?after:null;motion.close();}
  function open(from){if(destroyed)return;opener=from;if(dialog){motion.open();return;}
   selected=null;dialog=el('dialog','catalog-dialog workout-overview');dialog.setAttribute('aria-label','Workout overview');const form=el('form','overview-body');form.onsubmit=e=>e.preventDefault();const header=el('header','overview-header');header.append(el('h2','','Workout overview'),button('Close overview',()=>close(),'Close'));list=el('ol','overview-blocks');picker=el('div','overview-picker');add=button('Add exercise',()=>port.command({type:'add-exercise',host:picker}));form.append(header,list,add,picker);dialog.append(form);document.body.append(dialog);menu=mountReorderMenu({label:'Exercise actions'});tooltips=mountActionTooltips(dialog);
   dialog.addEventListener('cancel',e=>{e.preventDefault();close();});dialog.addEventListener('click',e=>{if(e.target===dialog)close();});

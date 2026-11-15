@@ -121,4 +121,71 @@ test('removing either member of a pair from its menu keeps focus on an actions b
    await page.reload();
   }
  });
- 
+
+async function startOverviewDrag(page,pair=false){
+ const source=page.locator(`.workout-overview .overview-blocks > .overview-block${pair?'[data-block-id=a]':':is([data-block-id=straight],[data-block-id=long0])'}`).first();
+ const name=source.locator('.overview-name > span').first();await name.scrollIntoViewIfNeeded();const box=await name.boundingBox();
+ await page.mouse.move(box.x+8,box.y+8);await page.mouse.down();await page.mouse.move(box.x+23,box.y+23);await page.evaluate(p=>window.dragPointer=p,{x:box.x+23,y:box.y+23});
+ return source;
+}
+for(const pair of [false,true])test(`modal drag paints above the overview and commits once (${pair?'pair':'single'})`,async({page})=>{
+ const log=focusFixture();for(const ex of log.exercises)Object.assign(ex,{brand:'Hammer',focusTags:['Upper chest']});
+ const d=await mount(page,log);await page.evaluate(()=>{window.saved=[];window.beforeIds=port.read().log.exercises.map(e=>[e.id,e.sets.map(s=>s.id)]);});
+ const selector=`.workout-overview .overview-blocks > [data-block-id=${pair?'a':'straight'}]`;
+ const geometry=el=>{const r=el.getBoundingClientRect();return [...el.querySelectorAll('.overview-name,.overview-tags,.overview-chip,.action-button')].filter(n=>n.getClientRects().length).map(n=>{const b=n.getBoundingClientRect();return [b.x-r.x,b.y-r.y,b.width,b.height];});};
+ const before=await page.locator(selector).evaluate(geometry),source=await startOverviewDrag(page,pair),copy=page.locator('.sort-drag-copy');
+ const box=await copy.locator('.overview-name').first().boundingBox(),clip={x:Math.ceil(box.x),y:Math.ceil(box.y),width:Math.floor(box.width)-2,height:Math.floor(box.height)-2};
+ const painted=await page.screenshot({clip,animations:'disabled'});await copy.evaluate(el=>el.style.visibility='hidden');const hidden=await page.screenshot({clip,animations:'disabled'});
+ expect(painted.equals(hidden)).toBe(false);await copy.evaluate(el=>el.style.removeProperty('visibility'));
+ await page.screenshot({path:`.superpowers/sdd/2026-11-15-workout-overview-interactions/drag-${pair?'pair':'single'}.png`});
+ const after=await copy.evaluate(geometry);expect(after.length).toBe(before.length);after.forEach((r,i)=>r.forEach((v,j)=>expect(Math.abs(v-before[i][j]),JSON.stringify({i,j,before:before[i],after:r})).toBeLessThanOrEqual(1)));
+ await expect(page.locator('.sort-drag-host:popover-open')).toHaveCount(1);
+ expect(await source.evaluate(el=>el.hasPointerCapture(1))).toBe(true);
+ expect(await copy.evaluate(el=>el.inert&&el.getAttribute('aria-hidden')==='true')).toBe(true);
+ expect(await page.locator('.sort-drag-host').evaluate(el=>el.inert&&el.getAttribute('aria-hidden')==='true')).toBe(true);
+ const first=await copy.boundingBox();const pointer=await page.evaluate(()=>window.dragPointer);await page.mouse.move(pointer.x+32,pointer.y+22);const moved=await copy.boundingBox();expect(Math.abs(moved.x-first.x-32)).toBeLessThanOrEqual(1);
+ expect(await page.evaluate(()=>saved.length)).toBe(0);
+ const target=await d.locator('.overview-block:not(.sort-source)').last().boundingBox();await page.mouse.move(target.x+50,target.y+target.height-2);await page.mouse.up();
+ expect(await page.evaluate(()=>saved.length)).toBe(1);
+ expect(await page.evaluate(()=>port.read().log.exercises.map(e=>e.id))).toEqual(pair?['straight','empty','a','b']:['a','b','empty','straight']);
+ expect(await page.evaluate(()=>port.read().log.exercises.map(e=>[e.id,e.sets.map(s=>s.id)]).sort())).toEqual(log.exercises.map(e=>[e.id,e.sets.map(s=>s.id)]).sort());
+ await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source')).toHaveCount(0);
+});
+
+for(const motion of ['reduce','no-preference'])for(const cancel of ['Escape','pointercancel','lostpointercapture','outside','blur','close','resize','remove','destroy'])test(`overview drag cancellation ${cancel} (${motion})`,async({page})=>{
+ await page.emulateMedia({reducedMotion:motion});await mount(page);await page.waitForTimeout(motion==='reduce'?0:250);await page.evaluate(()=>window.saved=[]);const source=await startOverviewDrag(page);
+ if(cancel==='Escape')await page.keyboard.press('Escape');
+ else if(cancel==='outside')await page.mouse.move(1,1);
+ else if(cancel==='blur')await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
+ else if(cancel==='close')expect(await page.evaluate(()=>{overview.close();return document.querySelectorAll('.sort-drag-host').length;})).toBe(0);
+ else if(cancel==='resize'){await page.setViewportSize({width:412,height:844});await expect(page.locator('.sort-drag-host')).toHaveCount(0);}
+ else if(cancel==='remove')await source.evaluate(el=>el.remove());
+ else if(cancel==='destroy')await page.evaluate(()=>overview.destroy());
+ else await source.dispatchEvent(cancel,{pointerId:1});
+ await page.mouse.up();await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source,.is-hold-armed')).toHaveCount(0);
+ expect(await page.evaluate(()=>saved.length)).toBe(0);expect(await page.evaluate(()=>port.read().log.exercises.map(e=>e.id))).toEqual(['straight','a','b','empty']);
+});
+
+function longOverview(){const log=focusFixture(),base=log.exercises[0];log.exercises=Array.from({length:18},(_,i)=>({...base,id:'long'+i,name:'Exercise '+i,sets:base.sets.map(s=>({...s,id:i+'-'+s.id}))}));return log;}
+test('scrolling overview drag reaches every block and rejects clipped drops',async({page})=>{
+ const d=await mount(page,longOverview());await page.evaluate(()=>window.saved=[]);await startOverviewDrag(page);
+ const rect=await d.boundingBox();await page.mouse.move(rect.x+90,rect.y+rect.height-8);
+ await expect.poll(()=>d.evaluate(el=>el.scrollTop),{timeout:10000}).toBeGreaterThan(1000);
+ expect(await page.evaluate(()=>scrollY)).toBe(0);
+ await page.mouse.move(rect.x+90,rect.y+8);await expect.poll(()=>d.evaluate(el=>el.scrollTop),{timeout:10000}).toBe(0);
+ await page.mouse.move(rect.x+90,rect.y+rect.height+4);await page.mouse.up();expect(await page.evaluate(()=>saved.length)).toBe(0);
+});
+
+test('overview drag sanitizes ID references before connection',async({page})=>{
+ await mount(page);await page.evaluate(()=>{const el=document.querySelector('.overview-name');el.id='source-name';for(const a of ['for','list','form','headers','aria-labelledby','aria-describedby','aria-controls','aria-details','aria-errormessage','aria-owns','aria-activedescendant','aria-flowto'])el.setAttribute(a,'source-name');});
+ await startOverviewDrag(page);expect(await page.locator('.sort-drag-copy').evaluate(el=>el.querySelectorAll('[id],[for],[list],[form],[headers],[aria-labelledby],[aria-describedby],[aria-controls],[aria-details],[aria-errormessage],[aria-owns],[aria-activedescendant],[aria-flowto]').length)).toBe(0);
+ await page.keyboard.press('Escape');await page.mouse.up();
+});
+for(const motion of ['reduce','no-preference'])test(`overview touch hold owns drag and cancels cleanly (${motion})`,async({page})=>{
+ await page.emulateMedia({reducedMotion:motion});await mount(page);await page.waitForTimeout(250);await page.evaluate(()=>window.saved=[]);
+ const b=await page.locator('.overview-name').first().boundingBox(),client=await page.context().newCDPSession(page);
+ await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:b.x+10,y:b.y+10}]});await expect(page.locator('.overview-blocks > .overview-block').first()).toHaveClass(/is-hold-armed/);
+ await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:b.x+30,y:b.y+30}]});await expect(page.locator('.sort-drag-host:popover-open')).toHaveCount(1);
+ await client.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source,.is-hold-armed')).toHaveCount(0);
+ expect(await page.evaluate(()=>saved.length)).toBe(0);await page.getByRole('button',{name:'Actions, Bench press',exact:true}).tap();await expect(page.getByRole('group',{name:'Exercise actions',exact:true})).toBeVisible();
+});

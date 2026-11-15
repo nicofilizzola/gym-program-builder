@@ -127,6 +127,7 @@ test('dragging the pair moves it as one block and never lands between members',a
  const first=await page.locator('.log-superset-members > li').first().boundingBox();
  await page.mouse.move(box.x+10,first.y+first.height*0.75,{steps:5});
  expect(await page.locator('.sort-placeholder').count()).toBe(1);
+ await page.locator('.log-exercises > li.log-exercise').scrollIntoViewIfNeeded();
  const single=await page.locator('.log-exercises > li.log-exercise').boundingBox();
  await page.mouse.move(box.x+10,single.y+single.height*0.75,{steps:8});
  await page.mouse.up();
@@ -304,4 +305,13 @@ test.describe('guided focus between superset partners',()=>{
   expect(t2).toBeGreaterThanOrEqual(hb-0.5);
   await context.close();
  });
+});
+
+for(const pair of [false,true])test(`regular logger drag copy retains ${pair?'pair':'single'} descendant geometry`,async({page})=>{
+ const {mountFocusFixture}=await import('./workout-focus-helper.js');await page.setViewportSize({width:1000,height:1400});await mountFocusFixture(page,{enable:false});await page.evaluate(()=>{const log=port.read().log;for(const ex of log.exercises)ex.equipment='Dumbbell';logger.setLog(log);});
+ const source=pair?page.locator('.log-exercises > .log-superset'):page.locator('.log-exercises > .log-exercise').first();
+ const geometry=el=>{const r=el.getBoundingClientRect();return [...el.querySelectorAll('h2,.log-equipment,.log-set,.action-button')].filter(n=>n.getClientRects().length).map(n=>{const b=n.getBoundingClientRect();return [b.x-r.x,b.y-r.y,b.width,b.height];});};
+ await source.scrollIntoViewIfNeeded();const before=await source.evaluate(geometry),heading=await source.locator('.log-equipment').first().boundingBox();await page.mouse.move(heading.x+5,heading.y+5);await page.mouse.down();await page.mouse.move(heading.x+20,heading.y+20);
+ const copy=page.locator('.sort-drag-copy');await expect(copy).toBeVisible();const after=await copy.evaluate(geometry);expect(after.length).toBe(before.length);after.forEach((r,i)=>r.forEach((v,j)=>expect(Math.abs(v-before[i][j]),JSON.stringify({i,j,before:before[i],after:r})).toBeLessThanOrEqual(1)));
+ await page.keyboard.press('Escape');await page.mouse.up();await expect(page.locator('.sort-drag-host,.sort-placeholder')).toHaveCount(0);
 });

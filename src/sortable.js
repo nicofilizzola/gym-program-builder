@@ -17,8 +17,22 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
   const matrix=transform==='none'?{m41:0,m42:0}:new DOMMatrixReadOnly(transform);
   return {top:rect.top-matrix.m42,left:rect.left-matrix.m41,width:rect.width,height:rect.height};
  }
+ function visibleBounds(element){
+  const r=element.getBoundingClientRect(),bounds={left:Math.max(0,r.left),right:Math.min(innerWidth,r.right),top:Math.max(0,r.top),bottom:Math.min(innerHeight,r.bottom)};
+  for(let el=element.parentElement;el;el=el.parentElement){
+   const style=getComputedStyle(el),rect=el.getBoundingClientRect();
+   if(/auto|scroll|hidden|clip/.test(style.overflowX)){bounds.left=Math.max(bounds.left,rect.left+el.clientLeft);bounds.right=Math.min(bounds.right,rect.left+el.clientLeft+el.clientWidth);}
+   if(/auto|scroll|hidden|clip/.test(style.overflowY)){bounds.top=Math.max(bounds.top,rect.top+el.clientTop);bounds.bottom=Math.min(bounds.bottom,rect.top+el.clientTop+el.clientHeight);}
+  }
+  return bounds;
+ }
+ function scrollOwner(element){
+  for(let el=element.parentElement;el&&el!==document.documentElement;el=el.parentElement)if(/auto|scroll/.test(getComputedStyle(el).overflowY)&&el.scrollHeight>el.clientHeight)return el;
+  return document.scrollingElement;
+ }
+ function liveSource(){return drag&&drag.item.isConnected&&root.contains(drag.item)&&drag.item.matches(itemSelector);}
  function targetAt(x,y){
-  const group=getGroups().find(({element})=>{const r=element.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;});
+  const group=getGroups().find(({element})=>{const r=visibleBounds(element);return element.isConnected&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;});
   if(!group)return null;
   const before=items(group.element).find(el=>{const r=layoutRect(el);return y<r.top+r.height/2;});
   return {group,before};
@@ -43,34 +57,35 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
  }
  function tick(){
   if(!drag?.copy)return;
-  const {y}=drag,edge=48;
-  const amount=y<edge?-12*(1-Math.max(y,0)/edge):y>innerHeight-edge?12*(1-Math.max(innerHeight-y,0)/edge):0;
-  if(amount){window.scrollBy(0,amount);preview();}
+  if(!liveSource()){finish();return;}
+  const {x,y,scroll}=drag,edge=48,bounds=scroll===document.scrollingElement?{top:0,bottom:innerHeight,left:0,right:innerWidth}:visibleBounds(scroll);
+  const amount=x<bounds.left||x>bounds.right?0:y<bounds.top+edge?-12*(1-Math.max(y-bounds.top,0)/edge):y>bounds.bottom-edge?12*(1-Math.max(bounds.bottom-y,0)/edge):0;
+  if(amount){scroll.scrollBy(0,amount);preview();}
   frame=requestAnimationFrame(tick);
  }
  // Recreate the item's ancestor chain (class only) so descendant and container-query styles still apply to the copy.
- function dragHost(item,root){
+ function dragHost(item){
   const chain=[];
-  for(let el=item.parentElement;el;el=el.parentElement){chain.unshift(el);if(el===root)break;}
+  for(let el=item.parentElement;el&&el!==document.body;el=el.parentElement)chain.unshift(el);
   let host=null,slot=null;
   for(const el of chain){
-   const node=document.createElement(el.tagName);node.className=el.className;
+   const node=document.createElement(el.tagName==='DIALOG'?'div':el.tagName);node.className=el.className;
    node.style.cssText=`width:${el.getBoundingClientRect().width}px;margin:0;padding:0;border:0;min-height:0;box-sizing:border-box`;
    if(slot)slot.append(node);else host=node;
    slot=node;
   }
   if(!host)host=slot=document.createElement('div');
-  host.classList.add('sort-drag-host');
+  host.classList.add('sort-drag-host');host.setAttribute('popover','manual');host.inert=true;host.setAttribute('aria-hidden','true');
   return {host,slot};
  }
  function begin(){
   const d=drag,r=d.item.getBoundingClientRect();
   if(d.pointerId!==undefined)d.item.setPointerCapture(d.pointerId);
   d.copy=d.item.cloneNode(true);d.copy.classList.add('sort-drag-copy');
-  for(const el of [d.copy,...d.copy.querySelectorAll('*')]){el.removeAttribute('id');el.removeAttribute('aria-controls');el.removeAttribute('aria-describedby');}
+  for(const el of [d.copy,...d.copy.querySelectorAll('*')])for(const attr of ['id','for','list','form','headers','aria-labelledby','aria-describedby','aria-controls','aria-details','aria-errormessage','aria-owns','aria-activedescendant','aria-flowto'])el.removeAttribute(attr);
   d.copy.inert=true;d.copy.setAttribute('aria-hidden','true');
   Object.assign(d.copy.style,{width:`${r.width}px`,height:`${r.height}px`});
-  const {host,slot}=dragHost(d.item,root);d.host=host;slot.append(d.copy);document.body.append(host);
+  const {host,slot}=dragHost(d.item);d.host=host;slot.append(d.copy);document.body.append(host);host.showPopover();d.scroll=scrollOwner(d.item);
   d.placeholder=document.createElement('div');d.placeholder.className='sort-placeholder';d.placeholder.setAttribute('aria-hidden','true');d.placeholder.style.height=`${r.height}px`;
   d.placeholder.style.margin=getComputedStyle(d.item).margin;
   d.item.before(d.placeholder);d.savedStyle=d.item.getAttribute('style');d.item.classList.add('sort-source');
@@ -80,9 +95,10 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
  }
  function finish(commit=false){
   const d=drag;if(!d)return;
-  const result=commit&&d.copy&&d.target?{key:getKey(d.item),groupKey:d.target.group.key,beforeKey:d.target.before?getKey(d.target.before):null}:null;
+  const target=commit&&d.copy&&liveSource()?targetAt(d.x,d.y):null;d.target=target;
+  const result=target?{key:getKey(d.item),groupKey:d.target.group.key,beforeKey:d.target.before?getKey(d.target.before):null}:null;
   drag=null;clearTimeout(holdTimer);cancelAnimationFrame(frame);stopAnimations();
-  d.copy?.remove();d.host?.remove();d.placeholder?.remove();d.item.classList.remove('sort-source','is-hold-armed');
+  if(d.host?.matches(':popover-open'))d.host.hidePopover();d.copy?.remove();d.host?.remove();d.placeholder?.remove();d.item.classList.remove('sort-source','is-hold-armed');
   if(d.savedStyle!==undefined){if(d.savedStyle===null)d.item.removeAttribute('style');else d.item.setAttribute('style',d.savedStyle);}
   document.documentElement.classList.remove('is-sorting');
   if(d.pointerId!==undefined&&d.item.hasPointerCapture(d.pointerId))d.item.releasePointerCapture(d.pointerId);
@@ -129,6 +145,7 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
  },options);
  window.addEventListener('touchcancel',()=>{if(drag?.touchId!==undefined)finish();},options);
  window.addEventListener('blur',()=>finish(),options);
+ window.addEventListener('resize',()=>finish(),options);
  root.addEventListener('contextmenu',event=>{if(drag?.touchId!==undefined&&drag.item.contains(event.target))event.preventDefault();},options);
  root.addEventListener('selectstart',event=>{if(drag?.touchId!==undefined&&drag.item.contains(event.target))event.preventDefault();},options);
  window.addEventListener('pointermove',event=>{
