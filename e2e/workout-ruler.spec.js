@@ -175,3 +175,97 @@ for(const action of ['disable','destroy'])test(`pending paint cancels on ${actio
   }
  }finally{await restoreFrames(page);}
 });
+
+async function mountReadout(page){
+ await page.emulateMedia({reducedMotion:'no-preference'});await mount(page);
+ await page.evaluate(()=>{window.readoutAnimations=el=>el.getAnimations().filter(a=>a.effect.getKeyframes().some(f=>Object.hasOwn(f,'opacity')&&Object.hasOwn(f,'transform')));});
+ await page.getByLabel('Set 1 weight, Bench press',{exact:true}).fill('24.25');await page.getByLabel('Set 1 weight, Bench press',{exact:true}).blur();await holdFrames(page);
+}
+const key=(page,key,kind='weight')=>page.evaluate(({key,kind})=>inputs[kind].closest('.log-stepper').querySelector('.workout-ruler').dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true})),{key,kind});
+const settled=async(page,text)=>{
+ expect(await page.evaluate(()=>[inputs.weight.value,inputs.weight===document.querySelector('[data-field="weight"]'),readoutAnimations(inputs.weight).length,getComputedStyle(inputs.weight).opacity,getComputedStyle(inputs.weight).transform])).toEqual([text,true,0,'1','none']);
+};
+for(const [keyName,expected,y] of [['ArrowRight',26.75,3],['ArrowLeft',21.75,-3]])test(`readout: ${keyName} animates exact accepted decimal as one number`,async({page})=>{
+ await mountReadout(page);
+ try{
+  const before=await page.locator('#reps-caption').boundingBox();await key(page,keyName);
+  expect(await page.evaluate(()=>[inputs.weight.value,value.weightKg])).toEqual([String(expected),expected]);
+  await flushFrame(page);
+  const sample=await page.evaluate(()=>{
+   const el=inputs.weight,[a]=readoutAnimations(el);if(!a)return null;a.pause();a.currentTime=0;const f=a.effect.getKeyframes(),t=a.effect.getTiming();
+   return {count:readoutAnimations(el).length,fromOpacity:+f[0].opacity,toOpacity:+f.at(-1).opacity,fromY:new DOMMatrixReadOnly(f[0].transform).m42,toY:new DOMMatrixReadOnly(f.at(-1).transform).m42,duration:t.duration,easing:t.easing,same:el===window.inputs.weight};
+  });
+  expect(sample).toEqual({count:1,fromOpacity:.75,toOpacity:1,fromY:y,toY:0,duration:120,easing:'ease-out',same:true});
+  expect(await page.locator('#reps-caption').boundingBox()).toEqual(before);
+  expect(await page.locator('#reps-caption').evaluate(el=>el.getAnimations().length)).toBe(0);
+ }finally{await restoreFrames(page);}
+});
+test('readout: reversal retargets current appearance and bursts never queue effects',async({page})=>{
+ await mountReadout(page);
+ try{
+  await key(page,'ArrowRight');await flushFrame(page);
+  const before=await page.evaluate(()=>{const [a]=readoutAnimations(inputs.weight);if(!a)return null;window.previousEffect=a;a.pause();a.currentTime=60;const c=getComputedStyle(inputs.weight);return {opacity:+c.opacity,y:new DOMMatrixReadOnly(c.transform).m42};});
+  expect(before).not.toBe(null);await key(page,'ArrowLeft');await flushFrame(page);
+  const after=await page.evaluate(()=>{const [a]=readoutAnimations(inputs.weight);a.pause();a.currentTime=0;const f=a.effect.getKeyframes()[0];return {opacity:+f.opacity,y:new DOMMatrixReadOnly(f.transform).m42,old:previousEffect.playState};});
+  expect(after.opacity).toBeCloseTo(before.opacity,2);expect(after.y).toBeCloseTo(before.y,1);expect(after.old).toBe('idle');
+  const counts=await page.evaluate(()=>{const counts=[];for(let i=0;i<30;i++){document.querySelector('[role="slider"]').dispatchEvent(new KeyboardEvent('keydown',{key:i%2?'ArrowLeft':'ArrowRight',bubbles:true}));flushFrame();counts.push(readoutAnimations(inputs.weight).length);}return counts;});
+  expect(counts.every(n=>n===1)).toBe(true);await page.waitForTimeout(160);await settled(page,'24.25');
+ }finally{await restoreFrames(page);}
+});
+for(const phase of ['queued','running'])for(const action of ['input','composition','focus','selection','resize','reduced','disable','destroy','replacement'])test(`readout: ${phase} cancels on ${action}`,async({page})=>{
+ await mountReadout(page);
+ try{
+  await key(page,'ArrowRight');if(phase==='running'){await flushFrame(page);expect(await page.evaluate(()=>readoutAnimations(inputs.weight).length)).toBe(1);}
+  if(action==='reduced'){await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(30);}
+  else await page.evaluate(action=>{
+   const el=inputs.weight;
+   if(action==='input'){el.value='24.25';el.dispatchEvent(new Event('input',{bubbles:true}));}
+   if(action==='composition')el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));
+   if(action==='focus')el.focus();
+   if(action==='selection'){el.focus();el.setSelectionRange(1,3);el.dispatchEvent(new Event('select'));}
+   if(action==='resize')el.closest('.log-stepper').style.width='280px';
+   if(action==='disable')widgets.weight.update({enabled:false});
+   if(action==='destroy')widgets.weight.destroy();
+   if(action==='replacement'){value={...value,weightKg:24.25};refresh();}
+  },action);
+  if(action==='resize')await page.waitForTimeout(40);
+  await flushFrame(page);await settled(page,['input','replacement'].includes(action)?'24.25':'26.75');
+ }finally{await restoreFrames(page);}
+});
+test('readout: routine updates and direct entry never start feedback or overwrite composing drafts',async({page})=>{
+ await mountReadout(page);
+ try{
+  await settled(page,'24.25');await page.evaluate(()=>{refresh();widgets.weight.update({range:{min:8,max:12}});});await flushFrame(page);await settled(page,'24.25');
+  await key(page,'ArrowRight');await flushFrame(page);expect(await page.evaluate(()=>readoutAnimations(inputs.weight).length)).toBe(1);
+  for(const raw of ['82,','82.3']){
+   await page.evaluate(raw=>{const el=inputs.weight;el.focus();el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));el.value=raw;el.dispatchEvent(new Event('input',{bubbles:true}));el.setSelectionRange(1,3);refresh();},raw);
+   await flushFrame(page);await settled(page,raw);
+   expect(await page.evaluate(()=>[inputs.weight.selectionStart,inputs.weight.selectionEnd,inputs.weight.getAttribute('aria-invalid'),document.activeElement===inputs.weight])).toEqual([1,3,'true',true]);
+  }
+  await page.evaluate(()=>{inputs.weight.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));inputs.weight.value='82,25';inputs.weight.dispatchEvent(new Event('input',{bubbles:true}));});await flushFrame(page);
+  expect(await page.evaluate(()=>value.weightKg)).toBe(82.25);await settled(page,'82,25');
+  await page.evaluate(()=>{inputs.weight.blur();value={...value,weightKg:null};refresh();});await flushFrame(page);await settled(page,'');
+ }finally{await restoreFrames(page);}
+});
+for(const [increment,wheelValue] of [[0.25,24.75],[1,26],[2.5,30],[5,35]])test(`readout: native routes preserve ${increment} kg steps and stationary labels`,async({page})=>{
+ await mountReadout(page);
+ try{
+  await page.evaluate(n=>{increment=n;refresh();},increment);await flushFrame(page);
+  const caption=await page.locator('#reps-caption').boundingBox();
+  await pointer(page,'pointerdown',100);await pointer(page,'pointerup',200);await flushFrame(page);
+  expect(await page.evaluate(()=>value.weightKg)).toBe(24.25+increment);expect(await page.evaluate(()=>readoutAnimations(inputs.weight).length)).toBe(1);
+  await page.evaluate(()=>{readoutAnimations(inputs.weight).forEach(a=>a.finish());});
+  await page.evaluate(()=>document.querySelector('[role="slider"]').dispatchEvent(new WheelEvent('wheel',{deltaX:32,deltaY:0,bubbles:true,cancelable:true})));await flushFrame(page);
+  expect(await page.evaluate(()=>value.weightKg)).toBe(wheelValue);
+  await pointer(page,'pointerdown',100);await pointer(page,'pointermove',68,70);await flushFrame(page);
+  expect(await page.getByRole('slider').first().locator('.workout-ruler-track').evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s');
+  await pointer(page,'pointerup',68,70);await flushFrame(page);
+  expect(await page.getByRole('slider').first().locator('.workout-ruler-track').evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0.15s');
+  expect(await page.locator('#reps-caption').boundingBox()).toEqual(caption);
+  for(const [kind,limitKey,repeatKey] of [['weight','Home','ArrowLeft'],['weight','End','ArrowRight'],['reps','Home','ArrowLeft'],['reps','End','ArrowRight']]){
+   await key(page,limitKey,kind);await flushFrame(page);expect(await page.evaluate(kind=>readoutAnimations(inputs[kind]).length,kind)).toBe(1);
+   await page.evaluate(kind=>readoutAnimations(inputs[kind]).forEach(a=>a.finish()),kind);await key(page,repeatKey,kind);await flushFrame(page);
+   expect(await page.evaluate(kind=>readoutAnimations(inputs[kind]).length,kind)).toBe(0);
+  }
+ }finally{await restoreFrames(page);}
+});

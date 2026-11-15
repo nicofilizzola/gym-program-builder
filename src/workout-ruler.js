@@ -1,7 +1,6 @@
 import {parseWeight,parseReps,stepWeight,stepReps} from './workout-sets.js';
 import {repRangeHint,repsCaption} from './workout-focus-model.js';
 
-const text=value=>value===null||value===undefined?'':String(value);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 
 /** A presentation attached to the canonical input; only a deliberate adjustment writes. */
@@ -11,8 +10,8 @@ export function mountWorkoutRuler(host,{input,kind,caption=null,onAdjust,onInter
  root.innerHTML='<div class="workout-ruler-track" aria-hidden="true"></div><span class="workout-ruler-needle" aria-hidden="true"></span><span class="workout-ruler-nudge" aria-hidden="true">‹</span><span class="workout-ruler-nudge" aria-hidden="true">›</span>';
  const track=root.firstElementChild,[down,up]=root.querySelectorAll('.workout-ruler-nudge'),guide=document.createElement('p');guide.className='workout-rep-guidance visually-hidden';guide.hidden=true;guide.id='rep-hint-'+crypto.randomUUID();
  host.append(root);if(kind==='reps'){host.append(guide);input.setAttribute('aria-describedby',[input.getAttribute('aria-describedby'),guide.id].filter(Boolean).join(' '));root.setAttribute('aria-describedby',guide.id);}
- let state={value:null,placeholder:null,increment:kind==='weight'?2.5:1,range:null,enabled:false},offset=0,drag=null,destroyed=false,settleTimer=null,frame=null,width=null,windowKey=null;
- const reduced=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
+ let state={value:null,placeholder:null,increment:kind==='weight'?2.5:1,range:null,enabled:false},offset=0,drag=null,destroyed=false,settleTimer=null,frame=null,width=null,windowKey=null,animation=null,feedback=0,adjusting=false,composing=false;
+ const motion=matchMedia('(prefers-reduced-motion:reduce)'),reduced=()=>motion.matches;
  const effective=()=>state.value??state.placeholder??min;
  function updateHint(){
   const parsed=parse(input.value),args={kind:'working',reps:parsed.value,range:state.range,invalid:Boolean(parsed.error)},hint=repRangeHint(args);
@@ -20,8 +19,21 @@ export function mountWorkoutRuler(host,{input,kind,caption=null,onAdjust,onInter
   const outside=hint?.state==='below'||hint?.state==='above';host.classList.toggle('is-outside-range',!guide.hidden&&outside);
   if(caption&&kind==='reps'){const c=repsCaption(args);caption.textContent=c.text;caption.classList.toggle('is-outside',c.outside);}
  }
+ function cancelFeedback(){feedback=0;animation?.cancel();animation=null;}
+ function paintFeedback(){
+  if(!feedback)return;
+  if(composing||reduced()||!input.isConnected){cancelFeedback();return;}
+  let opacity=.75,transform=`translateY(${feedback*3}px)`;
+  if(animation&&animation.playState!=='finished'&&animation.playState!=='idle'){
+   const current=getComputedStyle(input);opacity=current.opacity;transform=current.transform;
+  }
+  cancelFeedback();
+  const effect=input.animate([{opacity,transform},{opacity:1,transform:'translateY(0px)'}],{duration:120,easing:'ease-out'});
+  animation=effect;effect.onfinish=()=>{if(animation===effect)animation=null;};
+ }
  function paint(){
   frame=null;if(destroyed||!state.enabled)return;
+  paintFeedback();
   width??=root.clientWidth;
   const center=width/2,step=state.increment,total=(max-min)/step*32;
   for(const [key,value] of Object.entries({width:(width+total)+'px',backgroundPositionX:center+'px',transform:`translate3d(${-offset}px, 0px, 0px)`}))if(track.style[key]!==value)track.style[key]=value;
@@ -43,7 +55,11 @@ export function mountWorkoutRuler(host,{input,kind,caption=null,onAdjust,onInter
   root.classList.toggle('is-suggestion',actual===null);down.classList.toggle('is-limit',n<=min);up.classList.toggle('is-limit',n>=max);
  }
  function syncPosition(){if(!drag?.moved)offset=(effective()-min)/state.increment*32;semantics();draw();}
- function adjust(n){const next=Number(clamp(n,min,max).toFixed(2));if(next!==state.value)onAdjust(next);}
+ function adjust(n){
+  const before=effective(),next=Number(clamp(n,min,max).toFixed(2));if(next===state.value)return;
+  adjusting=true;try{onAdjust(next);}finally{adjusting=false;}
+  if(!destroyed&&state.enabled&&!composing&&!reduced()&&state.value===next&&next!==before){feedback=Math.sign(next-before);draw();}
+ }
  /** Arrow keys and taps share one step, so a tap equals the key from placeholders, off-grid values and limits. */
  function step(direction){const from=effective(),n=kind==='weight'?stepWeight(from,null,direction*state.increment):stepReps(from,null,direction);if(n!==from)adjust(n);syncPosition();} // steps from the shown value; no write when it would not move
  function settle(){
@@ -64,10 +80,14 @@ export function mountWorkoutRuler(host,{input,kind,caption=null,onAdjust,onInter
   if(!state.enabled||!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();onInteraction();
   if(e.key==='Home'||e.key==='End'){adjust(e.key==='Home'?min:max);syncPosition();}else step(e.key==='ArrowLeft'?-1:1);
  },{signal});
- input.addEventListener('input',updateHint,{signal});
- const observer=new ResizeObserver(()=>{width=null;windowKey=null;syncPosition();});observer.observe(root);
+ input.addEventListener('input',()=>{cancelFeedback();updateHint();},{signal});
+ for(const event of ['focus','select','pointerdown','keydown'])input.addEventListener(event,cancelFeedback,{signal});
+ input.addEventListener('compositionstart',()=>{composing=true;cancelFeedback();},{signal});
+ input.addEventListener('compositionend',()=>{composing=false;},{signal});
+ motion.addEventListener('change',cancelFeedback,{signal});
+ const observer=new ResizeObserver(()=>{cancelFeedback();width=null;windowKey=null;syncPosition();});observer.observe(root);
  return {
-  update(next){if(destroyed)return;state={...state,...next};updateHint();root.hidden=!state.enabled;root.tabIndex=state.enabled?0:-1;if(!state.enabled){drag=null;cancelPaint();clearTimeout(settleTimer);root.classList.remove('is-dragging','is-settling');track.replaceChildren();guide.hidden=true;return;}syncPosition();},
-  destroy(){if(destroyed)return;destroyed=true;cancelPaint();events.abort();observer.disconnect();clearTimeout(settleTimer);root.remove();guide.remove();host.classList.remove('is-outside-range');input.setAttribute('aria-describedby',(input.getAttribute('aria-describedby')||'').split(' ').filter(id=>id!==guide.id).join(' '));}
+  update(next){if(destroyed)return;if(!adjusting&&Object.hasOwn(next,'value')&&next.value!==state.value)cancelFeedback();state={...state,...next};updateHint();root.hidden=!state.enabled;root.tabIndex=state.enabled?0:-1;if(!state.enabled){drag=null;cancelFeedback();cancelPaint();clearTimeout(settleTimer);root.classList.remove('is-dragging','is-settling');track.replaceChildren();guide.hidden=true;return;}syncPosition();},
+  destroy(){if(destroyed)return;destroyed=true;cancelFeedback();cancelPaint();events.abort();observer.disconnect();clearTimeout(settleTimer);root.remove();guide.remove();host.classList.remove('is-outside-range');input.setAttribute('aria-describedby',(input.getAttribute('aria-describedby')||'').split(' ').filter(id=>id!==guide.id).join(' '));}
  };
 }

@@ -3,12 +3,22 @@ import {mountFocusFixture} from './workout-focus-helper.js';
 import {focusFixture} from '../test/fixtures/workout-focus.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 test('set cards reuse canonical inputs and restore them to compact layout',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});
  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
- await page.screenshot({path:'.superpowers/sdd/2026-11-08-mobile-workout-focus/focus-card-390.png'});
+ await page.getByLabel('Set 1 weight, Bench press',{exact:true}).fill('24.25');
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ const started=await page.evaluate(async()=>{
+  originalWeight.closest('.log-stepper').querySelector('.workout-ruler').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  await new Promise(requestAnimationFrame);return originalWeight.getAnimations().some(a=>a.effect.getKeyframes().some(f=>Object.hasOwn(f,'transform')&&Object.hasOwn(f,'opacity')));
+ });expect(started).toBe(true);
  const field=page.getByLabel('Set 1 weight, Bench press',{exact:true});await field.fill('82.3');
- await page.evaluate(()=>focusView.setEnabled(false));await expect(field).toBeFocused();await expect(field).toHaveValue('82.3');
- expect(await page.evaluate(()=>originalWeight===port.row({exerciseId:'straight',setId:'s1'}).querySelector('[data-field="weight"]'))).toBe(true);
- await page.evaluate(()=>focusView.setEnabled(true));await expect(field).toHaveValue('82.3');await expect(field).toBeFocused();
+ await field.evaluate(el=>{el.setSelectionRange(1,3);el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});
+ await page.evaluate(()=>{focusView.setEnabled(false);focusView.setEnabled(true);logger.setLog(port.read().log);logger.setLastTime({});logger.setBestPerformance({});});
+ await expect(field).toBeFocused();await expect(field).toHaveValue('82.3');await expect(field).toHaveAttribute('aria-invalid','true');
+ expect(await field.evaluate(el=>[el===originalWeight,el.selectionStart,el.selectionEnd,el.getAnimations().filter(a=>a.effect.getKeyframes().some(f=>Object.hasOwn(f,'transform')&&Object.hasOwn(f,'opacity'))).length])).toEqual([true,1,3,0]);
+ await field.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));
+ await page.evaluate(async()=>{await port.command({type:'remove-exercise',exerciseId:'straight'});focusView.destroy();});
+ expect(await page.evaluate(()=>originalWeight.getAnimations().length)).toBe(0);
 });
 test('warmups and unequal supersets show execution context and RIR is one tap',async({page})=>{
  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));
@@ -294,4 +304,14 @@ test('populated ruler path records responsive writes and paint work',async({page
  for(const sample of samples){expect(sample.input).toBe(sample.canonical);expect(sample.saved).toBe(sample.canonical);expect(sample.values.length).toBeGreaterThan(0);}
  await testInfo.attach('ruler-work',{body:JSON.stringify({browser:testInfo.project.name||'chromium',viewport:{width:390,height:844},samples}),contentType:'application/json'});
  console.log('ruler-work '+JSON.stringify(samples));
+});
+
+test('readout: completion kg and reps fallback never animates canonical inputs',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});await mountFocusFixture(page);
+ await page.evaluate(()=>{logger.setLastTime({v1:{sets:[{kind:'working',weightKg:80,reps:8,rir:5}],note:''}});const next=port.read().log;next.exercises[0].variantId='v1';next.exercises[0].referenceId='r1';logger.setLog(next);focusView.jump({exerciseId:'straight',setId:'s1'});});
+ await page.getByLabel('Auto-next',{exact:true}).uncheck();
+ const card=page.locator('.focus-card[data-set-id="s1"]');await expect(card.locator('[data-field="weight"]')).toHaveValue('');await expect(card.locator('[data-field="reps"]')).toHaveValue('');
+ await card.locator('.log-done').click();await expect(card.locator('[data-field="weight"]')).toHaveValue('80');await expect(card.locator('[data-field="reps"]')).toHaveValue('8');
+ expect(await card.locator('input[data-field]').evaluateAll(nodes=>nodes.flatMap(el=>el.getAnimations().filter(a=>a.effect.getKeyframes().some(f=>Object.hasOwn(f,'transform')&&Object.hasOwn(f,'opacity'))))).then(a=>a.length)).toBe(0);
+ expect(await page.evaluate(()=>port.read().log.exercises[0].sets[1].rir)).toBe(null);
 });
