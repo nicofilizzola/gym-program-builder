@@ -267,7 +267,7 @@ test.describe('fine pointer compact overview',()=>{
   await page.screenshot({path:'.superpowers/verification/2026-11-15-workout-overview-interactions/layout-desktop.png'});
  });
 });
-test('hybrid compact controls retain touch targets',async({page})=>{await page.setViewportSize({width:1000,height:900});const d=await mount(page);for(const b of await d.locator('.action-button,.overview-chip').all()){if(!await b.isVisible())continue;const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);}await page.screenshot({path:'.superpowers/verification/2026-11-15-workout-overview-interactions/layout-hybrid.png'});});
+test('wide viewport with touch emulation retains touch targets',async({page})=>{await page.setViewportSize({width:1000,height:900});const d=await mount(page);for(const b of await d.locator('.action-button,.overview-chip').all()){if(!await b.isVisible())continue;const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);}await page.screenshot({path:'.superpowers/verification/2026-11-15-workout-overview-interactions/layout-touch-wide.png'});});
 
 test.describe('exact partner jump timing',()=>{
  test.use({reducedMotion:'no-preference'});
