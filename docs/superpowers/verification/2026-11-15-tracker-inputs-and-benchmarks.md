@@ -56,3 +56,16 @@ Focused integration `npx playwright test e2e/workout-focus-view.spec.js --grep "
 No deployment, real-device or physical-keyboard verification. Phone slow/fast/reversal fluidity and readout feel remain pending (user). Later overview/navigation/Focus work must rerun this integrated boundary.
 
 Full `npm test` rerun: **518 passed, 0 failed** (10.8s). Temporary port edits restored; no dependency, config, server/API, migration or schema changes ship. Static Chromium screenshot at 390x844 inspected: existing layout/targets preserved, lower-bound Best copy present and blank RIR unselected. This is browser evidence only.
+
+## Final independent review and execution decisions
+
+Fresh-context read-only review of `f346cec..7808132`: no Critical, Important or Minor findings, no declined judgments; ready to merge. Reviewer inspected shared eligibility/completion, logger/Focus callers, tick cache, motion retargeting, cancellation, drafts and tests. It did not independently rerun the recorded suites. Final task-done full unit run after restoring temporary port edits: 518 passed, 0 failed (11.0s).
+
+Execution rulings, in order:
+
+- Used the already approved spec without reopening brainstorming/design approval; if that interpretation were wrong, the design would need revisiting.
+- Used `npm.cmd`/`npx.cmd` because PowerShell blocks `.ps1`; command semantics are unchanged, with no product cost.
+- Temporarily used test port 3299 to avoid the occupied 3199 server, then restored every port edit; no shipped change or product cost.
+- Preserved existing wheel/drag increment-grid quantization and corrected the new test's expected values, while tap/key retain off-grid deltas; if wrong, wheel expectations would need revisiting.
+
+No deferred minor findings. Four implementation commits remain in the native managed worktree; no merge, push, deployment or migration was performed.
