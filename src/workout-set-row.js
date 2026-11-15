@@ -95,7 +95,6 @@ export function createSetRow({exerciseName,set,kind=set.kind||'working',kindInde
   for(const button of rir.children){
    const value=Number(button.dataset.rir);
    button.setAttribute('aria-pressed',String(current.rir===value));
-   button.classList.toggle('is-placeholder',current.rir===null&&ph?.rir===value);
   }
   done.setAttribute('aria-pressed',String(current.done));done.setAttribute('aria-label',`Mark ${label.toLowerCase()} done, ${name}`);
   menu.setAttribute('aria-label',`${label} actions, ${name}`);

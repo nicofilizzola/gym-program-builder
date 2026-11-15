@@ -15,7 +15,7 @@ test('completing a warm-up never fills RIR',()=>{
  const ph={weightKg:40,reps:8,rir:2},log=makeLog();
  const mk=(over,kind)=>({...log,exercises:[exercise('e1',[set('w',{kind,...over})]),...log.exercises.slice(1)]});
  assert.deepEqual(toggleSetDone(mk({},'warmup'),'e1','w',ph).log.exercises[0].sets[0],{id:'w',kind:'warmup',weightKg:40,reps:8,rir:null,done:true});
- assert.equal(toggleSetDone(mk({},'working'),'e1','w',ph).log.exercises[0].sets[0].rir,2);
+ assert.equal(toggleSetDone(mk({},'working'),'e1','w',ph).log.exercises[0].sets[0].rir,null);
  assert.equal(toggleSetDone(mk({rir:3},'warmup'),'e1','w',ph).log.exercises[0].sets[0].rir,3);
 });
 
@@ -35,7 +35,7 @@ test('toggleSetDone fills empty fields from the placeholder and needs reps',()=>
  const log=makeLog(),before=copy(log);
  const ph={weightKg:80,reps:8,rir:2};
  const r=toggleSetDone(log,'e1','s2',ph);
- assert.deepEqual(r.log.exercises[0].sets[1],{id:'s2',kind:'working',weightKg:80,reps:8,rir:2,done:true});
+ assert.deepEqual(r.log.exercises[0].sets[1],{id:'s2',kind:'working',weightKg:80,reps:8,rir:null,done:true});
  assert.deepEqual(log,before);
  const typed=updateSet(log,'e1','s2',{weightKg:82.5});
  assert.equal(toggleSetDone(typed,'e1','s2',ph).log.exercises[0].sets[1].weightKg,82.5);
@@ -201,4 +201,17 @@ test('add copies variant tags; swap replaces or clears them',()=>{
  assert.deepEqual([other.exercises[0].brand,other.exercises[0].focusTags],['',['Lengthened']]);
  const none=swapExercise(first,'e1',entry);
  assert.deepEqual([none.exercises[0].brand,none.exercises[0].focusTags],['',[]]);
+});
+
+test('completion preserves optional RIR through repeat toggles and statuses',()=>{
+ for(const status of ['active','finished'])for(const rir of [null,0,1,2,3,4,5]){
+  let log={...makeLog(),status,exercises:[exercise('e1',[set('s',{rir})])]};
+  for(let cycle=0;cycle<2;cycle++){
+   log=toggleSetDone(log,'e1','s',{weightKg:80,reps:8,rir:4}).log;
+   assert.deepEqual(log.exercises[0].sets[0],set('s',{weightKg:80,reps:8,rir,done:true}));
+   log=toggleSetDone(log,'e1','s',{rir:2}).log;
+   assert.equal(log.exercises[0].sets[0].rir,rir);
+   assert.equal(log.exercises[0].sets[0].done,false);
+  }
+ }
 });

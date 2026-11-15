@@ -140,7 +140,7 @@ test('the sixth RIR option reads 5+ and stores 5',async({page})=>{
  await expect(page.locator('.log-exercise').first().locator('.log-rir').first().getByRole('button',{name:'5 or more',exact:true})).toHaveAttribute('aria-pressed','true');
 });
 
-test('last time RIR 5 suggests 5+',async({page})=>{
+test('last time RIR 5 remains historical without a selected choice',async({page})=>{
  await page.setViewportSize({width:1366,height:768});
  await login(page);await resetWorkouts(page);
  const {id}=await createLinkedTemplate(page,'Push A');
@@ -155,7 +155,7 @@ test('last time RIR 5 suggests 5+',async({page})=>{
  await page.goto('/#/workouts/'+log.id);
  const card=page.locator('.log-exercise').first();
  await expect(card.locator('.log-last-time')).toContainText('@5+');
- await expect(card.locator('.log-rir').first().getByRole('button',{name:'5 or more',exact:true})).toHaveClass(/is-placeholder/);
+ await expect(card.locator('.log-rir').first().locator('[aria-pressed="true"],.is-placeholder')).toHaveCount(0);
 });
 
 test('a deselected RIR option returns to the plain border on touch',async({browser})=>{
@@ -177,7 +177,7 @@ test('a deselected RIR option returns to the plain border on touch',async({brows
  await context.close();
 });
 
-test('a suggested RIR option keeps a dashed non-accent border',async({page})=>{
+test('historical RIR never highlights a blank choice',async({page})=>{
  await page.setViewportSize({width:1366,height:768});
  await login(page);await resetWorkouts(page);
  const {id}=await createLinkedTemplate(page,'Push A');
@@ -189,11 +189,9 @@ test('a suggested RIR option keeps a dashed non-accent border',async({page})=>{
  const log=createWorkoutLog({id:makeId(),now:new Date(Date.now()-5*60000),makeId,template});
  expect((await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}})).ok()).toBeTruthy();
  await page.goto('/#/workouts/'+log.id);
- const suggested=page.locator('.log-exercise').first().locator('.log-rir').first().locator('.is-placeholder');
- await expect(suggested).toHaveCount(1);
- const s=await suggested.evaluate(el=>{const c=getComputedStyle(el);return [c.borderTopStyle,c.borderTopColor];});
- const accent=await page.evaluate(()=>{const p=document.createElement('i');p.style.color='var(--accent)';document.body.append(p);const c=getComputedStyle(p).color;p.remove();return c;});
- expect(s[0]).toBe('dashed');expect(s[1]).not.toBe(accent);
+ await expect(page.locator('.log-exercise').first().locator('.log-last-time')).toContainText('@2');
+ const rir=page.locator('.log-exercise').first().locator('.log-rir').first();
+ await expect(rir.locator('.is-placeholder,[aria-pressed="true"]')).toHaveCount(0);
 });
 
 test('a saved set note shows the note icon inline before its text',async({page})=>{
@@ -208,4 +206,53 @@ test('a saved set note shows the note icon inline before its text',async({page})
   return {display:getComputedStyle(svg).display,w:s.width,dy:Math.abs((s.top+s.height/2)-(t.top+t.height/2)),before:s.right<=t.left+1};
  });
  expect(m.display).toBe('inline-block');expect(m.w).toBe(15);expect(m.dy).toBeLessThanOrEqual(4);expect(m.before).toBe(true);
+});
+
+for(const width of [390,1366])test(`optional RIR survives completion and reload ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:844});
+ await login(page);await resetWorkouts(page);
+ const {id}=await createLinkedTemplate(page,'Optional RIR');
+ const template=(await (await page.request.get(`/api/documents/${id}`)).json()).record;
+ let past=createWorkoutLog({id:makeId(),now:new Date(Date.now()-3*3600000),makeId,template});
+ past.exercises[0].sets[0]={...past.exercises[0].sets[0],weightKg:80,reps:8,rir:5,done:true};
+ expect((await page.request.put(`/api/workouts/${past.id}`,{headers,data:{revision:0,log:finishWorkout(past,new Date(Date.now()-2*3600000)).log}})).ok()).toBeTruthy();
+ const log=createWorkoutLog({id:makeId(),now:new Date(),makeId,template});
+ expect((await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}})).ok()).toBeTruthy();
+ await page.goto('/#/workouts/'+log.id);
+ if(width===390)await page.getByLabel('Auto-next',{exact:true}).uncheck();
+ const cards=page.locator(width===390?'.focus-card[data-kind="working"]':'.log-exercise .log-set'),card=cards.first(),rir=card.locator('.log-rir');
+ const history=page.locator(width===390?'.focus-group':'.log-exercise').first();
+ await expect(history.locator('.log-last-time').first()).toContainText('@5+');
+ await expect(rir.locator('[aria-pressed="true"],.is-placeholder')).toHaveCount(0);
+ await card.locator('.log-done').click();
+ const read=async()=>(await (await page.request.get('/api/workouts/active')).json()).record.log.exercises[0].sets;
+ await expect.poll(async()=>(await read())[0]).toMatchObject({done:true,weightKg:80,reps:8,rir:null});
+ await page.reload();await expect(rir.locator('[aria-pressed="true"],.is-placeholder')).toHaveCount(0);
+ await rir.locator('[data-rir="0"]').click();await expect(rir.locator('[data-rir="0"]')).toHaveAttribute('aria-pressed','true');
+ await rir.locator('[data-rir="0"]').click();await expect(rir.locator('[aria-pressed="true"]')).toHaveCount(0);
+ await cards.nth(1).locator('.log-done').click();
+ await expect.poll(async()=>(await read())[1]).toMatchObject({done:true,weightKg:80,reps:8,rir:null});
+ await page.reload();await expect(cards.nth(1).locator('[aria-pressed="true"].log-rir-option,.is-placeholder')).toHaveCount(0);
+});
+
+test('optional RIR finished copies preserve null, explicit zero and legacy warmups',async({page})=>{
+ await page.setViewportSize({width:1366,height:768});await setupFinished(page,'80');
+ const url=page.url(),id=url.split('/').at(-1),read=async()=>(await (await page.request.get('/api/workouts/'+id)).json()).record;
+ let record=await read();
+ const past={...structuredClone(record.log),id:makeId(),startedAt:'2026-10-30T10:00:00Z',finishedAt:'2026-10-30T11:00:00Z'};
+ past.exercises[0].sets.forEach(set=>{set.rir=5;});
+ expect((await page.request.put('/api/workouts/'+past.id,{headers,data:{revision:0,log:past}})).ok()).toBeTruthy();
+ record.log.exercises[0].sets.unshift({...record.log.exercises[0].sets[0],id:makeId(),kind:'warmup',rir:3});
+ expect((await page.request.put('/api/workouts/'+id,{headers,data:{revision:record.revision,log:record.log}})).ok()).toBeTruthy();
+ await page.reload();const exercise=page.locator('.log-exercise').first();
+ await expect(exercise.locator('.log-last-time')).toContainText('@5+');
+ await expect(exercise.locator('.log-rir-option[aria-pressed="true"]:visible,.is-placeholder')).toHaveCount(0);
+ await exercise.getByRole('button',{name:'Add set, Bench press',exact:true}).click();
+ await expect.poll(async()=>(await read()).log.exercises[0].sets.at(-1).rir).toBe(null);
+ await exercise.locator('.log-set').last().locator('[data-rir="0"]').click();
+ await exercise.getByRole('button',{name:'Add set, Bench press',exact:true}).click();
+ await exercise.getByRole('button',{name:'Add warm-up, Bench press',exact:true}).click();
+ await expect.poll(async()=>{const sets=(await read()).log.exercises[0].sets;return [sets.at(-1).rir,...sets.filter(s=>s.kind==='warmup').map(s=>s.rir)];}).toEqual([0,3,null]);
+ await page.reload();await expect(exercise.locator('.log-set').last().locator('[data-rir="0"]')).toHaveAttribute('aria-pressed','true');
+ await expect(exercise.locator('.log-set[data-kind="warmup"] .log-rir:visible')).toHaveCount(0);
 });

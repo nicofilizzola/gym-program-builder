@@ -72,13 +72,13 @@ export const removeSet=(log,exerciseId,setId)=>{
 
 export const updateSet=(log,exerciseId,setId,patch)=>mapSet(log,exerciseId,setId,s=>({...s,...patch}));
 
-/** Marking done fills empty fields from the placeholder; reps are required. Undoing keeps values. */
+/** Marking done fills only empty kg/reps from the placeholder; reps are required. Undoing keeps values. */
 export function toggleSetDone(log,exerciseId,setId,placeholder){
  const ex=log.exercises.find(e=>e.id===exerciseId),current=ex&&ex.sets.find(s=>s.id===setId);
  if(!current)return {log};
  if(current.done)return {log:updateSet(log,exerciseId,setId,{done:false})};
  const ph=placeholder||{};
- const filled={weightKg:current.weightKg??ph.weightKg??null,reps:current.reps??ph.reps??null,rir:current.rir??(current.kind==='warmup'?null:ph.rir)??null};
+ const filled={weightKg:current.weightKg??ph.weightKg??null,reps:current.reps??ph.reps??null,rir:current.rir};
  if(filled.reps===null)return {error:'Enter reps'};
  return {log:updateSet(log,exerciseId,setId,{...filled,done:true})};
 }

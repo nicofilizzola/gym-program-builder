@@ -2299,7 +2299,6 @@ p.limit-hint {display:flex}
 .log-rir-option {min-width:0;min-height:var(--control-touch);padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:.875rem;font-weight:600;transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
 @media (hover:hover) and (pointer:fine) {.log-rir-option:hover:not(:disabled) {color:var(--text);border-color:var(--muted)}}
 .log-rir-option:focus-visible {outline:2px solid var(--text);outline-offset:1px}
-.log-rir-option.is-placeholder {border-style:dashed;color:var(--text)}
 .log-rir-option[aria-pressed="true"] {border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
 .log-rir-option:disabled {cursor:default}
 .log-done {display:grid;grid-area:done;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);transition:color 150ms ease-out,background-color 150ms ease-out,border-color 150ms ease-out}
