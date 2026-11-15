@@ -60,9 +60,9 @@ for(const viewport of [{width:390,height:844},{width:1366,height:768}]){
    await done.click();
    await expect(done).toHaveAttribute('aria-pressed','true');
    await expect(weight).toHaveValue('80');await expect(reps).toHaveValue('8');
-   await expect(page.getByRole('group',{name:`Set 1 RIR, ${first}`}).getByRole('button',{name:'2',exact:true})).toHaveAttribute('aria-pressed','true');
+   await expect(page.getByRole('group',{name:`Set 1 RIR, ${first}`}).locator('[aria-pressed=true]')).toHaveCount(0);
    await expect(status(page)).toHaveText('Saved');
-   await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[0]).toMatchObject({weightKg:80,reps:8,rir:2,done:true});
+   await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[0]).toMatchObject({weightKg:80,reps:8,rir:null,done:true});
    // A done set toggles back to not done and keeps its values.
    await done.click();await expect(done).toHaveAttribute('aria-pressed','false');await expect(weight).toHaveValue('80');
    // No reps from last time or a target: ✓ asks for reps and focuses the field.
@@ -284,8 +284,8 @@ test.describe('Focus at 390px',()=>{
   await done.click();
   await expect(done).toHaveAttribute('aria-pressed','true');
   await expect(weight).toHaveValue('80');await expect(reps).toHaveValue('8');
-  await expect(page.getByRole('group',{name:`Set 1 RIR, ${first}`}).getByRole('button',{name:'2',exact:true})).toHaveAttribute('aria-pressed','true');
-  await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[0]).toMatchObject({weightKg:80,reps:8,rir:2,done:true});
+  await expect(page.getByRole('group',{name:`Set 1 RIR, ${first}`}).locator('[aria-pressed=true]')).toHaveCount(0);
+  await expect.poll(async()=>(await serverLog(page,log.id)).exercises[0].sets[0]).toMatchObject({weightKg:80,reps:8,rir:null,done:true});
   await done.click();await expect(done).toHaveAttribute('aria-pressed','false');await expect(weight).toHaveValue('80');
   const rir=page.getByRole('group',{name:`Set 1 RIR, ${first}`});
   await rir.getByRole('button',{name:'3',exact:true}).click();

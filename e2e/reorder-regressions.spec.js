@@ -54,3 +54,12 @@ test('an independent touch action works immediately after a touch drop',async({b
  await page.locator('.workout-title').filter({hasText:'Press'}).tap();await expect(page.getByRole('button',{name:'Back to program',exact:true})).toBeVisible();
  await expect(page.locator('[data-template-name]')).toHaveValue('Press');await context.close();
 });
+
+test('initial menu focus honors an enabled index and preserves current fallback',async({page})=>{
+ await programFixture(page);await page.evaluate(async()=>{const {mountReorderMenu}=await import('/src/reorder-menu.js');window.initialMenu=mountReorderMenu();window.initialTrigger=document.createElement('button');initialTrigger.textContent='Initial focus test';document.body.prepend(initialTrigger);});
+ for(const [index,label] of [[1,'Middle'],[0,'Current'],[-1,'Current'],[99,'Current']]){
+  await page.evaluate(initialIndex=>initialMenu.toggle(initialTrigger,[{label:'Disabled',disabled:true,run(){}},{label:'Middle',run(){}},{label:'Current',current:true,run(){}}],{initialIndex}),index);
+  await expect(page.getByRole('group',{name:'Reorder options',exact:true}).getByRole('button',{name:label,exact:true})).toBeFocused();await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'Initial focus test',exact:true})).toBeFocused();
+ }
+ await page.evaluate(()=>initialMenu.destroy());
+});

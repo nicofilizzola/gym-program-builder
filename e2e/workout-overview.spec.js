@@ -85,7 +85,7 @@ test('a done chip keeps its check and refreshes its text on re-render',async({pa
 });
 
 test('the actions menu holds every exercise command',async({page})=>{
- const d=await mount(page);const names=['Add set','Add warm-up','Exercise note','Swap exercise','Remove last set','Remove last warm-up','Remove exercise'],ids=()=>page.evaluate(()=>port.read().log.exercises[0].sets.map(s=>s.id));
+ const d=await mount(page);const names=['Add set','Add warm-up','Exercise note','Swap exercise','Move up','Move down','Remove last set','Remove last warm-up','Remove exercise'],ids=()=>page.evaluate(()=>port.read().log.exercises[0].sets.map(s=>s.id));
  await d.getByRole('button',{name:'Actions, Bench press',exact:true}).click();const g=page.getByRole('group',{name:'Exercise actions',exact:true});await expect(g.getByRole('button')).toHaveText(names);
  await g.getByRole('button',{name:'Remove last set',exact:true}).click();expect(await ids()).toEqual(['sw','s1']);
  await d.getByRole('button',{name:'Actions, Bench press',exact:true}).click();await page.getByRole('button',{name:'Remove last warm-up',exact:true}).click();expect(await ids()).toEqual(['s1']);
@@ -128,16 +128,16 @@ async function startOverviewDrag(page,pair=false){
  await page.mouse.move(box.x+8,box.y+8);await page.mouse.down();await page.mouse.move(box.x+23,box.y+23);await page.evaluate(p=>window.dragPointer=p,{x:box.x+23,y:box.y+23});
  return source;
 }
-for(const pair of [false,true])test(`modal drag paints above the overview and commits once (${pair?'pair':'single'})`,async({page})=>{
+for(const motion of ['reduce','no-preference'])for(const pair of [false,true])test(`modal drag paints above the overview and commits once (${pair?'pair':'single'}, ${motion})`,async({page})=>{
  const log=focusFixture();for(const ex of log.exercises)Object.assign(ex,{brand:'Hammer',focusTags:['Upper chest']});
- const d=await mount(page,log);await page.evaluate(()=>{window.saved=[];window.beforeIds=port.read().log.exercises.map(e=>[e.id,e.sets.map(s=>s.id)]);});
+ await page.emulateMedia({reducedMotion:motion});const d=await mount(page,log);await page.waitForTimeout(motion==='reduce'?0:250);await page.evaluate(()=>{window.saved=[];window.beforeIds=port.read().log.exercises.map(e=>[e.id,e.sets.map(s=>s.id)]);});
  const selector=`.workout-overview .overview-blocks > [data-block-id=${pair?'a':'straight'}]`;
  const geometry=el=>{const r=el.getBoundingClientRect();return [...el.querySelectorAll('.overview-name,.overview-tags,.overview-chip,.action-button')].filter(n=>n.getClientRects().length).map(n=>{const b=n.getBoundingClientRect();return [b.x-r.x,b.y-r.y,b.width,b.height];});};
  const before=await page.locator(selector).evaluate(geometry),source=await startOverviewDrag(page,pair),copy=page.locator('.sort-drag-copy');
  const box=await copy.locator('.overview-name').first().boundingBox(),clip={x:Math.ceil(box.x),y:Math.ceil(box.y),width:Math.floor(box.width)-2,height:Math.floor(box.height)-2};
  const painted=await page.screenshot({clip,animations:'disabled'});await copy.evaluate(el=>el.style.visibility='hidden');const hidden=await page.screenshot({clip,animations:'disabled'});
  expect(painted.equals(hidden)).toBe(false);await copy.evaluate(el=>el.style.removeProperty('visibility'));
- await page.screenshot({path:`.superpowers/sdd/2026-11-15-workout-overview-interactions/drag-${pair?'pair':'single'}.png`});
+ await page.screenshot({path:`.superpowers/sdd/2026-11-15-workout-overview-interactions/drag-${pair?'pair':'single'}-${motion}.png`});
  const after=await copy.evaluate(geometry);expect(after.length).toBe(before.length);after.forEach((r,i)=>r.forEach((v,j)=>expect(Math.abs(v-before[i][j]),JSON.stringify({i,j,before:before[i],after:r})).toBeLessThanOrEqual(1)));
  await expect(page.locator('.sort-drag-host:popover-open')).toHaveCount(1);
  expect(await source.evaluate(el=>el.hasPointerCapture(1))).toBe(true);
@@ -188,4 +188,56 @@ for(const motion of ['reduce','no-preference'])test(`overview touch hold owns dr
  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:b.x+30,y:b.y+30}]});await expect(page.locator('.sort-drag-host:popover-open')).toHaveCount(1);
  await client.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source,.is-hold-armed')).toHaveCount(0);
  expect(await page.evaluate(()=>saved.length)).toBe(0);await page.getByRole('button',{name:'Actions, Bench press',exact:true}).tap();await expect(page.getByRole('group',{name:'Exercise actions',exact:true})).toBeVisible();
+});
+
+const actionGroup=page=>page.getByRole('group',{name:'Exercise actions',exact:true});
+test('movement handles share the exercise actions menu',async({page})=>{
+ const d=await mount(page),handle=d.getByRole('button',{name:'Reorder Bench press',exact:true}),more=d.getByRole('button',{name:'Actions, Bench press',exact:true});
+ await more.click();const g=actionGroup(page);await expect(g.getByRole('button')).toHaveText(['Add set','Add warm-up','Exercise note','Swap exercise','Move up','Move down','Remove last set','Remove last warm-up','Remove exercise']);
+ await expect(g.getByRole('button',{name:'Add set',exact:true})).toBeFocused();await expect(g.getByRole('button',{name:'Move up',exact:true})).toBeDisabled();await page.keyboard.press('Escape');await expect(more).toBeFocused();
+ await handle.press('Enter');await expect(g.getByRole('button',{name:'Move down',exact:true})).toBeFocused();await expect(page.getByRole('group',{name:'Reorder options',exact:true})).toHaveCount(0);
+ await page.keyboard.press('Space');await expect(handle).toBeFocused();expect(await page.evaluate(()=>port.read().log.exercises.map(e=>e.id))).toEqual(['a','b','straight','empty']);
+ await expect(d.getByRole('status')).toHaveText('Bench press moved to position 2 of 3.');await handle.press('ArrowDown');await expect(handle).toBeFocused();await expect(d.getByRole('status')).toHaveText('Bench press moved to position 3 of 3.');
+ await handle.press('ArrowUp');await expect(d.getByRole('status')).toHaveText('Bench press moved to position 2 of 3.');await handle.click();await expect(g.getByRole('button',{name:'Move up',exact:true})).toBeFocused();await page.keyboard.press('Escape');
+ await more.click();await g.getByRole('button',{name:'Move up',exact:true}).click();await expect(more).toBeFocused();
+ await page.evaluate(()=>{const l=port.read().log;l.exercises=[l.exercises.find(e=>e.id==='straight')];logger.setLog(l);});await handle.click();await expect(g.getByRole('button',{name:'Move up',exact:true})).toBeDisabled();await expect(g.getByRole('button',{name:'Move down',exact:true})).toBeDisabled();await expect(g.getByRole('button',{name:'Add set',exact:true})).toBeFocused();
+});
+for(const member of ['Single-arm incline dumbbell chest press','Chest-supported row'])test(`either member moves the whole superset from its actions: ${member}`,async({page})=>{
+ const d=await mount(page);await act(page,d,member,'Move superset up');expect(await page.evaluate(()=>port.read().log.exercises.map(e=>e.id))).toEqual(['a','b','straight','empty']);await expect(d.getByRole('status')).toHaveText('Superset moved to position 1 of 3.');
+ await d.getByRole('button',{name:/Reorder superset/}).click();await expect(actionGroup(page).getByRole('button',{name:'Move superset down',exact:true})).toBeFocused();await expect(actionGroup(page).getByRole('button',{name:'Move superset up',exact:true})).toBeDisabled();await expect(actionGroup(page).getByRole('button',{name:'Swap exercise',exact:true})).toBeVisible();
+});
+test('movement resolves live blocks and ignores removed targets',async({page})=>{
+ const d=await mount(page);await d.getByRole('button',{name:'Actions, Bench press',exact:true}).click();
+ await page.evaluate(()=>{const choice=[...document.querySelectorAll('.workout-overview .reorder-menu button')].find(b=>b.textContent==='Move down'),l=port.read().log;l.exercises=[l.exercises[1],l.exercises[2],l.exercises[0],l.exercises[3]];logger.setLog(l);window.saved=[];choice.click();});expect(await page.evaluate(()=>port.read().log.exercises.map(e=>e.id))).toEqual(['a','b','empty','straight']);expect(await page.evaluate(()=>saved.length)).toBe(1);
+ await d.getByRole('button',{name:'Actions, Chest-supported row',exact:true}).click();await page.evaluate(()=>{const choice=[...document.querySelectorAll('.workout-overview .reorder-menu button')].find(b=>b.textContent==='Move superset down'),l=port.read().log;delete l.exercises[0].superset;logger.setLog(l);window.saved=[];choice.click();});expect(await page.evaluate(()=>port.read().log.exercises.map(e=>e.id))).toEqual(['a','empty','b','straight']);await expect(d.getByRole('status')).toHaveText('Chest-supported row moved to position 3 of 4.');
+ await d.getByRole('button',{name:'Actions, Cable raise',exact:true}).click();await page.evaluate(()=>{window.staleMove=[...document.querySelectorAll('.reorder-menu button')].find(b=>b.textContent==='Move down');const l=port.read().log;l.exercises=l.exercises.filter(e=>e.id!=='empty');logger.setLog(l);window.saved=[];staleMove.click();});expect(await page.evaluate(()=>saved.length)).toBe(0);
+});
+
+test.describe('overview popup motion',()=>{
+ test.use({reducedMotion:'no-preference'});
+ test('overview popup fade restores focus and survives rapid reopening',async({page})=>{
+  const d=await mount(page);await page.waitForTimeout(250);const first=d.getByRole('button',{name:'Actions, Bench press',exact:true}),second=d.getByRole('button',{name:'Actions, Chest-supported row',exact:true});await first.click();
+  const popup=page.locator('.workout-overview .reorder-menu');expect(await popup.evaluate(el=>getComputedStyle(el).transitionDuration.split(',').map(s=>s.trim()))).toEqual(['0.15s','0.15s','0.15s']);await page.waitForTimeout(180);await page.screenshot({path:'.superpowers/sdd/2026-11-15-workout-overview-interactions/menu-open.png'});
+  const state=await page.evaluate(()=>{document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const p=document.querySelector('.workout-overview .reorder-menu');return {inert:p.inert,focused:document.activeElement.getAttribute('aria-label'),open:p.matches(':popover-open'),display:getComputedStyle(p).display,animations:p.getAnimations().map(a=>[a.transitionProperty,a.effect.getTiming().duration])};});
+  expect(state).toMatchObject({inert:true,focused:'Actions, Bench press',open:false,display:'flex'});expect(state.animations).toContainEqual(['opacity',150]);await expect(d).toBeVisible();
+  await second.click();await page.waitForTimeout(200);await expect(actionGroup(page).getByRole('button',{name:'Add set',exact:true})).toBeFocused();expect(await popup.evaluate(el=>el.inert)).toBe(false);await expect(actionGroup(page).getByRole('button',{name:'Move superset down',exact:true})).toBeVisible();await page.screenshot({path:'.superpowers/sdd/2026-11-15-workout-overview-interactions/menu-reopened.png'});
+  await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));await expect(popup).toBeVisible();await page.keyboard.press('Escape');await expect(second).toBeFocused();
+  await page.emulateMedia({reducedMotion:'reduce'});await first.click();expect(await popup.evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s');await d.getByRole('heading',{name:'Workout overview',exact:true}).click();await expect(popup).toBeHidden();await first.click();await page.evaluate(()=>overview.close());await expect(page.locator('.workout-overview .reorder-menu')).toHaveCount(0);
+ });
+});
+
+test('overview actions dismiss only when their anchor scrolls',async({page})=>{
+ const d=await mount(page,longOverview()),trigger=d.getByRole('button',{name:'Actions, Exercise 0',exact:true});await trigger.click();
+ await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));await expect(actionGroup(page)).toBeVisible();await d.evaluate(el=>el.scrollTop+=24);await expect(actionGroup(page)).toBeHidden();await expect(trigger).toBeFocused();
+});
+test('removing through the pair handle actions restores focus to its partner',async({page})=>{
+ const d=await mount(page);await d.getByRole('button',{name:/Reorder superset/}).click();await actionGroup(page).getByRole('button',{name:'Remove exercise',exact:true}).click();await expect(d.getByRole('button',{name:'Actions, Chest-supported row',exact:true})).toBeFocused();
+});
+
+test.describe('native popup reversal',()=>{
+ test.use({reducedMotion:'no-preference'});
+ test('rapid popup reopening reverses the current opacity without a flash',async({page})=>{
+  const d=await mount(page);await page.waitForTimeout(250);await d.getByRole('button',{name:'Actions, Bench press',exact:true}).click();await page.waitForTimeout(180);
+  const opacity=await page.evaluate(()=>{document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const p=document.querySelector('.workout-overview .reorder-menu');getComputedStyle(p).opacity;document.querySelector('[aria-label="Actions, Chest-supported row"]').click();return Number(getComputedStyle(p).opacity);});expect(opacity).toBeGreaterThan(.5);
+ });
 });

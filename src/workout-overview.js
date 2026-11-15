@@ -18,10 +18,10 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
  let list,picker,add,unsubscribe;
  function makeBlock(key){
   const li=el('li','overview-block'),head=el('div','overview-pair-head'),title=el('p','superset-title'),summary=el('span',''),unlink=el('button','action-button'),content=el('div','overview-members');
-  const reorder=el('button','action-button reorder-action');reorder.type='button';reorder.setAttribute('aria-expanded','false');reorder.innerHTML=actionIcon('reorder');reorder.onclick=()=>port.command({type:'reorder',exerciseId:key,opener:reorder});
+  const reorder=el('button','action-button reorder-action');reorder.type='button';reorder.setAttribute('aria-expanded','false');reorder.innerHTML=actionIcon('reorder');reorder.onclick=()=>openActions(key,reorder,true);
   unlink.type='button';unlink.innerHTML=actionIcon('unlink');unlink.setAttribute('aria-label','Unlink superset');unlink.dataset.actionTooltip='Unlink superset';unlink.onclick=()=>port.command({type:'unlink',exerciseId:key});
   li.dataset.blockId=key;title.append(el('strong','superset-label','Superset'),' ',summary);head.append(title,unlink);li.append(head,content);
-  reorder.onkeydown=e=>{if(!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const all=supersetBlocks(snapshot.log.exercises),at=all.findIndex(b=>snapshot.log.exercises[b.start].id===key),to=at+(e.key==='ArrowUp'?-1:1);if(to>=0&&to<all.length)port.command({type:'move-block',exerciseId:key,toBlockIndex:to});};
+  reorder.onkeydown=e=>{if(!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();moveBlock(key,e.key==='ArrowUp'?-1:1,reorder);};
   return {li,head,summary,reorder,unlink,content,members:new Map()};
  }
  const reduced=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -31,12 +31,31 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
   more.type='button';more.innerHTML=actionIcon('more');more.setAttribute('aria-haspopup','true');nameEl.append(nameText);line.append(letter,nameEl,more);
   chipsEl.setAttribute('role','group');chipsEl.setAttribute('aria-label',`Sets, ${ex.name}`);
   const m={member,line,letter,nameText,nameEl,more,editor,host,chipsEl,empty,name:null,tags:'',chips:new Map(),rendered:false};
-  more.onclick=()=>{const cur=snapshot.log.exercises.find(e=>e.id===ex.id);if(cur)menu.toggle(more,menuItems(cur,m).map(i=>({...i,run:()=>{menuTrigger=more;Promise.resolve(i.run()).finally(()=>{menuTrigger=null;});}})));};
+  more.onclick=()=>openActions(ex.id,more);
   member.append(line,empty,chipsEl,editor,host);return m;
  }
- function menuItems(ex,m){
+ async function moveBlock(exerciseId,step,trigger){
+  const {log}=port.read(),all=supersetBlocks(log.exercises),at=all.findIndex(b=>log.exercises.slice(b.start,b.start+b.length).some(e=>e.id===exerciseId)),to=at+step,activeDialog=dialog;
+  if(at<0||to<0||to>=all.length)return;
+  const result=await port.command({type:'move-block',exerciseId,toBlockIndex:to});
+  if(!result.accepted||!dialog||dialog!==activeDialog||dialog.classList.contains('is-closing'))return;
+  if(trigger.isConnected)trigger.focus({preventScroll:true});
+  const current=port.read().log,blocks=supersetBlocks(current.exercises),position=blocks.findIndex(b=>current.exercises.slice(b.start,b.start+b.length).some(e=>e.id===exerciseId));
+  if(position<0)return;
+  const name=blocks[position].length===2?'Superset':current.exercises.find(e=>e.id===exerciseId).name;
+  dialog.querySelector('.overview-order-status').textContent=`${name} moved to position ${position+1} of ${blocks.length}.`;
+ }
+ function openActions(exerciseId,trigger,movement=false){
+  const {log}=port.read(),ex=log.exercises.find(e=>e.id===exerciseId),m=[...blocks.values()].map(b=>b.members.get(exerciseId)).find(Boolean);
+  if(!ex||!m)return;
+  const choices=menuItems(ex,m,trigger,log).map(i=>({...i,run:()=>{menuTrigger=trigger;Promise.resolve(i.run()).finally(()=>{menuTrigger=null;});}}));
+  menu.toggle(trigger,choices,{initialIndex:movement?choices.findIndex((i,index)=>index>=4&&index<=5&&!i.disabled):undefined});
+ }
+ function menuItems(ex,m,trigger,log){
+  const all=supersetBlocks(log.exercises),at=all.findIndex(b=>log.exercises.slice(b.start,b.start+b.length).some(e=>e.id===ex.id)),pair=all[at]?.length===2;
+  const movement=[-1,1].map(step=>({label:`Move ${pair?'superset ':''}${step<0?'up':'down'}`,disabled:at<0||at+step<0||at+step>=all.length,run:()=>moveBlock(ex.id,step,trigger)}));
   const last=kind=>[...ex.sets].reverse().find(s=>s.kind===kind),full=ex.sets.length>=WORKOUT_LIMITS.sets,run=(type,extra)=>()=>port.command({type,exerciseId:ex.id,...extra}),drop=(label,s)=>s&&{label,run:run('remove-set',{ref:{exerciseId:ex.id,setId:s.id}})};
-  return [{label:'Add set',disabled:full,run:run('add-set')},{label:'Add warm-up',disabled:full,run:run('add-warmup')},{label:'Exercise note',run:run('exercise-note',{host:m.editor})},{label:'Swap exercise',run:run('swap',{host:m.host})},drop('Remove last set',last('working')),drop('Remove last warm-up',last('warmup')),{label:'Remove exercise',run:run('remove-exercise')}].filter(Boolean);
+  return [{label:'Add set',disabled:full,run:run('add-set')},{label:'Add warm-up',disabled:full,run:run('add-warmup')},{label:'Exercise note',run:run('exercise-note',{host:m.editor})},{label:'Swap exercise',run:run('swap',{host:m.host})},...movement,drop('Remove last set',last('working')),drop('Remove last warm-up',last('warmup')),{label:'Remove exercise',run:run('remove-exercise')}].filter(Boolean);
  }
  function reconcileChips(m,ex,items,current){
   const byId=new Map(items.map(i=>[i.ref.setId,i])),live=[];
@@ -71,7 +90,7 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
    reconcileChips(m,ex,items.filter(i=>i.ref.exerciseId===ex.id),current);m.rendered=true;
   }
  }
- function update(next,ref=viewed){snapshot=next;viewed=ref;if(!dialog||dialog.classList.contains('is-closing'))return;const projection=projectWorkout(snapshot.log),seen=new Set(),mores=[...list.querySelectorAll('.overview-more')].filter(n=>!n.closest('.is-removing')),fa=document.activeElement===document.body?menuTrigger:document.activeElement,own=fa?.closest?.('.overview-exercise')?.querySelector('.overview-more')??(fa?.classList?.contains('overview-more')?fa:null);
+ function update(next,ref=viewed){snapshot=next;viewed=ref;if(!dialog||dialog.classList.contains('is-closing'))return;const projection=projectWorkout(snapshot.log),seen=new Set(),mores=[...list.querySelectorAll('.overview-more')].filter(n=>!n.closest('.is-removing')),fa=document.activeElement===document.body?menuTrigger:document.activeElement,own=fa?.closest?.('.overview-exercise')?.querySelector('.overview-more')??fa?.closest?.('.overview-block')?.querySelector('.overview-more')??(fa?.classList?.contains('overview-more')?fa:null);
   supersetBlocks(snapshot.log.exercises).forEach((b,index)=>{const exercises=snapshot.log.exercises.slice(b.start,b.start+b.length),key=exercises[0].id,pair=b.length===2;seen.add(key);let block=blocks.get(key);if(!block){block=makeBlock(key);blocks.set(key,block);}
    block.li.classList.toggle('is-pair',pair);block.head.hidden=!pair;if(pair)block.summary.textContent=supersetSummary(exercises[0].superset);
    const label=pair?`Reorder superset ${exercises.map(e=>e.name).join(' + ')}`:`Reorder ${exercises[0].name}`;block.reorder.setAttribute('aria-label',label);block.reorder.dataset.actionTooltip=label;
@@ -87,7 +106,7 @@ export function mountWorkoutOverview({port,onJump,onActivity=()=>{},onClose=()=>
  }
  function close(after){if(!dialog)return;sortable?.cancel();menu?.close();port.command({type:'close-transient'});dialog.querySelector('form').inert=true;dialog._after=typeof after==='function'?after:null;motion.close();}
  function open(from){if(destroyed)return;opener=from;if(dialog){motion.open();return;}
-  selected=null;dialog=el('dialog','catalog-dialog workout-overview');dialog.setAttribute('aria-label','Workout overview');const form=el('form','overview-body');form.onsubmit=e=>e.preventDefault();const header=el('header','overview-header');header.append(el('h2','','Workout overview'),button('Close overview',()=>close(),'Close'));list=el('ol','overview-blocks');picker=el('div','overview-picker');add=button('Add exercise',()=>port.command({type:'add-exercise',host:picker}));form.append(header,list,add,picker);dialog.append(form);document.body.append(dialog);menu=mountReorderMenu({label:'Exercise actions'});tooltips=mountActionTooltips(dialog);
+  selected=null;dialog=el('dialog','catalog-dialog workout-overview');dialog.setAttribute('aria-label','Workout overview');const form=el('form','overview-body');form.onsubmit=e=>e.preventDefault();const header=el('header','overview-header');header.append(el('h2','','Workout overview'),button('Close overview',()=>close(),'Close'));list=el('ol','overview-blocks');picker=el('div','overview-picker');add=button('Add exercise',()=>port.command({type:'add-exercise',host:picker}));const status=el('p','visually-hidden overview-order-status');status.setAttribute('role','status');status.setAttribute('aria-live','polite');form.append(header,list,add,picker,status);dialog.append(form);document.body.append(dialog);menu=mountReorderMenu({label:'Exercise actions'});tooltips=mountActionTooltips(dialog);
   dialog.addEventListener('cancel',e=>{e.preventDefault();close();});dialog.addEventListener('click',e=>{if(e.target===dialog)close();});
   motion=mountDialogMotion(dialog,{duration:200,onClosed(){const after=dialog?._after,closed=dialog;dialog=null;menu.destroy();tooltips.destroy();menu=tooltips=null;sortable?.destroy();sortable=null;blocks.clear();port.restoreExerciseNotes(closed);onActivity(false);if(selected)onJump(selected);else opener?.isConnected&&opener.focus({preventScroll:true});after?.();onClose();}});
   sortable=mountSortable(list,{itemSelector:'.overview-block:not(.is-removing)',reorderSelector:'.reorder-action',getGroups:()=>[{element:list,key:'overview'}],getKey:n=>n.dataset.blockId,onCommit:({key,beforeKey})=>{const ids=supersetBlocks(snapshot.log.exercises).map(b=>snapshot.log.exercises[b.start].id).filter(id=>id!==key),to=beforeKey?ids.indexOf(beforeKey):ids.length;port.command({type:'move-block',exerciseId:key,toBlockIndex:to});}});
