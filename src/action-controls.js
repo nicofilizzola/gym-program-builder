@@ -1,6 +1,7 @@
 import {tooltipPosition} from './tooltip.js';
 
 const paths={
+ close:'<path d="m6 6 12 12M18 6 6 18"/>',
  reorder:'<path d="M8 20V4m-4 4 4-4 4 4M16 4v16m-4-4 4 4 4-4"/>',
  catalog:'<path d="M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Zm0 0v15"/>',
  edit:'<path d="m15 4 5 5M4 20l5-1L20 8a3.5 3.5 0 0 0-5-5L4 14v6Z"/>',

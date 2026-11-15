@@ -2636,9 +2636,10 @@ body {padding-bottom:var(--tab-bar-height)}
 .overview-pair-head,.overview-line {display:flex;align-items:center;gap:4px;min-height:44px}
 .overview-pair-head[hidden],.overview-member[hidden] {display:none}
 .overview-members {display:grid;gap:4px}
+.overview-exercise {min-width:0}
 .overview-name {flex:1;min-width:0;margin:0;overflow-wrap:anywhere}
 .overview-member {flex:0 0 auto;color:var(--accent);font-weight:700}
-.overview-tags {display:inline-block;max-width:100%;margin-left:6px;color:var(--muted);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.overview-tags {display:inline-block;max-width:calc(100% - 6px);margin-left:6px;color:var(--muted);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 /* One chip per set; tapping jumps to it. */
 .overview-chips {display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .overview-chip {display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:44px;min-width:56px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:.8125rem;font-weight:600;font-variant-numeric:tabular-nums;transition:opacity 200ms ease-out}
@@ -2715,3 +2716,8 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-overview .reorder-menu:popover-open {opacity:1}
 @starting-style {.workout-overview .reorder-menu:popover-open {opacity:0}}
 @media(prefers-reduced-motion:reduce){.workout-overview .reorder-menu {transition:none}}
+
+.workout-overview :is(.overview-close,.reorder-action,.overview-more,.overview-unlink) {border:0;background:transparent;color:var(--muted)}
+.workout-overview :is(.overview-close,.reorder-action,.overview-more,.overview-unlink):focus-visible {color:var(--text);outline:2px solid var(--text);outline-offset:2px}
+.workout-overview :is(.overview-close,.reorder-action,.overview-more,.overview-unlink):active {background:var(--surface-2)}
+@media(hover:hover) and (pointer:fine){.workout-overview :is(.overview-close,.reorder-action,.overview-more,.overview-unlink):hover {color:var(--text)}}

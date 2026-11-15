@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mountFocusFixture} from './workout-focus-helper.js';
 import {focusFixture} from '../test/fixtures/workout-focus.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
-async function mount(page,log,{viewed}={}){await mountFocusFixture(page,{log});await page.evaluate(async viewed=>{const {mountWorkoutOverview}=await import('/src/workout-overview.js');window.overview=mountWorkoutOverview({port,onJump:ref=>focusView.jump(ref,{animate:true,focus:true}),onActivity:v=>focusView.suspend(v)});if(viewed)focusView.jump(viewed);overview.update(port.read(),focusView.visibleRef());overview.open(document.querySelector('.focus-overview'));},viewed);return page.getByRole('dialog',{name:'Workout overview'});}
+async function mount(page,log,{viewed}={}){await mountFocusFixture(page,{log});await page.evaluate(async viewed=>{const {mountWorkoutOverview}=await import('/src/workout-overview.js');window.jumps=[];window.overview=mountWorkoutOverview({port,onJump:ref=>{jumps.push(ref);focusView.jump(ref,{animate:true,focus:true});},onActivity:v=>focusView.suspend(v)});if(viewed)focusView.jump(viewed);overview.update(port.read(),focusView.visibleRef());overview.open(document.querySelector('.focus-overview'));},viewed);return page.getByRole('dialog',{name:'Workout overview'});}
 const act=async(page,d,name,item)=>{await d.getByRole('button',{name:`Actions, ${name}`,exact:true}).click();await page.getByRole('button',{name:item,exact:true}).click();};
 test('each exercise shows one chip per set with its state',async({page})=>{
  const log=focusFixture();Object.assign(log.exercises[0].sets[1],{weightKg:80,reps:8,rir:2,done:true});const d=await mount(page,log,{viewed:{exerciseId:'straight',setId:'s2'}});await page.screenshot({path:'.superpowers/sdd/2026-11-12-workout-flow/overview-390.png'});
@@ -137,9 +137,10 @@ for(const motion of ['reduce','no-preference'])for(const pair of [false,true])te
  const box=await copy.locator('.overview-name').first().boundingBox(),clip={x:Math.ceil(box.x),y:Math.ceil(box.y),width:Math.floor(box.width)-2,height:Math.floor(box.height)-2};
  const painted=await page.screenshot({clip,animations:'disabled'});await copy.evaluate(el=>el.style.visibility='hidden');const hidden=await page.screenshot({clip,animations:'disabled'});
  expect(painted.equals(hidden)).toBe(false);await copy.evaluate(el=>el.style.removeProperty('visibility'));
- await page.screenshot({path:`.superpowers/sdd/2026-11-15-workout-overview-interactions/drag-${pair?'pair':'single'}-${motion}.png`});
+ await page.screenshot({path:`.superpowers/verification/2026-11-15-workout-overview-interactions/drag-${pair?'pair':'single'}-${motion}.png`});
  const after=await copy.evaluate(geometry);expect(after.length).toBe(before.length);after.forEach((r,i)=>r.forEach((v,j)=>expect(Math.abs(v-before[i][j]),JSON.stringify({i,j,before:before[i],after:r})).toBeLessThanOrEqual(1)));
  await expect(page.locator('.sort-drag-host:popover-open')).toHaveCount(1);
+ expect(await page.locator('.sort-drag-host').evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,maxWidth:s.maxWidth,maxHeight:s.maxHeight,overflow:s.overflow};})).toEqual({background:'rgba(0, 0, 0, 0)',maxWidth:'none',maxHeight:'none',overflow:'visible'});
  expect(await source.evaluate(el=>el.hasPointerCapture(1))).toBe(true);
  expect(await copy.evaluate(el=>el.inert&&el.getAttribute('aria-hidden')==='true')).toBe(true);
  expect(await page.locator('.sort-drag-host').evaluate(el=>el.inert&&el.getAttribute('aria-hidden')==='true')).toBe(true);
@@ -149,7 +150,7 @@ for(const motion of ['reduce','no-preference'])for(const pair of [false,true])te
  expect(await page.evaluate(()=>saved.length)).toBe(1);
  expect(await page.evaluate(()=>port.read().log.exercises.map(e=>e.id))).toEqual(pair?['straight','empty','a','b']:['a','b','empty','straight']);
  expect(await page.evaluate(()=>port.read().log.exercises.map(e=>[e.id,e.sets.map(s=>s.id)]).sort())).toEqual(log.exercises.map(e=>[e.id,e.sets.map(s=>s.id)]).sort());
- await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source')).toHaveCount(0);
+ await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source')).toHaveCount(0);await expect(d.locator('.overview-order-status')).toHaveText('');
 });
 
 for(const motion of ['reduce','no-preference'])for(const cancel of ['Escape','pointercancel','lostpointercapture','outside','blur','close','resize','remove','destroy'])test(`overview drag cancellation ${cancel} (${motion})`,async({page})=>{
@@ -170,7 +171,7 @@ function longOverview(){const log=focusFixture(),base=log.exercises[0];log.exerc
 test('scrolling overview drag reaches every block and rejects clipped drops',async({page})=>{
  const d=await mount(page,longOverview());await page.evaluate(()=>window.saved=[]);await startOverviewDrag(page);
  const rect=await d.boundingBox();await page.mouse.move(rect.x+90,rect.y+rect.height-8);
- await expect.poll(()=>d.evaluate(el=>el.scrollTop),{timeout:10000}).toBeGreaterThan(1000);
+ await expect.poll(()=>d.evaluate(el=>el.scrollHeight-el.clientHeight-el.scrollTop),{timeout:10000}).toBeLessThanOrEqual(1);
  expect(await page.evaluate(()=>scrollY)).toBe(0);
  await page.mouse.move(rect.x+90,rect.y+8);await expect.poll(()=>d.evaluate(el=>el.scrollTop),{timeout:10000}).toBe(0);
  await page.mouse.move(rect.x+90,rect.y+rect.height+4);await page.mouse.up();expect(await page.evaluate(()=>saved.length)).toBe(0);
@@ -217,10 +218,10 @@ test.describe('overview popup motion',()=>{
  test.use({reducedMotion:'no-preference'});
  test('overview popup fade restores focus and survives rapid reopening',async({page})=>{
   const d=await mount(page);await page.waitForTimeout(250);const first=d.getByRole('button',{name:'Actions, Bench press',exact:true}),second=d.getByRole('button',{name:'Actions, Chest-supported row',exact:true});await first.click();
-  const popup=page.locator('.workout-overview .reorder-menu');expect(await popup.evaluate(el=>getComputedStyle(el).transitionDuration.split(',').map(s=>s.trim()))).toEqual(['0.15s','0.15s','0.15s']);await page.waitForTimeout(180);await page.screenshot({path:'.superpowers/sdd/2026-11-15-workout-overview-interactions/menu-open.png'});
+  const popup=page.locator('.workout-overview .reorder-menu');expect(await popup.evaluate(el=>getComputedStyle(el).transitionDuration.split(',').map(s=>s.trim()))).toEqual(['0.15s','0.15s','0.15s']);await page.waitForTimeout(180);await page.screenshot({path:'.superpowers/verification/2026-11-15-workout-overview-interactions/menu-open.png'});
   const state=await page.evaluate(()=>{document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const p=document.querySelector('.workout-overview .reorder-menu');return {inert:p.inert,focused:document.activeElement.getAttribute('aria-label'),open:p.matches(':popover-open'),display:getComputedStyle(p).display,animations:p.getAnimations().map(a=>[a.transitionProperty,a.effect.getTiming().duration])};});
   expect(state).toMatchObject({inert:true,focused:'Actions, Bench press',open:false,display:'flex'});expect(state.animations).toContainEqual(['opacity',150]);await expect(d).toBeVisible();
-  await second.click();await page.waitForTimeout(200);await expect(actionGroup(page).getByRole('button',{name:'Add set',exact:true})).toBeFocused();expect(await popup.evaluate(el=>el.inert)).toBe(false);await expect(actionGroup(page).getByRole('button',{name:'Move superset down',exact:true})).toBeVisible();await page.screenshot({path:'.superpowers/sdd/2026-11-15-workout-overview-interactions/menu-reopened.png'});
+  await second.click();await page.waitForTimeout(200);await expect(actionGroup(page).getByRole('button',{name:'Add set',exact:true})).toBeFocused();expect(await popup.evaluate(el=>el.inert)).toBe(false);await expect(actionGroup(page).getByRole('button',{name:'Move superset down',exact:true})).toBeVisible();await page.screenshot({path:'.superpowers/verification/2026-11-15-workout-overview-interactions/menu-reopened.png'});
   await page.evaluate(()=>document.dispatchEvent(new Event('scroll')));await expect(popup).toBeVisible();await page.keyboard.press('Escape');await expect(second).toBeFocused();
   await page.emulateMedia({reducedMotion:'reduce'});await first.click();expect(await popup.evaluate(el=>getComputedStyle(el).transitionDuration)).toBe('0s');await d.getByRole('heading',{name:'Workout overview',exact:true}).click();await expect(popup).toBeHidden();await first.click();await page.evaluate(()=>overview.close());await expect(page.locator('.workout-overview .reorder-menu')).toHaveCount(0);
  });
@@ -240,4 +241,46 @@ test.describe('native popup reversal',()=>{
   const d=await mount(page);await page.waitForTimeout(250);await d.getByRole('button',{name:'Actions, Bench press',exact:true}).click();await page.waitForTimeout(180);
   const opacity=await page.evaluate(()=>{document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const p=document.querySelector('.workout-overview .reorder-menu');getComputedStyle(p).opacity;document.querySelector('[aria-label="Actions, Chest-supported row"]').click();return Number(getComputedStyle(p).opacity);});expect(opacity).toBeGreaterThan(.5);
  });
+});
+
+for(const width of [360,390,412])for(const scale of [1,2])test(`compact overview controls preserve framed chips and touch targets (${width}px, ${scale*100}% text)`,async({page})=>{
+ await page.setViewportSize({width,height:844});const log=focusFixture();Object.assign(log.exercises[0].sets[1],{done:true,weightKg:80,reps:8,rir:2});
+ for(const ex of log.exercises)Object.assign(ex,{name:ex.name+' with a deliberately long wrapping exercise name',brand:'Hammer strength equipment with a long brand name',focusTags:['Upper chest focus with a long label','Second focus']});
+ const d=await mount(page,log,{viewed:{exerciseId:'straight',setId:'s1'}});await page.evaluate(scale=>document.documentElement.style.fontSize=16*scale+'px',scale);
+ const close=d.getByRole('button',{name:'Close overview',exact:true});await expect(close.locator('svg')).toHaveCount(1);await expect(close).toHaveText('');
+ const metrics=await d.locator('.action-button').evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>{const r=n.getBoundingClientRect(),s=getComputedStyle(n);return {w:r.width,h:r.height,b:s.borderTopWidth,bg:s.backgroundColor};}));
+ for(const m of metrics){expect(m.w).toBeGreaterThanOrEqual(44);expect(m.h).toBeGreaterThanOrEqual(44);expect(m.b).toBe('0px');expect(m.bg).toBe('rgba(0, 0, 0, 0)');}
+ const chips=d.locator('.overview-chip');for(const chip of await chips.all()){const m=await chip.evaluate(n=>{const r=n.getBoundingClientRect(),s=getComputedStyle(n);return {w:r.width,h:r.height,b:parseFloat(s.borderTopWidth),bg:s.backgroundColor};});expect(m.w).toBeGreaterThanOrEqual(56);expect(m.h).toBeGreaterThanOrEqual(44);expect(m.b).toBeGreaterThan(0);expect(m.bg).not.toBe('rgba(0, 0, 0, 0)');}
+ await expect(d.locator('.overview-chip.is-done svg')).toHaveCount(1);await expect(d.locator('.overview-chip[aria-current=step]')).toHaveCSS('outline-width','2px');await expect(d.locator('.overview-chip.is-next')).toHaveCount(1);await expect(d.locator('.overview-chip.is-warmup').first()).toHaveText('W —');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(await d.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ for(const name of await d.locator('.overview-name').all())expect(await name.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await chips.last().scrollIntoViewIfNeeded();await expect(chips.last()).toBeInViewport();const lastAction=d.locator('.overview-more').last();await lastAction.scrollIntoViewIfNeeded();await expect(lastAction).toBeInViewport();await close.scrollIntoViewIfNeeded();await expect(close).toBeInViewport();await close.focus();await expect(close).toHaveCSS('outline-style','solid');await d.evaluate(el=>el.scrollTop=0);
+ await page.screenshot({path:`.superpowers/verification/2026-11-15-workout-overview-interactions/layout-${width}-${scale}.png`});
+ await close.click();await expect(d).toHaveCount(0);
+});
+
+test.describe('fine pointer compact overview',()=>{
+ test.use({hasTouch:false,viewport:{width:1366,height:900}});
+ test('compact icons retain keyboard focus and fine pointer hover',async({page})=>{
+  const d=await mount(page),close=d.getByRole('button',{name:'Close overview',exact:true});await close.hover();await expect(close).toHaveCSS('color',await d.evaluate(el=>getComputedStyle(el).color));
+  await close.focus();await expect(close).toHaveCSS('outline-width','2px');await expect(close).toHaveCSS('outline-style','solid');const r=await d.locator('.overview-chip').first().boundingBox();expect(r.height).toBe(32);
+  await page.screenshot({path:'.superpowers/verification/2026-11-15-workout-overview-interactions/layout-desktop.png'});
+ });
+});
+test('hybrid compact controls retain touch targets',async({page})=>{await page.setViewportSize({width:1000,height:900});const d=await mount(page);for(const b of await d.locator('.action-button,.overview-chip').all()){if(!await b.isVisible())continue;const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);}await page.screenshot({path:'.superpowers/verification/2026-11-15-workout-overview-interactions/layout-hybrid.png'});});
+
+test.describe('exact partner jump timing',()=>{
+ test.use({reducedMotion:'no-preference'});
+ for(const ref of [{exerciseId:'b',setId:'b1'},{exerciseId:'a',setId:'a1'}])test(`partner chips jump by exact ref only after sheet closure (${ref.exerciseId})`,async({page})=>{
+  const d=await mount(page);await page.waitForTimeout(250);await d.locator(`.overview-exercise .overview-chip[data-set-id=${ref.setId}]`).click();
+  expect(await page.evaluate(()=>window.jumps)).toEqual([]);await expect(d).toHaveClass(/is-closing/);expect(await d.locator('form').evaluate(el=>el.inert)).toBe(true);
+  await expect(d).toHaveCount(0);expect(await page.evaluate(()=>window.jumps)).toEqual([ref]);
+ });
+});
+
+
+test('a source removed before the drag threshold cannot promote a stale preview',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await mount(page);await page.evaluate(()=>window.saved=[]);
+ const source=page.locator('.workout-overview [data-block-id=straight]'),name=await source.locator('.overview-name > span').first().boundingBox();await page.mouse.move(name.x+5,name.y+5);await page.mouse.down();await source.evaluate(el=>el.remove());await page.mouse.move(name.x+25,name.y+25);await page.mouse.up();
+ expect(errors).toEqual([]);expect(await page.evaluate(()=>saved.length)).toBe(0);await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source')).toHaveCount(0);
 });

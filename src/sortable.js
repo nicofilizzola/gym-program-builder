@@ -75,10 +75,13 @@ export function mountSortable(root,{itemSelector,reorderSelector,getGroups,getKe
    slot=node;
   }
   if(!host)host=slot=document.createElement('div');
+  // Copied ancestor classes must not reintroduce dialog surfaces or clipping.
+  Object.assign(host.style,{background:'transparent',maxWidth:'none',maxHeight:'none',overflow:'visible'});
   host.classList.add('sort-drag-host');host.setAttribute('popover','manual');host.inert=true;host.setAttribute('aria-hidden','true');
   return {host,slot};
  }
  function begin(){
+  if(!liveSource()){finish();return;}
   const d=drag,r=d.item.getBoundingClientRect();
   if(d.pointerId!==undefined)d.item.setPointerCapture(d.pointerId);
   d.copy=d.item.cloneNode(true);d.copy.classList.add('sort-drag-copy');
