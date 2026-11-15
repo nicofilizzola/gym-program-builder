@@ -102,3 +102,76 @@ test('the strip owns touches and keeps its slider semantics',async({page})=>{
  await mount(page);const slider=page.getByRole('slider',{name:'Adjust Set 1 weight, Bench press',exact:true});
  await expect(slider).toHaveCSS('touch-action','none');await expect(slider).toHaveAttribute('aria-valuetext','Suggested 80 kg');
 });
+
+async function holdFrames(page){
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ await page.evaluate(()=>{
+  const raf=window.requestAnimationFrame,caf=window.cancelAnimationFrame,queue=new Map();let id=0;
+  window.requestAnimationFrame=fn=>{queue.set(++id,fn);return id;};window.cancelAnimationFrame=id=>queue.delete(id);
+  window.flushFrame=()=>{const work=[...queue.values()];queue.clear();for(const fn of work)fn(performance.now());};
+  window.restoreFrames=()=>{window.requestAnimationFrame=raf;window.cancelAnimationFrame=caf;queue.clear();};
+ });
+}
+const flushFrame=page=>page.evaluate(()=>flushFrame());
+const restoreFrames=page=>page.evaluate(()=>{window.restoreWork?.();window.restoreFrames?.();});
+async function observeRulerWork(page){
+ await page.evaluate(()=>{
+  const root=document.querySelector('[role="slider"]'),track=root.firstElementChild;
+  let counts={styleMutations:0,rebuilds:0,widthReads:0};
+  const observer=new MutationObserver(records=>counts.styleMutations+=records.length);observer.observe(track,{attributes:true,attributeFilter:['style']});
+  const replace=track.replaceChildren,width=Object.getOwnPropertyDescriptor(Element.prototype,'clientWidth').get;
+  track.replaceChildren=function(...nodes){counts.rebuilds++;return replace.apply(this,nodes);};
+  Object.defineProperty(root,'clientWidth',{configurable:true,get(){counts.widthReads++;return width.call(this);}});
+  window.readRulerWork=()=>{counts.styleMutations+=observer.takeRecords().length;const result={...counts};counts={styleMutations:0,rebuilds:0,widthReads:0};return result;};
+  window.restoreWork=()=>{observer.disconnect();delete root.clientWidth;track.replaceChildren=replace;};
+ });
+}
+const readRulerWork=page=>page.evaluate(()=>readRulerWork());
+const pointer=(page,type,x,y=20)=>page.evaluate(({type,x,y})=>document.querySelector('[role="slider"]').dispatchEvent(new PointerEvent(type,{pointerId:7,isPrimary:true,button:0,clientX:x,clientY:y,bubbles:true})),{type,x,y});
+
+test('paint coalesces without delaying canonical writes',async({page})=>{
+ await mount(page);await page.getByLabel('Set 1 weight, Bench press',{exact:true}).fill('80');await holdFrames(page);await observeRulerWork(page);
+ try{
+  await page.evaluate(()=>{const s=document.querySelector('[role="slider"]'),send=(type,x)=>s.dispatchEvent(new PointerEvent(type,{pointerId:7,isPrimary:true,button:0,clientX:x,clientY:20,bubbles:true}));send('pointerdown',100);for(const x of [75,76,77,78,79])send('pointermove',x);});
+  expect(await page.evaluate(()=>value.weightKg)).toBe(82.5);expect(await page.evaluate(()=>patches.at(-1))).toEqual({weightKg:82.5});
+  await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow','82.5');
+  const before=await readRulerWork(page);expect(before.styleMutations).toBe(0);expect(before.rebuilds).toBe(0);
+  await flushFrame(page);const after=await readRulerWork(page);expect(after.styleMutations).toBeLessThanOrEqual(3);expect(after.rebuilds).toBeLessThanOrEqual(1);
+  await page.evaluate(()=>window.firstTick=document.querySelector('.workout-ruler-tick'));
+  for(const x of [78,77,76])await pointer(page,'pointermove',x);
+  await flushFrame(page);expect(await page.evaluate(()=>firstTick===document.querySelector('.workout-ruler-tick'))).toBe(true);
+  const reused=await readRulerWork(page);expect(reused.rebuilds).toBe(0);expect(reused.widthReads).toBe(0);
+  await page.evaluate(()=>{refresh();refresh();});await flushFrame(page);expect(await readRulerWork(page)).toEqual({styleMutations:0,rebuilds:0,widthReads:0});
+ }finally{await restoreFrames(page);}
+});
+
+test('tick window reuse invalidates on geometry and targets',async({page})=>{
+ await mount(page);await holdFrames(page);await observeRulerWork(page);
+ try{
+  await page.evaluate(()=>{window.oldTick=document.querySelector('.workout-ruler-tick');increment=5;refresh();});await flushFrame(page);
+  expect(await page.evaluate(()=>oldTick===document.querySelector('.workout-ruler-tick'))).toBe(false);
+  const labels=await page.getByRole('slider').first().locator('.workout-ruler-tick').allTextContents();expect(labels.every(n=>+n%5===0)).toBe(true);
+  await page.evaluate(()=>{window.oldTick=document.querySelector('.workout-ruler-tick');inputs.weight.closest('.log-stepper').style.width='280px';});
+  // ResizeObserver runs independently of the held animation-frame queue.
+  await expect.poll(()=>page.getByRole('slider').first().evaluate(el=>el.clientWidth)).toBeLessThan(281);
+  await page.waitForTimeout(40);await flushFrame(page);expect(await page.evaluate(()=>oldTick===document.querySelector('.workout-ruler-tick'))).toBe(false);
+  await page.evaluate(()=>{window.oldBand=document.querySelector('.workout-ruler-target');widgets.reps.update({range:{min:10,max:12}});});await flushFrame(page);
+  expect(await page.locator('.workout-ruler-target').evaluate(el=>[el===oldBand,el.style.width,el.style.left])).toEqual([false,'96px',await page.getByRole('slider').nth(1).evaluate(el=>el.clientWidth/2+9*32-16+'px')]);
+  // An equivalent range object keeps the same band.
+  await page.evaluate(()=>{window.oldBand=document.querySelector('.workout-ruler-target');widgets.reps.update({range:{min:10,max:12}});});await flushFrame(page);
+  expect(await page.locator('.workout-ruler-target').evaluate(el=>el===oldBand)).toBe(true);
+ }finally{await restoreFrames(page);}
+});
+for(const action of ['disable','destroy'])test(`pending paint cancels on ${action}`,async({page})=>{
+ await mount(page);await holdFrames(page);await observeRulerWork(page);
+ try{
+  await pointer(page,'pointerdown',100);await pointer(page,'pointermove',75);
+  const before=await page.evaluate(()=>patches.length);
+  await page.evaluate(action=>action==='disable'?widgets.weight.update({enabled:false}):widgets.weight.destroy(),action);await readRulerWork(page);
+  await flushFrame(page);expect(await readRulerWork(page)).toEqual({styleMutations:0,rebuilds:0,widthReads:0});expect(await page.evaluate(()=>patches.length)).toBe(before);
+  if(action==='disable'){
+   await page.evaluate(()=>{inputs.weight.closest('.log-stepper').style.width='280px';widgets.weight.update({value:90,enabled:true});});await flushFrame(page);
+   await expect(page.getByRole('slider').first()).toHaveAttribute('aria-valuenow','90');expect(await page.getByRole('slider').first().locator('.workout-ruler-tick').count()).toBeGreaterThan(0);
+  }
+ }finally{await restoreFrames(page);}
+});

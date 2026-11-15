@@ -264,3 +264,34 @@ for(const motion of ['reduce','no-preference'])for(const key of ['Tab','Shift+Ta
   const box=await target.boundingBox(),feed=await page.locator('.focus-feed').boundingBox();expect(box.y).toBeGreaterThanOrEqual(feed.y);expect(box.y+box.height).toBeLessThanOrEqual(feed.y+feed.height);
  }
 });
+
+test('populated ruler path records responsive writes and paint work',async({page},testInfo)=>{
+ const log=focusFixture(),base=log.exercises[0];
+ log.exercises=Array.from({length:6},(_,i)=>({...structuredClone(base),id:i?'exercise-'+i:'straight',target:{...base.target,sets:4,warmupSets:0},sets:Array.from({length:4},(_,j)=>({...base.sets[1],id:i?`set-${i}-${j}`:j?'s'+(j+1):'s1',weightKg:80,reps:8}))}));
+ await page.emulateMedia({reducedMotion:'no-preference'});await mountFocusFixture(page,{log});await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ const samples=await page.evaluate(async()=>{
+  const input=originalWeight,root=input.closest('.log-stepper').querySelector('.workout-ruler'),track=root.firstElementChild;
+  const observer=new MutationObserver(records=>styleMutations+=records.length);observer.observe(track,{attributes:true,attributeFilter:['style']});
+  let styleMutations=0,rebuilds=0,frames=0;const original=track.replaceChildren;track.replaceChildren=function(...nodes){rebuilds++;return original.apply(this,nodes);};
+  const send=(type,x,y)=>{const start=performance.now();root.dispatchEvent(new PointerEvent(type,{pointerId:11,isPrimary:true,button:0,clientX:x,clientY:y,bubbles:true}));return performance.now()-start;};
+  const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>{frames++;resolve();}));
+  const read=()=>port.read().log.exercises[0].sets[0].weightKg,samples=[];
+  try{
+   for(const [name,xs] of [['slow',Array.from({length:8},(_,i)=>100-(i+1)*12)],['fast',Array.from({length:120},(_,i)=>100-(i+1)*2)],['reversal',Array.from({length:40},(_,i)=>i<20?100-i*8:-52+(i-20)*8)]]){
+    styleMutations=0;rebuilds=0;frames=0;let duration=0;const values=[];send('pointerdown',100,20);
+    for(const [i,x] of xs.entries()){
+     const before=read();duration+=send('pointermove',x,i%2?60:20);
+     if(read()!==before){if(Number(input.value)!==read())throw Error('canonical input write delayed');values.push(read());}
+     if(name==='slow')await frame();
+    }
+    send('pointerup',xs.at(-1),20);await frame();await frame();styleMutations+=observer.takeRecords().length;
+    samples.push({name,moves:xs.length,dispatchMs:duration,frames,styleMutations,rebuilds,values,input:Number(input.value),canonical:read(),saved:saved.at(-1).exercises[0].sets[0].weightKg});
+   }
+  }finally{observer.disconnect();track.replaceChildren=original;}
+  return samples;
+ });
+ for(const sample of samples){expect(sample.input).toBe(sample.canonical);expect(sample.saved).toBe(sample.canonical);expect(sample.values.length).toBeGreaterThan(0);}
+ await testInfo.attach('ruler-work',{body:JSON.stringify({browser:testInfo.project.name||'chromium',viewport:{width:390,height:844},samples}),contentType:'application/json'});
+ console.log('ruler-work '+JSON.stringify(samples));
+});

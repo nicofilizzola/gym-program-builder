@@ -2,11 +2,13 @@
 
 ## Tracker inputs and benchmarks (2026-11-15)
 
-Spec: docs/superpowers/specs/2026-11-15-tracker-inputs-and-benchmarks-design.md; plan: docs/superpowers/plans/2026-11-15-tracker-inputs-and-benchmarks.md; evidence: docs/superpowers/verification/2026-11-15-tracker-inputs-and-benchmarks.md. Shared Best and optional RIR implemented, not deployed. Supersedes earlier Best upper-bound, completion-inferred RIR and placeholder-selection rules.
+Spec: docs/superpowers/specs/2026-11-15-tracker-inputs-and-benchmarks-design.md; plan: docs/superpowers/plans/2026-11-15-tracker-inputs-and-benchmarks.md; evidence: docs/superpowers/verification/2026-11-15-tracker-inputs-and-benchmarks.md. Shared Best, optional RIR and ruler paint scheduling implemented, not deployed. Supersedes earlier Best upper-bound, completion-inferred RIR and placeholder-selection rules.
 
 - Best qualifies `candidate.reps >= target.repRange.min`, ignoring the upper target; title `Best (8+ reps)`, including equal-bound ranges, or `Best` without a range. Ranking, BW, candidate eligibility, per-rep reduction, request bound and ownership remain unchanged. Rep guidance retains min/max.
 
 - Complete keeps recorded RIR exactly, including null and zero; only kg/reps fall back to suggestions. A blank RIR has no highlighted/pressed suggestion. Explicit working-set copies, historical 5+ and legacy warm-up RIR retention remain unchanged; new warm-ups never copy RIR. No backfill or data-format change.
+
+- Ruler canonical writes and slider semantics stay synchronous; track painting coalesces to one animation frame. Width is cached until geometry invalidation; tick/target nodes are reused only for identical visible indices, increment, width and target bounds. Disable/destroy cancel queued work. No drag transition; release settling stays 150ms. Phone fluidity remains pending (user).
 
 ## Same-name variants (2026-11-12)
 
