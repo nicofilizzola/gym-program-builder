@@ -2,7 +2,7 @@
 
 Date: 2026-11-15.
 
-Status: Directions agreed in conversation; written specifications awaiting user review. No app implementation or deployment is included in this documentation change. Implementation plans follow approval of these written specs.
+Status: Written specifications approved by the user in conversation after commit `f8f452b`. The four implementation plans are written and awaiting review; app implementation and deployment remain deferred.
 
 ## Intent
 
@@ -40,6 +40,19 @@ The shared Best and optional-RIR corrections apply on mobile and desktop. The re
 The inputs/benchmarks, overview and navigation specs are independently implementable. Focus rounds consume the unchanged logger port, the overview's set-reference jumps and the navigation's actual available height. Final Focus verification must include those integrations. The implementation plans should preserve these boundaries rather than turn all four into one large rewrite.
 
 When each implementation lands, update the relevant rules in `AGENTS.md` and `docs/design-system/README.md`, and add implementation verification evidence. The older implemented rules remain current until that code lands; these specs do not mark their replacements implemented.
+
+## Implementation-plan sequence
+
+The four plans were authored by separate agents and reviewed together for coverage and shared interfaces. They are documentation for later implementation, not authorization to implement the app now. User authorization to dispatch agents covered plan writing; an implementation execution method has not been selected.
+
+| Order | Plan | Integration boundary |
+|---|---|---|
+| 1 | [Inputs and benchmarks](../plans/2026-11-15-tracker-inputs-and-benchmarks.md) | Establish shared Best/RIR corrections and ruler feedback without changing the logger port. |
+| 2 | [Overview interactions](../plans/2026-11-15-workout-overview-interactions.md) | Establish the top-layer preview, shared action-menu focus behavior and exact-set jumps. |
+| 3 | [Nested mobile navigation](../plans/2026-11-15-nested-mobile-navigation.md) | Establish compact parents, effective tab reservations and actual logger geometry refresh. |
+| 4 | [Focus rounds and presentation](../plans/2026-11-15-focus-rounds-and-presentation.md) | Consume those shared behaviors while replacing the superset presentation and fitting the final screen. |
+
+Parallel plan writing does not imply parallel edits to the same product files. All UI plans touch `style.css`; overview and Focus extend `src/reorder-menu.js`; navigation and Focus touch logger geometry. Executors must read the resulting shared files after predecessors land, preserve the agreed interfaces, and run the relevant integrated checks. The Focus plan owns the new paired-page and peek-removal assertions; navigation owns tests/helpers that incorrectly assume nested tabs remain visible.
 
 ## Visual references and evidence limits
 

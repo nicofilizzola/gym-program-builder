@@ -2,7 +2,7 @@
 
 Date: 2026-11-15.
 
-Status: Direction agreed in conversation; written specification awaiting user review. Not implemented or deployed. Covers original requests 1–3 in the [refinement design map](2026-11-15-mobile-tracker-refinements-design.md).
+Status: Written specification approved by the user in conversation after commit `f8f452b`. Not implemented or deployed. Covers original requests 1–3 in the [refinement design map](2026-11-15-mobile-tracker-refinements-design.md).
 
 ## Purpose
 

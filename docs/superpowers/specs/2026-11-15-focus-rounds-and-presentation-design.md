@@ -2,7 +2,7 @@
 
 Date: 2026-11-15.
 
-Status: Direction and prototype treatments agreed in conversation; written specification awaiting user review. Not implemented or deployed. Covers requests 4, 5 and 8, plus the superset experience developed during brainstorming. See the [design map](2026-11-15-mobile-tracker-refinements-design.md).
+Status: Written specification approved by the user in conversation after commit `f8f452b`. Not implemented or deployed. Covers requests 4, 5 and 8, plus the superset experience developed during brainstorming. See the [design map](2026-11-15-mobile-tracker-refinements-design.md).
 
 ## Purpose and scope
 
