@@ -12,7 +12,7 @@ export function mountWorkoutHistory(host,state){
   value.textContent=!ex.variantId?'No history':!known?'Last time unavailable offline':entry?formatLastTime(entry.sets):'No history';
   const text=entry?.note||'';note.hidden=!text;note.title=text;
   note.replaceChildren();if(text){const prefix=document.createElement('span');prefix.className='visually-hidden';prefix.textContent='Last time note:';note.append(prefix,`“${text}”`);}
-  const range=ex.target?.repRange,title=range?`Best (${range.min}–${range.max} reps)`:'Best';
+  const range=ex.target?.repRange,title=range?`Best (${range.min}+ reps)`:'Best';
   if(ex.variantId&&!Object.hasOwn(bestPerformance||{},ex.variantId)){
    const status=bestStatus.get(ex.variantId)||'loading';best.textContent=status==='offline'?'Best unavailable offline':status==='error'?'Best unavailable':'Loading best…';return;
   }

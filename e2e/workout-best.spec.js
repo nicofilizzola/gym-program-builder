@@ -13,9 +13,9 @@ test('Best renders ranges, BW, empty history, cache and refresh after deletion',
  await save(page,'older',{exercises:[exercise('old',null,[set(200,10,'warmup'),set(100,8),set(95,12),set(110,5)])]});
  await save(page,'current-fixture',{status:'active',exercises:[exercise('ranged',target,[set(150,10)]),exercise('all'),exercise('empty',{...target,repRange:{min:20,max:30}}),{...exercise('unlinked'),variantId:null,referenceId:null}]});
  await page.goto('/#/workouts/current-fixture');
- const best=page.locator('.log-best');await expect(best.nth(0)).toHaveText('Best (8–12 reps) · 100 kg × 8 · 1 Nov 2026');
+ const best=page.locator('.log-best');await expect(best.nth(0)).toHaveText('Best (8+ reps) · 100 kg × 8 · 1 Nov 2026');
  await expect(best.nth(1)).toHaveText('Best · 110 kg × 5 · 1 Nov 2026');
- await expect(best.nth(2)).toHaveText('Best (20–30 reps) · No qualifying performance');
+ await expect(best.nth(2)).toHaveText('Best (20+ reps) · No qualifying performance');
  await expect(best.nth(3)).toHaveText('Best · No qualifying performance');
  await expect(page.getByRole('textbox',{name:'Set 1 weight, Bench all',exact:true})).toHaveAttribute('placeholder','100');
  await expect(best.nth(0).locator('time')).toHaveAttribute('datetime','2026-11-01T11:00:00Z');
@@ -137,5 +137,23 @@ for(const [width,height,touch,zoom] of [[360,800,true,1],[390,844,true,1],[768,1
   await page.evaluate(()=>scrollTo(0,0));
   await page.screenshot({path:testInfo.outputPath('populated-tracker.png'),fullPage:true});
  });
+ });
+}
+
+for(const [status,width,height] of [['active',390,844],['active',1366,768],['finished',1366,768]]){
+ test(`lower-bound presenter parity ${status} ${width}`,async({page})=>{
+  await page.setViewportSize({width,height});
+  await save(page,'older',{exercises:[exercise('old',null,[set(200,10,'warmup'),set(100,8),set(100,15),set(95,20),set(110,5)])]});
+  await save(page,'current-fixture',{status,exercises:[
+   exercise('range',target,[set(150,10)]),exercise('equal',{...target,repRange:{min:8,max:8}}),
+   exercise('high',{...target,repRange:{min:16,max:20}}),exercise('all')
+  ]});
+  await page.goto('/#/workouts/current-fixture');
+  const best=page.locator(status==='active'&&width<761?'.workout-focus .log-best':'.log-exercise .log-best');
+  await expect(best.nth(0)).toHaveText('Best (8+ reps) · 100 kg × 15 · 1 Nov 2026');
+  await expect(best.nth(1)).toHaveText('Best (8+ reps) · 100 kg × 15 · 1 Nov 2026');
+  await expect(best.nth(2)).toHaveText('Best (16+ reps) · 95 kg × 20 · 1 Nov 2026');
+  await expect(best.nth(3)).toHaveText('Best · 110 kg × 5 · 1 Nov 2026');
+  await expect(best.nth(0).locator('time')).toHaveAttribute('datetime','2026-11-01T11:00:00Z');
  });
 }

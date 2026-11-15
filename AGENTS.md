@@ -1,5 +1,11 @@
 # Gym Program Builder
 
+## Tracker inputs and benchmarks (2026-11-15)
+
+Spec: docs/superpowers/specs/2026-11-15-tracker-inputs-and-benchmarks-design.md; plan: docs/superpowers/plans/2026-11-15-tracker-inputs-and-benchmarks.md; evidence: docs/superpowers/verification/2026-11-15-tracker-inputs-and-benchmarks.md. Shared Best implemented, not deployed. Supersedes earlier Best upper-bound rules.
+
+- Best qualifies `candidate.reps >= target.repRange.min`, ignoring the upper target; title `Best (8+ reps)`, including equal-bound ranges, or `Best` without a range. Ranking, BW, candidate eligibility, per-rep reduction, request bound and ownership remain unchanged. Rep guidance retains min/max.
+
 ## Same-name variants (2026-11-12)
 
 Design: docs/superpowers/specs/2026-11-12-same-name-variants-design.md; plan: docs/superpowers/plans/2026-11-12-same-name-variants.md; evidence: docs/superpowers/verification/2026-11-12-same-name-variants.md. Implemented, not deployed.

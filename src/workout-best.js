@@ -14,7 +14,7 @@ export function bestPerRep(candidates){
 export function selectBestPerformance(candidates,repRange=null){
  let best=null;
  for(const candidate of candidates){
-  if(repRange&&(candidate.reps<repRange.min||candidate.reps>repRange.max))continue;
+  if(repRange&&candidate.reps<repRange.min)continue;
   if(!best||compare(candidate,best)>0)best=candidate;
  }
  return best;

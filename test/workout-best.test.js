@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {bestPerRep,selectBestPerformance} from '../src/workout-best.js';
 const c=(weightKg,reps,finishedAt='2026-11-02T11:00:00Z',logId='a')=>({weightKg,reps,finishedAt,logId});
 const all=[c(100,8),c(95,12),c(110,5),c(100,10)];
-test('range is inclusive',()=>{
+test('range minimum is inclusive',()=>{
  assert.deepEqual(selectBestPerformance(all,{min:8,max:12}),all[3]);
  assert.deepEqual(selectBestPerformance(all,{min:12,max:12}),all[1]);
  assert.equal(selectBestPerformance(all,{min:20,max:30}),null);
@@ -32,4 +32,15 @@ test('reduction preserves every possible range winner without mutation',()=>{
 test('same candidates support different occurrence targets',()=>{
  assert.equal(selectBestPerformance(all,{min:4,max:6}).weightKg,110);
  assert.equal(selectBestPerformance(all,{min:8,max:12}).weightKg,100);
+});
+
+test('lower bound includes above-max and equal-bound performances',()=>{
+ const cases=[c(100,7),c(100,8),c(100,12),c(100,15)];
+ for(const [i,eligible] of [[0,false],[1,true],[2,true],[3,true]])
+  assert.equal(selectBestPerformance([cases[i]],{min:8,max:12}),eligible?cases[i]:null);
+ assert.deepEqual(selectBestPerformance([c(100,9)],{min:8,max:8}),c(100,9));
+ assert.deepEqual(selectBestPerformance([c(100,8),c(95,15)],{min:8,max:12}),c(100,8));
+ assert.deepEqual(selectBestPerformance([c(100,8),c(100,15)],{min:8,max:12}),c(100,15));
+ assert.deepEqual(selectBestPerformance([c(0,15)],{min:8,max:12}),c(0,15));
+ assert.deepEqual(selectBestPerformance([c(110,1),c(100,100)]),c(110,1));
 });
