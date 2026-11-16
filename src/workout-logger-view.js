@@ -491,10 +491,10 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  };
  let focusView=null,overview=null,focusObserver=null,measureFrame=null,planned=new Map(),recap=null;
  const mobile=matchMedia('(max-width:760px)');
- function measureFocus(){cancelAnimationFrame(measureFrame);measureFrame=requestAnimationFrame(()=>{
-  if(destroyed||!mobile.matches||!focusView)return;
+ function measureFocus(){if(destroyed||recap||!mobile.matches||!focusView)return;cancelAnimationFrame(measureFrame);measureFrame=requestAnimationFrame(()=>{
+  if(destroyed||recap||!mobile.matches||!focusView)return;
   const header=page.querySelector('.logger-header'),feed=page.querySelector('.focus-feed'),focus=page.querySelector('.workout-focus'),toolbar=page.querySelector('.focus-toolbar'),nav=document.querySelector('.app-header nav');
-  const viewport=window.visualViewport,bottom=viewport?viewport.height:innerHeight,reserved=toolbar.getBoundingClientRect().height+(nav?.getBoundingClientRect().height??0);
+  const viewport=window.visualViewport,bottom=viewport?viewport.height:innerHeight,reserved=toolbar.getBoundingClientRect().height+(nav?.getClientRects().length?nav.getBoundingClientRect().height:0);
   // Document positions keep the result independent of the current page scroll.
   const feedTop=feed.getBoundingClientRect().top+scrollY,strip=feedTop-(focus.getBoundingClientRect().top+scrollY),headerBox=header.getBoundingClientRect();
   const atRest=bottom-feedTop-reserved,underHeader=bottom-headerBox.height-parseFloat(getComputedStyle(header).marginBottom)-strip-reserved;
@@ -514,6 +514,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
  }
  return {
   presentationPort,
+  refreshGeometry:measureFocus,
   setLog(value){if(destroyed)return;const before=log;log=structuredClone(value);for(const card of cards.values())if(card.picker&&!find(card.li.dataset.exerciseId))closeSwap(card);render();publish('hydrate',before);},
   setBestPerformance(map){if(destroyed)return;best={...(best||{}),...map};render();publish('history');},
   setBestStatus({variantIds,status}){if(destroyed)return;for(const id of variantIds)bestStatus.set(id,status);render();publish('history');},

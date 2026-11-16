@@ -12,6 +12,7 @@ test('populated navigation and headings fit phone desktop and enlarged text',asy
  async function open(hash){await page.goto('/'+hash);await expect(page.locator('#app')).toHaveAttribute('aria-busy','false');if(hash==='#/home')await expect(page.locator('.home-start')).toBeVisible();}
  async function capture(label){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label).toBe(true);
+  if((await page.viewportSize()).width<=760){const geometry=await page.evaluate(()=>{const nav=document.querySelector('nav[aria-label="Main"]'),tabs=nav.getClientRects().length?nav.getBoundingClientRect().height:0;return {actual:parseFloat(getComputedStyle(document.querySelector('#app')).minHeight),expected:innerHeight-tabs};});expect(geometry.actual,label).toBeCloseTo(geometry.expected,0);}
   await page.screenshot({path:folder+'/'+label+'.png'});
  }
  for(const [width,height] of [[360,800],[390,844],[760,900],[761,900],[1366,768],[1440,900],[1920,1080]]){

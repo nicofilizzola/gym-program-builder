@@ -2,7 +2,7 @@
 
 Design: [2026-11-15-nested-mobile-navigation-design.md](../specs/2026-11-15-nested-mobile-navigation-design.md).
 
-Status: Tasks 1–3 parent metadata, compact breadcrumbs, committed-route tab visibility and recoverable error chrome implemented and verified locally. Bar/Focus geometry integration and complete workout lifecycle checks remain pending. Not deployed.
+Status: Tasks 1-4 parent metadata, compact breadcrumbs, committed-route visibility/recovery and bottom geometry implemented and verified locally. Complete workout lifecycle and final integration checks remain with Task 5. Not deployed.
 
 ## Task 1 — immediate-parent metadata
 
@@ -49,7 +49,29 @@ Commands and actual results (Windows, workspace `C:/Users/NicoF/.codex/worktrees
 ## Pending verification
 
 - Workout: complete finish/discard/delete/Done exit semantics, cancelled discard, pending/offline finish and ownership checks remain with the workout integration task; Task 3 covers active Back/Resume, valid recap Home link and finished-log denied leave only.
-- Geometry/accessibility: Resume unchanged-height reservations and safe-area ownership, pinned panels/refresh status with insets, keyboard transitions, 200% nested text and Focus at 660px remain with geometry integration. Task 3 covers effective tab height, hidden accessible links/focus targets, visible-size callbacks, ordinary zero-inset panel placement and root typing policy only.
+- Geometry/accessibility: browser arithmetic covers 0px/20px simulated bottom insets, Resume/body/panel/status reservations, typing restore, 200% text and Focus at 660px. Actual phone keyboard and inset behavior remain pending; see Task 4 evidence below.
 - Physical phone: safe areas, keyboard transitions and momentum remain pending (user). Browser simulation is not physical-device evidence.
 - Deployment verification remains pending (user); no deployment performed.
 
+
+
+## Task 4 - bottom geometry, inset ownership and typing
+
+- Added `workoutBar.refreshGeometry()` using its existing reservation calculation, and logger `refreshGeometry()` using the existing frame-scheduled Focus measurement. The mounted workout adapter forwards it; mobile navigation's synchronous geometry callback refreshes both. Disabled/desktop/destroyed/recap logger states do not schedule new measurements. No event bus, additional observer, controller or persistence was introduced.
+- Nested Resume owns `8px + safe-area-inset-bottom`; roots retain 8px because tabs own their inset. The pinned nested editor panel owns `12px + inset`. Existing effective-height consumers (body padding, app minimum height, Home cover/history, Resume offset, panel, root feedback) keep their shared variable. Focus uses rendered nav height only at the mobile breakpoint and only when nav has a rendered box; hidden navigation and suppressed Resume add nothing. The existing toolbar is measured once. The separate Focus footer/rounds design remains unimplemented.
+- Actual stylesheet interception replaces only `env(safe-area-inset-bottom[,0px])` with 0px/20px, leaving selectors/declarations intact. At 390x844 root tabs measure 56px/76px and Resume's bottom equals their top. Nested Resume's bottom equals 844px, its inset increases height by exactly 20px, and body padding equals the effective tabs plus measured Resume in both directions (unchanged bar content, including unchanged bar height at inset zero). No-Resume nested views reserve zero and `#app` uses the actual effective height. Panel reaches the effective bottom and its padding includes the inset. Root refresh failure stays above both bars; Home History feedback remains static inside its section. At 200% text tab height grows, survives nested entry/return, and restores after resetting text size.
+- Root script focus keeps bars visible; user press/key enters typing without changing reservation. A real touch at a catalog control near y820 activates before tabs return. Nested typing/blur and the 700ms pending click-grace return never reveal tabs, change effective zero or steal the parent link. Profile slider/script focus asserts absence, not translated hidden boxes. `typing-state.js` remains unchanged.
+- At 390x660 with Last time, Best and tags, Complete remains inside the feed, toolbar ends within 2px of the actual viewport bottom, and Main has no accessible links. Exact canonical invalid reps node/value/caret, composing state and viewed set survive viewport/visualViewport resize and 760 -> 761 -> 760 in both motion settings, without saves or completion. Integration tests retain long-note, ownership, reanchor and draft assertions while using the actual viewport and Back to Home. A two-line-tags constrained fixture moved from 750px to 694px (56px reclaimed); all peekless and Complete reachability assertions remain.
+- Visually inspected the generated local 390x844 active Focus screenshot: compact Home parent, full working card through Complete, next whole header, toolbar and no bottom tabs. Regenerated older evidence PNGs were restored; Task 5 owns the final screenshot matrix. This is browser evidence only.
+
+Commands/results:
+
+- Initial focused run: `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js --grep "bottom reservations|typing restore|hidden-tab geometry"` exited 1: 1 passed, 4 failed (23.3s). Initial tests were corrected for reduced-motion transform `none`, unique template names and 1px viewport rounding.
+- Corrected RED, same command: exited 1: 2 passed, 3 failed (21.2s). Production defect: 20px nested Resume padding expected 28px, actual 8px. Two remaining Focus failures were corrected to locate the canonical accessible input while it moves outside the feed on desktop.
+- First GREEN, same command: exited 0: 5 passed (10.4s).
+- First six-file required browser command (nested-mobile-navigation, mobile-navigation, mobile-navigation-layout, workout-focus-integration, workout-focus-fit, mobile-save-controls): exited 1: 87 passed, 1 failed (2.0m). The two-line-tags fixture still expected peekless at the old 750px viewport after reclaiming 56px.
+- `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js e2e/workout-focus-fit.spec.js --grep "bottom reservations|typing restore|hidden-tab geometry|two lines of tags"` exited 0: 6 passed (12.4s), including extended feedback/no-Resume assertions and the corrected 694px fixture.
+- First `npm.cmd test`: exited 1: 518 passed, 1 failed (79167.6913ms). `test/repository.test.js:30` (`SQLite records persist, enforce revisions and safely retry lost acknowledgements`) hit Windows `EBUSY` unlinking its temporary `test.db`; no repository/cleanup code changed.
+- Full rerun `npm.cmd test > .superpowers/sdd/2026-11-15-nested-mobile-navigation/task-4-unit.log 2>&1`: exited 0: 519 passed, 0 failed (11837.0339ms).
+- Final required regression: `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js e2e/mobile-navigation.spec.js e2e/mobile-navigation-layout.spec.js e2e/workout-focus-integration.spec.js e2e/workout-focus-fit.spec.js e2e/mobile-save-controls.spec.js` exited 0: **88 passed (1.8m)**.
+- `git diff --check` exited 0. The pre-existing NO_COLOR/FORCE_COLOR warning remains. No deployment or physical-device verification performed.

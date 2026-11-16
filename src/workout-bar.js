@@ -26,6 +26,7 @@ export function mountWorkoutBar(host,{onResume=()=>{}}={}){
 
  function settleClosed(){clearTimeout(closeTimer);closeTimer=null;bar.hidden=true;reserve();}
  return {
+  refreshGeometry:reserve,
   show(data,{animate=true}={}){
    shown={...data};link.href='#/workouts/'+data.id;tick();
    interval??=setInterval(tick,60000);

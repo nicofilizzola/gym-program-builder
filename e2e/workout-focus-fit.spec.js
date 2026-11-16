@@ -158,7 +158,8 @@ test('one line of tags fits at 360x660',async({browser})=>{
  await context.close();
 });
 test('two lines of tags drop the peek, then pin Complete',async({browser})=>{
- let o=await open(browser,{width:393,height:750,history:true,previousNote:false,tags:twoLines});
+ // Hidden nested tabs reclaim 56px; keep the same constrained-height scenario.
+ let o=await open(browser,{width:393,height:694,history:true,previousNote:false,tags:twoLines});
  await expect(o.page.locator('.focus-feed .focus-group').first().locator('.focus-tags')).toBeVisible();
  await expect.poll(async()=>(await peek(o.page)).peekless).toBe(true);
  let p=await peek(o.page);expect(p.cardH,JSON.stringify(p)).toBeLessThanOrEqual(p.feedH+1);await o.context.close();

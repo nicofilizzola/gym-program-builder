@@ -2431,8 +2431,10 @@ body {padding-bottom:var(--tab-bar-height)}
   .nav-label-full {display:none}
   .nav-label-short {display:inline}
   .workout-bar {bottom:var(--tab-bar-height);padding-bottom:8px}
-  /* The session editor's pinned volume panel sits directly above the tab bar. */
+  :root[data-mobile-nested] .workout-bar {padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  /* The session editor's pinned volume panel uses the effective bottom edge. */
   .panel {bottom:var(--tab-bar-height)}
+  :root[data-mobile-nested] .panel {padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
   /* Typing (body.is-typing, src/typing-state.js): the bars slide away so the keyboard does not squeeze the page; reserved padding stays. */
   body.is-typing .app-header nav {transform:translateY(100%)}
   body.is-typing .workout-bar.is-open {transform:translateY(calc(100% + var(--tab-bar-height)))}

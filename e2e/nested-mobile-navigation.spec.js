@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,saveFinishedLog,createLinkedTemplate,headers} from './workout-helper.js';
 import {answerNextConfirmation} from './confirmation-helper.js';
+import {createWorkoutLog} from '../src/workout-log.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 const main=page=>page.getByRole('navigation',{name:'Main'});
 const back=(page,label)=>page.getByRole('link',{name:'Back to '+label,exact:true});
@@ -14,6 +15,60 @@ async function fixture(page){
  return {...data,workout:await saveFinishedLog(page,{name:'Nested finished workout',startedAt:Date.now()})};
 }
 test.afterEach(async({page})=>{await resetWorkouts(page).catch(()=>{});});
+
+// Replace only the browser inset value: the production selectors and ownership remain under test.
+async function bottomInset(page,inset){await page.route('**/style.css*',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace(/env\(safe-area-inset-bottom(?:\s*,\s*0px)?\)/g,inset+'px')});});}
+for(const inset of [0,20])test('bottom reservations change even when Resume height does not, inset '+inset,async({page})=>{
+ await bottomInset(page,inset);await login(page);await resetWorkouts(page);await page.reload();
+ const name='Geometry workout '+crypto.randomUUID(),{id}=await createLinkedTemplate(page,name);await page.goto('/#/templates/'+id);await nested(page,'Templates','#/templates');expect(await page.evaluate(()=>parseFloat(getComputedStyle(document.body).paddingBottom))).toBe(0);expect(await page.locator('#app').evaluate(n=>parseFloat(getComputedStyle(n).minHeight))).toBe(844);
+ await back(page,'Templates').click();await page.getByRole('button',{name:'Start workout '+name,exact:true}).click();await expect(page.locator('.workout-focus')).toBeVisible();
+ await back(page,'Home').click();await main(page).getByRole('link',{name:'Library',exact:true}).click();await page.getByRole('navigation',{name:'Library sections'}).getByRole('link',{name:'Templates',exact:true}).click();
+ const bar=page.locator('.workout-bar');await expect(bar).toBeVisible();
+ async function geometry(isRoot){
+  await ready(page);await expect(bar).toHaveClass(/is-open/);
+  const b=await bar.boundingBox(),n=isRoot?await main(page).boundingBox():null;
+  expect(b.y+b.height).toBeCloseTo(isRoot?n.y:844,0);
+  expect(await page.evaluate(()=>parseFloat(getComputedStyle(document.body).paddingBottom))).toBeCloseTo(b.height+(n?.height??0),0);
+  expect(await page.locator('#app').evaluate(n=>parseFloat(getComputedStyle(n).minHeight))).toBeCloseTo(844-(n?.height??0),0);
+  expect(await bar.evaluate(n=>parseFloat(getComputedStyle(n).paddingBottom))).toBe(8+(isRoot?0:inset));
+  if(isRoot)expect(n.height).toBeCloseTo(56+inset,0);else await expect(main(page)).toBeHidden();
+  return b.height;
+ }
+ const rootHeight=await geometry(true);await page.getByRole('link',{name,exact:true}).click();const nestedHeight=await geometry(false);expect(nestedHeight-rootHeight).toBe(inset);
+ const panel=page.locator('.panel');await panel.scrollIntoViewIfNeeded();const p=await panel.boundingBox();expect(p.y+p.height).toBeCloseTo(844,0);expect(await panel.evaluate(n=>parseFloat(getComputedStyle(n).paddingBottom))).toBeGreaterThanOrEqual(12+inset);
+ await back(page,'Templates').click();await geometry(true);
+ await page.evaluate(()=>document.documentElement.style.fontSize='200%');await expect.poll(async()=>(await main(page).boundingBox()).height).toBeGreaterThan(56+inset);
+ const enlarged=(await main(page).boundingBox()).height;await page.getByRole('link',{name,exact:true}).click();await expect(main(page)).toBeHidden();await back(page,'Templates').click();expect((await main(page).boundingBox()).height).toBe(enlarged);
+ await page.evaluate(()=>document.documentElement.style.fontSize='');await expect.poll(async()=>(await main(page).boundingBox()).height).toBeCloseTo(56+inset,0);
+ await page.route('**/api/documents?kind=template',route=>route.fulfill({status:503,json:{error:{message:'Refresh unavailable'}}}));await main(page).getByRole('link',{name:'User',exact:true}).click();await main(page).getByRole('link',{name:'Library',exact:true}).click();
+ const feedback=page.locator('.root-page-feedback');await expect(feedback).toContainText("Couldn't refresh");await page.evaluate(()=>scrollTo(0,document.body.scrollHeight));const f=await feedback.boundingBox(),b=await bar.boundingBox();expect(f.y+f.height).toBeLessThanOrEqual(b.y-7);await page.unroute('**/api/documents?kind=template');
+ await bar.getByRole('link',{name:'Resume',exact:true}).click();await expect(page.locator('.workout-focus')).toBeVisible();expect(await page.evaluate(()=>parseFloat(getComputedStyle(document.body).paddingBottom))).toBe(0);
+ await back(page,'Home').click();await main(page).getByRole('link',{name:'User',exact:true}).click();await page.route('**/api/workouts',route=>route.fulfill({status:503,json:{error:{message:'History unavailable'}}}));await main(page).getByRole('link',{name:'Home',exact:true}).click();await expect(page.locator('.home-history-status')).toContainText(/Couldn't (refresh|load)/);expect(await page.locator('.home-history-status').evaluate(n=>Boolean(n.closest('.home-history'))&&getComputedStyle(n).position==='static')).toBe(true);await expect(page.locator('.root-page-feedback')).toHaveCount(0);
+});
+
+test('typing restore cannot resurrect nested tabs',async({page})=>{
+ await login(page);await resetWorkouts(page);await page.goto('/#/catalog');
+ const search=page.getByRole('searchbox',{name:'Search catalog',exact:true});await search.focus();await expect(page.locator('body')).not.toHaveClass(/is-typing/);await expect(main(page)).toBeVisible();
+ const padding=await page.evaluate(()=>getComputedStyle(document.body).paddingBottom);await search.tap();await search.press('a');await expect(page.locator('body')).toHaveClass(/is-typing/);expect(await page.evaluate(()=>getComputedStyle(document.body).paddingBottom)).toBe(padding);
+ await search.fill('');const lower=page.locator('.reference-toggle').nth(2);await lower.evaluate(n=>scrollTo(0,scrollY+n.getBoundingClientRect().top+n.getBoundingClientRect().height/2-innerHeight+24));const lowerBox=await lower.boundingBox();expect(lowerBox.y+lowerBox.height/2).toBeGreaterThan(788);await page.touchscreen.tap(lowerBox.x+lowerBox.width/2,lowerBox.y+lowerBox.height/2);await expect(lower).toHaveAttribute('aria-expanded','true');await expect(page.locator('body')).not.toHaveClass(/is-typing/);await expect(page).toHaveURL(/#\/catalog$/);await page.evaluate(()=>scrollTo(0,0));
+ await page.getByRole('link',{name:'Manage tags',exact:true}).tap();await nested(page,'Exercises','#/catalog');
+ const field=page.getByRole('textbox').first();await field.tap();await expect(page.locator('body')).toHaveClass(/is-typing/);await field.blur();await expect(main(page)).toBeHidden();expect(await reservation(page)).toBe('0px');
+ // A user press followed by blur leaves the 700ms click grace pending until this parent link activates.
+ await field.tap();await field.evaluate(n=>{n.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));n.blur();});await back(page,'Exercises').tap();await root(page);await expect(page).toHaveURL(/#\/catalog$/);await expect(page.locator('body')).not.toHaveClass(/is-typing/);
+ await page.goto('/#/profile');await page.getByRole('slider').first().focus();await expect(main(page)).toBeHidden();const note=page.getByRole('textbox',{name:'Training background and approach',exact:true});await note.focus();await expect(main(page)).toBeHidden();expect(await page.evaluate(()=>parseFloat(getComputedStyle(document.body).paddingBottom))).toBe(0);
+});
+
+for(const reducedMotion of ['reduce','no-preference'])test('hidden-tab geometry refits active Focus at 660px, '+reducedMotion,async({page})=>{
+ await page.emulateMedia({reducedMotion});await page.setViewportSize({width:390,height:660});await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Geometry Focus');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();
+ const make=()=>createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});const past=make();past.status='finished';past.startedAt=new Date(Date.now()-86400000).toISOString();past.finishedAt=new Date(Date.now()-82800000).toISOString();for(const e of past.exercises)for(const s of e.sets)Object.assign(s,{weightKg:60,reps:10,done:true});
+ expect((await page.request.put('/api/workouts/'+past.id,{headers,data:{revision:0,log:past}})).ok()).toBe(true);const log=make();Object.assign(log.exercises[0],{brand:'Hammer',focusTags:['Upper chest']});expect((await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}})).ok()).toBe(true);await page.goto('/#/workouts/'+log.id);
+ const feed=page.locator('.focus-feed'),card=feed.locator('.focus-card').first(),reps=page.getByLabel(`Set 1 reps, ${log.exercises[0].name}`,{exact:true});await expect(feed.locator('.log-last-time').first()).toBeVisible();await expect(feed.locator('.log-best').first()).toBeVisible();await expect(feed.locator('.focus-tags').first()).toContainText('Hammer');
+ await expect(main(page)).toBeHidden();await expect(main(page).getByRole('link')).toHaveCount(0);
+ await expect.poll(async()=>{const f=await feed.boundingBox(),t=await page.locator('.focus-toolbar').boundingBox(),d=await card.locator('.log-done').boundingBox();return {complete:d.y>=f.y-1&&d.y+d.height<=f.y+f.height+1,atBottom:Math.abs(660-(t.y+t.height))<=2};}).toEqual({complete:true,atBottom:true});
+ await reps.fill('invalid');await reps.evaluate(n=>{window.savedReps=n;n.setSelectionRange(1,4);n.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});const viewed=await card.getAttribute('data-set-id');const writes=[];page.on('request',r=>{if(r.method()==='PUT'&&r.url().includes('/api/workouts/'))writes.push(r.url());});
+ for(const size of [{width:390,height:600},{width:760,height:660},{width:761,height:660},{width:760,height:660},{width:390,height:660}]){await page.setViewportSize(size);await page.evaluate(()=>visualViewport.dispatchEvent(new Event('resize')));await expect(reps).toBeFocused();await expect(reps).toHaveValue('invalid');expect(await reps.evaluate(n=>({same:n===window.savedReps,start:n.selectionStart,end:n.selectionEnd}))).toEqual({same:true,start:1,end:4});}
+ await expect(card).toHaveClass(/is-viewed/);expect(await card.getAttribute('data-set-id')).toBe(viewed);expect(writes).toEqual([]);await expect(card.locator('.log-done')).toHaveAttribute('aria-pressed','false');await expect(main(page)).toBeHidden();await reps.evaluate(n=>n.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'invalid'})));
+});
 
 test('all roots retain three equal tabs and Library sections',async({page})=>{
  await login(page);for(const hash of ['#/home','#/programs','#/templates','#/catalog','#/user']){await page.goto('/'+hash);await root(page);if(['#/programs','#/templates','#/catalog'].includes(hash))await expect(page.getByRole('navigation',{name:'Library sections'}).getByRole('link')).toHaveText(['Programs','Templates','Exercises']);}

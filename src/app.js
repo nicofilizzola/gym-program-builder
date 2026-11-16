@@ -152,7 +152,7 @@ mountTypingState(app);
 const mobileNavigation=matchMedia('(max-width:760px)'),mainNavigation=document.querySelector('nav[aria-label="Main"]');
 const browserScrollRestoration=history.scrollRestoration;
 history.scrollRestoration=mobileNavigation.matches?'manual':browserScrollRestoration;
-const mobileNav=mountMobileNavigation(mainNavigation,{state:mobileNavigationState,onNavigate:hash=>action(()=>navigate(hash))()});
+const mobileNav=mountMobileNavigation(mainNavigation,{state:mobileNavigationState,onNavigate:hash=>action(()=>navigate(hash))(),onGeometryChange(){workoutBar.refreshGeometry();mounted?.refreshGeometry?.();}});
 const mobilePager=createMobilePageTransition({app,stage:document.querySelector('#mobile-page-stage'),navigation:mobileNav,media:mobileNavigation,reduced:matchMedia('(prefers-reduced-motion:reduce)')});
 let swipeContext=null,gestureSettling=false,gestureGeneration=0;
 const mobileSwipe=mountMobileSwipe(app,{
@@ -435,7 +435,7 @@ async function prepareWorkout(route){
   if(owned)binding=workouts.attach(route.id,handlers);
   else void finishedBest(linkedVariantIds(log));
   const dispose=()=>{if(disposed)return;disposed=true;binding?.detach();if(recapLog)onSaveStatusSlotChange(null);logger.destroy();};
-  mounted={destroy:dispose,onAuthHidden:dispose,setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft(),
+  mounted={destroy:dispose,onAuthHidden:dispose,refreshGeometry:()=>logger.refreshGeometry(),setLog:value=>logger.setLog(value),hasUnsavedDraft:()=>logger.hasUnsavedDraft(),
    // Acknowledged recap edits: refresh the summary without replacing a focused note editor.
    syncSaved:value=>{if(disposed||!recapLog)return;recapLog=structuredClone(value);applyFinishState({...finishState,log:structuredClone(value)});}};
  };

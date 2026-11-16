@@ -4,9 +4,9 @@ import {createWorkoutLog} from '../src/workout-log.js';
 import {dragDestination} from './mobile-swipe-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 async function start(page){await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Focus integration');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();return log;}
-test('mobile active uses Focus with three destinations and desktop uses compact',async({page})=>{
- const log=await start(page);await expect(page.locator('nav[aria-label="Main"] a:visible')).toHaveCount(3);await expect(page.getByRole('link',{name:'Home',exact:true})).toHaveAttribute('aria-current','page');await expect(page.locator('.workout-bar:visible')).toHaveCount(0);
- const feed=page.locator('.focus-feed');await expect(feed).toHaveCSS('scroll-snap-type','y mandatory');const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.getByRole('link',{name:'Home',exact:true}).boundingBox();expect(box.y+box.height).toBeLessThanOrEqual(toolbar.y+1);expect(toolbar.y+toolbar.height).toBeLessThanOrEqual(nav.y+1);
+test('mobile active uses Focus without tabs and desktop uses compact',async({page})=>{
+ const log=await start(page);await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();await expect(page.locator('.workout-bar:visible')).toHaveCount(0);
+ const feed=page.locator('.focus-feed');await expect(feed).toHaveCSS('scroll-snap-type','y mandatory');const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox();expect(box.y+box.height).toBeLessThanOrEqual(toolbar.y+1);expect(toolbar.y+toolbar.height).toBeLessThanOrEqual((await page.evaluate(()=>visualViewport?.height??innerHeight))+1);
  await page.setViewportSize({width:761,height:844});await expect(page.locator('.workout-focus')).toBeHidden();await expect(page.getByLabel(`Set 1 reps, ${log.exercises[0].name}`,{exact:true})).toBeVisible();await page.setViewportSize({width:760,height:844});await expect(page.locator('.workout-focus')).toBeVisible();
 });
 test('breakpoint preserves invalid drafts and the exact focused input and caret',async({page})=>{
@@ -16,14 +16,14 @@ test('breakpoint retains a composing exercise note and shared workout note',asyn
  const log=await start(page);await page.getByRole('button',{name:`Add exercise note, ${log.exercises[0].name}`,exact:true}).first().click();const note=page.getByRole('textbox',{name:`Note, ${log.exercises[0].name}`,exact:true});await note.fill('Slow descent');await note.evaluate(n=>{window.testNote=n;n.setSelectionRange(2,5);n.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});await page.setViewportSize({width:761,height:844});await expect(note).toBeFocused();await page.setViewportSize({width:760,height:844});await expect(note).toBeFocused();expect(await note.evaluate(n=>({same:n===window.testNote,start:n.selectionStart,end:n.selectionEnd}))).toEqual({same:true,start:2,end:5});await page.getByRole('button',{name:'Workout actions',exact:true}).click();await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeVisible();
 });
 test('Auto-next off survives route reentry without changing the saved log',async({page})=>{
- const log=await start(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();await page.getByRole('link',{name:'Home',exact:true}).click();await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.getByLabel('Auto-next',{exact:true})).not.toBeChecked();const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log).not.toHaveProperty('autoNext');
+ const log=await start(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();await page.getByRole('link',{name:'Back to Home',exact:true}).click();await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.getByLabel('Auto-next',{exact:true})).not.toBeChecked();const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log).not.toHaveProperty('autoNext');
 });
 test('feed re-measures without losing the viewed set',async({page})=>{
  await start(page);const feed=page.locator('.focus-feed');const anchored=()=>feed.evaluate(f=>{const rows=[...f.querySelectorAll('.focus-card')];return {index:rows.findIndex(r=>Math.abs(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop)<2),snapped:!f.classList.contains('is-unsnapped')};});
  await feed.evaluate(f=>{const r=f.querySelectorAll('.focus-card')[2];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});await expect.poll(anchored).toEqual({index:2,snapped:true});
  await page.setViewportSize({width:390,height:700});await expect.poll(anchored).toEqual({index:2,snapped:true});
  // The logger re-measures on the next frame after a resize; wait for it instead of reading once.
- await expect.poll(async()=>{const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.getByRole('link',{name:'Home',exact:true}).boundingBox();return box.y+box.height<=toolbar.y+1&&toolbar.y+toolbar.height<=nav.y+1;}).toBe(true);
+ await expect.poll(async()=>{const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox();return box.y+box.height<=toolbar.y+1&&toolbar.y+toolbar.height<=(await page.evaluate(()=>visualViewport?.height??innerHeight))+1;}).toBe(true);
  await page.setViewportSize({width:761,height:700});await page.setViewportSize({width:760,height:700});await expect.poll(anchored).toEqual({index:2,snapped:true});
 });
 test('a long workout note leaves the feed the space under the sticky header',async({page})=>{
@@ -31,10 +31,10 @@ test('a long workout note leaves the feed the space under the sticky header',asy
  // In Focus the note only occupies the page while it is being edited.
  const note=page.getByRole('textbox',{name:'Workout note',exact:true});await note.fill('Long workout context with line breaks.\n'.repeat(45));
  const feed=page.locator('.focus-feed');await expect.poll(async()=>(await feed.boundingBox()).height).toBeGreaterThan(400);
- // Scrolling the page brings the whole feed and toolbar on screen below the sticky header, above the tab bar.
+ // Scrolling the page brings the whole feed and toolbar on screen below the sticky header, within the visual viewport.
  await page.locator('.focus-toolbar').scrollIntoViewIfNeeded();await page.evaluate(()=>scrollBy(0,10000));
- const header=await page.locator('.logger-header').boundingBox(),box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.getByRole('link',{name:'Home',exact:true}).boundingBox();
- expect(box.y).toBeGreaterThanOrEqual(header.y+header.height-1);expect(toolbar.y+toolbar.height).toBeLessThanOrEqual(nav.y+1);
+ const header=await page.locator('.logger-header').boundingBox(),box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox();
+ expect(box.y).toBeGreaterThanOrEqual(header.y+header.height-1);expect(toolbar.y+toolbar.height).toBeLessThanOrEqual((await page.evaluate(()=>visualViewport?.height??innerHeight))+1);
  const before=box.height;await page.evaluate(()=>scrollTo(0,0));await page.setViewportSize({width:390,height:845});await page.setViewportSize({width:390,height:844});
  await expect.poll(async()=>(await feed.boundingBox()).height).toBe(before);
  await note.blur();await expect(note).toHaveCount(0);await expect.poll(async()=>(await feed.boundingBox()).height).toBe(initial);
@@ -68,17 +68,17 @@ test('Focus chrome leaves no reserve gap and no note row above the feed',async({
  await start(page);
  const header=await page.locator('.logger-header').boundingBox(),progress=await page.locator('.focus-progress').boundingBox();
  expect(progress.y-(header.y+header.height)).toBeLessThanOrEqual(9);
- const toolbar=await page.locator('.focus-toolbar').boundingBox(),nav=await page.locator('nav[aria-label="Main"]').boundingBox();
- expect(nav.y-(toolbar.y+toolbar.height)).toBeLessThanOrEqual(2);
+ const toolbar=await page.locator('.focus-toolbar').boundingBox();
+ expect(Math.abs((await page.evaluate(()=>visualViewport?.height??innerHeight))-(toolbar.y+toolbar.height))).toBeLessThanOrEqual(2);await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();
 });
 test('horizontal swipes on the logger never change root destinations',async({page})=>{
  const log=await start(page);const url=page.url();
  for(const direction of ['next','previous']){await dragDestination(page,{direction});await page.waitForTimeout(300);expect(page.url()).toBe(url);}
- await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.getByRole('link',{name:'Home',exact:true})).toHaveAttribute('aria-current','page');
+ await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();
 });
 test('logging out clears Focus memory',async({page})=>{
  const log=await start(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();
- await page.getByRole('link',{name:'User',exact:true}).click();await page.getByRole('button',{name:'Log out',exact:true}).click();await expect(page.getByLabel('Password',{exact:true})).toBeVisible();
+ await page.getByRole('link',{name:'Back to Home',exact:true}).click();await page.getByRole('link',{name:'User',exact:true}).click();await page.getByRole('button',{name:'Log out',exact:true}).click();await expect(page.getByLabel('Password',{exact:true})).toBeVisible();
  await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#shell')).toBeVisible();
  await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.getByLabel('Auto-next',{exact:true})).toBeChecked();
 });
