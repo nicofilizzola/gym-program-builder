@@ -20,7 +20,7 @@ test.afterEach(async({page})=>{await resetWorkouts(page).catch(()=>{});});
 async function bottomInset(page,inset){await page.route('**/style.css*',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace(/env\(safe-area-inset-bottom(?:\s*,\s*0px)?\)/g,inset+'px')});});}
 for(const inset of [0,20])test('bottom reservations change even when Resume height does not, inset '+inset,async({page})=>{
  await bottomInset(page,inset);await login(page);await resetWorkouts(page);await page.reload();
- const name='Geometry workout '+crypto.randomUUID(),{id}=await createLinkedTemplate(page,name);await page.goto('/#/templates/'+id);await nested(page,'Templates','#/templates');expect(await page.evaluate(()=>parseFloat(getComputedStyle(document.body).paddingBottom))).toBe(0);expect(await page.locator('#app').evaluate(n=>parseFloat(getComputedStyle(n).minHeight))).toBe(844);
+ const name='Geometry workout '+crypto.randomUUID(),{id}=await createLinkedTemplate(page,name);await page.goto('/#/templates/'+id);await nested(page,'Templates','#/templates');expect(await page.evaluate(()=>parseFloat(getComputedStyle(document.body).paddingBottom))).toBe(inset);expect(await page.locator('#app').evaluate(n=>parseFloat(getComputedStyle(n).minHeight))).toBe(844-inset);
  await back(page,'Templates').click();await page.getByRole('button',{name:'Start workout '+name,exact:true}).click();await expect(page.locator('.workout-focus')).toBeVisible();
  await back(page,'Home').click();await main(page).getByRole('link',{name:'Library',exact:true}).click();await page.getByRole('navigation',{name:'Library sections'}).getByRole('link',{name:'Templates',exact:true}).click();
  const bar=page.locator('.workout-bar');await expect(bar).toBeVisible();
@@ -29,7 +29,7 @@ for(const inset of [0,20])test('bottom reservations change even when Resume heig
   const b=await bar.boundingBox(),n=isRoot?await main(page).boundingBox():null;
   expect(b.y+b.height).toBeCloseTo(isRoot?n.y:844,0);
   expect(await page.evaluate(()=>parseFloat(getComputedStyle(document.body).paddingBottom))).toBeCloseTo(b.height+(n?.height??0),0);
-  expect(await page.locator('#app').evaluate(n=>parseFloat(getComputedStyle(n).minHeight))).toBeCloseTo(844-(n?.height??0),0);
+  expect(await page.locator('#app').evaluate(n=>parseFloat(getComputedStyle(n).minHeight))).toBeCloseTo(isRoot?844-n.height:844-inset,0);
   expect(await bar.evaluate(n=>parseFloat(getComputedStyle(n).paddingBottom))).toBe(8+(isRoot?0:inset));
   if(isRoot)expect(n.height).toBeCloseTo(56+inset,0);else await expect(main(page)).toBeHidden();
   return b.height;
@@ -71,6 +71,16 @@ for(const reducedMotion of ['reduce','no-preference'])test('hidden-tab geometry 
  await expect(card).toHaveClass(/is-viewed/);expect(await card.getAttribute('data-set-id')).toBe(viewed);expect(writes).toEqual([]);await expect(card.locator('.log-done')).toHaveAttribute('aria-pressed','false');await expect(main(page)).toBeHidden();await reps.evaluate(n=>n.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'invalid'})));
 });
 
+test('Focus toolbar keeps the bottom inset on nested routes at 660px',async({page})=>{
+ await bottomInset(page,20);await page.setViewportSize({width:390,height:660});await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Inset Focus');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();
+ const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});expect((await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}})).ok()).toBe(true);await page.goto('/#/workouts/'+log.id);
+ const feed=page.locator('.focus-feed'),toolbar=page.locator('.focus-toolbar'),card=feed.locator('.focus-card').first();await expect(main(page)).toBeHidden();
+ await expect.poll(async()=>{const t=await toolbar.boundingBox(),f=await feed.boundingBox(),d=await card.locator('.log-done').boundingBox(),pad=await toolbar.evaluate(n=>parseFloat(getComputedStyle(n).paddingBottom));return {border:Math.abs(660-(t.y+t.height))<=1,content:Math.abs(660-20-(t.y+t.height-pad))<=1,pad,complete:d.y>=f.y-1&&d.y+d.height<=f.y+f.height+1};}).toEqual({border:true,content:true,pad:20,complete:true});
+});
+test('Home at top when saved memory exists but History never loads',async({page})=>{
+ await login(page);await page.route('**/api/workouts',route=>route.fulfill({status:503,json:{error:{message:'History unavailable'}}}));await page.goto('/#/home');await page.reload();await ready(page);await expect(page.locator('.home-history-status')).toContainText('Retry');await page.evaluate(()=>scrollTo(0,200));await main(page).getByRole('link',{name:'User',exact:true}).click();await expect(page).toHaveURL(/#\/user$/);await page.evaluate(()=>scrollTo(0,300));
+ await main(page).getByRole('link',{name:'Home',exact:true}).click();await expect(page.locator('.home-history-status')).toContainText('Retry');expect(await page.evaluate(()=>scrollY)).toBe(0);
+});
 test('all roots retain three equal tabs and Library sections',async({page})=>{
  await login(page);for(const hash of ['#/home','#/programs','#/templates','#/catalog','#/user']){await page.goto('/'+hash);await root(page);if(['#/programs','#/templates','#/catalog'].includes(hash))await expect(page.getByRole('navigation',{name:'Library sections'}).getByRole('link')).toHaveText(['Programs','Templates','Exercises']);}
 });
@@ -205,7 +215,7 @@ test('responsive chrome preserves drafts and visible focus',async({page})=>{
  const sizes=[[360,800],[390,844],[760,1024],[761,1024],[1366,768],[1440,900],[1920,1080]];
  for(const screen of screens){
   await page.setViewportSize({width:390,height:844});await page.goto('/'+screen.hash);await ready(page);if(!screen.field)await page.getByRole('searchbox',{name:'Search catalog',exact:true}).fill(referenceName);const field=screen.field?page.getByRole('textbox',{name:screen.field,exact:true}):page.getByRole('button',{name:'Edit variant Nested variant',exact:true});await expect(field).toBeVisible();const value=screen.field?await field.inputValue():await field.textContent();await field.evaluate(n=>window.responsiveField=n);
-  const loads=[];page.on('request',request=>{if(request.method()==='GET'&&/\/api\/(documents\/|catalog\/|workouts\/)/.test(request.url()))loads.push(request.url());});
+  const loads=[];page.on('request',request=>{if(request.method()==='GET'&&/\/api\/(documents\/|catalog(?:\/|\?|$)|workouts\/)/.test(request.url()))loads.push(request.url());});
   for(const [width,height] of sizes){await page.setViewportSize({width,height});await page.evaluate(()=>document.fonts.ready);await ready(page);await expect(page).toHaveURL(new RegExp(screen.hash+'$'));if(screen.field)await expect(field).toHaveValue(value);else await expect(field).toHaveText(value);expect(await field.evaluate(n=>n===window.responsiveField)).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
    if(width<=760){const link=back(page,screen.parent);await expect(link).toBeVisible();const box=await link.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);expect(box.width).toBeGreaterThanOrEqual(44);await expect(main(page)).toBeHidden();expect(await link.locator('span').evaluate(n=>getComputedStyle(n).textOverflow)).toBe('ellipsis');}
    else {await expect(main(page)).toBeVisible();await expect(main(page).getByRole('link',{name:'Programs',exact:true})).toBeVisible();if(screen.name!=='active-log')await expect(page.getByRole('navigation',{name:'Breadcrumb'}).locator('[aria-current="page"]')).toBeVisible();}
