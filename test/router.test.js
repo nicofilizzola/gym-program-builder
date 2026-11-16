@@ -6,14 +6,17 @@ test('mobile Workouts entry opens the History section of Home',()=>{
  assert.equal(resolveEntryHash('#/workouts',{mobile:true}),'#/home?section=history');
  assert.equal(resolveEntryHash('#/workouts'),'#/workouts');assert.equal(resolveEntryHash('#/workouts/w',{mobile:true}),'#/workouts/w');
  assert.deepEqual(parseRoute('#/home?section=history'),{view:'home',section:'history'});
- for(const hash of ['#/home','#/home?section=unknown','#/home?other=history'])assert.deepEqual(parseRoute(hash),{view:'home'});
+ for(const hash of ['#/home','#/home?section=','#/home?section=unknown','#/home?other=history'])assert.deepEqual(parseRoute(hash),{view:'home'});
 });
 test('empty entry chooses device home without changing explicit deep links',()=>{
  for(const hash of ['','#','/','#/']){
   assert.equal(resolveEntryHash(hash,{mobile:true}),'#/home');
   assert.equal(resolveEntryHash(hash,{mobile:false}),'#/programs');
  }
- for(const hash of ['#/templates/t','#/programs','#/workouts/w'])assert.equal(resolveEntryHash(hash,{mobile:true}),hash);
+ for(const hash of ['#/home?section=history','#/programs','#/programs/p','#/programs/p/workouts/o','#/templates/t','#/catalog/references/r','#/catalog/references/r/variants/v','#/catalog/tags?kind=focus&q=upper+chest','#/profile','#/workouts/w']){
+  assert.equal(resolveEntryHash(hash,{mobile:true}),hash);
+  assert.equal(resolveEntryHash(hash,{mobile:false}),hash);
+ }
  assert.deepEqual(parseRoute('#/home'),{view:'home'});
 });
 test('nested routes preserve stable program catalog and tag context',()=>{
@@ -21,7 +24,10 @@ test('nested routes preserve stable program catalog and tag context',()=>{
  assert.deepEqual(parseRoute('#/catalog/references/r'),{view:'catalog-reference',referenceId:'r'});
  assert.deepEqual(parseRoute('#/catalog/references/r/variants/v'),{view:'catalog-variant',referenceId:'r',variantId:'v'});
  assert.deepEqual(parseRoute('#/catalog/tags?kind=focus&q=upper+chest'),{view:'catalog-tags',kind:'focus',query:'upper chest'});
- for(const value of ['#/catalog/references/%ZZ','#/catalog/references/','#/catalog/tags?kind=unknown'])assert.equal(parseRoute(value).view,'not-found');
+ assert.deepEqual(parseRoute('#/catalog/tags?kind=brand&q=x'),{view:'catalog-tags',kind:'brand',query:'x'});
+ assert.deepEqual(parseRoute('#/catalog/tags?kind=focus&q=lower'),{view:'catalog-tags',kind:'focus',query:'lower'});
+ for(const value of ['#/catalog/tags','#/catalog/tags?kind=&q=','#/catalog/tags?other=unknown'])assert.deepEqual(parseRoute(value),{view:'catalog-tags',kind:'brand',query:''});
+ for(const value of ['#/programs/a%20b','#/programs/p/workouts/a.b','#/templates/','#/catalog/references/%ZZ','#/catalog/references/','#/catalog/references/r/variants/','#/catalog/tags?kind=unknown','#/unrelated/depth'])assert.equal(parseRoute(value).view,'not-found',value);
 });
 test('profile route parses without an id',()=>{
  assert.deepEqual(parseRoute('#/profile'),{view:'profile'});

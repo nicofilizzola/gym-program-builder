@@ -11,6 +11,19 @@ export function destinationFor(hash){
  return view==='home'?'home':null;
 }
 export function isSwipeRoot(hash){return ['home','programs','templates','catalog','workouts','user'].includes(parseRoute(hash).view);}
+export function mobileParentFor(hash,{program=null,reference=null}={}){
+ if(isSwipeRoot(hash))return null;
+ switch(parseRoute(hash).view){
+  case 'program-workout':return program?{label:program.name,href:`#/programs/${program.id}`}:{label:'Programs',href:'#/programs'};
+  case 'program':return {label:'Programs',href:'#/programs'};
+  case 'template':return {label:'Templates',href:'#/templates'};
+  case 'catalog-variant':return reference?{label:reference.name,href:`#/catalog/references/${reference.id}`}:{label:'Exercises',href:'#/catalog'};
+  case 'catalog-reference':
+  case 'catalog-tags':return {label:'Exercises',href:'#/catalog'};
+  case 'profile':return {label:'User',href:'#/user'};
+  default:return {label:'Home',href:'#/home'};
+ }
+}
 export function adjacentDestination(destination,direction){
  const index=MOBILE_DESTINATIONS.indexOf(destination);
  return index<0?null:MOBILE_DESTINATIONS[index+(direction==='next'?1:-1)]??null;
