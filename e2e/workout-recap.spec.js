@@ -49,15 +49,16 @@ test('a Focus finish shows an honest recap, hands off the note and Done goes to 
 });
 
 test('Done lands on Home at the top with the workout first',async({page})=>{
- await login(page);await resetWorkouts(page);for(let i=0;i<45;i++)await saveFinishedLog(page,{name:'Previous workout '+i,startedAt:Date.now()-(i+1)*86400000});
+ await login(page);await resetWorkouts(page);for(let i=0;i<52;i++)await saveFinishedLog(page,{name:'Previous workout '+i,startedAt:Date.now()-(i+1)*86400000});
  const name='Workout started from Home';await createLinkedTemplate(page,name);await page.goto('/#/home');await page.reload();
- await expect(page.locator('.home-history .workout-history-row')).toHaveCount(30);await page.evaluate(()=>scrollTo(0,800));await openStartSheet(page);
+ await expect(page.locator('.home-history .workout-history-row')).toHaveCount(30);await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await expect(page.locator('.home-history .workout-history-row')).toHaveCount(52);await page.evaluate(()=>scrollTo(0,800));await openStartSheet(page);
  await page.getByRole('tab',{name:'Template',exact:true}).click();await page.getByRole('button',{name:'Start '+name,exact:true}).click();
  await expect(page.locator('.workout-focus')).toBeVisible();
  await expect(page.locator('.logger-status')).toHaveText('Saved');
  const {record}=await (await page.request.get('/api/workouts/active')).json();await finishWithOneSet(page,record.log.exercises[0].name);
  await page.getByRole('button',{name:'Done',exact:true}).click();await expect(page).toHaveURL(/#\/home$/);await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(0);
  const row=page.locator('.home-history .workout-history-row').first();await expect(row).toContainText(name);expect((await row.boundingBox()).y).toBeLessThan((await page.getByRole('navigation',{name:'Main'}).boundingBox()).y);
+ await expect(page.locator('.home-history .workout-history-row')).toHaveCount(30);await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'User',exact:true}).click();await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Home',exact:true}).click();await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(0);await expect(page.locator('.home-history .workout-history-row')).toHaveCount(30);
 });
 
 test('View workout opens the regular finished record; reload never replays the recap',async({page})=>{
@@ -83,6 +84,7 @@ test('an offline finish is described as local, keeps the note read-only and sync
  await finishWithOneSet(page,first);
  await expect(recap(page)).toBeVisible();
  await expect(recap(page).locator('.recap-sync')).toHaveText('Finished on this device. It will sync automatically.');
+ await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();
  await expect(recap(page)).not.toContainText('Saved to your history.');
  await expect(recap(page).getByRole('button',{name:'Add workout note',exact:true})).toHaveCount(0);
  await expect(recap(page).locator('.logger-status')).not.toHaveText('');
@@ -109,4 +111,13 @@ test('same-name exercises read with their tags in the recap',async({page})=>{
  await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();
  await page.getByRole('button',{name:'Finish',exact:true}).click();
  await expect(recap(page).locator('.recap-exercise-name')).toHaveText(['Chest press · Hammer','Chest press · Technogym','Lateral raise']);
+});
+
+test('pending recap retains Home before and after acknowledgement with one writer',async({page})=>{
+ const {id,names:[first]}=await start(page);let release,seen;const held=new Promise(r=>release=r),requested=new Promise(r=>seen=r),writes=[];
+ await page.route('**/api/workouts/'+id,async route=>{if(route.request().method()!=='PUT')return route.continue();const log=route.request().postDataJSON().log;writes.push(log.status);if(log.status==='finished'){seen();await held;}await route.continue();});
+ await finishWithOneSet(page,first);await requested;await expect(recap(page)).toBeVisible();await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();await expect(recap(page).locator('.recap-sync')).toHaveText('Finished on this device. It will sync automatically.');await expect(recap(page).getByRole('button',{name:'Add workout note',exact:true})).toHaveCount(0);
+ release();await expect(recap(page).locator('.recap-sync')).toHaveText('Saved to your history.');await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();await expect.poll(()=>page.evaluate(()=>localStorage.getItem('gpb.activeWorkout'))).toBeNull();
+ await recap(page).getByRole('button',{name:'Add workout note',exact:true}).click();await page.getByRole('textbox',{name:'Workout note',exact:true}).fill('One finished writer');await expect.poll(async()=>(await serverRecord(page,id)).log.note).toBe('One finished writer');
+ await page.getByRole('link',{name:'Back to Home',exact:true}).click();await expect(page.getByRole('navigation',{name:'Main'})).toBeVisible();await expect(page.locator('.home-history .workout-history-row')).toHaveCount(1);expect(writes.filter(status=>status==='finished')).toHaveLength(2);expect((await (await page.request.get('/api/workouts/active')).json()).record).toBeNull();
 });

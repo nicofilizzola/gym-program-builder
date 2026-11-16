@@ -42,7 +42,7 @@ test('profile conflict offers Reload saved version only',async({page})=>{
 test('profile touch layout keeps 44px targets without horizontal overflow',async({browser})=>{
  const context=await browser.newContext({baseURL:'http://127.0.0.1:3199',viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'}),page=await context.newPage();
  await login(page);const button=page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'User',exact:true});await button.click();await page.getByRole('link',{name:'Training profile',exact:true}).click();await expect(field(page)).toBeVisible();
- const box=await button.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+ const box=await page.getByRole('link',{name:'Back to User',exact:true}).boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await context.close();
 });

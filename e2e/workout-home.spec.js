@@ -38,13 +38,13 @@ test('recommended session starts directly once and Resume keeps its snapshot cov
  await expect.poll(async()=>Boolean((await (await page.request.get('/api/workouts/active')).json()).record)).toBe(true);
  const {record:template}=await (await page.request.get('/api/documents/'+templateId)).json();
  await page.request.put('/api/documents/'+templateId,{headers,data:{revision:template.revision,document:{...template.document,coverId:'machines'}}});
- await nav(page).getByRole('link',{name:'Home',exact:true}).click();
+ await page.getByRole('link',{name:'Back to Home',exact:true}).click();
  await expect(page.getByRole('button',{name:'Resume workout',exact:true})).toBeVisible();
  await expect(page.locator('.home-cover-image')).toHaveAttribute('src',/barbell\.webp/);
  await expect(page.locator('.workout-bar')).toBeHidden();
  await page.context().setOffline(true);await page.getByRole('button',{name:'Resume workout',exact:true}).click();
  await expect(page.getByRole('textbox',{name:'Workout name'})).toBeVisible();
- await nav(page).getByRole('link',{name:'Home',exact:true}).click();await expect(page.getByRole('button',{name:'Resume workout',exact:true})).toBeVisible();
+ await page.getByRole('link',{name:'Back to Home',exact:true}).click();await expect(page.getByRole('button',{name:'Resume workout',exact:true})).toBeVisible();
  await page.context().setOffline(false);await nav(page).getByRole('link',{name:'Library',exact:true}).click();await expect(page.locator('.workout-bar')).toBeVisible();
 });
 test('fallback opens picker and setup forces Program, then adopts successful activation',async({page})=>{

@@ -100,6 +100,7 @@ test('refresh failure on a long list stays in view above the tab bar and the act
  await nav(page,'Home').click();await openStartSheet(page);
  await page.getByRole('dialog').getByRole('button',{name:'Blank workout',exact:true}).click();
  await expect(page.locator('.logger-title')).toBeVisible();
+ await page.getByRole('link',{name:'Back to Home',exact:true}).click();
  await nav(page,'Library').click();await expect(page.getByRole('region',{name:'Active workout'})).toBeVisible();
  await nav(page,'User').click();
  await page.route('**/api/documents?kind=program',route=>route.fulfill({status:503,json:{error:{message:'Unavailable'}}}));

@@ -70,6 +70,7 @@ test('offline phone Finish lands on Home with a pending row and a history error'
  await page.getByLabel(`Set 1 reps, ${first}`,{exact:true}).fill('8');await done(page,1,first).click();await page.getByRole('button',{name:'Finish',exact:true}).click();
  await page.getByRole('dialog',{name:'Finish workout?'}).getByRole('button',{name:'Finish workout'}).click();await page.getByRole('button',{name:'Done',exact:true}).click();
  await expect(page).toHaveURL(/#\/home$/);await expect(page.locator('.home-history .workout-history-row').first()).toContainText('Not synced yet');
+ await expect(page.getByRole('navigation',{name:'Main'})).toBeVisible();await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(0);
  await expect(page.getByText('Workouts could not be loaded. Connect to see your history.',{exact:true})).toBeVisible();await expect(page.locator('.home-start')).toBeEnabled();
  await reconnect(page);await expect.poll(async()=>(await serverRecord(page,id))?.log.status).toBe('finished');await expect(page.locator('.home-history .workout-history-row')).not.toContainText('Not synced yet');
 });

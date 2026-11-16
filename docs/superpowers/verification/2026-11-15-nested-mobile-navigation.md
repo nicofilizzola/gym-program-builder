@@ -2,7 +2,7 @@
 
 Design: [2026-11-15-nested-mobile-navigation-design.md](../specs/2026-11-15-nested-mobile-navigation-design.md).
 
-Status: Tasks 1-4 parent metadata, compact breadcrumbs, committed-route visibility/recovery and bottom geometry implemented and verified locally. Complete workout lifecycle and final integration checks remain with Task 5. Not deployed.
+Status: Implemented, not deployed. Tasks 1-5 pass locally: full unit and browser suites, build and diff check. Physical-phone checks and deployment remain pending (user).
 
 ## Task 1 — immediate-parent metadata
 
@@ -48,7 +48,7 @@ Commands and actual results (Windows, workspace `C:/Users/NicoF/.codex/worktrees
 
 ## Pending verification
 
-- Workout: complete finish/discard/delete/Done exit semantics, cancelled discard, pending/offline finish and ownership checks remain with the workout integration task; Task 3 covers active Back/Resume, valid recap Home link and finished-log denied leave only.
+- Workout lifecycle/restoration: Task 5 focused coverage below now covers ordinary Back, explicit exits, cancellation, pending finish and acknowledgement ownership. The final full suite, build and diff check passed locally (see the results table).
 - Geometry/accessibility: browser arithmetic covers 0px/20px simulated bottom insets, Resume/body/panel/status reservations, typing restore, 200% text and Focus at 660px. Actual phone keyboard and inset behavior remain pending; see Task 4 evidence below.
 - Physical phone: safe areas, keyboard transitions and momentum remain pending (user). Browser simulation is not physical-device evidence.
 - Deployment verification remains pending (user); no deployment performed.
@@ -75,3 +75,54 @@ Commands/results:
 - Full rerun `npm.cmd test > .superpowers/sdd/2026-11-15-nested-mobile-navigation/task-4-unit.log 2>&1`: exited 0: 519 passed, 0 failed (11837.0339ms).
 - Final required regression: `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js e2e/mobile-navigation.spec.js e2e/mobile-navigation-layout.spec.js e2e/workout-focus-integration.spec.js e2e/workout-focus-fit.spec.js e2e/mobile-save-controls.spec.js` exited 0: **88 passed (1.8m)**.
 - `git diff --check` exited 0. The pre-existing NO_COLOR/FORCE_COLOR warning remains. No deployment or physical-device verification performed.
+
+## Task 5 - workout lifecycle, restoration and final verification
+
+### Automated integration evidence
+
+- `parent Home return retains workout and remembered History` seeds 52 real finished logs, loads the older page and remembers row 40's nonzero document scroll. It opens an active log, travels to working set 2 and holds a reps PUT while returning through `Back to Home`. The Home extent and scroll return, its own Resume suppresses the floating bar, the mirror keeps the same active ID/status, the background save is acknowledged, no DELETE or finish write occurs, and Resume returns to the same viewed set. The nested route crosses 761/390 without clearing Home memory; User → Home also retains the extent/scroll.
+- Saved scroll instrumentation checks the rendered History count at every nonzero Home `scrollTo`. RED observed `[0,52]`: the generic route commit attempted saved scroll before the cached History extent rendered, even though final scroll was already correct. The narrow fix in `src/app.js:renderRoute` defers saved mobile Home restoration to the existing History callback after `historyView.setState`, at both generic commit and root settlement. It retains the callback's current-route/user-interaction guards, immediate no-memory top reset, explicit History-heading targeting, desktop and other roots. GREEN requires every observed nested and root-return restoration to have all 52 rows first.
+- Discard and finished-log Delete start from an older-page extent with 52+ rows. Cancel retains the source parent and record; accepting removes the fixture, clears the active mirror where applicable, returns Home at zero with tabs and resets the visible extent to its 30-row first page. Another User/Home return retains that reset. Done now starts from 52 loaded rows and checks the same cleared extent/top plus the newest finished row. Original desktop Finish continues to Workouts without recap.
+- Pending recap keeps `Back to Home` before and after a held finish acknowledgement. Pending/offline status is local and read-only; acknowledgement clears the mirror and enables the existing finished-log note autosave. The held test observes one finish PUT and one note PUT, then one History row and no active log after ordinary Home return. Existing retry/conflict, snapshot-cover, offline pending-row/deduplication and finished-log autosave assertions remain. Offline phone Done explicitly checks Home at zero with visible tabs despite its History load error.
+- Responsive assertions cover populated program workout, reference/variant, active log and recap at 360×800, 390×844, 760×1024, 761×1024, 1366×768, 1440×900 and 1920×1080, plus 390px with 200% root text. They retain explicit hashes, canonical field identity/value and visible focus, reject horizontal overflow and route-data reloads from resize, check compact parent size/ellipsis and desktop header/full contextual trails, and retain an exact unsaved variant name node/value/caret/focus through 761/390. The existing 660px Focus test adds durable images in both motion settings before its invalid-draft/composition/viewed-ref checks.
+- Additional affected callers were repaired only after the first full run demonstrated their obsolete nested-tab assumptions: `workout-home.spec.js` uses `Back to Home` from the active logger; `profile.spec.js` measures the visible `Back to User` link instead of the hidden User tab; `root-cache-refresh.spec.js` returns via `Back to Home` before Library. Existing target-size, overflow, feedback/reservation, navigation and snapshot/offline assertions remain. No assertion in `workout-logger.spec.js` was removed or weakened.
+
+### Commands and actual results
+
+Workspace: `C:/Users/NicoF/.codex/worktrees/eb87/gym-program-builder`, Windows PowerShell; npm/npx use `.cmd`. Required completion commands explicitly return native `$LASTEXITCODE`.
+
+| Command | Actual result |
+|---|---|
+| `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js --grep 'parent Home return'` before the owning fix | RED: 1 failed; actual restoration counts `[0,52]`, expected all 52 |
+| `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js e2e/workout-home.spec.js e2e/workout-recap.spec.js e2e/workout-offline.spec.js e2e/workout-logger.spec.js e2e/mobile-page-memory.spec.js` | GREEN: 63 passed, 3 existing skips (2.2m) |
+| `npm.cmd test` | Exit 0: 519 passed, 0 failed, 0 skipped (11607.1104ms); Task 4's temporary SQLite EBUSY cleanup did not recur |
+| First `npm.cmd run test:e2e` | Exit 1: 811 passed, 7 existing skips, 2 failed (18.8m); Profile hidden-tab measurement and root-cache-refresh hidden Library activation, both callers corrected as above |
+| `npx.cmd playwright test e2e/profile.spec.js e2e/root-cache-refresh.spec.js --grep 'profile touch layout|refresh failure on a long list'` | Exit 0: 2 passed (7.1s) |
+| Final `npm.cmd run test:e2e` | Exit 0: 813 passed, 7 existing skips, 0 failed (16.4m); log `task-5-e2e-final.log` |
+| `npm.cmd run build` | Exit 0: `Built public assets.` |
+| `git diff --check` | Exit 0, no output |
+
+Logs are preserved in `.superpowers/sdd/2026-11-15-nested-mobile-navigation/`: `task-5-restore-red.log`, `task-5-integration-green.log`, `task-5-unit.log`, `task-5-e2e.log`, `task-5-callers-green.log` and `task-5-e2e-final.log`. Earlier new-test runs had setup/locator failures (a blank chip's exact name, scrolling before first-page load, a variant deep link's Edit button, the permitted heading focus fallback and a reference revision bumped by variant creation); they are recorded in the task report, with no artificial product changes inferred from them.
+
+Seven pre-existing full-suite skips remain; no skips were added. Active phone workouts use Focus, whose input/action/note and long-note suites cover those presentations. The skipped regular-tracker cases are:
+
+- `workout-logger.spec.js`, `logger at 390px`: `placeholders and ✓ log a set in one tap`; `inputs, steppers and RIR`; `swap, add, remove and reorder exercises`.
+- `workout-notes.spec.js`, `390 touch`: `exercise notes open, save, reopen, clear and carry over as last time`; `set notes save on input, finish on Enter, reopen and clear in the aligned note slot`; `warm-up notes use distinct labels and resume as saved text`; `removing a set with an open note restores the next menu and leaves no orphan input`.
+
+The pre-existing `NO_COLOR`/`FORCE_COLOR` runner warning remains. Early redirected npx runs also returned PowerShell wrapper exit 1 with a `NativeCommandError` stderr record despite a passing Playwright summary; required completion commands explicitly preserve the native exit status. No warning suppression or related product change was added.
+
+### Browser layout and motion inspection
+
+Durable evidence directory: [assets/nested-mobile-navigation](assets/nested-mobile-navigation). It contains 34 intentional PNGs. Each screen prefix `program-workout`, `reference-variant`, `active-log`, `recap` has suffixes `360x800`, `390x844`, `760x1024`, `761x1024`, `1366x768`, `1440x900`, `1920x1080` and `390-enlarged`. The additional two files are `focus-390x660-reduce.png` and `focus-390x660-no-preference.png`.
+
+All populated responsive renders were inspected through per-screen contact sheets, then representative full-size images. Phone parent links stay quiet, visible and one-line; the long program parent ellipsizes with its complete accessible name. Desktop retains its original header and full trail. Reference/variant captures filter to the unique fixture and start at document top so the chrome and populated variant appear together. Recap retains Home and truthful saved state without reviving active controls. At enlarged text the page grows vertically without horizontal overflow; later content remains reachable by scrolling.
+
+The [660px reduced-motion Focus image](assets/nested-mobile-navigation/focus-390x660-reduce.png) and its normal-motion counterpart show Home, tags, Last time, Best, Complete inside the feed and the existing toolbar ending at the viewport bottom without tabs or a stale gap. The controller independently inspected that 660px render and the [desktop reference/variant render](assets/nested-mobile-navigation/reference-variant-1440x900.png), confirming those visible conditions. Existing normal/reduced-motion automated checks retain the 75/100ms nested fade, 220/180ms root movement and immediate final-state behavior; screenshots alone do not establish motion timing.
+
+The approved spec and existing product styles controlled the UI review; no new art direction was introduced. Historical `assets/mobile-library-navigation` PNGs regenerated by tests are restored individually before commit; only the new nested evidence is intentional.
+
+### Remaining limits
+
+- Physical-phone safe areas, keyboard transitions and momentum remain **pending (user)**. Viewport/inset simulation, touch-capable Chromium and hybrid browser checks are not physical-device evidence.
+- Deployment verification remains **pending (user)**; nothing was deployed and no migration or seed command was run.
+- The separate Focus direct-footer/round-page design is not integrated here. The actual-app 660px evidence covers the existing overview toolbar and surviving viewed ref.

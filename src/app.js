@@ -335,6 +335,8 @@ function mountRouteError(hash,text,{mobileParent=mobileParentFor(hash),retry=fal
 }
 async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
  busy(version);const targetHash=entryHash(location.hash),route=parseRoute(targetHash),changed=targetHash!==currentHash,hasSource=Boolean(app.childElementCount);message.textContent='';
+ // Home restores saved scroll after History renders its remembered extent.
+ const deferHomeScroll=mobileNavigation.matches&&route.view==='home'&&route.section!=='history'&&mobileNavigationState.readPage('#/home')!==null;
  if(location.hash!==targetHash)history.replaceState(null,'',targetHash);
  try{
   const commit=await prepareRoute(route,version);if(version!==routeVersion)return {status:'superseded',hash:currentHash};
@@ -345,7 +347,7 @@ async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
    mobileNav.commit(currentHash,{preservePreview:Boolean(mobileTransition)});
    if(['programs','templates','catalog'].includes(route.view))libraryNavigation=mountLibraryNavigation(app,{hash:currentHash,onNavigate:hash=>action(()=>navigate(hash))()});
    if(route.view==='profile')profileButton.setAttribute('aria-current','page');else profileButton.removeAttribute('aria-current');
-   if(changed&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,mobileNavigation.matches?mobileNavigationState.readPage(currentHash)?.scrollY??0:0);
+   if(changed&&!deferHomeScroll&&!(route.view==='program'&&programReturn.has(route.id)))window.scrollTo(0,mobileNavigation.matches?mobileNavigationState.readPage(currentHash)?.scrollY??0:0);
    workouts.refreshBar({animate:barRendered});barRendered=true;
   };
   const focus=()=>{
@@ -353,7 +355,7 @@ async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
    app.inert=false;if(commit.focus){commit.focus();return;}
    if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector('[data-workout-title="'+CSS.escape(returning.id)+'"]')?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}
   };
-  const finished=!hasSource?(commitView(),focus(),true):mobileTransition?await mobilePager.complete({commit:commitView,restore:async()=>{await new Promise(requestAnimationFrame);if(version===routeVersion)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);},focus,isCurrent:()=>version===routeVersion}):await viewTransition.swap(commitView,{focus});
+  const finished=!hasSource?(commitView(),focus(),true):mobileTransition?await mobilePager.complete({commit:commitView,restore:async()=>{await new Promise(requestAnimationFrame);if(version===routeVersion&&!deferHomeScroll)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);},focus,isCurrent:()=>version===routeVersion}):await viewTransition.swap(commitView,{focus});
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
   mounted?.settled?.();
   if(committed&&!finished)focus();
