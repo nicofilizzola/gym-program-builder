@@ -22,7 +22,7 @@ test('User is a full page and remembers Library section',async({page})=>{
  await expect(main(page).getByRole('link',{name:'User',exact:true})).not.toHaveAttribute('aria-expanded');
  await main(page).getByRole('link',{name:'Library',exact:true}).click();await expect(page).toHaveURL(/#\/catalog$/);
  await main(page).getByRole('link',{name:'User',exact:true}).click();await page.getByRole('link',{name:'Training profile',exact:true}).click();
- await expect(page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link',{name:'User',exact:true})).toBeVisible();
+ await expect(page.getByRole('navigation',{name:'Breadcrumb'}).getByRole('link',{name:'Back to User',exact:true})).toBeVisible();
 });
 test('desktop retains original navigation and direct User survives resize',async({page})=>{
  await login(page);await page.goto('/#/user');await page.setViewportSize({width:1440,height:900});

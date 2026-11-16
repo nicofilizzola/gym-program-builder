@@ -25,7 +25,7 @@ import {mountLibrary} from './library-view.js';
 import {mountSessionEditor} from './session-editor.js';
 import {mountCatalog} from './catalog-view.js';
 import {mountProfileView} from './profile-view.js';
-import {createMobileNavigationState,isSwipeRoot,destinationFor,adjacentDestination,MOBILE_DESTINATIONS} from './mobile-navigation-state.js';
+import {createMobileNavigationState,isSwipeRoot,destinationFor,adjacentDestination,MOBILE_DESTINATIONS,mobileParentFor} from './mobile-navigation-state.js';
 import {mountMobileNavigation} from './mobile-navigation.js';
 import {mountLibraryNavigation} from './library-navigation.js';
 import {mountUserView} from './user-view.js';
@@ -301,7 +301,8 @@ async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
   programTemplates=bundle?.templates||[];
   const onChange=track(record,{project:document=>record.kind==='program'?resolveProgram(document,programTemplates):document}),host=createViewHost(),contentHost=host.appendChild(document.createElement('div'));
   const parents=context?[{label:'Programs',href:'#/programs'},{label:context.program.document.name.trim()||'Untitled program',href:'#/programs/'+context.program.id}]:[{label:record.kind==='template'?'Session templates':'Programs',href:record.kind==='template'?'#/templates':'#/programs'}];
-  breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
+  const mobileParent=mobileParentFor(context?`#/programs/${context.program.id}/workouts/${context.occurrence.id}`:`#/${record.kind==='template'?'templates':'programs'}/${record.id}`,{program:context?{id:context.program.id,name:parents.at(-1).label}:null});
+  breadcrumb=mountBreadcrumbs(host,{items:[...parents,{label:record.document.name.trim()||'Untitled '+record.kind}],mobileParent,onNavigate:hash=>action(()=>navigate(hash))()});updateCurrentBreadcrumb=value=>breadcrumb?.update([...parents,{label:value.name.trim()||'Untitled '+record.kind}]);
   if(record.kind==='template'){
    const editorHost=contentHost;
    const programSource=context?{program:{id:context.program.id,name:context.program.document.name.trim()||'Untitled program'},occurrenceId:context.occurrence.id}:{};
@@ -525,24 +526,25 @@ async function prepareRoute(route,version,prepared=null){
   if(route.section==='history'){commit.canonicalHash='#/home';commit.focus=()=>{historyHeading.scrollIntoView({block:'start',behavior:'instant'});historyHeading.focus({preventScroll:true});};}
   return commit;
  }
- if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
+ if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],mobileParent:mobileParentFor('#/catalog/tags'),onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
   const data=prepared?.catalog??await api.catalog();
   const variant=route.variantId?data.entries.find(e=>e.id===route.variantId):null,reference=data?.families.find(r=>r.id===(variant?.familyId||route.referenceId));
   const commit=()=>{
    const host=createViewHost(),content=host.appendChild(document.createElement('div'));
-   if(route.view!=='catalog'&&(!reference||(route.variantId&&!variant))){breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Not found'}],onNavigate:hash=>action(()=>navigate(hash))()});const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='This reference exercise or variant is unavailable. Return to Exercise catalog.';content.append(p);return;}
-   if(route.view!=='catalog')breadcrumb=mountBreadcrumbs(host,{items:[],onNavigate:hash=>action(()=>navigate(hash))()});
+   if(route.view!=='catalog'&&(!reference||(route.variantId&&!variant))){breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Not found'}],mobileParent:mobileParentFor('#/catalog/references/'+route.referenceId+(route.variantId?'/variants/'+route.variantId:''),{reference}),onNavigate:hash=>action(()=>navigate(hash))()});const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='This reference exercise or variant is unavailable. Return to Exercise catalog.';content.append(p);return;}
+   if(route.view!=='catalog')breadcrumb=mountBreadcrumbs(host,{mobileParent:mobileParentFor('#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:''),{reference}),onNavigate:hash=>action(()=>navigate(hash))()});
    mounted=mountCatalog(content,{api,loadCatalog:prepared?async()=>{const result=await rootCache.load('catalog',()=>api.catalog());return result.status==='accepted'?result.snapshot.value:rootCache.read('catalog')?.value;}:undefined,initialData:data,navigationState:route.view==='catalog'&&mobileNavigation.matches?mobileNavigationState.readPage('#/catalog')?.state:null,target:reference?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
-    breadcrumb?.update([{label:'Exercise catalog',href:'#/catalog'},...(variant?[{label:reference.name,href:'#/catalog/references/'+reference.id},{label:variant.name}]:[{label:reference.name}])]);
-    const hash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;}
+    const hash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');
+    breadcrumb?.update([{label:'Exercise catalog',href:'#/catalog'},...(variant?[{label:reference.name,href:'#/catalog/references/'+reference.id},{label:variant.name}]:[{label:reference.name}])],{mobileParent:mobileParentFor(hash,{reference})});
+    if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;}
    }});
   };
   if(data&&reference&&(!route.variantId||variant)){commit.canonicalHash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');commit.focus=()=>mounted?.focusTarget?.();}
   return commit;
  }
  if(route.view==='user')return ()=>{mounted=mountUserView(createViewHost(),{onNavigate:hash=>action(()=>navigate(hash))(),onLogout:logout});};
- if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange,onSaveStatusSlotChange});};}
+ if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],mobileParent:mobileParentFor('#/profile'),onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange,onSaveStatusSlotChange});};}
  if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
  if(route.view==='workout')return prepareWorkout(route);
  if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
