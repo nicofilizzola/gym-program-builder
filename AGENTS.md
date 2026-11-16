@@ -1,5 +1,15 @@
 # Gym Program Builder
 
+## Nested mobile navigation (2026-11-15)
+
+Design: docs/superpowers/specs/2026-11-15-nested-mobile-navigation-design.md; evidence: docs/superpowers/verification/2026-11-15-nested-mobile-navigation.md. Parent links and committed-route tab visibility implemented, not deployed; bar/Focus geometry integration remains pending. Supersedes earlier nested mobile tab/breadcrumb rules where they conflict.
+
+- At ≤760px only Home, Programs, Templates, Exercises and User roots show the three equal Home/Library/User tabs. Nested screens hide Main from paint, focus and accessibility, with effective `--tab-bar-height:0px`; `--tab-bar-full-height` retains the full 56px/text-scaled height plus safe area. Desktop keeps its existing navigation and effective zero reservation. Explicit routes survive resize.
+- `mobileNav.commit` owns route visibility at the existing content swap (75ms out, 100ms in, ease-out), including canonical in-place replacements and reloads. Initial load and reduced motion are immediate. Never derive chrome from a requested/stale hash or animate reserved height. The optional synchronous `onGeometryChange()` runs after commit/arrange and real visible size changes; indicator measurement skips hidden navigation.
+- Every nested mobile screen has one canonical `Back to {parent label}` link through existing guarded navigation. Workout Home links live outside the logger subtree and survive transient recap. Known missing/unavailable records retain their available parent; missing program/reference context falls back to Programs/Exercises, and unrelated unknown routes return Home. Desktop keeps its error treatment.
+- Thrown required-load failures preserve the mounted source URL, parent/tab chrome, controller and focus. Only initial errors without a source mount fallback chrome and Retry. Blocked leave, Back/Forward and auth-stale responses cannot publish destination chrome. Root cold failures keep tabs and Retry; root swipe settlement/cancellation, Library sections and Home History replacement behavior stay unchanged.
+- Resume/bar safe-area ownership, unchanged-height reservations and Focus geometry verification await the remaining integration tasks. Physical-phone safe areas, keyboard transitions, momentum and deployment remain pending (user); browser checks establish none of those.
+
 ## Workout overview interactions (2026-11-15)
 
 Design: docs/superpowers/specs/2026-11-15-workout-overview-interactions-design.md; plan: docs/superpowers/plans/2026-11-15-workout-overview-interactions.md; evidence: docs/superpowers/verification/2026-11-15-workout-overview-interactions.md. Implemented, not deployed. Supersedes earlier overview movement/menu/control rules where they conflict.

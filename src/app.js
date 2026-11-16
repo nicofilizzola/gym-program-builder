@@ -131,6 +131,7 @@ function exitWorkout(){
  return navigate('#/workouts');
 }
 async function navigate(hash,{push=true,gesture=null}={}){
+ const invoker=document.activeElement;
  hash=entryHash(hash);
  if(mobileNavigation.matches&&mounted&&isSwipeRoot(currentHash))mobileNavigationState.writePage(currentHash,{scrollY:window.scrollY,state:mounted.getNavigationState?.()??null});
  if(!gesture)cancelMobileGesture();
@@ -145,7 +146,7 @@ async function navigate(hash,{push=true,gesture=null}={}){
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
   if(push&&entryHash(location.hash)!==hash)history.pushState(null,'',hash);
   return await renderRoute(version,{mobileTransition});
- }finally{idle(version);}
+ }finally{idle(version);if(version===routeVersion&&document.activeElement===document.body&&invoker?.isConnected&&invoker.getClientRects().length&&!invoker.closest('[inert]'))invoker.focus({preventScroll:true});}
 }
 mountTypingState(app);
 const mobileNavigation=matchMedia('(max-width:760px)'),mainNavigation=document.querySelector('nav[aria-label="Main"]');
@@ -325,10 +326,15 @@ async function prepareRecord(record,context,profileLoad=loadLimitProfile()){
 }
 async function openRecord(record,version){
  busy(version);
- try{const commit=await prepareRecord(record);if(version!==routeVersion)return;await viewTransition.swap(()=>{clearView();mountedVersion=version;commit();});}finally{idle(version);}
+ try{const commit=await prepareRecord(record);if(version!==routeVersion)return;await viewTransition.swap(()=>{clearView();mountedVersion=version;commit();mobileNav.commit(currentHash);});}finally{idle(version);}
+}
+function mountRouteError(hash,text,{mobileParent=mobileParentFor(hash),retry=false}={}){
+ const host=createViewHost();breadcrumb=mountBreadcrumbs(host,{mobileParent,onNavigate:hash=>action(()=>navigate(hash))()});
+ const p=document.createElement('p');p.setAttribute('role','alert');p.textContent=text;host.append(p);
+ if(retry){const button=document.createElement('button');button.type='button';button.className='secondary-btn';button.textContent='Retry';button.onclick=action(()=>navigate(hash,{push:false}));host.append(button);}
 }
 async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
- busy(version);const targetHash=entryHash(location.hash),route=parseRoute(targetHash),changed=targetHash!==currentHash;message.textContent='';
+ busy(version);const targetHash=entryHash(location.hash),route=parseRoute(targetHash),changed=targetHash!==currentHash,hasSource=Boolean(app.childElementCount);message.textContent='';
  if(location.hash!==targetHash)history.replaceState(null,'',targetHash);
  try{
   const commit=await prepareRoute(route,version);if(version!==routeVersion)return {status:'superseded',hash:currentHash};
@@ -347,16 +353,16 @@ async function renderRoute(version=++routeVersion,{mobileTransition=null}={}){
    app.inert=false;if(commit.focus){commit.focus();return;}
    if(changed){const returning=route.view==='program'?programReturn.get(route.id):null;if(returning){window.scrollTo(0,returning.scroll);app.querySelector('[data-workout-title="'+CSS.escape(returning.id)+'"]')?.focus({preventScroll:true});programReturn.delete(route.id);}else if(route.view==='program-workout')app.querySelector('[data-template-name]')?.focus({preventScroll:true});else focusHeading();}
   };
-  const finished=mobileTransition?await mobilePager.complete({commit:commitView,restore:async()=>{await new Promise(requestAnimationFrame);if(version===routeVersion)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);},focus,isCurrent:()=>version===routeVersion}):await viewTransition.swap(commitView,{focus});
+  const finished=!hasSource?(commitView(),focus(),true):mobileTransition?await mobilePager.complete({commit:commitView,restore:async()=>{await new Promise(requestAnimationFrame);if(version===routeVersion)window.scrollTo(0,mobileNavigationState.readPage(currentHash)?.scrollY??0);},focus,isCurrent:()=>version===routeVersion}):await viewTransition.swap(commitView,{focus});
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
   mounted?.settled?.();
   if(committed&&!finished)focus();
   return {status:committed?'committed':'superseded',hash:currentHash};
  }catch(error){
   if(version!==routeVersion)return {status:'superseded',hash:currentHash};
-  history.replaceState(null,'',currentHash);report(error);
+  if(hasSource)history.replaceState(null,'',currentHash);report(error);
   if(mobileTransition&&version===routeVersion)await mobilePager.rollback();
-  if(!mounted&&error.status!==401){app.textContent='This page could not be opened. ';const retry=document.createElement('button');retry.type='button';retry.className='secondary-btn';retry.textContent='Retry';retry.onclick=action(()=>navigate(targetHash,{push:false}));app.append(retry);}
+  if(!hasSource&&error.status!==401){mountRouteError(targetHash,'This page could not be opened. ',{mobileParent:error.mobileParent||mobileParentFor(targetHash),retry:true});currentHash=targetHash;mobileNav.commit(currentHash);}
   return {status:'failed',hash:currentHash};
  }finally{idle(version);}
 }
@@ -367,9 +373,9 @@ async function prepareWorkout(route){
  let record=null;
  if(!workouts.owns(route.id)){
   try{record=await api.getWorkout(route.id);}catch(error){if(error.status!==404)throw error;}
-  if(!record)return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
+  if(!record)return ()=>mountRouteError('#/workouts/'+route.id,'Page not found. Choose Programs or Session templates.');
   if(record.log.status==='active'&&!workouts.adopt(record))
-   return ()=>{const p=document.createElement('p');p.setAttribute('role','alert');p.textContent='Resume or finish your current workout before opening another active workout.';createViewHost().append(p);};
+   return ()=>mountRouteError('#/workouts/'+route.id,'Resume or finish your current workout before opening another active workout.');
  }
  const local=workouts.owns(route.id)?workouts.snapshot():null,log=local?local.log:record.log,owned=local&&log.status==='active';
  // A finished log is edited through the app's autosave, unless the controller still holds it as an unsynced pending finish (read-only).
@@ -399,7 +405,8 @@ async function prepareWorkout(route){
   const handlers={setStatus:text=>logger?.setStatus(text),setFinishState:applyFinishState,
    // Use saved version may restore this workout as active: leave the recap for the live logger.
    setLog:value=>{if(recapView&&value.status==='active'){void action(()=>navigate('#/workouts/'+route.id,{push:false}))();return;}logger?.setLog(value);},setLastTime:map=>logger?.setLastTime(map),setBestPerformance:map=>logger?.setBestPerformance(map),setBestStatus:value=>logger?.setBestStatus(value)};
-  logger=mountWorkoutLogger(createViewHost(),{api,log,lastTime,bestPerformance:local?.bestPerformance??null,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
+  const host=createViewHost();breadcrumb=mountBreadcrumbs(host,{mobileParent:mobileParentFor('#/workouts/'+route.id),onNavigate:hash=>action(()=>navigate(hash))()});
+  logger=mountWorkoutLogger(host.appendChild(document.createElement('div')),{api,log,lastTime,bestPerformance:local?.bestPerformance??null,mode:log.status==='active'?'active':'finished',readOnly:log.status==='finished'&&!editFinished,
    sharedSaveStatus:editFinished,onSaveStatusSlotChange,focusSession:workoutFocusSession,
    onChange:value=>(change||binding?.onChange)?.(value),
    onDelete:async()=>{
@@ -526,7 +533,7 @@ async function prepareRoute(route,version,prepared=null){
   if(route.section==='history'){commit.canonicalHash='#/home';commit.focus=()=>{historyHeading.scrollIntoView({block:'start',behavior:'instant'});historyHeading.focus({preventScroll:true});};}
   return commit;
  }
- if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],mobileParent:mobileParentFor('#/catalog/tags'),onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;}else return navigate(hash);})});};
+ if(route.view==='catalog-tags')return ()=>{const host=createViewHost(),content=host.appendChild(document.createElement('div'));breadcrumb=mountBreadcrumbs(host,{items:[{label:'Exercise catalog',href:'#/catalog'},{label:'Tags'}],mobileParent:mobileParentFor('#/catalog/tags'),onNavigate:hash=>action(()=>navigate(hash))()});mounted=mountTagView(content,{api,kind:route.kind,query:route.query,onNavigate:action(({kind,query,replace=false})=>{const hash='#/catalog/tags?'+new URLSearchParams({kind,q:query});if(replace){history.replaceState(null,'',hash);currentHash=hash;mobileNav.commit(currentHash);}else return navigate(hash);})});};
  if(['catalog','catalog-reference','catalog-variant'].includes(route.view)){
   const data=prepared?.catalog??await api.catalog();
   const variant=route.variantId?data.entries.find(e=>e.id===route.variantId):null,reference=data?.families.find(r=>r.id===(variant?.familyId||route.referenceId));
@@ -537,7 +544,7 @@ async function prepareRoute(route,version,prepared=null){
    mounted=mountCatalog(content,{api,loadCatalog:prepared?async()=>{const result=await rootCache.load('catalog',()=>api.catalog());return result.status==='accepted'?result.snapshot.value:rootCache.read('catalog')?.value;}:undefined,initialData:data,navigationState:route.view==='catalog'&&mobileNavigation.matches?mobileNavigationState.readPage('#/catalog')?.state:null,target:reference?{referenceId:reference.id,variantId:variant?.id}:undefined,onNavigate:hash=>action(()=>navigate(hash))(),onTargetChange:({reference,variant})=>{
     const hash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');
     breadcrumb?.update([{label:'Exercise catalog',href:'#/catalog'},...(variant?[{label:reference.name,href:'#/catalog/references/'+reference.id},{label:variant.name}]:[{label:reference.name}])],{mobileParent:mobileParentFor(hash,{reference})});
-    if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;}
+    if(location.hash!==hash){history.replaceState(null,'',hash);currentHash=hash;mobileNav.commit(currentHash);}
    }});
   };
   if(data&&reference&&(!route.variantId||variant)){commit.canonicalHash='#/catalog/references/'+reference.id+(variant?'/variants/'+variant.id:'');commit.focus=()=>mounted?.focusTarget?.();}
@@ -545,9 +552,9 @@ async function prepareRoute(route,version,prepared=null){
  }
  if(route.view==='user')return ()=>{mounted=mountUserView(createViewHost(),{onNavigate:hash=>action(()=>navigate(hash))(),onLogout:logout});};
  if(route.view==='profile'){const saved=await api.getProfile();return ()=>{const onChange=track(profileRecord(saved)),host=createViewHost();breadcrumb=mountBreadcrumbs(host,{items:[{label:'User',href:'#/user'},{label:'Profile'}],mobileParent:mobileParentFor('#/profile'),onNavigate:hash=>action(()=>navigate(hash))()});host.querySelector('.breadcrumbs').classList.add('profile-breadcrumb');mounted=mountProfileView(host.appendChild(document.createElement('div')),{profile:active.document,onChange,onSaveStatusSlotChange});};}
- if(route.view==='not-found')return ()=>{app.textContent='Page not found. Choose Programs or Session templates.';};
+ if(route.view==='not-found')return ()=>mountRouteError(location.hash,'Page not found. Choose Programs or Session templates.');
  if(route.view==='workout')return prepareWorkout(route);
- if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Error('Session occurrence not found. Choose Programs to return.');const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
+ if(route.view==='program-workout'){const profileLoad=loadLimitProfile(),bundle=await api.programBundle(route.id),occurrence=bundle.record.document.workouts.find(w=>w.id===route.occurrenceId);if(!occurrence)throw Object.assign(Error('Session occurrence not found. Choose Programs to return.'),{mobileParent:mobileParentFor(location.hash,{program:{id:bundle.record.id,name:bundle.record.document.name.trim()||'Untitled program'}})});const template=bundle.templates.find(t=>t.id===occurrence.templateId);return prepareRecord(template,{program:bundle.record,occurrence},profileLoad);}
  if(route.id){const profileLoad=loadLimitProfile();return prepareRecord(await api.get(route.id),undefined,profileLoad);}
  const kind=route.view==='programs'?'program':'template';
  // A settings failure on the network just shows no active program; anything else is reported.

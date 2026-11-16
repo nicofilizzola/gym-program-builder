@@ -29,7 +29,7 @@ test('active mirror survives an attempted root swipe offline and User restores t
  const name='Swipe workout '+crypto.randomUUID().slice(0,6);await createLinkedTemplate(page,name);await page.goto('/#/templates');
  await page.getByRole('button',{name:'Start workout '+name,exact:true}).click();await expect(page.locator('.logger-status')).toHaveText('Saved');
  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('gpb.activeWorkout')).log);
- await main(page).getByRole('link',{name:'Home',exact:true}).click();await ready(page,'#/home');
+ await page.getByRole('link',{name:'Back to Home',exact:true}).click();await ready(page,'#/home');
  await expect(page.getByRole('button',{name:'Resume workout',exact:true})).toBeVisible();await expect(page.locator('.workout-bar')).not.toBeVisible();
  await page.context().setOffline(true);await dragDestination(page);await expect(page.locator('.root-page-feedback button')).toBeVisible();await ready(page,'#/templates');
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('gpb.activeWorkout')).log.id)).toBe(before.id);
@@ -42,7 +42,7 @@ test('Profile keeps dirty edits when leaving is declined and never accepts desti
  const field=page.getByRole('textbox',{name:'Training background and approach',exact:true});await field.fill('Keep my training background');await field.blur();
  await expect(page.getByTestId('save-status')).toHaveText('Couldn’t save');
  await dragDestination(page);await expect(page).toHaveURL(/#\/profile$/);
- await answerNextConfirmation(page,false);await main(page).getByRole('link',{name:'User',exact:true}).click();
+ await answerNextConfirmation(page,false);await page.getByRole('link',{name:'Back to User',exact:true}).click();
  await expect(field).toHaveValue('Keep my training background');await expect(page).toHaveURL(/#\/profile$/);
 });
 test('resize during drag cancels layers without redirecting the explicit route',async({page})=>{

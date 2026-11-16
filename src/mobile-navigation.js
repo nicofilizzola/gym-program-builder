@@ -1,43 +1,48 @@
 import {actionIcon} from './action-controls.js';
-import {destinationFor} from './mobile-navigation-state.js';
+import {destinationFor,isSwipeRoot} from './mobile-navigation-state.js';
 import {parseRoute} from './router.js';
 
-export function mountMobileNavigation(nav,{state,onNavigate}){
+export function mountMobileNavigation(nav,{state,onNavigate,onGeometryChange=()=>{}}){
  const media=matchMedia('(max-width:760px)'),events=new AbortController();
  const links=new Map([...nav.querySelectorAll('[data-nav]')].map(a=>[a.dataset.nav,a]));
  const icons={programs:'calendar',templates:'template',home:'home',workouts:'history',catalog:'catalog',library:'template',user:'profile'};
  for(const [key,a] of links)a.insertAdjacentHTML('afterbegin',actionIcon(icons[key]));
  const indicator=document.createElement('span');indicator.className='mobile-nav-indicator';indicator.setAttribute('aria-hidden','true');nav.append(indicator);
- let current=location.hash,lastMobile=media.matches,lastFocused=null,geometry=new Map();
+ let current=location.hash,lastMobile=media.matches,lastFocused=null,geometry=new Map(),visibleSize='';
  document.addEventListener('focusin',event=>{lastFocused=nav.contains(event.target)?event.target:null;},{signal:events.signal});
  nav.addEventListener('focusout',()=>{if(lastMobile===media.matches)lastFocused=null;},{signal:events.signal});
- function position(dest){if(geometry.has(dest))return geometry.get(dest);const a=links.get(dest),r=a?.getBoundingClientRect(),n=nav.getBoundingClientRect();const value=r?{left:r.left-n.left+r.width*.25,width:r.width*.5}:null;geometry.set(dest,value);return value;}
+ function position(dest){if(!media.matches||!nav.getClientRects().length)return null;if(geometry.has(dest))return geometry.get(dest);const a=links.get(dest),r=a?.getBoundingClientRect(),n=nav.getBoundingClientRect();const value=r?{left:r.left-n.left+r.width*.25,width:r.width*.5}:null;geometry.set(dest,value);return value;}
  function preview({from,to,progress}){
   const a=position(from),b=position(to);if(!a||!b)return;
   indicator.style.transform='translateX('+(a.left+(b.left-a.left)*progress)+'px)';
   indicator.style.width=(a.width+(b.width-a.width)*progress)+'px';indicator.hidden=false;
  }
- function resetPreview(){geometry.clear();const dest=destinationFor(current);indicator.hidden=!dest;if(dest)preview({from:dest,to:dest,progress:0});}
+ function resetPreview(){geometry.clear();const dest=destinationFor(current);indicator.hidden=!dest||!media.matches||!nav.getClientRects().length;if(!indicator.hidden)preview({from:dest,to:dest,progress:0});}
+ function restoreFocus(focused){
+  if(!focused||!nav.contains(focused)||focused.getClientRects().length)return;
+  const target=[...nav.querySelectorAll('[aria-current=page]'),...document.querySelectorAll('#app .breadcrumb-parent a,#app h1')].find(node=>node.getClientRects().length);
+  if(target?.matches('h1'))target.tabIndex=-1;
+  target?.focus({preventScroll:true});
+ }
  function commit(hash,{preservePreview=false}={}){
+  const focused=document.activeElement,nested=!isSwipeRoot(hash),changed=document.documentElement.hasAttribute('data-mobile-nested')!==nested;
   current=hash;state.commit(hash);links.get('library').href=state.href('library');
+  document.documentElement.toggleAttribute('data-mobile-nested',nested);if(changed)geometry.clear();
   const dest=destinationFor(hash);
   const desktop=['workouts','workout'].includes(parseRoute(hash).view)?'workouts':dest==='library'?(hash.startsWith('#/catalog')?'catalog':hash.startsWith('#/templates')?'templates':'programs'):dest;
   for(const [name,a] of links){
    const selected=name===(media.matches?dest:desktop);
    if(selected)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');
   }
-  if(!preservePreview)resetPreview();
+  if(!preservePreview||changed)resetPreview();
+  restoreFocus(focused);onGeometryChange();
  }
  function arrange(){
   const changed=lastMobile!==media.matches;lastMobile=media.matches;
   const focused=changed&&document.activeElement===document.body?lastFocused:document.activeElement,had=Boolean(focused&&nav.contains(focused));
   for(const name of media.matches?['home','library','user','workouts','programs','templates','catalog']:['programs','templates','catalog','workouts','home','library','user'])nav.append(links.get(name));
   nav.append(indicator);commit(current);
-  if(had){
-   const target=focused.getClientRects().length?focused:[...nav.querySelectorAll('[aria-current=page]')].find(a=>a.getClientRects().length)||document.querySelector('#app h1')||links.get(media.matches?'home':'programs');
-   if(target?.matches('h1'))target.tabIndex=-1;
-   target?.focus({preventScroll:true});
-  }
+  if(had)restoreFocus(focused);
  }
  nav.addEventListener('click',event=>{
   const a=event.target.closest('[data-nav]');if(!a||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
@@ -46,6 +51,6 @@ export function mountMobileNavigation(nav,{state,onNavigate}){
   onNavigate(a.hash);
  },{signal:events.signal});
  media.addEventListener('change',arrange,{signal:events.signal});
- const resize=new ResizeObserver(resetPreview);resize.observe(nav);arrange();
+ const resize=new ResizeObserver(()=>{if(!nav.getClientRects().length)return;const rect=nav.getBoundingClientRect(),size=rect.width+':'+rect.height;if(size===visibleSize)return;visibleSize=size;resetPreview();onGeometryChange();});resize.observe(nav);arrange();
  return {commit,preview,resetPreview,destroy(){events.abort();resize.disconnect();indicator.remove();}};
 }

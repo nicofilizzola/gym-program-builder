@@ -2,7 +2,7 @@
 
 Design: [2026-11-15-nested-mobile-navigation-design.md](../specs/2026-11-15-nested-mobile-navigation-design.md).
 
-Status: Tasks 1–2 parent metadata and compact breadcrumbs implemented and verified locally. Route tab visibility, workout/error integration and geometry remain planned/pending. Not deployed.
+Status: Tasks 1–3 parent metadata, compact breadcrumbs, committed-route tab visibility and recoverable error chrome implemented and verified locally. Bar/Focus geometry integration and complete workout lifecycle checks remain pending. Not deployed.
 
 ## Task 1 — immediate-parent metadata
 
@@ -27,12 +27,29 @@ Status: Tasks 1–2 parent metadata and compact breadcrumbs implemented and veri
 - Visually inspected generated screenshots at 390×844 (one compact parent link) and 761×844 (full desktop trail). Screenshots are local Playwright artifacts, not physical-device evidence. Tabs remain visible in this Task 2 snapshot; route visibility belongs to the next integration task.
 - `git diff --check` exited 0. No deployment performed.
 
+## Task 3 — committed route visibility and recovery
+
+- `mobileNav.commit` applies the parsed root/nested classification at the existing route swap, retains it through desktop resize and updates the optional synchronous, argument-free geometry callback. Hidden navigation is not measured for its indicator; visible width/height changes notify once. Full mobile height remains separate from effective reservation, which is zero on nested routes and desktop. No effective-height animation was added.
+- Initial mount skips entrance motion; ordinary nested transitions retain 75ms outgoing/100ms incoming ease-out content fades. The motion test records the outgoing animation with source chrome, the incoming animation with destination chrome and no Main animation at the swap. Reduced motion records no content animation.
+- Workout Home links mount outside the logger subtree and survive Focus recap. Unknown/missing workout errors gain mobile-only Home parents without adding desktop trails. Initial required-load errors keep the requested nested treatment, available parent and Retry; missing occurrences retain the loaded program parent. Resolved catalog missing-target errors can commit, while thrown required-load failures preserve the mounted source URL, nodes, focus and chrome.
+- Actual-app matrix covers Home/Programs/Templates/Exercises/User roots, all eight nested route types, active and finished workouts, tag queries, parent hrefs and return destinations. Every nested type also uses a fresh document deep link (`?nested-entry=…`) so direct-entry behavior is not confused with same-document hash navigation. Catalog reference/variant entry uses the existing guarded hash route from its parent because catalog expand/edit controls do not navigate; no new UI was invented. Roots retain exactly Home/Library/User with equal ≥44px targets and Library section links.
+- Lifecycle coverage holds a required nested GET, checks unchanged source parent identity and zero reservation, fulfills 503 and checks source URL/controller node/focus. Profile PUT failure plus denied Back keeps the exact field value; finished-log incomplete reps plus denied Back keeps its draft and Home link. A held destination across browser Back/Forward cannot publish stale chrome. Root cold errors keep tabs and Retry.
+- Auth coverage uses a real logout, a required Profile GET that triggers the existing 401 sign-in path and source URL restoration, then successful sign-in. A separately held template GET is released only after sign-in has restored the Templates source; its stale completion cannot publish nested chrome. This is a held stale-success request spanning an actual 401/sign-in, not a claim that the held request itself returned 401. The existing authentication-expiry swipe test also remains passing.
+- Resize checks retain the explicit route at 760/761px, transfer focus from newly hidden Main to the compact parent, and cover 375×700 portrait and 700×375 landscape. Existing desktop full trails and labels, desktop Workouts resize, mobile Workouts history replacement, root typing/script focus, 200% root labels, root swipes, cache latency and 220/180ms settlement/cancellation assertions remain passing. Tests using formerly visible nested tabs now activate their visible parent; original guard/stale/auth/desktop assertions remain.
+
+Commands and actual results (Windows, workspace `C:/Users/NicoF/.codex/worktrees/eb87/gym-program-builder`):
+
+- RED: `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js e2e/mobile-navigation.spec.js e2e/mobile-destination-swipes.spec.js --max-failures=3` exited 1: 22 passed, 3 failed, 1 not run (46.9s). All three failures reported visible Main navigation on nested program/template/missing routes. The max-failures stop also produced the runner's final stop error.
+- First complete focused GREEN: `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js` exited 0: 9 passed (23.5s).
+- Final required browser regression: `npx.cmd playwright test e2e/nested-mobile-navigation.spec.js e2e/mobile-navigation.spec.js e2e/mobile-destination-swipes.spec.js e2e/breadcrumbs.spec.js e2e/mobile-library-navigation.spec.js e2e/mobile-navigation-latency.spec.js e2e/mobile-page-transition.spec.js` exited 0: 45 passed (1.1m).
+- Regression: `npm.cmd test` exited 0: 519 passed, 0 failed (12943.9882ms).
+- `git diff --check` exited 0. The pre-existing NO_COLOR/FORCE_COLOR runner warning remains unchanged.
+- Visually inspected the 375×700 nested Profile screenshot: one compact User parent, current heading/save controls and no bottom tabs. Local artifact: `test-results/nested-mobile-navigation-c-dbbbc--navigation-transfers-focus/nested-mobile-profile.png`. This is browser evidence, not a phone/device claim.
+
 ## Pending verification
 
-- Browser: remaining workout/error integration, each nested type's committed tab visibility and root/Library navigation chrome. Breadcrumb canonical parent activation, desktop trails and resize were checked in Task 2 above.
-- Guards/loading: denied leave, failed required nested load, stale responses, cancelled prompts and rapid Back/Forward.
-- Workout: active Back/Resume, finish/discard/delete/Done exits, pending/offline finish and recap ownership.
-- Geometry/accessibility: effective tab height, Resume/pinned panels/refresh status, hidden focus targets, safe-area simulation, typing transitions, 200% text and Focus at 660px.
+- Workout: complete finish/discard/delete/Done exit semantics, cancelled discard, pending/offline finish and ownership checks remain with the workout integration task; Task 3 covers active Back/Resume, valid recap Home link and finished-log denied leave only.
+- Geometry/accessibility: Resume unchanged-height reservations and safe-area ownership, pinned panels/refresh status with insets, keyboard transitions, 200% nested text and Focus at 660px remain with geometry integration. Task 3 covers effective tab height, hidden accessible links/focus targets, visible-size callbacks, ordinary zero-inset panel placement and root typing policy only.
 - Physical phone: safe areas, keyboard transitions and momentum remain pending (user). Browser simulation is not physical-device evidence.
 - Deployment verification remains pending (user); no deployment performed.
 
