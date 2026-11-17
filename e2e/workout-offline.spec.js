@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper.js';
+import {createWorkoutLog} from '../src/workout-log.js';
 
 const serverRecord=async(page,id)=>{const response=await page.request.get(`/api/workouts/${id}`);return response.ok()?(await response.json()).record:null;};
 const activeRecord=async page=>(await (await page.request.get('/api/workouts/active')).json()).record;
@@ -214,6 +215,29 @@ test('a paused save failure shows Retry in the logger',async({page})=>{
  await retry.click();
  await expect(status(page)).toHaveText('Saved');await expect(retry).toBeHidden();
  expect((await serverRecord(page,id)).log.name).toBe('Retry me');
+});
+
+test('an offline first-partner completion mirrors, survives an offline reload and syncs once with no round fields',async({page})=>{
+ await login(page);await resetWorkouts(page);await page.setViewportSize({width:390,height:844});
+ const {id:templateId}=await createLinkedTemplate(page,'Offline rounds');const {record:template}=await (await page.request.get('/api/documents/'+templateId)).json();
+ const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});log.exercises[0].superset={restBetweenSeconds:30,restAfterRoundSeconds:90};
+ expect((await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}})).ok()).toBeTruthy();
+ await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.locator('.logger-title')).toBeFocused();
+ const before=(await serverRecord(page,log.id)).log,b=log.exercises[1],b1=b.sets[0].id,partners=page.locator('.focus-round').first().locator('.focus-partner');
+ await blockApi(page);
+ await partners.nth(1).click();await page.getByLabel(`Set 1 weight, ${b.name}`,{exact:true}).fill('40');await page.getByLabel(`Set 1 reps, ${b.name}`,{exact:true}).fill('10');
+ await page.getByRole('button',{name:'Log A2 & switch to A1',exact:true}).click();await expect(partners.nth(0)).toHaveAttribute('aria-current','step');
+ const expected=structuredClone(before);Object.assign(expected.exercises[1].sets.find(s=>s.id===b1),{done:true,weightKg:40,reps:10,rir:null});
+ // The mirror holds the one real completion and nothing about rounds, selection or preferences.
+ const mirror=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('gpb.activeWorkout')));
+ await expect.poll(async()=>(await mirror())?.log).toEqual(expected);
+ const local=await mirror();expect(Object.keys(local).sort()).toEqual(['baseRevision','bestPerformance','dirty','lastTime','log']);expect(local.dirty).toBe(true);
+ await page.reload();await expect(page.locator('.workout-focus')).toBeVisible();
+ await expect(page.locator(`.focus-card[data-set-id="${b1}"]`)).toHaveClass(/is-done/);await expect(page.locator('.focus-card.is-done')).toHaveCount(1);
+ await expect(partners.nth(1)).toHaveAccessibleName(`A2, ${b.name}, complete`);expect((await serverRecord(page,log.id)).log).toEqual(before);
+ await reconnect(page);
+ await expect.poll(async()=>(await serverRecord(page,log.id)).log).toEqual(expected);
+ await expect.poll(async()=>(await mirror())?.dirty).toBe(false);expect((await mirror()).log).toEqual(expected);
 });
 
 test('after Log out an offline reload still asks for the password',async({page})=>{

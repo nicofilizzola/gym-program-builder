@@ -8,11 +8,11 @@ const blockApi=page=>page.route('**/api/**',route=>route.abort('internetdisconne
 async function reconnect(page){await page.unroute('**/api/**');await page.evaluate(()=>dispatchEvent(new Event('online')));}
 
 /** An active log of the linked template; returns its id and exercise names. */
-async function start(page,{focus=true}={}){
+async function start(page,{focus=true,mutate=()=>{}}={}){
  await login(page);await resetWorkouts(page);await page.reload();await expect(page.locator('#shell')).toBeVisible();
  const {id}=await createLinkedTemplate(page,'Recap day');
  const {record:template}=await (await page.request.get('/api/documents/'+id)).json();
- const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(Date.now()-40*60000),makeId:()=>crypto.randomUUID(),template});
+ const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(Date.now()-40*60000),makeId:()=>crypto.randomUUID(),template});mutate(log);
  const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();
  await page.goto('/#/workouts/'+log.id);
  if(focus)await expect(page.locator('.workout-focus')).toBeVisible();else await expect(page.getByRole('button',{name:'Finish',exact:true})).toBeVisible();
@@ -120,4 +120,20 @@ test('pending recap retains Home before and after acknowledgement with one write
  release();await expect(recap(page).locator('.recap-sync')).toHaveText('Saved to your history.');await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();await expect.poll(()=>page.evaluate(()=>localStorage.getItem('gpb.activeWorkout'))).toBeNull();
  await recap(page).getByRole('button',{name:'Add workout note',exact:true}).click();await page.getByRole('textbox',{name:'Workout note',exact:true}).fill('One finished writer');await expect.poll(async()=>(await serverRecord(page,id)).log.note).toBe('One finished writer');
  await page.getByRole('link',{name:'Back to Home',exact:true}).click();await expect(page.getByRole('navigation',{name:'Main'})).toBeVisible();await expect(page.locator('.home-history .workout-history-row')).toHaveCount(1);expect(writes.filter(status=>status==='finished')).toHaveLength(2);expect((await (await page.request.get('/api/workouts/active')).json()).record).toBeNull();
+});
+
+test('finishing a partial superset round prunes, dissolves the broken pair and keeps one truthful writer',async({page})=>{
+ const {id,names:[first,second],sets}=await start(page,{mutate:l=>{l.exercises[0].superset={restBetweenSeconds:30,restAfterRoundSeconds:90};}});let release,seen;const held=new Promise(r=>release=r),requested=new Promise(r=>seen=r),writes=[];
+ await page.route('**/api/workouts/'+id,async route=>{if(route.request().method()!=='PUT')return route.continue();const log=route.request().postDataJSON().log;writes.push(log.status);if(log.status==='finished'){seen();await held;}await route.continue();});
+ // Only A1 of round 1 is logged; A2 never is.
+ await page.getByLabel(`Set 1 reps, ${first}`,{exact:true}).fill('8');await page.locator('.focus-round').first().getByRole('button',{name:'Log A1 & switch to A2',exact:true}).click();
+ await expect(page.locator('.focus-round').first().locator('.focus-partner').nth(1)).toHaveAttribute('aria-current','step');
+ await page.getByRole('button',{name:'Finish',exact:true}).click();await page.getByRole('dialog',{name:'Finish workout?'}).getByRole('button',{name:'Finish workout'}).click();
+ await requested;await expect(recap(page)).toBeVisible();await expect(recap(page).locator('.recap-sync')).toHaveText('Finished on this device. It will sync automatically.');
+ await expect(recap(page).getByRole('button',{name:'Add workout note',exact:true})).toHaveCount(0);await expect(page.locator('.workout-focus')).toHaveCount(0);
+ await expect(recap(page).locator('.recap-exercise')).toHaveCount(1);await expect(recap(page).locator('.recap-exercise')).toContainText(first);await expect(recap(page).locator('.recap-exercise')).toContainText(`1 of ${sets} working sets logged`);
+ await expect(recap(page)).not.toContainText(second);await expect(recap(page).locator('.recap-skipped')).toHaveText('1 planned exercise was not logged.');
+ release();await expect(recap(page).locator('.recap-sync')).toHaveText('Saved to your history.');await expect.poll(()=>page.evaluate(()=>localStorage.getItem('gpb.activeWorkout'))).toBeNull();
+ const {log}=await serverRecord(page,id);expect(log.status).toBe('finished');expect(log.exercises.map(e=>e.name)).toEqual([first]);expect(log.exercises[0]).not.toHaveProperty('superset');
+ expect(log.exercises[0].sets.map(s=>[s.done,s.reps])).toEqual([[true,8]]);expect(writes.filter(s=>s==='finished')).toHaveLength(1);expect((await (await page.request.get('/api/workouts/active')).json()).record).toBeNull();
 });

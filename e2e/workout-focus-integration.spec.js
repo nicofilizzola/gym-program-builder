@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {login,resetWorkouts,createLinkedTemplate,headers,saveFinishedLog} from './workout-helper.js';
-import {createWorkoutLog} from '../src/workout-log.js';
+import {createWorkoutLog,toLocalIso} from '../src/workout-log.js';
 import {dragDestination} from './mobile-swipe-helper.js';
 import {mountFocusFixture} from './workout-focus-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
@@ -326,5 +326,72 @@ test.describe('carried Focus cancellation and focus fixes',()=>{
   await page.evaluate(()=>focusView.jump({exerciseId:'b',setId:'b1'}));await expect(page.locator('.focus-card[data-set-id="b1"] .focus-context-text')).toBeFocused();
   await context.getByRole('button',{name:'Add set note, Set 1, Chest-supported row',exact:true}).focus();
   await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));await expect(page.locator('.focus-card[data-set-id="a1"] .focus-context-text')).toBeFocused();
+ });
+});
+// A partially completed round is ordinary saved data owned by the one logger/sync path.
+test.describe('saved partial rounds',()=>{
+ test.use({reducedMotion:'no-preference'});
+ const serverLog=async(page,id)=>(await (await page.request.get('/api/workouts/'+id)).json()).record.log;
+ const running=page=>page.evaluate(()=>[...document.querySelectorAll('.focus-round *')].flatMap(n=>n.getAnimations()).length);
+ // A finished log of the same variants (9 reps at 50 kg) gives both partner panes a lower-bound Best.
+ async function startPair(page){
+  await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Focus rounds');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();
+  const make=now=>createWorkoutLog({id:crypto.randomUUID(),now,makeId:()=>crypto.randomUUID(),template});
+  const past=make(new Date(Date.now()-86400000));for(const e of past.exercises)for(const s of e.sets)Object.assign(s,{done:true,weightKg:50,reps:9});
+  Object.assign(past,{status:'finished',finishedAt:toLocalIso(new Date(Date.now()-82800000))});
+  let r=await page.request.put('/api/workouts/'+past.id,{headers,data:{revision:0,log:past}});expect(r.ok(),await r.text()).toBeTruthy();
+  const log=make(new Date());log.exercises[0].superset={restBetweenSeconds:30,restAfterRoundSeconds:90};
+  r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();
+  await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.locator('.logger-title')).toBeFocused();
+  return {log,before:await serverLog(page,log.id)};
+ }
+ test('A2 logged first stays one real saved completion through acknowledgement, Back, Resume and reload',async({page})=>{
+  const {log,before}=await startPair(page),[a,b]=log.exercises,[a1,b1]=[a.sets[0].id,b.sets[0].id];
+  const round=page.locator('.focus-round').first(),partners=round.locator('.focus-partner');
+  // Both partner panes carry the lower-bound Best title.
+  await expect(round.locator('.focus-pair-pane .log-best')).toHaveText([/^Best \(8\+ reps\) · 50 kg × 9 · /,/^Best \(8\+ reps\) · 50 kg × 9 · /]);
+  await partners.nth(1).click();await expect.poll(()=>viewedId(page)).toBe(b1);const top=await feedTop(page);
+  await page.getByLabel(`Set 1 weight, ${b.name}`,{exact:true}).fill('42.5');await page.getByLabel(`Set 1 reps, ${b.name}`,{exact:true}).fill('10');
+  await page.getByRole('button',{name:`Add set note, Set 1, ${b.name}`,exact:true}).click();await page.getByRole('textbox',{name:`Note, set 1, ${b.name}`,exact:true}).fill('Slow eccentric');await page.keyboard.press('Enter');
+  // The saved set note makes this round 9px taller than the feed; a Playwright click would first scroll it into view across the next snap point, which a tap never does.
+  await expect(page.getByRole('button',{name:'Log A2 & switch to A1',exact:true})).toBeVisible();await page.evaluate(id=>document.querySelector(`.focus-card[data-set-id="${id}"] .log-done`).click(),b1);
+  // Only B1 is logged; Auto-next switches to A1 in place.
+  await expect.poll(()=>viewedId(page)).toBe(a1);expect(await feedTop(page)).toBe(top);
+  const expected=structuredClone(before.exercises);Object.assign(expected[1].sets.find(s=>s.id===b1),{done:true,weightKg:42.5,reps:10,rir:null,note:'Slow eccentric'});
+  await expect.poll(async()=>(await serverLog(page,log.id)).exercises).toEqual(expected);
+  expect(Object.keys(await serverLog(page,log.id)).sort()).toEqual(Object.keys(before).sort());await expect(page.locator('.logger-status')).toHaveText('Saved');
+  // Blank RIR stays blank after completion and acknowledgement.
+  await expect(cardOf(page,b1).locator('.log-rir-option[aria-pressed="true"]')).toHaveCount(0);await expect(partners.nth(1)).toHaveAccessibleName(`A2, ${b.name}, complete`);
+  // Leave with ordinary Back and return through Resume: the exact partner returns; stored completion never animates or advances.
+  await partners.nth(1).click();await expect.poll(()=>viewedId(page)).toBe(b1);
+  await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();await page.getByRole('link',{name:'Back to Home',exact:true}).click();
+  await page.getByRole('button',{name:'Resume workout',exact:true}).click();await expect(page.locator('.workout-focus')).toBeVisible();
+  await expect(partners.nth(1)).toHaveAttribute('aria-current','step');await expect(cardOf(page,b1)).toHaveClass(/is-done/);await expect(cardOf(page,a1)).not.toHaveClass(/is-done/);
+  const resumedTop=await feedTop(page);expect(await running(page)).toBe(0);await page.waitForTimeout(900);
+  expect(await viewedId(page)).toBe(b1);expect(await feedTop(page)).toBe(resumedTop);expect(await running(page)).toBe(0);
+  // Reload: the accepted partial completion is still the stored one, with nothing moving.
+  await page.reload();await expect(page.locator('.workout-focus')).toBeVisible();await expect(cardOf(page,b1)).toHaveClass(/is-done/);await expect(cardOf(page,a1)).not.toHaveClass(/is-done/);
+  await expect(partners.nth(1)).toHaveAccessibleName(`A2, ${b.name}, complete`);const viewed=await viewedId(page),reloadTop=await feedTop(page);await page.waitForTimeout(900);
+  expect(await viewedId(page)).toBe(viewed);expect(await feedTop(page)).toBe(reloadTop);expect(await running(page)).toBe(0);
+  expect((await serverLog(page,log.id)).exercises).toEqual(expected);
+ });
+ test('a conflict accepted while a round advance is queued never applies a stale switch or travel',async({page})=>{
+  await page.clock.install();const {log}=await startPair(page),[a,b]=log.exercises,[a1,b1,a2]=[a.sets[0].id,b.sets[0].id,a.sets[1].id];
+  await page.clock.pauseAt(new Date(Date.now()+60000));
+  await page.getByLabel(`Set 1 reps, ${a.name}`,{exact:true}).fill('8');await page.locator('.focus-round').first().locator('.focus-partner').nth(1).click();
+  await page.getByLabel(`Set 1 reps, ${b.name}`,{exact:true}).fill('8');await page.locator('.focus-round').first().locator('.focus-partner').nth(0).click();
+  // Synthetic clicks: the first switches to B1 in place, the second completes the round and queues the 650ms advance.
+  await page.evaluate(id=>document.querySelector(`.focus-card[data-set-id="${id}"] .log-done`).click(),a1);expect(await viewedId(page)).toBe(b1);
+  // Another device saved first: A1 stays open there and the advance target A2 is removed.
+  const {record}=await (await page.request.get('/api/workouts/'+log.id)).json(),other=structuredClone(record.log);other.name='Server copy';other.exercises[0].sets=other.exercises[0].sets.filter(s=>s.id!==a2);
+  expect((await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:record.revision,log:other}})).ok()).toBeTruthy();
+  await page.evaluate(id=>document.querySelector(`.focus-card[data-set-id="${id}"] .log-done`).click(),b1);const top=await feedTop(page);
+  await page.clock.runFor(400);const dialog=page.getByRole('dialog',{name:'Workout changed elsewhere'});await expect(dialog).toBeVisible();
+  await page.clock.runFor(400);expect(await viewedId(page)).toBe(b1);expect(await feedTop(page)).toBe(top);
+  await page.clock.resume();await dialog.getByRole('button',{name:'Use saved version'}).click();await page.getByRole('dialog',{name:'Use saved version?'}).getByRole('button',{name:'Use saved version'}).click();
+  await expect(page.locator('.logger-status')).toHaveText('Saved');await expect(cardOf(page,a2)).toHaveCount(0);
+  await expect(cardOf(page,a1)).not.toHaveClass(/is-done/);await expect(cardOf(page,b1)).not.toHaveClass(/is-done/);await page.waitForTimeout(900);
+  expect(await viewedId(page)).toBe(b1);expect(await feedTop(page)).toBe(top);
+  expect((await serverLog(page,log.id)).exercises.flatMap(e=>e.sets).filter(s=>s.done)).toEqual([]);
  });
 });
