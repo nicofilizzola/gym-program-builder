@@ -449,3 +449,49 @@ test('with Auto-next off the first partner logs and stays; regular names return 
  await page.evaluate(()=>focusView.setEnabled(false));
  for(const [id,name] of [['a1','Mark set 1 done, Single-arm incline dumbbell chest press'],['b1','Mark set 1 done, Chest-supported row']]){const b=page.locator(`.log-set[data-set-id="${id}"] .log-done`);await expect(b).toHaveAccessibleName(name);await expect(b).not.toHaveAttribute('aria-labelledby');}
 });
+
+// Composition: the composing node is never hidden, replaced or blurred; only the latest partner request applies once it ends.
+const A1={exerciseId:'a',setId:'a1'},B1={exerciseId:'b',setId:'b1'},A_NAME='Single-arm incline dumbbell chest press';
+async function composeOnA1(page){
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));
+ await page.evaluate(()=>{const a=port.row({exerciseId:'a',setId:'a1'}),b=port.row({exerciseId:'b',setId:'b1'});window.held=[a,b].flatMap(r=>['weight','reps'].map(f=>r.querySelector(`[data-field="${f}"]`)));});
+ await page.getByLabel(`Set 1 weight, ${A_NAME}`,{exact:true}).fill('82.3');
+ const round=page.locator('.focus-round').first();
+ await round.getByRole('button',{name:`Add exercise note, ${A_NAME}`,exact:true}).click();const exerciseNote=page.getByRole('textbox',{name:`Note, ${A_NAME}`,exact:true});await exerciseNote.fill('Slow descent');await exerciseNote.blur();
+ await round.getByRole('button',{name:`Add set note, Set 1, ${A_NAME}`,exact:true}).click();const note=page.getByLabel(`Note, set 1, ${A_NAME}`,{exact:true});await note.fill('  Tempo  ');
+ await note.evaluate(n=>{window.composingNote=n;n.setSelectionRange(2,5);n.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});
+ return note;
+}
+const composingIntact=page=>page.evaluate(()=>({same:document.activeElement===composingNote,value:composingNote.value,range:[composingNote.selectionStart,composingNote.selectionEnd],viewed:focusView.visibleRef(),inert:composingNote.closest('.focus-pair-pane').inert}));
+const heldIntact=page=>page.evaluate(()=>{const a=port.row({exerciseId:'a',setId:'a1'}),b=port.row({exerciseId:'b',setId:'b1'});return [a,b].flatMap(r=>['weight','reps'].map(f=>r.querySelector(`[data-field="${f}"]`))).every((n,i)=>n===held[i]);});
+test('partner switching waits for composition and preserves invalid drafts',async({page})=>{
+ const note=await composeOnA1(page);
+ await page.evaluate(()=>{focusView.jump({exerciseId:'b',setId:'b1'});focusView.jump({exerciseId:'a',setId:'a1'});focusView.jump({exerciseId:'b',setId:'b1'});logger.setStatus('Saved');logger.setLastTime({});focusView.setEnabled(false);focusView.setEnabled(true);});
+ expect(await composingIntact(page)).toEqual({same:true,value:'  Tempo  ',range:[2,5],viewed:A1,inert:false});
+ await note.evaluate(n=>n.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));
+ await expect(page.locator('.focus-card[data-set-id="b1"] .focus-context-text')).toBeFocused();expect(await page.evaluate(()=>focusView.visibleRef())).toEqual(B1);
+ await expect(page.locator('.focus-card[data-set-id="b1"]')).toBeVisible();await expect(page.locator('.focus-card[data-set-id="a1"]')).toBeHidden();
+ // Ordinary blur trimming through the existing note path; the invalid weight stays as typed and nothing completes.
+ const weight=page.getByLabel(`Set 1 weight, ${A_NAME}`,{exact:true});await expect(weight).toHaveValue('82.3');await expect(weight).toHaveAttribute('aria-invalid','true');expect(await heldIntact(page)).toBe(true);
+ expect(await page.evaluate(()=>{const l=port.read().log;return {note:l.exercises[1].sets[1].note,exerciseNote:l.exercises[1].note,done:l.exercises.flatMap(e=>e.sets).filter(s=>s.done).length};})).toEqual({note:'Tempo',exerciseNote:'Slow descent',done:0});
+});
+test('a final request for the selected partner cancels the queued switch',async({page})=>{
+ const note=await composeOnA1(page);
+ await page.evaluate(()=>{focusView.jump({exerciseId:'b',setId:'b1'});focusView.jump({exerciseId:'a',setId:'a1'});focusView.jump({exerciseId:'b',setId:'b1'});focusView.jump({exerciseId:'a',setId:'a1'});});
+ await note.evaluate(n=>n.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));
+ expect(await composingIntact(page)).toEqual({same:true,value:'  Tempo  ',range:[2,5],viewed:A1,inert:false});expect(await heldIntact(page)).toBe(true);
+ await expect(page.locator('.focus-round').first().locator('.focus-partner').nth(0)).toHaveAttribute('aria-current','step');
+});
+test('a partner removed during composition falls back safely',async({page})=>{
+ const note=await composeOnA1(page);
+ await page.evaluate(async()=>{focusView.jump({exerciseId:'b',setId:'b1'});await port.command({type:'remove-set',ref:{exerciseId:'b',setId:'b1'}});});
+ await note.evaluate(n=>n.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true})));
+ expect(await composingIntact(page)).toMatchObject({same:true,viewed:A1,inert:false});await expect(page.locator('.focus-card[data-set-id="a1"]')).toBeVisible();
+});
+test('a selector tap on a non-viewed round moves the rulers to the newly shown partner',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'b',setId:'bw'}));
+ const rulers=()=>page.evaluate(()=>['a1','b1'].map(id=>!document.querySelector(`.focus-card[data-set-id="${id}"] .workout-ruler`).hidden));
+ expect(await rulers()).toEqual([true,false]);
+ await page.evaluate(()=>document.querySelectorAll('.focus-round')[0].querySelectorAll('.focus-partner')[1].click());
+ expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'b',setId:'bw'});expect(await rulers()).toEqual([false,true]);
+});

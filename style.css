@@ -2551,9 +2551,12 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-round-label {display:flex;align-items:center;gap:6px;margin:0;color:var(--accent);font-family:var(--font-display);font-size:.875rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .focus-round-icon svg {display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
 .focus-round-count {margin:0;color:var(--muted);font-size:.75rem}
-.focus-partners {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.focus-partners {position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .focus-partner {display:flex;align-items:center;gap:8px;min-width:44px;min-height:44px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--muted);font:inherit;font-size:.8125rem;line-height:1.3;text-align:left;cursor:pointer}
-.focus-partner[aria-current=step] {background:var(--surface-2);color:var(--text);box-shadow:inset 0 -3px var(--accent)}
+.focus-partner[aria-current=step] {background:var(--surface-2);color:var(--text)}
+/* The one selection underline: inside the selected selector's 1px border, moved (not redrawn) between the two columns. */
+.focus-partner-underline {position:absolute;left:1px;bottom:1px;width:calc((100% - 8px) / 2 - 2px);height:3px;border-radius:0 0 7px 7px;background:var(--accent);pointer-events:none}
+.focus-partners[data-selected="1"] .focus-partner-underline {transform:translateX(calc(100% + 10px))}
 .focus-partner:disabled {cursor:default}
 .focus-partner:focus-visible {outline:2px solid var(--text);outline-offset:2px}
 .focus-partner-member {flex:none;color:var(--accent);font-weight:700}

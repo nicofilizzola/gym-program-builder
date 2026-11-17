@@ -17,7 +17,7 @@ const snapTop=el=>el.offsetTop-(parseFloat(el.style.scrollMarginTop)||0);
 
 /** Borrows canonical row/control nodes. All edits still go through the logger port. */
 export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()=>{},onFinish=()=>{}}){
- let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,fitFrame=null,programmatic=false,measuring=0,feedHeight=null,lastGroups=[],travel=null,noteAnchor=null;
+ let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,fitFrame=null,programmatic=false,measuring=0,feedHeight=null,lastGroups=[],travel=null,noteAnchor=null,completing=null,composing=null,pendingJump=null;
  const state={autoNext:ui.autoNext,weightIncrement:ui.weightIncrement},cards=new Map(),groups=new Map(),rounds=new Map(),presenters=new Set(),events=new AbortController(),{signal}=events;
  // Pages resolve exact refs; `selection` remembers each round's partner for this attachment only (the session keeps just `viewed`).
  let pagesState={pages:[],pageByKey:new Map()},pageIndex=new Map(),itemByKey=new Map(),selection=new Map();
@@ -61,7 +61,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    },
    // The borrowed note host stays after closing; only an open (not closing) field counts as editing.
    editing:()=>Boolean(editor.querySelector('.log-note-part:not(.is-removing) .log-note-input')),
-   sync(){exerciseAction.hidden=presenter.editing();title?.update({active:enabled&&presenter.active(),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
+   sync(){exerciseAction.hidden=presenter.editing();title?.update({active:enabled&&presenter.active(),suspended:suspended||Boolean(travel)||Boolean(document.querySelector('dialog[open]'))||typingField()});},
    destroy(){presenters.delete(presenter);title?.destroy();history?.destroy();for(const el of [name,details])resize.unobserve(el);}
   };
   exerciseAction.onclick=noteText.onclick=()=>{holdNoteAnchor();interaction('note');port.command({type:'exercise-note',exerciseId:presenter.exerciseId,host:editor});};
@@ -83,7 +83,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function createRound(key){
   const li=node('li','focus-round');
   const round={key,li,page:null,panes:new Map(),destroy(){for(const pane of round.panes.values())pane.destroy();round.panes.clear();round.pair.destroy();li.remove();}};
-  round.pair=mountWorkoutFocusPair(li,{onSelect:ref=>choose(round,ref),onInteraction:()=>interaction('partner'),reduced});
+  round.pair=mountWorkoutFocusPair(li,{onSelect:ref=>choose(round,ref),onInteraction:()=>interaction('partner'),reduced,relocate:port.relocate});
   return round;
  }
  function createPane(exerciseId){
@@ -174,19 +174,21 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const kept=selection.get(page.key);if(kept&&page.keys.includes(setKey(kept)))return kept;
   const existing=page.members.filter(m=>m.ref);return (existing.find(m=>!projection.doneKeys.has(m.key))??existing[0])?.ref??null;
  }
- function renderRound(round){
+ function renderRound(round,{animate=false}={}){
   const page=round.page,total=pagesState.pages.filter(p=>p.kind==='round'&&p.pairId===page.pairId).length;
   const members=page.members.map(m=>({...m,name:snapshot.log.exercises.find(e=>e.id===m.exerciseId)?.name??'',done:Boolean(m.key&&projection.doneKeys.has(m.key)),pane:m.ref?round.panes.get(m.exerciseId)?.el??null:null,context:m.key?cards.get(m.key)?.contextText??null:null}));
-  port.relocate(()=>round.pair.update({page,members,selected:selectedOf(page),total}));
+  round.pair.update({page,members,selected:selectedOf(page),total,animate,completedKey:completing});
  }
- function select(page,ref){selection.set(page.key,ref);const round=rounds.get(page.key);if(round)renderRound(round);}
+ // A selection shows its partner's rulers and hides the other's, on any round.
+ function select(page,ref,animate=false){selection.set(page.key,ref);const round=rounds.get(page.key);if(!round)return;renderRound(round,{animate});for(const key of page.keys){const card=cards.get(key);if(card)syncRuler(card);}}
  // A selector tap changes the viewed set in place on the viewed round; elsewhere it only changes what that round shows.
- function choose(round,ref){const page=round.page;if(!page?.keys.includes(setKey(ref)))return;if(pageOf(viewed)?.key===page.key)jump(ref);else select(page,ref);}
+ function choose(round,ref){const page=round.page;if(!page?.keys.includes(setKey(ref)))return;if(pageOf(viewed)?.key===page.key)jump(ref);else select(page,ref,true);}
  // Rulers draw only near the viewed page, and inside a round only for the shown partner.
  function rulerOn(card){
   const page=pageOf(card.ref);if(!enabled||!page)return false;const at=pageIndex.get(page.key),vp=pageOf(viewed),v=vp?pageIndex.get(vp.key):pagesState.pages.length;
   return Math.abs(at-v)<=1&&(page.kind!=='round'||same(selectedOf(page),card.ref));
  }
+ function syncRuler(card){if(rulerOn(card)){const item=itemByKey.get(card.key),ex=snapshot.log.exercises[item.exerciseIndex];card.update(item,ex,ex.sets.find(s=>s.id===card.ref.setId),true);}else for(const {widget} of card.widgets)widget.update({enabled:false});}
  function ensureCard(ref,row){const key=setKey(ref);let card=cards.get(key);if(!card){card=createCard(ref,row);cards.set(key,card);}else port.relocate(card.borrowAll);return card;}
  // Logger renders (saves, RIR taps, hydration) call this for every row: a row already in the feed stays in its group; update() groups new ones.
  function place({ref,row}){if(!enabled)return;ensureCard(ref,row);if(!feed.contains(row))feed.insertBefore(row,review);}
@@ -252,9 +254,13 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function focusContext(ref){const page=pageOf(ref);if(page?.kind==='round'&&!same(selectedOf(page),ref))select(page,ref);(ref?cards.get(setKey(ref))?.contextText:review.querySelector('h2'))?.focus({preventScroll:true});}
  // A partner on the viewed round is selected in place; any other page travels (animate) or settles there.
  function jump(ref,{animate=false,focus=false}={}){
-  if(!enabled||destroyed)return;const target=pageEl(ref);if(!target)return;noteAnchor=null;
+  if(!enabled||destroyed)return;
+  // A composing field is never hidden or blurred: only the latest request applies once it ends.
+  if(composing){if(composing.isConnected&&composing===document.activeElement){pendingJump={ref,options:{animate,focus}};return;}composing=null;}
+  const target=pageEl(ref);if(!target)return;noteAnchor=null;
   const page=pageOf(ref);
-  if(page?.kind==='round'){const here=!travel&&pageOf(viewed)?.key===page.key;select(page,ref);if(here){viewed=ref;renderCursor();if(focus)focusContext(ref);return;}}
+  // `viewed` changes first: the focus move inside select() can blur a note whose commit re-renders the feed.
+  if(page?.kind==='round'){const here=!travel&&pageOf(viewed)?.key===page.key;if(here)viewed=ref;select(page,ref,here);if(here){renderCursor();if(focus)focusContext(ref);return;}}
   if(animate&&!reduced.matches)return startTravel(ref,target,focus);
   settle(ref,focus);
  }
@@ -265,7 +271,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  // Explicit jumps scroll through the sets in between; the viewed set (progress, rulers, ticker) changes on arrival.
  function startTravel(ref,target,focus){
   cancelTravel();travel={ref,top:snapTop(target),timer:null};feed.scrollTo({top:travel.top,behavior:'smooth'});
-  if(focus)focusContext(ref);settleLater();
+  if(focus)focusContext(ref);settleLater();syncActive();
  }
  // Arrival also counts after 150ms without scroll events (no movement, or a browser that never fires scrollend).
  function settleLater(){clearTimeout(travel.timer);travel.timer=setTimeout(arrive,150);}
@@ -275,14 +281,14 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   renderCursor();syncActive();
  }
  // A touch, wheel, key, dialog or resize ends the travel where it is; snapping and track() pick the set.
- function cancelTravel(){if(!travel)return;clearTimeout(travel.timer);travel=null;feed.scrollTo({top:feed.scrollTop,behavior:'instant'});if(enabled&&!destroyed)track();}
+ function cancelTravel(){if(!travel)return;clearTimeout(travel.timer);travel=null;feed.scrollTo({top:feed.scrollTop,behavior:'instant'});if(enabled&&!destroyed){track();syncActive();}}
  function progressName(item,completed=projection.workingKeys.filter(k=>projection.doneKeys.has(k)).length){progress.setAttribute('aria-label',`Workout overview, ${item?`exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'workout review'}, ${completed} of ${projection.workingKeys.length} working sets`);}
  function renderCursor(){
   const page=pageOf(viewed);if(page?.kind==='round'&&!same(selection.get(page.key),viewed))select(page,viewed);
   const item=itemByKey.get(viewed&&setKey(viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';progressName(item);current.hidden=same(viewed,projection.current);onViewed(viewed);
   // Geometry is enabled only around the destination; canonical inputs always remain mounted.
   for(const card of cards.values())card.row.classList.toggle('is-viewed',same(card.ref,viewed));
-  for(const [key,card] of cards){if(rulerOn(card)){const item=itemByKey.get(key),ex=snapshot.log.exercises[item.exerciseIndex];card.update(item,ex,ex.sets.find(s=>s.id===card.ref.setId),true);}else{for(const {widget} of card.widgets)widget.update({enabled:false});}}
+  for(const card of cards.values())syncRuler(card);
   syncActive();
  }
  feed.addEventListener('scroll',()=>{
@@ -296,13 +302,18 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function track(){if(noteAnchor)return;const {ref}=inView();if(!same(ref,viewed)){viewed=ref;renderCursor();}}
  for(const name of ['pointerdown','wheel','touchstart'])feed.addEventListener(name,e=>{if(!e.target.closest('.focus-exercise-editor')||name==='wheel')noteAnchor=null;interaction(name);},{signal,passive:true});
  feed.addEventListener('scrollend',arrive,{signal});feed.addEventListener('wheel',cancelTravel,{signal,passive:true});
- for(const name of ['pointerdown','keydown'])document.addEventListener(name,cancelTravel,{signal,capture:true});
+ // Any key, even with focus outside Focus (body after a tap), stops pending Auto-next; it runs before the click that Enter/Space would send.
+ document.addEventListener('pointerdown',cancelTravel,{signal,capture:true});document.addEventListener('keydown',()=>{advance.cancel();cancelTravel();},{signal,capture:true});
+ // Pressing or typing inside a round's panes stills its partner motion so the target stays put.
+ for(const name of ['pointerdown','keydown','input'])root.addEventListener(name,e=>{const li=e.target.closest?.('.focus-pair-panes')&&e.target.closest('.focus-round');if(li)for(const round of rounds.values())if(round.li===li)round.pair.cancelMotion();},{signal,capture:true});
+ document.addEventListener('compositionstart',e=>{composing=e.target;},{signal,capture:true});
+ document.addEventListener('compositionend',()=>{composing=null;const p=pendingJump;pendingJump=null;if(p&&(!p.ref||itemByKey.has(setKey(p.ref))))jump(p.ref,p.options);},{signal});
  // Keep the pre-edit set position through note growth and its collapse, including every animated frame.
  function holdNoteAnchor(){const row=pageEl(viewed);if(row)noteAnchor={row,delta:snapTop(row)-feed.scrollTop};}
  root.addEventListener('input',e=>{if(!noteAnchor&&e.target.closest('.focus-exercise-editor'))holdNoteAnchor();},{signal,capture:true});
  root.addEventListener('click',e=>{if(e.target.closest('.focus-exercise-editor button'))holdNoteAnchor();},{signal,capture:true});
  feed.addEventListener('keydown',e=>{if((e.key==='Tab'&&!e.isComposing)||!typingField())noteAnchor=null;},{signal});
- root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('keydown',()=>advance.cancel(),{signal,capture:true});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
+ root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
  function celebrate({before,after,ref}){
   if(!enabled)return;const key=setKey(ref),card=cards.get(key);if(!card)return;
   card.milestone=card.feedback.textContent=completionMilestone(before,after,ref).text;if(!card.round)card.b.done.dataset.label=`${card.milestone} · Tap to undo`;
@@ -310,8 +321,11 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const segment=[...segments.querySelectorAll('.focus-progress-segment')].find(n=>n.dataset.key===key);card.row.classList.add('is-celebrating');segment?.classList.add('is-celebrating');
   const timer=setTimeout(()=>{card.row.classList.remove('is-celebrating');segment?.classList.remove('is-celebrating');animationTimers.delete(timer);},500);animationTimers.add(timer);
  }
+ const stopMotion=()=>{for(const round of rounds.values())round.pair.cancelMotion();};
  const unsubscribe=port.subscribe(event=>{
-  update(port.read());if(!enabled||event.cause!=='edit')return;
+  // Only an explicit toggle animates its selector's check; hydration and acknowledgements show final states.
+  completing=event.cause==='edit'&&event.action?.type==='toggle'&&event.action.ref?setKey(event.action.ref):null;
+  try{update(port.read());}finally{completing=null;}if(!enabled||event.cause!=='edit')return;
   advance.cancel();const ref=event.action?.ref;if(event.action?.type!=='toggle'||!ref)return;
   const key=setKey(ref),before=projectWorkout(event.before),after=projectWorkout(event.after);
   if(!before.doneKeys.has(key)&&after.doneKeys.has(key)){celebrate({...event,ref});advance.completed({...event,ref,viewed,autoNext:state.autoNext});}
@@ -335,7 +349,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    programmatic=false;}
   requestAnimationFrame(()=>{measuring--;if(destroyed)return;syncActive();if(!measuring&&enabled&&!suspended)track();});
  }
- function restore(){noteAnchor=null;port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const presenter of presenters)presenter.sync();}
+ function restore(){noteAnchor=null;stopMotion();port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const presenter of presenters)presenter.sync();}
  return {
   update,
   setEnabled(value){if(destroyed||enabled===value)return;advance.cancel();stopCelebration();if(!value){cancelTravel();enabled=false;logger?.classList.remove('is-focus');restore();root.hidden=true;return;}
@@ -344,7 +358,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    enabled=true;root.hidden=false;port.relocate(()=>{port.setRowPlacement(place);update(port.read());if(exerciseId&&focused?.matches('textarea')){const page=pageOf(viewed),host=page?.kind==='round'?rounds.get(page.key)?.panes.get(viewed.exerciseId)?.presenter.editor:[...groups.values()].find(g=>g.keys.includes(setKey(viewed)))?.presenter.editor;if(host)port.command({type:'exercise-note',exerciseId,host});}logger?.classList.add('is-focus');});settle(viewed??projection.current);
   },
   setWeightIncrement(n){if(destroyed||state.weightIncrement===n)return;state.weightIncrement=n;onInteraction({type:'preference',patch:{weightIncrement:n}});if(enabled)update(snapshot);},
-  jump,celebrate,setFeedHeight,isEnabled:()=>enabled&&!destroyed,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value){noteAnchor=null;advance.cancel();cancelTravel();}syncActive();},restore,
+  jump,celebrate,setFeedHeight,isEnabled:()=>enabled&&!destroyed,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value){noteAnchor=null;advance.cancel();cancelTravel();stopMotion();}syncActive();},restore,
   destroy(){if(destroyed)return;cancelTravel();advance.destroy();scrub.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();resize.disconnect();cancelAnimationFrame(scrollFrame);cancelAnimationFrame(fitFrame);for(const card of cards.values())card.destroy();cards.clear();for(const group of groups.values())group.destroy();groups.clear();for(const round of rounds.values())round.destroy();rounds.clear();root.remove();}
  };
 }

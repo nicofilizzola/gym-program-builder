@@ -3,7 +3,7 @@ import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper
 import {createWorkoutLog} from '../src/workout-log.js';
 import {dragDestination} from './mobile-swipe-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
-async function start(page){await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Focus integration');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();return log;}
+async function start(page,mutate=()=>{}){await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Focus integration');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});mutate(log);const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();return log;}
 test('mobile active uses Focus without tabs and desktop uses compact',async({page})=>{
  const log=await start(page);await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();await expect(page.locator('.workout-bar:visible')).toHaveCount(0);
  const feed=page.locator('.focus-feed');await expect(feed).toHaveCSS('scroll-snap-type','y mandatory');const box=await feed.boundingBox(),toolbar=await page.locator('.focus-toolbar').boundingBox();expect(box.y+box.height).toBeLessThanOrEqual(toolbar.y+1);expect(toolbar.y+toolbar.height).toBeLessThanOrEqual((await page.evaluate(()=>visualViewport?.height??innerHeight))+1);
@@ -145,4 +145,18 @@ test('a diagonal touch drag on a ruler holds until release',async({page})=>{
  for(let i=1;i<=10;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x-i*12,y:y+i*10}]});await page.waitForTimeout(16);}
  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await expect(weight).toHaveValue('90');expect(await page.locator('.focus-feed').evaluate(f=>f.scrollTop)).toBe(0);
+});
+
+test('partner switching keeps the same canonical inputs through acknowledgement and the desktop breakpoint',async({page})=>{
+ const log=await start(page,l=>{l.exercises[0].superset={restBetweenSeconds:30,restAfterRoundSeconds:90};}),[a,b]=log.exercises;
+ const round=page.locator('.focus-round').first(),partners=round.locator('.focus-partner'),aWeight=page.getByLabel(`Set 1 weight, ${a.name}`,{exact:true}),bReps=page.getByLabel(`Set 1 reps, ${b.name}`,{exact:true});
+ await page.evaluate(()=>{window.heldInputs=[...document.querySelectorAll('.log-stepper input')];});
+ const same=()=>page.evaluate(()=>{const now=[...document.querySelectorAll('.log-stepper input')];return now.length===heldInputs.length&&now.every(n=>heldInputs.includes(n));});
+ await aWeight.fill('82.3');await partners.nth(1).click();await expect(partners.nth(1)).toBeFocused();await expect(partners.nth(1)).toHaveAttribute('aria-current','step');
+ await expect(aWeight).toBeHidden();await expect(bReps).toBeVisible();
+ const saved=page.waitForResponse(r=>r.url().includes('/api/workouts/'+log.id)&&r.request().method()==='PUT'&&r.ok());await bReps.fill('9');await saved;
+ await page.setViewportSize({width:761,height:844});await expect(aWeight).toBeVisible();await expect(aWeight).toHaveValue('82.3');
+ await page.setViewportSize({width:760,height:844});await expect(partners.nth(1)).toHaveAttribute('aria-current','step');await expect(bReps).toBeVisible();await expect(bReps).toHaveValue('9');
+ await expect(aWeight).toHaveValue('82.3');await expect(aWeight).toHaveAttribute('aria-invalid','true');expect(await same()).toBe(true);
+ const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log.exercises.flatMap(e=>e.sets).filter(s=>s.done)).toEqual([]);
 });
