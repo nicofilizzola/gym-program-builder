@@ -1,17 +1,17 @@
-/** Overflow-only title motion. The heading and its full accessible name survive every update. */
-export function mountWorkoutTitle(heading,{text,active=false,suspended=false,onInteraction=()=>{}}){
+/** Overflow-only title motion. The heading and its full accessible name survive every update; a `hidden` (visually hidden) title offers no control. */
+export function mountWorkoutTitle(heading,{text,active=false,suspended=false,hidden=false,onInteraction=()=>{}}){
  const events=new AbortController(),{signal}=events,reduced=matchMedia('(prefers-reduced-motion:reduce)');
  const control=document.createElement('span');control.className='workout-title-control';
  const track=document.createElement('span');track.className='workout-title-track';track.setAttribute('aria-hidden','true');
  const copies=[document.createElement('span'),document.createElement('span')];copies.forEach(copy=>{copy.className='workout-title-copy';track.append(copy);});control.append(track);heading.replaceChildren(control);heading.classList.add('workout-title');
  const instructions=document.createElement('span');instructions.className='visually-hidden';instructions.id='title-help-'+crypto.randomUUID();instructions.textContent='Tap or press Enter or Space to pause or resume. Swipe or use arrow keys to read the name. Automatic motion is disabled with reduced motion.';heading.after(instructions);control.setAttribute('aria-describedby',instructions.id);
- let state={text,active,suspended},overflow=false,paused=false,offset=0,period=1,frame=null,last=0,hold=performance.now()+1400,drag=null,moved=false,destroyed=false;
+ let state={text,active,suspended,hidden},overflow=false,paused=false,offset=0,period=1,frame=null,last=0,hold=performance.now()+1400,drag=null,moved=false,destroyed=false;
  const canRun=()=>!destroyed&&state.active&&!state.suspended&&overflow&&!paused&&!drag&&!reduced.matches&&!document.hidden;
  function stop(){if(frame!==null)cancelAnimationFrame(frame);frame=null;last=0;}
  function draw(){offset=((offset%period)+period)%period;track.style.transform=`translate3d(${-offset}px,0,0)`;}
  function semantics(){
-  heading.setAttribute('aria-label',state.text);heading.classList.toggle('is-overflowing',overflow);control.tabIndex=overflow?0:-1;
-  if(!overflow){control.removeAttribute('role');control.removeAttribute('aria-label');control.removeAttribute('aria-pressed');control.removeAttribute('title');return;}
+  const live=overflow&&!state.hidden;heading.setAttribute('aria-label',state.text);heading.classList.toggle('is-overflowing',overflow);control.tabIndex=live?0:-1;
+  if(!live){control.removeAttribute('role');control.removeAttribute('aria-label');control.removeAttribute('aria-pressed');control.removeAttribute('title');return;}
   control.setAttribute('role',reduced.matches?'region':'button');control.setAttribute('aria-label',reduced.matches?'Exercise title: '+state.text:(paused?'Resume':'Pause')+' scrolling title: '+state.text);
   if(reduced.matches)control.removeAttribute('aria-pressed');else control.setAttribute('aria-pressed',paused);
   control.title=reduced.matches?'Swipe to read the full title':'Tap to pause or resume · Swipe to read';
@@ -44,7 +44,7 @@ export function mountWorkoutTitle(heading,{text,active=false,suspended=false,onI
  document.addEventListener('visibilitychange',()=>{hold=performance.now()+1400;schedule();},{signal});reduced.addEventListener('change',()=>{semantics();schedule();},{signal});
  const observer=new ResizeObserver(measure);observer.observe(heading);document.fonts?.ready.then(()=>{if(!destroyed)measure();});setText();
  return {
-  update(next){if(destroyed)return;const old=state;state={...state,...next};if(!old.active&&state.active||old.suspended&&!state.suspended)hold=performance.now()+1400;if(old.text!==state.text)setText();else{measure();schedule();}},
+  update(next){if(destroyed)return;const old=state;state={...state,...next};if(!old.active&&state.active||old.suspended&&!state.suspended)hold=performance.now()+1400;if(old.text!==state.text)setText();else{if(old.hidden!==state.hidden)semantics();measure();schedule();}},
   destroy(){if(destroyed)return;destroyed=true;stop();events.abort();observer.disconnect();heading.classList.remove('workout-title','is-overflowing');heading.replaceChildren(document.createTextNode(state.text));instructions.remove();}
  };
 }

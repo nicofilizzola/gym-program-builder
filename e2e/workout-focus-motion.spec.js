@@ -242,7 +242,11 @@ test('the title ticker runs only for the selected visible partner and holds stil
  // A compact round hides the title, so its ticker holds still.
  await page.setViewportSize({width:390,height:844});await expect(page.locator('.focus-round').first()).toHaveClass(/is-compact/);
  const still=await track('b');await page.waitForTimeout(500);expect(await track('b')).toBe(still);
+ // Its visually hidden heading keeps the name but offers no focusable (invisible) pause control.
+ const title=page.locator('.focus-pair-pane[data-exercise-id="b"] .focus-exercise-title'),focusable=()=>title.evaluate(h=>[...h.querySelectorAll('*')].filter(el=>el.tabIndex>=0||el.getAttribute('role')==='button').length);
+ await expect(title).toHaveAccessibleName(log.exercises[2].name);expect(await focusable()).toBe(0);
  await page.setViewportSize({width:390,height:1000});await expect(page.locator('.focus-round').first()).not.toHaveClass(/is-compact/);
+ await expect.poll(focusable).toBe(1);await expect(title.getByRole('button',{name:/scrolling title/})).toHaveCount(1);
  // Until arrival the viewed set stays b1, so only travel's suspension keeps its title still.
  const samples=await page.evaluate(()=>new Promise(resolve=>{const f=document.querySelector('.focus-feed'),t=document.querySelector('.focus-pair-pane[data-exercise-id="b"] .workout-title-track'),seen=[];f.addEventListener('scroll',()=>seen.push(t.style.transform));f.addEventListener('scrollend',()=>resolve(seen),{once:true});focusView.jump({exerciseId:'straight',setId:'sw'},{animate:true});}));
  expect(samples.length).toBeGreaterThan(2);expect(new Set(samples).size).toBe(1);

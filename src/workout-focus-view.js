@@ -61,7 +61,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    },
    // The borrowed note host stays after closing; only an open (not closing) field counts as editing.
    editing:()=>Boolean(editor.querySelector('.log-note-part:not(.is-removing) .log-note-input')),
-   sync(){exerciseAction.hidden=presenter.editing();title?.update({active:enabled&&presenter.active(),suspended:suspended||Boolean(travel)||Boolean(name.closest('.is-compact'))||Boolean(document.querySelector('dialog[open]'))||typingField()});},
+   // A compact round's visually hidden title is a plain heading: no ticker motion and no focusable control.
+   sync(){exerciseAction.hidden=presenter.editing();const compact=Boolean(name.closest('.is-compact'));title?.update({active:enabled&&presenter.active(),hidden:compact,suspended:suspended||Boolean(travel)||compact||Boolean(document.querySelector('dialog[open]'))||typingField()});},
    destroy(){presenters.delete(presenter);title?.destroy();history?.destroy();for(const el of [name,details])resize.unobserve(el);}
   };
   exerciseAction.onclick=noteText.onclick=()=>{holdNoteAnchor();interaction('note');port.command({type:'exercise-note',exerciseId:presenter.exerciseId,host:editor});};
