@@ -1,4 +1,5 @@
-import {projectWorkout,focusFallback,setKey,completionMilestone,focusGroups,progressClusters} from './workout-focus-model.js';
+import {projectWorkout,focusFallback,setKey,completionMilestone,focusGroups,focusPages,progressClusters} from './workout-focus-model.js';
+import {mountWorkoutFocusPair} from './workout-focus-pair.js';
 import {createWorkoutAdvance} from './workout-focus-advance.js';
 import {setRowBindings} from './workout-set-row.js';
 import {mountWorkoutRuler} from './workout-ruler.js';
@@ -11,13 +12,15 @@ import {mountProgressScrub} from './workout-progress-scrub.js';
 const node=(tag,className,text)=>{const el=document.createElement(tag);el.className=className;if(text!==undefined)el.textContent=text;return el;};
 const same=(a,b)=>a===b||Boolean(a&&b&&setKey(a)===setKey(b));
 const noteIcon=()=>actionIcon('note');
-// A row's snap position: its top minus the pinned block it rests under (its inline scroll-margin-top).
+// A page's snap position (a straight set's row, or a round's page): its top minus the pinned block it rests under (its inline scroll-margin-top).
 const snapTop=el=>el.offsetTop-(parseFloat(el.style.scrollMarginTop)||0);
 
 /** Borrows canonical row/control nodes. All edits still go through the logger port. */
 export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()=>{},onFinish=()=>{}}){
  let enabled=false,destroyed=false,suspended=false,viewed=ui.viewed,snapshot=port.read(),projection=projectWorkout(snapshot.log),scrollFrame=null,fitFrame=null,programmatic=false,measuring=0,feedHeight=null,lastGroups=[],travel=null,noteAnchor=null;
- const state={autoNext:ui.autoNext,weightIncrement:ui.weightIncrement},cards=new Map(),groups=new Map(),events=new AbortController(),{signal}=events;
+ const state={autoNext:ui.autoNext,weightIncrement:ui.weightIncrement},cards=new Map(),groups=new Map(),rounds=new Map(),presenters=new Set(),events=new AbortController(),{signal}=events;
+ // Pages resolve exact refs; `selection` remembers each round's partner for this attachment only (the session keeps just `viewed`).
+ let pagesState={pages:[],pageByKey:new Map()},pageIndex=new Map(),itemByKey=new Map(),selection=new Map();
  const rewarded=new Set(),animationTimers=new Set(),reduced=matchMedia('(prefers-reduced-motion:reduce)');
  const advance=createWorkoutAdvance({read:()=>({log:snapshot.log,viewed,autoNext:state.autoNext,suspended:!enabled||suspended||typingField()||Boolean(document.querySelector('dialog[open]'))}),onAdvance:ref=>jump(ref,{animate:true,focus:true}),reduced:()=>reduced.matches});
  const root=node('section','workout-focus'),progress=node('button','focus-progress'),meta=node('span','focus-progress-meta'),position=node('span',''),count=node('span',''),segments=node('span','focus-progress-segments');
@@ -37,18 +40,16 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  // Section size changes (notes, wrapping, feedback) refit the peek once per frame.
  const resize=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitCards);});
  function interaction(type='input'){advance.cancel();onInteraction({type});syncActive();}
- // One per run of an exercise's sets: its name row and details pin while the rows snap under them.
- function createGroup(key){
-  const li=node('li','focus-group'),name=node('div','focus-group-name'),details=node('div','focus-group-details'),list=node('ol','focus-group-sets');
+ // The exercise block (name row, tags, note, history) shared by straight groups and round panes.
+ function createPresenter(){
+  const name=node('div','focus-group-name'),details=node('div','focus-group-details');
   const heading=node('h2','focus-exercise-title'),exerciseAction=node('button','focus-exercise-note');exerciseAction.type='button';exerciseAction.innerHTML=noteIcon();name.append(heading,exerciseAction);
   const noteText=node('button','focus-exercise-note-text');noteText.type='button';
-  const editor=node('div','focus-exercise-editor'),historyHost=node('div','focus-history');details.append(noteText,editor,historyHost);li.append(name,details,list);
+  const editor=node('div','focus-exercise-editor'),historyHost=node('div','focus-history');details.append(noteText,editor,historyHost);
   let tagList=null,tagKey='',title=null,history=null;
-  exerciseAction.onclick=noteText.onclick=()=>{holdNoteAnchor();interaction('note');port.command({type:'exercise-note',exerciseId:group.exerciseId,host:editor});};
-  for(const el of [name,details])resize.observe(el);
-  const group={key,li,list,editor,keys:[],exerciseId:null,
+  const presenter={name,details,editor,exerciseId:null,active:()=>false,
    update(ex){
-    li.dataset.exerciseId=group.exerciseId=ex.id;
+    presenter.exerciseId=ex.id;
     const note=ex.note||'';exerciseAction.setAttribute('aria-label',`${note?'Edit':'Add'} exercise note, ${ex.name}`);exerciseAction.title=note;exerciseAction.classList.toggle('has-note',Boolean(note));
     // The full note stays readable below the title; it opens the same editor. Once borrowed, the logger's note part shows it instead.
     noteText.textContent=note;noteText.setAttribute('aria-label',`Edit exercise note, ${ex.name}: ${note}`);noteText.hidden=!note||editor.hasChildNodes();
@@ -56,14 +57,40 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     if(tagsKey!==tagKey){tagKey=tagsKey;tagList?.remove();tagList=null;if(tags.length){tagList=node('ul','focus-tags');tagList.setAttribute('role','list');tagList.setAttribute('aria-label','Tags, '+ex.name);for(const [prefix,text,cls] of tags){const li=node('li','focus-tag'+(cls?' '+cls:'')),hidden=node('span','visually-hidden',prefix);li.append(hidden,text);tagList.append(li);}details.prepend(tagList);}}
     if(!title){title=mountWorkoutTitle(heading,{text:ex.name,onInteraction:()=>interaction('title')});}else title.update({text:ex.name});
     const historyState={exercise:ex,lastTime:snapshot.lastTime,bestPerformance:snapshot.bestPerformance,bestStatus:snapshot.bestStatus,unavailable:snapshot.unavailable};if(!history)history=mountWorkoutHistory(historyHost,historyState);else history.update(historyState);
-    group.sync();
+    presenter.sync();
    },
    // The borrowed note host stays after closing; only an open (not closing) field counts as editing.
    editing:()=>Boolean(editor.querySelector('.log-note-part:not(.is-removing) .log-note-input')),
-   sync(){exerciseAction.hidden=group.editing();title?.update({active:enabled&&Boolean(viewed)&&group.keys.includes(setKey(viewed)),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
-   destroy(){port.relocate(()=>port.restoreExerciseNotes(li));title?.destroy();history?.destroy();for(const el of [name,details])resize.unobserve(el);li.remove();}
+   sync(){exerciseAction.hidden=presenter.editing();title?.update({active:enabled&&presenter.active(),suspended:suspended||Boolean(document.querySelector('dialog[open]'))||typingField()});},
+   destroy(){presenters.delete(presenter);title?.destroy();history?.destroy();for(const el of [name,details])resize.unobserve(el);}
   };
+  exerciseAction.onclick=noteText.onclick=()=>{holdNoteAnchor();interaction('note');port.command({type:'exercise-note',exerciseId:presenter.exerciseId,host:editor});};
+  for(const el of [name,details])resize.observe(el);presenters.add(presenter);
+  return presenter;
+ }
+ // One per run of an exercise's sets: its name row and details pin while the rows snap under them.
+ function createGroup(key){
+  const li=node('li','focus-group'),list=node('ol','focus-group-sets'),presenter=createPresenter();li.append(presenter.name,presenter.details,list);
+  const group={key,li,list,presenter,keys:[],
+   update(ex){li.dataset.exerciseId=ex.id;presenter.update(ex);},
+   editing:()=>presenter.editing(),
+   destroy(){port.relocate(()=>port.restoreExerciseNotes(li));presenter.destroy();li.remove();}
+  };
+  presenter.active=()=>Boolean(viewed)&&group.keys.includes(setKey(viewed));
   return group;
+ }
+ // One superset working round: the outer page alone snaps; each existing member gets a pane with its own exercise block and canonical row.
+ function createRound(key){
+  const li=node('li','focus-round');
+  const round={key,li,page:null,panes:new Map(),destroy(){for(const pane of round.panes.values())pane.destroy();round.panes.clear();round.pair.destroy();li.remove();}};
+  round.pair=mountWorkoutFocusPair(li,{onSelect:ref=>choose(round,ref),onInteraction:()=>interaction('partner'),reduced});
+  return round;
+ }
+ function createPane(exerciseId){
+  const el=node('div','focus-pair-pane'),list=node('ol','focus-group-sets'),presenter=createPresenter();el.dataset.exerciseId=exerciseId;el.append(presenter.name,presenter.details,list);
+  const pane={el,list,presenter,keys:[],destroy(){port.relocate(()=>port.restoreExerciseNotes(el));presenter.destroy();el.remove();}};
+  presenter.active=()=>Boolean(viewed)&&pane.keys.includes(setKey(viewed));
+  return pane;
  }
  function createCard(ref,row){
   const b=setRowBindings(row),key=setKey(ref),markers=[],widgets=[],disposers=[];
@@ -88,7 +115,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    const widget=mountWorkoutRuler(stepper,{input,kind,caption:kind==='reps'?caption:null,onAdjust:value=>b.applyValue(kind,value),onInteraction:()=>interaction('ruler')});widgets.push({kind,widget});
   }
   const card={milestone:null,ref,key,row,b,contextText,eyebrow,label,widgets,action,feedback,borrowAll,
-   update(item,ex,set,index){
+   update(item,ex,set,on){
     label.textContent=item.preview.label;rirStrip.hidden=item.kind==='warmup';
     contextText.setAttribute('aria-label',`${item.preview.label}, ${ex.name}`);
     const partner=item.pairId?snapshot.log.exercises.find((e,i,a)=>item.member?.endsWith('1')?a[i-1]?.id===ex.id:a[i+1]?.id===ex.id):null;
@@ -99,7 +126,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     b.done.dataset.label=set.done?`${card.milestone??'Set complete'} · Tap to undo`:item.kind==='warmup'?'Complete warm-up':'Complete set';
     const bw=row.querySelector('.focus-bodyweight');if(bw)bw.hidden=b.inputs.weight.value!==''||b.inputs.weight.placeholder!=='';
     // Canonical row inputs already carry authoritative, kind-filtered placeholders.
-    for(const {kind,widget} of widgets)widget.update({value:kind==='weight'?set.weightKg:set.reps,placeholder:b.inputs[kind].placeholder===''?null:Number(b.inputs[kind].placeholder),increment:kind==='weight'?state.weightIncrement:1,range:kind==='reps'&&item.kind==='working'?ex.target?.repRange??null:null,enabled:enabled&&Math.abs(index-viewedIndex())<=1});
+    for(const {kind,widget} of widgets)widget.update({value:kind==='weight'?set.weightKg:set.reps,placeholder:b.inputs[kind].placeholder===''?null:Number(b.inputs[kind].placeholder),increment:kind==='weight'?state.weightIncrement:1,range:kind==='reps'&&item.kind==='working'?ex.target?.repRange??null:null,enabled:on});
    },
    restore(){for(const {widget} of widgets)widget.update({enabled:false});port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';},
    destroy(){for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();action.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed','is-peekless');row.style.removeProperty('--focus-card-min');row.style.removeProperty('scroll-margin-top');for(const el of observed)resize.unobserve(el);}
@@ -131,36 +158,75 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   }
   const moved=snapTop(anchorRow)-feed.scrollTop-anchor;if(!travel&&Math.abs(moved)>.5){programmatic=true;feed.scrollTop+=moved;programmatic=false;}
  }
- function viewedIndex(){return projection.items.findIndex(i=>same(i.ref,viewed));}
+ const pageOf=ref=>ref?pagesState.pageByKey.get(setKey(ref))??null:null;
+ const pageNode=page=>page.kind==='round'?rounds.get(page.key)?.li:cards.get(page.keys[0])?.row;
+ function pageEl(ref){if(!ref)return review;const page=pageOf(ref);return page?pageNode(page):null;}
+ // A round shows its remembered partner, else its first unfinished, else its first existing one.
+ function selectedOf(page){
+  if(page.kind!=='round')return itemByKey.get(page.keys[0])?.ref??null;
+  const kept=selection.get(page.key);if(kept&&page.keys.includes(setKey(kept)))return kept;
+  const existing=page.members.filter(m=>m.ref);return (existing.find(m=>!projection.doneKeys.has(m.key))??existing[0])?.ref??null;
+ }
+ function renderRound(round){
+  const page=round.page,total=pagesState.pages.filter(p=>p.kind==='round'&&p.pairId===page.pairId).length;
+  const members=page.members.map(m=>({...m,name:snapshot.log.exercises.find(e=>e.id===m.exerciseId)?.name??'',done:Boolean(m.key&&projection.doneKeys.has(m.key)),pane:m.ref?round.panes.get(m.exerciseId)?.el??null:null,context:m.key?cards.get(m.key)?.contextText??null:null}));
+  port.relocate(()=>round.pair.update({page,members,selected:selectedOf(page),total}));
+ }
+ function select(page,ref){selection.set(page.key,ref);const round=rounds.get(page.key);if(round)renderRound(round);}
+ // A selector tap changes the viewed set in place on the viewed round; elsewhere it only changes what that round shows.
+ function choose(round,ref){const page=round.page;if(!page?.keys.includes(setKey(ref)))return;if(pageOf(viewed)?.key===page.key)jump(ref);else select(page,ref);}
+ // Rulers draw only near the viewed page, and inside a round only for the shown partner.
+ function rulerOn(card){
+  const page=pageOf(card.ref);if(!enabled||!page)return false;const at=pageIndex.get(page.key),vp=pageOf(viewed),v=vp?pageIndex.get(vp.key):pagesState.pages.length;
+  return Math.abs(at-v)<=1&&(page.kind!=='round'||same(selectedOf(page),card.ref));
+ }
  function ensureCard(ref,row){const key=setKey(ref);let card=cards.get(key);if(!card){card=createCard(ref,row);cards.set(key,card);}else port.relocate(card.borrowAll);return card;}
  // Logger renders (saves, RIR taps, hydration) call this for every row: a row already in the feed stays in its group; update() groups new ones.
  function place({ref,row}){if(!enabled)return;ensureCard(ref,row);if(!feed.contains(row))feed.insertBefore(row,review);}
  function typingField(){return Boolean(document.activeElement?.matches('input[type="text"],input:not([type]),textarea,select,[contenteditable="true"]'));}
- function syncActive(){for(const group of groups.values())group.sync();feed.classList.toggle('is-unsnapped',suspended||Boolean(measuring)||typingField());}
+ function syncActive(){for(const presenter of presenters)presenter.sync();feed.classList.toggle('is-unsnapped',suspended||Boolean(measuring)||typingField());}
  function update(next){
-  if(destroyed)return;snapshot=next;if(!enabled)return;const previous=projection.items,oldViewed=viewed;projection=projectWorkout(snapshot.log);
-  if(viewed&&!projection.items.some(i=>same(i.ref,viewed)))viewed=focusFallback(previous,projection.items,viewed);
+  if(destroyed)return;snapshot=next;if(!enabled)return;const previous=projection.items,oldViewed=viewed;projection=projectWorkout(snapshot.log);itemByKey=new Map(projection.items.map(i=>[i.key,i]));
+  pagesState=focusPages(snapshot.log,projection.items,pagesState.pages);pageIndex=new Map(pagesState.pages.map((p,i)=>[p.key,i]));
+  if(viewed&&!itemByKey.has(setKey(viewed)))viewed=focusFallback(previous,projection.items,viewed);
   else if(!viewed&&previous.length===0)viewed=projection.current;
+  // Stale memberships are forgotten; the viewed partner always stays its round's selection.
+  for(const [key,ref] of selection){const p=pagesState.pages[pageIndex.get(key)];if(p?.kind!=='round'||!p.keys.includes(setKey(ref)))selection.delete(key);}
+  const viewedPage=pageOf(viewed);if(viewedPage?.kind==='round')selection.set(viewedPage.key,viewed);
   let removedFocus=false;
-  for(const [key,card] of cards)if(!projection.items.some(i=>i.key===key)){removedFocus||=card.row.contains(document.activeElement);cards.delete(key);card.destroy();card.row.remove();}
-  // Groups keep their element through regrouping (inherited keys); a duplicate key gets a fresh one so each group stays distinct.
-  const taken=new Set(),indexOf=new Map(projection.items.map((item,index)=>[item.key,index]));lastGroups=focusGroups(projection.items,lastGroups).map(g=>{const key=taken.has(g.key)?crypto.randomUUID():g.key;taken.add(key);return {...g,key};});
-  lastGroups.forEach((g,i)=>{
-   let group=groups.get(g.key);if(!group){group=createGroup(g.key);groups.set(g.key,group);}group.keys=g.keys;
+  for(const [key,card] of cards)if(!itemByKey.has(key)){removedFocus||=card.row.contains(document.activeElement);cards.delete(key);card.destroy();card.row.remove();}
+  // Groups (runs of one exercise's set pages) keep their element through regrouping (inherited keys); a duplicate key gets a fresh one so each group stays distinct.
+  const taken=new Set(),liveRounds=new Set(),retired=[];lastGroups=focusGroups(projection.items.filter(i=>pagesState.pageByKey.get(i.key).kind==='set'),lastGroups).map(g=>{const key=taken.has(g.key)?crypto.randomUUID():g.key;taken.add(key);return {...g,key};});
+  const groupOf=new Map(lastGroups.flatMap(g=>g.keys.map(k=>[k,g]))),units=[];
+  for(const page of pagesState.pages){const unit=page.kind==='round'?page:groupOf.get(page.keys[0]);if(units.at(-1)!==unit)units.push(unit);}
+  const exercise=id=>snapshot.log.exercises.find(e=>e.id===id);
+  function show(ref,list,at){const row=port.row(ref);if(!row)return;const card=ensureCard(ref,row);if(list.children[at]!==row)port.relocate(()=>list.insertBefore(row,list.children[at]||null));const item=itemByKey.get(card.key),ex=snapshot.log.exercises[item.exerciseIndex];card.update(item,ex,ex.sets.find(s=>s.id===ref.setId),rulerOn(card));}
+  units.forEach((unit,i)=>{
+   if(unit.kind==='round'){
+    let round=rounds.get(unit.key);if(!round){round=createRound(unit.key);rounds.set(unit.key,round);}round.page=unit;liveRounds.add(unit.key);
+    if(feed.children[i]!==round.li)port.relocate(()=>feed.insertBefore(round.li,feed.children[i]));
+    for(const m of unit.members){
+     let pane=round.panes.get(m.exerciseId);
+     if(!m.ref){if(pane){round.panes.delete(m.exerciseId);retired.push(pane);}continue;}
+     if(!pane){pane=createPane(m.exerciseId);round.panes.set(m.exerciseId,pane);}pane.keys=[m.key];
+     show(m.ref,pane.list,0);pane.presenter.update(exercise(m.exerciseId));
+    }
+    renderRound(round);return;
+   }
+   let group=groups.get(unit.key);if(!group){group=createGroup(unit.key);groups.set(unit.key,group);}group.keys=unit.keys;
    if(feed.children[i]!==group.li)port.relocate(()=>feed.insertBefore(group.li,feed.children[i]));
-   const ex=snapshot.log.exercises[g.exerciseIndex];
-   g.keys.forEach((key,j)=>{
-    const index=indexOf.get(key),item=projection.items[index],row=port.row(item.ref);if(!row)return;const card=ensureCard(item.ref,row);const at=group.list.children[j];if(at!==row)port.relocate(()=>group.list.insertBefore(row,at||null));
-    card.update(item,ex,ex.sets.find(s=>s.id===item.ref.setId),index);
-   });
-   group.update(ex);
+   unit.keys.forEach((key,j)=>show(itemByKey.get(key).ref,group.list,j));
+   group.update(snapshot.log.exercises[unit.exerciseIndex]);
   });
-  for(const [key,group] of groups)if(!taken.has(key)){
-   // Transfer the canonical note host before retiring its group; restoring it would hide the live editor.
-   const survivor=[...groups.values()].find(g=>taken.has(g.key)&&g.exerciseId===group.exerciseId);
-   if(survivor&&group.editor.hasChildNodes())port.relocate(()=>survivor.editor.append(...group.editor.childNodes));
-   groups.delete(key);group.destroy();survivor?.update(snapshot.log.exercises.find(ex=>ex.id===survivor.exerciseId));
+  for(const [key,group] of groups)if(!taken.has(key)){groups.delete(key);retired.push(group);}
+  for(const [key,round] of rounds)if(!liveRounds.has(key)){rounds.delete(key);retired.push(...round.panes.values(),round);round.panes.clear();}
+  // Transfer each canonical note host to a surviving block of its exercise before retiring; restoring it would hide the live editor.
+  const leaving=new Set(retired.map(r=>r.presenter).filter(Boolean));
+  for(const {presenter} of retired){if(!presenter?.editor.hasChildNodes())continue;
+   const survivor=[...presenters].find(p=>!leaving.has(p)&&p.exerciseId===presenter.exerciseId);
+   if(survivor){port.relocate(()=>survivor.editor.append(...presenter.editor.childNodes));survivor.update(exercise(survivor.exerciseId));}
   }
+  for(const r of retired)r.destroy();
   if(travel?.ref&&!projection.items.some(i=>same(i.ref,travel.ref)))cancelTravel();
   const existing=new Map([...segments.querySelectorAll('.focus-progress-segment')].map(el=>[el.dataset.key,el])),oldClusters=new Map([...segments.children].map(el=>[el.dataset.key,el]));
   progressClusters(projection.items).forEach(({key,keys},index)=>{
@@ -174,13 +240,19 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   review.querySelector('.focus-review-copy').textContent=completed===projection.workingKeys.length&&completed?'Your working sets are complete. Review your work, then finish.':'Review your completed work or keep training.';
   fitCards();
   const reordered=previous.map(i=>i.key).join('|')!==projection.items.map(i=>i.key).join('|');
-  if(!same(oldViewed,viewed)||reordered){jump(viewed,{focus:removedFocus});}syncActive();
+  if(!same(oldViewed,viewed)||reordered)settle(viewed,removedFocus);syncActive();
  }
- function focusContext(ref){(ref?cards.get(setKey(ref))?.contextText:review.querySelector('h2'))?.focus({preventScroll:true});}
+ function focusContext(ref){const page=pageOf(ref);if(page?.kind==='round'&&!same(selectedOf(page),ref))select(page,ref);(ref?cards.get(setKey(ref))?.contextText:review.querySelector('h2'))?.focus({preventScroll:true});}
+ // A partner on the viewed round is selected in place; any other page travels (animate) or settles there.
  function jump(ref,{animate=false,focus=false}={}){
-  if(!enabled||destroyed)return;const target=ref?cards.get(setKey(ref))?.row:review;if(!target)return;
-  noteAnchor=null;if(animate&&!reduced.matches)return startTravel(ref,target,focus);
-  cancelTravel();viewed=ref;programmatic=true;renderCursor();feed.scrollTo({top:snapTop(target),behavior:'instant'});programmatic=false;
+  if(!enabled||destroyed)return;const target=pageEl(ref);if(!target)return;noteAnchor=null;
+  const page=pageOf(ref);
+  if(page?.kind==='round'){const here=!travel&&pageOf(viewed)?.key===page.key;select(page,ref);if(here){viewed=ref;renderCursor();if(focus)focusContext(ref);return;}}
+  if(animate&&!reduced.matches)return startTravel(ref,target,focus);
+  settle(ref,focus);
+ }
+ function settle(ref,focus=false){
+  const target=pageEl(ref);if(!target)return;cancelTravel();viewed=ref;programmatic=true;renderCursor();feed.scrollTo({top:snapTop(target),behavior:'instant'});programmatic=false;
   if(focus)focusContext(ref);syncActive();
  }
  // Explicit jumps scroll through the sets in between; the viewed set (progress, rulers, ticker) changes on arrival.
@@ -192,17 +264,18 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function settleLater(){clearTimeout(travel.timer);travel.timer=setTimeout(arrive,150);}
  function arrive(){
   if(!travel)return;const {ref,timer}=travel;clearTimeout(timer);travel=null;if(!enabled||destroyed)return;viewed=ref;
-  const target=ref?cards.get(setKey(ref))?.row:review;if(target&&Math.abs(feed.scrollTop-snapTop(target))>1){programmatic=true;feed.scrollTo({top:snapTop(target),behavior:'instant'});programmatic=false;}
+  const target=pageEl(ref);if(target&&Math.abs(feed.scrollTop-snapTop(target))>1){programmatic=true;feed.scrollTo({top:snapTop(target),behavior:'instant'});programmatic=false;}
   renderCursor();syncActive();
  }
  // A touch, wheel, key, dialog or resize ends the travel where it is; snapping and track() pick the set.
  function cancelTravel(){if(!travel)return;clearTimeout(travel.timer);travel=null;feed.scrollTo({top:feed.scrollTop,behavior:'instant'});if(enabled&&!destroyed)track();}
  function progressName(item,completed=projection.workingKeys.filter(k=>projection.doneKeys.has(k)).length){progress.setAttribute('aria-label',`Workout overview, ${item?`exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'workout review'}, ${completed} of ${projection.workingKeys.length} working sets`);}
  function renderCursor(){
-  const item=projection.items.find(i=>same(i.ref,viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';progressName(item);current.hidden=same(viewed,projection.current);onViewed(viewed);
+  const page=pageOf(viewed);if(page?.kind==='round'&&!same(selection.get(page.key),viewed))select(page,viewed);
+  const item=itemByKey.get(viewed&&setKey(viewed));position.textContent=item?`Exercise ${item.exerciseIndex+1} of ${snapshot.log.exercises.length}`:'Workout review';progressName(item);current.hidden=same(viewed,projection.current);onViewed(viewed);
   // Geometry is enabled only around the destination; canonical inputs always remain mounted.
-  const index=viewedIndex();for(const card of cards.values())card.row.classList.toggle('is-viewed',same(card.ref,viewed));
-  for(const [key,card] of cards){const at=projection.items.findIndex(i=>i.key===key);if(Math.abs(at-index)<=1){const ex=snapshot.log.exercises[projection.items[at].exerciseIndex];card.update(projection.items[at],ex,ex.sets.find(s=>s.id===card.ref.setId),at);}else{for(const {widget} of card.widgets)widget.update({enabled:false});}}
+  for(const card of cards.values())card.row.classList.toggle('is-viewed',same(card.ref,viewed));
+  for(const [key,card] of cards){if(rulerOn(card)){const item=itemByKey.get(key),ex=snapshot.log.exercises[item.exerciseIndex];card.update(item,ex,ex.sets.find(s=>s.id===card.ref.setId),true);}else{for(const {widget} of card.widgets)widget.update({enabled:false});}}
   syncActive();
  }
  feed.addEventListener('scroll',()=>{
@@ -212,13 +285,13 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   if(suspended||measuring||!enabled)return;track();
  });},{signal});
  // The set the scroll position shows (null = review), read from geometry rather than the possibly stale `viewed`.
- function inView(){let ref=null,row=null;for(const item of projection.items){const r=cards.get(item.key)?.row;if(r&&snapTop(r)<=feed.scrollTop+40){ref=item.ref;row=r;}}return review.offsetTop<=feed.scrollTop+40?{ref:null,row:review}:{ref,row:row||review};}
+ function inView(){let page=null,row=null;for(const p of pagesState.pages){const el=pageNode(p);if(el&&snapTop(el)<=feed.scrollTop+40){page=p;row=el;}}return review.offsetTop<=feed.scrollTop+40?{ref:null,row:review}:{ref:page?selectedOf(page):null,row:row||review};}
  function track(){if(noteAnchor)return;const {ref}=inView();if(!same(ref,viewed)){viewed=ref;renderCursor();}}
  for(const name of ['pointerdown','wheel','touchstart'])feed.addEventListener(name,e=>{if(!e.target.closest('.focus-exercise-editor')||name==='wheel')noteAnchor=null;interaction(name);},{signal,passive:true});
  feed.addEventListener('scrollend',arrive,{signal});feed.addEventListener('wheel',cancelTravel,{signal,passive:true});
  for(const name of ['pointerdown','keydown'])document.addEventListener(name,cancelTravel,{signal,capture:true});
  // Keep the pre-edit set position through note growth and its collapse, including every animated frame.
- function holdNoteAnchor(){const row=viewed?cards.get(setKey(viewed))?.row:review;if(row)noteAnchor={row,delta:snapTop(row)-feed.scrollTop};}
+ function holdNoteAnchor(){const row=pageEl(viewed);if(row)noteAnchor={row,delta:snapTop(row)-feed.scrollTop};}
  root.addEventListener('input',e=>{if(!noteAnchor&&e.target.closest('.focus-exercise-editor'))holdNoteAnchor();},{signal,capture:true});
  root.addEventListener('click',e=>{if(e.target.closest('.focus-exercise-editor button'))holdNoteAnchor();},{signal,capture:true});
  feed.addEventListener('keydown',e=>{if((e.key==='Tab'&&!e.isComposing)||!typingField())noteAnchor=null;},{signal});
@@ -248,23 +321,23 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   if(enabled&&!suspended&&!measuring&&feedHeight!==null)track();
   cancelTravel();noteAnchor=null;feedHeight=px;root.style.setProperty('--focus-feed-height',px+'px');if(!enabled)return;
   fitCards();
-  measuring++;syncActive();const ref=viewed,target=ref?cards.get(setKey(ref))?.row:review;
+  measuring++;syncActive();const ref=viewed,target=pageEl(ref);
   if(target){programmatic=true;feed.scrollTo({top:snapTop(target),behavior:'instant'});
    // The keyboard shrinks the feed while typing: keep the focused field above the pinned Complete (64px), but never under the pinned block (the top edge wins).
    const active=document.activeElement;if(typingField()&&target.contains(active)){const f=active.getBoundingClientRect(),box=feed.getBoundingClientRect(),pin=parseFloat(target.closest('.focus-group')?.style.getPropertyValue('--focus-pin'))||0,below=f.bottom+64-box.bottom;if(below>0)feed.scrollTop+=Math.min(below,f.top-box.top-pin);}
    programmatic=false;}
   requestAnimationFrame(()=>{measuring--;if(destroyed)return;syncActive();if(!measuring&&enabled&&!suspended)track();});
  }
- function restore(){noteAnchor=null;port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const group of groups.values())group.sync();}
+ function restore(){noteAnchor=null;port.relocate(()=>{port.restoreExerciseNotes();for(const card of cards.values())card.restore();port.restoreRows();});for(const presenter of presenters)presenter.sync();}
  return {
   update,
   setEnabled(value){if(destroyed||enabled===value)return;advance.cancel();stopCelebration();if(!value){cancelTravel();enabled=false;logger?.classList.remove('is-focus');restore();root.hidden=true;return;}
    const focused=document.activeElement,exerciseId=focused?.closest('.log-exercise')?.dataset.exerciseId,setId=focused?.closest('.log-set')?.dataset.setId;
    if(exerciseId)viewed=setId?{exerciseId,setId}:projection.items.find(i=>i.ref.exerciseId===exerciseId)?.ref??viewed;
-   enabled=true;root.hidden=false;port.relocate(()=>{port.setRowPlacement(place);update(port.read());if(exerciseId&&focused?.matches('textarea')){const group=[...groups.values()].find(g=>g.keys.includes(setKey(viewed)));if(group)port.command({type:'exercise-note',exerciseId,host:group.editor});}logger?.classList.add('is-focus');});jump(viewed??projection.current);
+   enabled=true;root.hidden=false;port.relocate(()=>{port.setRowPlacement(place);update(port.read());if(exerciseId&&focused?.matches('textarea')){const page=pageOf(viewed),host=page?.kind==='round'?rounds.get(page.key)?.panes.get(viewed.exerciseId)?.presenter.editor:[...groups.values()].find(g=>g.keys.includes(setKey(viewed)))?.presenter.editor;if(host)port.command({type:'exercise-note',exerciseId,host});}logger?.classList.add('is-focus');});settle(viewed??projection.current);
   },
   setWeightIncrement(n){if(destroyed||state.weightIncrement===n)return;state.weightIncrement=n;onInteraction({type:'preference',patch:{weightIncrement:n}});if(enabled)update(snapshot);},
   jump,celebrate,setFeedHeight,isEnabled:()=>enabled&&!destroyed,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value){noteAnchor=null;advance.cancel();cancelTravel();}syncActive();},restore,
-  destroy(){if(destroyed)return;cancelTravel();advance.destroy();scrub.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();resize.disconnect();cancelAnimationFrame(scrollFrame);cancelAnimationFrame(fitFrame);for(const card of cards.values())card.destroy();cards.clear();for(const group of groups.values())group.destroy();groups.clear();root.remove();}
+  destroy(){if(destroyed)return;cancelTravel();advance.destroy();scrub.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();resize.disconnect();cancelAnimationFrame(scrollFrame);cancelAnimationFrame(fitFrame);for(const card of cards.values())card.destroy();cards.clear();for(const group of groups.values())group.destroy();groups.clear();for(const round of rounds.values())round.destroy();rounds.clear();root.remove();}
  };
 }

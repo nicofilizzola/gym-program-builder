@@ -77,3 +77,13 @@ test('the row does not scroll the page',async({page})=>{
  expect(await row.evaluate(r=>getComputedStyle(r).touchAction)).toBe('none');expect(await row.getAttribute('role')).toBeNull();
  await row.focus();await page.keyboard.press('Space');await expect(page.getByRole('dialog',{name:'Workout overview'})).toBeVisible();
 });
+test('same-round segments select partners in place without vertical movement',async({page})=>{
+ await mount(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));const {centers}=await geometry(page),top=(await snapshot(page)).top;
+ await expect(page.locator('.focus-progress-segment')).toHaveCount(5);await expect(page.locator('.focus-progress-cluster').nth(1).locator('.focus-progress-segment')).toHaveCount(3);
+ await press(page,centers[2],centers[3]);await expect(bubble(page).locator('.focus-scrub-set')).toHaveText('A2 · Round 1');await page.mouse.up();
+ expect(await snapshot(page)).toMatchObject({ref:{exerciseId:'b',setId:'b1'},top});
+ await expect(page.locator('.focus-round').first().locator('[aria-current="step"]')).toContainText('A2');
+ await press(page,centers[3],centers[2]);await page.mouse.up();
+ expect(await snapshot(page)).toMatchObject({ref:{exerciseId:'a',setId:'a1'},top});
+ await expect(page.locator('.focus-progress-meta')).toContainText('0 / 5 working sets');
+});

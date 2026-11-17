@@ -2544,7 +2544,29 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-feed {position:relative;container:focus-feed / size;height:var(--focus-feed-height);overflow-y:auto;overflow-x:hidden;list-style:none;margin:0;padding:0;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior-y:contain}
 .focus-feed::-webkit-scrollbar {display:none}
 .focus-feed.is-unsnapped {scroll-snap-type:none}
-.workout-focus .focus-group {--focus-gap:clamp(6px,calc((100cqh - 400px) / 10),20px);margin:0}
+.workout-focus :is(.focus-group,.focus-round) {--focus-gap:clamp(6px,calc((100cqh - 400px) / 10),20px);margin:0}
+/* A superset round is one snap page: its context and partner selectors travel with it (nothing pins across rounds); both member panes share one grid area, the inactive one hidden and inert but still measured. */
+.workout-focus .focus-round {display:flex;flex-direction:column;gap:var(--focus-gap);min-height:var(--focus-feed-height);border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always}
+.focus-round-context {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding-left:12px;box-shadow:inset 3px 0 var(--accent)}
+.focus-round-label {display:flex;align-items:center;gap:6px;margin:0;color:var(--accent);font-family:var(--font-display);font-size:.875rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.focus-round-icon svg {display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+.focus-round-count {margin:0;color:var(--muted);font-size:.75rem}
+.focus-partners {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.focus-partner {display:flex;align-items:center;gap:8px;min-width:44px;min-height:44px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--muted);font:inherit;font-size:.8125rem;line-height:1.3;text-align:left;cursor:pointer}
+.focus-partner[aria-current=step] {background:var(--surface-2);color:var(--text);box-shadow:inset 0 -3px var(--accent)}
+.focus-partner:disabled {cursor:default}
+.focus-partner:focus-visible {outline:2px solid var(--text);outline-offset:2px}
+.focus-partner-member {flex:none;color:var(--accent);font-weight:700}
+.focus-partner-name {flex:1;min-width:0;overflow-wrap:anywhere}
+.focus-partner-absent {display:block;font-size:.6875rem}
+.focus-partner-check {flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent)}
+.focus-partner-check svg {width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:3}
+.focus-pair-panes {flex:1;display:grid;grid-template-columns:minmax(0,1fr)}
+.focus-pair-pane {grid-area:1/1;display:flex;flex-direction:column;min-width:0}
+.focus-pair-pane.is-inactive {visibility:hidden}
+.focus-pair-pane>.focus-group-sets {flex:1;display:flex;flex-direction:column}
+.focus-round :is(.focus-group-name,.focus-group-details) {position:static}
+.workout-focus .focus-round .focus-card {flex:1;min-height:0;border-bottom:0;scroll-snap-align:none;scroll-snap-stop:normal}
 /* Pinned block: the name row and details stick while the group's rows snap under them; the next group pushes them out, details first. */
 .focus-group-name {position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;min-height:44px;background:var(--bg)}
 .focus-group-name>:first-child {flex:1;min-width:0}

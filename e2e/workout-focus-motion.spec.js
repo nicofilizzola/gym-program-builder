@@ -25,8 +25,8 @@ test('smooth auto-next settles on the destination without changing the viewed ID
  await page.locator('.focus-card[data-set-id="s1"] .log-done').click();await expect(page.locator('.focus-card[data-set-id="s2"] .focus-context-text')).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),r=document.querySelector('.focus-card[data-set-id="s2"]');return {gap:Math.round(f.scrollTop-(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0))),viewed:focusView.visibleRef(),heights:[...f.children].map(n=>n.offsetHeight)};})).toMatchObject({gap:0,viewed:{exerciseId:'straight',setId:'s2'}});
 });
-test('missing partner round is not celebrated while earlier sets remain open',async({page})=>{
- await page.clock.install();await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));const card=page.locator('.focus-card[data-set-id="a2"]');await card.locator('.log-done').click();await expect(card.locator('.focus-feedback')).toHaveText('Set complete. Keep building.');await page.clock.runFor(1000);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a2'});
+test('a missing-partner round earns round feedback and does not advance yet',async({page})=>{
+ await page.clock.install();await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));const card=page.locator('.focus-card[data-set-id="a2"]');await card.locator('.log-done').click();await expect(card.locator('.focus-feedback')).toHaveText('Round 2 complete. Strong work.');await page.clock.runFor(1000);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a2'});
 });
 test('undo burst cancels advancement and delayed history stays inert',async({page})=>{
  await prepare(page);await page.evaluate(async()=>{await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});logger.setBestPerformance({});logger.setStatus('Saved');});await page.clock.runFor(1200);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});await expect(page.locator('.is-celebrating')).toHaveCount(0);
@@ -39,7 +39,8 @@ test('presentation switches stop animation and pending advancement',async({page}
 });
 
 // Travel: a page-side listener, added after mount, samples every scroll with the viewed set at that moment.
-const snapTop=(page,id)=>page.evaluate(id=>{const r=id?document.querySelector(`.focus-card[data-set-id="${id}"]`):document.querySelector('.focus-review');return r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0);},id);
+// A superset partner's page is its round.
+const snapTop=(page,id)=>page.evaluate(id=>{const c=id&&document.querySelector(`.focus-card[data-set-id="${id}"]`),r=id?c.closest('.focus-round')??c:document.querySelector('.focus-review');return r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0);},id);
 const record=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed');window.samples=[];window.firstSample=new Promise(r=>f.addEventListener('scroll',r,{once:true}));f.addEventListener('scroll',()=>samples.push({top:f.scrollTop,viewed:focusView.visibleRef()?.setId??null}));return f.scrollTop;});
 async function travelled(page,from,to){
  await expect.poll(()=>page.evaluate(()=>focusView.visibleRef()?.setId)).toBe(to);
@@ -75,5 +76,5 @@ test('an interrupted travel never sticks',async({page})=>{
 });
 test('reduced motion jumps at once',async({page})=>{
  await mountFocusFixture(page);await page.emulateMedia({reducedMotion:'reduce'});
- expect(await page.evaluate(()=>{focusView.jump({exerciseId:'a',setId:'a2'},{animate:true});const f=document.querySelector('.focus-feed'),r=document.querySelector('.focus-card[data-set-id="a2"]');return {gap:Math.abs(f.scrollTop-(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)))<=1,viewed:focusView.visibleRef()?.setId};})).toEqual({gap:true,viewed:'a2'});
+ expect(await page.evaluate(()=>{focusView.jump({exerciseId:'a',setId:'a2'},{animate:true});const f=document.querySelector('.focus-feed'),r=document.querySelector('.focus-card[data-set-id="a2"]').closest('.focus-round');return {gap:Math.abs(f.scrollTop-(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)))<=1,viewed:focusView.visibleRef()?.setId};})).toEqual({gap:true,viewed:'a2'});
 });

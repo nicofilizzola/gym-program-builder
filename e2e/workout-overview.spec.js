@@ -284,3 +284,14 @@ test('a source removed before the drag threshold cannot promote a stale preview'
  const source=page.locator('.workout-overview [data-block-id=straight]'),name=await source.locator('.overview-name > span').first().boundingBox();await page.mouse.move(name.x+5,name.y+5);await page.mouse.down();await source.evaluate(el=>el.remove());await page.mouse.move(name.x+25,name.y+25);await page.mouse.up();
  expect(errors).toEqual([]);expect(await page.evaluate(()=>saved.length)).toBe(0);await expect(page.locator('.sort-drag-host,.sort-placeholder,.sort-source')).toHaveCount(0);
 });
+
+test('a same-round partner chip selects in place and chips stay per set',async({page})=>{
+ await page.emulateMedia({reducedMotion:'no-preference'});const d=await mount(page,undefined,{viewed:{exerciseId:'a',setId:'a1'}});
+ const top=await page.evaluate(()=>document.querySelector('.focus-feed').scrollTop);
+ await expect(d.getByRole('group',{name:'Sets, Single-arm incline dumbbell chest press',exact:true}).locator('.overview-chip')).toHaveCount(3);
+ await expect(d.getByRole('group',{name:'Sets, Chest-supported row',exact:true}).locator('.overview-chip')).toHaveCount(2);
+ await page.waitForTimeout(250);await d.locator('.overview-exercise .overview-chip[data-set-id=b1]').click();await expect(d).toHaveCount(0);
+ expect(await page.evaluate(()=>({ref:focusView.visibleRef(),top:document.querySelector('.focus-feed').scrollTop}))).toEqual({ref:{exerciseId:'b',setId:'b1'},top});
+ await expect(page.locator('.focus-round').first().locator('[aria-current="step"]')).toContainText('A2');await expect(page.locator('.focus-card[data-set-id="b1"] .focus-context-text')).toBeFocused();
+ await expect(page.locator('.focus-progress-meta')).toContainText('0 / 5 working sets');
+});
