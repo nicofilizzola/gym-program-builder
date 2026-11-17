@@ -92,8 +92,9 @@ test('focusPages pairs working rounds and keeps absent members out',()=>{
  assert.deepEqual(p.workingKeys.map(k=>JSON.parse(k)[1]),['s1','s2','a1','b1','a2']);
 });
 test('pages preserve IDs across repeated variants, zero counts and either longer member',()=>{
- const log=focusFixture(),snap=structuredClone(log);
- const check=(l,prev=[])=>{const p=projectWorkout(l),r=focusPages(l,p.items,prev);
+ const log=focusFixture();
+ const check=(l,prev=[])=>{const p=projectWorkout(l),before=structuredClone([l,p.items,prev]),r=focusPages(l,p.items,prev);
+  assert.deepEqual([l,p.items,prev],before);
   const all=r.pages.flatMap(x=>x.keys);assert.deepEqual([...all].sort(),p.items.map(i=>i.key).sort());
   assert.equal(new Set(r.pages.map(x=>x.key)).size,r.pages.length);
   for(const pg of r.pages)for(const m of pg.members)if(!m.key)assert.equal(m.ref,null);
@@ -104,7 +105,6 @@ test('pages preserve IDs across repeated variants, zero counts and either longer
  assert.deepEqual(zeroA.pages.at(-1).members[0],{exerciseId:'a',member:'A1',ref:null,key:null});
  log.exercises[2].sets=[];check(log,zeroA.pages);
  log.exercises.splice(1,1);check(log,zeroA.pages);
- assert.deepEqual(snap,focusFixture());
 });
 test('page inheritance never duplicates an element after split or merge',()=>{
  const log=focusFixture();log.exercises=log.exercises.slice(1,3);
@@ -132,4 +132,17 @@ test('milestones use real working sets with absent partners',()=>{
  q.exercises[2].sets=q.exercises[2].sets.filter(s=>s.id==='bw');
  const r=structuredClone(q);r.exercises[1].sets.find(s=>s.id==='a2').done=false;
  assert.equal(completionMilestone(r,q,{exerciseId:'a',setId:'a2'}).kind,'pair');
+});
+test('page inheritance on merge keeps the first matching key and every key once',()=>{
+ const log=focusFixture();log.exercises=log.exercises.slice(1,3);
+ log.exercises[0].sets=log.exercises[0].sets.filter(s=>s.id==='a1');
+ log.exercises[1].sets=log.exercises[1].sets.filter(s=>s.id==='b1');
+ const sup=log.exercises[0].superset;delete log.exercises[0].superset;
+ const old=focusPages(log,projectWorkout(log).items).pages;
+ const aKey=setKey({exerciseId:'a',setId:'a1'}),bKey=setKey({exerciseId:'b',setId:'b1'});
+ assert.deepEqual(old.map(p=>p.key),[aKey,bKey]);
+ log.exercises[0].superset=sup;
+ const merged=focusPages(log,projectWorkout(log).items,old).pages;
+ assert.deepEqual(merged.map(p=>p.keys),[[aKey,bKey]]);
+ assert.deepEqual(merged.map(p=>p.key),[aKey]);
 });
