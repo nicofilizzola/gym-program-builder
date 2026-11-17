@@ -219,7 +219,7 @@ for(const width of [390,1366])test(`optional RIR survives completion and reload 
  const log=createWorkoutLog({id:makeId(),now:new Date(),makeId,template});
  expect((await page.request.put(`/api/workouts/${log.id}`,{headers,data:{revision:0,log}})).ok()).toBeTruthy();
  await page.goto('/#/workouts/'+log.id);
- if(width===390)await page.getByLabel('Auto-next',{exact:true}).uncheck();
+ if(width===390){await page.getByRole('button',{name:'Workout actions',exact:true}).click();await page.getByRole('checkbox',{name:'Auto-next',exact:true}).uncheck();}
  const cards=page.locator(width===390?'.focus-card[data-kind="working"]':'.log-exercise .log-set'),card=cards.first(),rir=card.locator('.log-rir');
  const history=page.locator(width===390?'.focus-group':'.log-exercise').first();
  await expect(history.locator('.log-last-time').first()).toContainText('@5+');

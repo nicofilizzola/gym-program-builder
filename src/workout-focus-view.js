@@ -29,8 +29,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  const review=node('li','focus-review');review.innerHTML='<p class="focus-eyebrow">Your workout</p><h2 tabindex="-1">Make it a good finish.</h2><p class="focus-review-copy"></p><button type="button" class="add-btn">Finish workout</button><p class="focus-muted">Finishing is always your choice.</p>';review.querySelector('button').onclick=()=>onFinish();feed.append(review);
  const empty=node('div','focus-empty');empty.innerHTML='<h2>No sets yet</h2><p>Add an exercise or use the overview to add sets.</p><button type="button" class="secondary-btn">Add exercise</button><div class="focus-picker"></div>';
  empty.querySelector('button').onclick=()=>port.command({type:'add-exercise',host:empty.querySelector('.focus-picker')});
- const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};progress.onclick=()=>{if(scrub.consumeClick())return;advance.cancel();onInteraction({type:'overview',opener:progress});};current.onclick=()=>{advance.cancel();jump(projection.current,{animate:true,focus:true});};
- const autoLabel=node('label','focus-auto'),auto=document.createElement('input');auto.type='checkbox';auto.checked=state.autoNext;autoLabel.append(auto,document.createTextNode('Auto-next'));auto.onchange=()=>{advance.cancel();state.autoNext=auto.checked;onInteraction({type:'preference',patch:{autoNext:state.autoNext}});if(enabled)update(snapshot);};toolbar.append(overview,current,autoLabel);
+ const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.innerHTML=actionIcon('template')+'<span>Workout overview</span>';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};progress.onclick=()=>{if(scrub.consumeClick())return;advance.cancel();onInteraction({type:'overview',opener:progress});};current.onclick=()=>{advance.cancel();jump(projection.current,{animate:true,focus:true});};
+ toolbar.append(overview,current);
  const scrub=mountProgressScrub(progress,{strip:segments,
   targets:()=>{const byKey=new Map(projection.items.map(i=>[i.key,i]));return [...segments.querySelectorAll('.focus-progress-segment')].map(el=>({ref:byKey.get(el.dataset.key)?.ref,el})).filter(t=>t.ref);},
   describe:ref=>{const item=projection.items.find(i=>same(i.ref,ref));return {exercise:snapshot.log.exercises[item.exerciseIndex].name,set:item.preview.label};},
@@ -169,7 +169,9 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  }
  // Compact rounds show the selected exercise's note action and its set's note action in the round context; otherwise each sits in its own row.
  function placeNote(round){
-  const selected=selectedOf(round.page),put=(el,parent,before=null)=>{if(el.parentElement===parent)return;const focused=document.activeElement===el;parent.insertBefore(el,before);if(focused)el.focus({preventScroll:true});};
+  const selected=selectedOf(round.page),context=selected&&cards.get(setKey(selected))?.contextText;
+  // A focused action returning to a pane that is (becoming) inert hands focus to the selected set's context first, like pane focus does.
+  const put=(el,parent,before=null)=>{if(el.parentElement===parent)return;let focused=document.activeElement===el;if(focused&&parent.closest('[inert]')&&context){context.focus({preventScroll:true});focused=false;}parent.insertBefore(el,before);if(focused)el.focus({preventScroll:true});};
   for(const [id,pane] of round.panes){const here=round.compact&&selected?.exerciseId===id,card=cards.get(pane.keys[0]);
    put(pane.presenter.action,here?round.pair.context:pane.presenter.name);
    if(card)put(card.action,here?round.pair.context:card.completeMarker.parentElement,here?null:card.completeMarker);}
@@ -286,6 +288,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   if(!enabled||destroyed)return;
   // A composing field is never hidden or blurred: only the latest request applies once it ends.
   if(composing){if(composing.isConnected&&composing===document.activeElement){pendingJump={ref,options:{animate,focus}};return;}composing=null;}
+  // Latest wins: a request that proceeds now supersedes any deferred one.
+  pendingJump=null;
   const target=pageEl(ref);if(!target)return;noteAnchor=null;
   const page=pageOf(ref);
   // `viewed` changes first: the focus move inside select() can blur a note whose commit re-renders the feed.
@@ -351,6 +355,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const timer=setTimeout(()=>{card.row.classList.remove('is-celebrating');segment?.classList.remove('is-celebrating');animationTimers.delete(timer);},500);animationTimers.add(timer);
  }
  const stopMotion=()=>{for(const round of rounds.values())round.pair.cancelMotion();};
+ // An interruption from outside Focus (Workout actions): ends pending Auto-next, travel (at the nearest real page) and partner motion; moves no focus and suspends nothing.
+ function cancelMovement(){if(destroyed)return;advance.cancel();cancelTravel();stopMotion();}
  const unsubscribe=port.subscribe(event=>{
   // Only an explicit toggle animates its selector's check; hydration and acknowledgements show final states.
   completing=event.cause==='edit'&&event.action?.type==='toggle'&&event.action.ref?setKey(event.action.ref):null;
@@ -386,6 +392,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    if(exerciseId)viewed=setId?{exerciseId,setId}:projection.items.find(i=>i.ref.exerciseId===exerciseId)?.ref??viewed;
    enabled=true;root.hidden=false;port.relocate(()=>{port.setRowPlacement(place);update(port.read());if(exerciseId&&focused?.matches('textarea')){const page=pageOf(viewed),host=page?.kind==='round'?rounds.get(page.key)?.panes.get(viewed.exerciseId)?.presenter.editor:[...groups.values()].find(g=>g.keys.includes(setKey(viewed)))?.presenter.editor;if(host)port.command({type:'exercise-note',exerciseId,host});}logger?.classList.add('is-focus');});settle(viewed??projection.current);
   },
+  cancelMovement,
+  setAutoNext(value){cancelMovement();if(destroyed||state.autoNext===value)return;state.autoNext=value;onInteraction({type:'preference',patch:{autoNext:value}});if(enabled)update(snapshot);},
   setWeightIncrement(n){if(destroyed||state.weightIncrement===n)return;state.weightIncrement=n;onInteraction({type:'preference',patch:{weightIncrement:n}});if(enabled)update(snapshot);},
   jump,celebrate,setFeedHeight,isEnabled:()=>enabled&&!destroyed,visibleRef:()=>viewed,focusContext,suspend(value){suspended=value;if(value){noteAnchor=null;advance.cancel();cancelTravel();stopMotion();}syncActive();},restore,
   destroy(){if(destroyed)return;cancelTravel();advance.destroy();scrub.destroy();stopCelebration();if(enabled){enabled=false;logger?.classList.remove('is-focus');restore();}destroyed=true;unsubscribe();events.abort();resize.disconnect();cancelAnimationFrame(scrollFrame);cancelAnimationFrame(fitFrame);for(const card of cards.values())card.destroy();cards.clear();for(const group of groups.values())group.destroy();groups.clear();for(const round of rounds.values())round.destroy();rounds.clear();root.remove();}

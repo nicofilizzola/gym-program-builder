@@ -302,7 +302,7 @@ test('populated ruler path records responsive writes and paint work',async({page
 test('readout: completion kg and reps fallback never animates canonical inputs',async({page})=>{
  await page.emulateMedia({reducedMotion:'no-preference'});await mountFocusFixture(page);
  await page.evaluate(()=>{logger.setLastTime({v1:{sets:[{kind:'working',weightKg:80,reps:8,rir:5}],note:''}});const next=port.read().log;next.exercises[0].variantId='v1';next.exercises[0].referenceId='r1';logger.setLog(next);focusView.jump({exerciseId:'straight',setId:'s1'});});
- await page.getByLabel('Auto-next',{exact:true}).uncheck();
+ await page.evaluate(()=>focusView.setAutoNext(false));
  const card=page.locator('.focus-card[data-set-id="s1"]');await expect(card.locator('[data-field="weight"]')).toHaveValue('');await expect(card.locator('[data-field="reps"]')).toHaveValue('');
  await card.locator('.log-done').click();await expect(card.locator('[data-field="weight"]')).toHaveValue('80');await expect(card.locator('[data-field="reps"]')).toHaveValue('8');
  expect(await card.locator('input[data-field]').evaluateAll(nodes=>nodes.flatMap(el=>el.getAnimations().filter(a=>a.effect.getKeyframes().some(f=>Object.hasOwn(f,'transform')&&Object.hasOwn(f,'opacity'))))).then(a=>a.length)).toBe(0);
@@ -441,7 +441,7 @@ test('round completion is explicit for either partner, validated and undone per 
  await named(page,'a1','Complete round');expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a1'});
 });
 test('with Auto-next off the first partner logs and stays; regular names return outside Focus',async({page})=>{
- await mountFocusFixture(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();await viewAt(page,'b1');await named(page,'b1','Log A2');await viewAt(page,'a1');await named(page,'a1','Log A1');
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.setAutoNext(false));await viewAt(page,'b1');await named(page,'b1','Log A2');await viewAt(page,'a1');await named(page,'a1','Log A1');
  await page.getByLabel('Set 1 reps, Single-arm incline dumbbell chest press',{exact:true}).fill('8');await doneButton(page,'a1').click();await page.waitForTimeout(800);
  expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a1'});await named(page,'a1','Undo A1 completion');
  await page.evaluate(()=>focusView.setEnabled(false));

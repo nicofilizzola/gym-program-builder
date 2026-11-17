@@ -116,7 +116,7 @@ for(const how of ['pointer','key','body-key','wheel','input','note','dialog','re
  if(how==='input')await b1.locator('[data-field="weight"]').fill('80');
  // A compact round (this fixture at 390x844) carries the selected set's note action in its context.
  if(how==='note')await page.locator('.focus-round').first().getByRole('button',{name:'Add set note, Set 1, Chest-supported row',exact:true}).click();
- if(how==='preference'){const auto=page.getByLabel('Auto-next',{exact:true});await auto.uncheck();await auto.check();}
+ if(how==='preference')await page.evaluate(()=>{focusView.setAutoNext(false);focusView.setAutoNext(true);});
  await page.evaluate(async how=>{const f=document.querySelector('.focus-feed');
   if(how==='pointer')f.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
   if(how==='wheel')f.dispatchEvent(new WheelEvent('wheel',{deltaY:1,bubbles:true}));
@@ -139,7 +139,7 @@ test('reduced motion switches partners and advances rounds at once',async({page}
  await page.locator('.focus-card[data-set-id="a1"] .log-done').click();expect(await viewedRef(page)).toEqual(R.a2);
 });
 test('a rewarded set does not flourish again after undo and redo',async({page})=>{
- await round(page,R.a1,false);await page.getByLabel('Auto-next',{exact:true}).uncheck();const done=page.locator('.focus-card[data-set-id="a1"] .log-done');
+ await round(page,R.a1,false);await page.evaluate(()=>focusView.setAutoNext(false));const done=page.locator('.focus-card[data-set-id="a1"] .log-done');
  await done.click();await expect(page.locator('.is-celebrating')).toHaveCount(2);await expect(page.locator('.is-celebrating')).toHaveCount(0);
  await done.click();await done.click();await expect(page.locator('.focus-card[data-set-id="a1"]')).toHaveClass(/is-done/);await expect(page.locator('.is-celebrating')).toHaveCount(0);
 });
@@ -190,7 +190,7 @@ test('rapid reversal leaves only the latest pane operable and nothing queued',as
  expect(await viewedRef(page)).toEqual(R.a1);await expect(page.locator('.focus-round').first().locator('.focus-partner').nth(0)).toHaveAttribute('aria-current','step');expect(await pairMotion(page)).toBe(0);
 });
 test('a logged member check fades in, persists unselected, and undo reverses it',async({page})=>{
- await round(page,R.a1,false);await page.getByLabel('Auto-next',{exact:true}).uncheck();
+ await round(page,R.a1,false);await page.evaluate(()=>focusView.setAutoNext(false));
  const a=page.locator('.focus-round').first().locator('.focus-partner').nth(0),check=a.locator('.focus-partner-check');
  const read=()=>check.evaluate(n=>n.getAnimations().map(x=>({duration:x.effect.getTiming().duration,easing:x.effect.getTiming().easing,frames:x.effect.getKeyframes().map(f=>[f.opacity,f.transform])})));
  await page.evaluate(()=>port.row({exerciseId:'a',setId:'a1'}).querySelector('.log-done').click());

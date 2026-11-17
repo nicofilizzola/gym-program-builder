@@ -22,7 +22,13 @@ export function mountReorderMenu({label='Reorder options'}={}){
   trigger=button;button.setAttribute('aria-expanded','true');button.setAttribute('aria-controls',popup.id);
   const parent=button.closest('dialog')??document.body;
   if(popup.parentElement!==parent)parent.append(popup);
-  popup.replaceChildren(...choices.map(({label,disabled=false,current=false,run})=>{
+  popup.replaceChildren(...choices.map(({label,disabled=false,current=false,checked,run})=>{
+   // A checkable choice is a native checkbox; its On/Off text is visual only, so the name stays the label.
+   if(typeof checked==='boolean'){
+    const row=document.createElement('label'),box=document.createElement('input'),state=document.createElement('span');row.className='reorder-menu-check';
+    box.type='checkbox';box.checked=checked;box.disabled=disabled;state.className='reorder-menu-state';state.setAttribute('aria-hidden','true');state.textContent=checked?'On':'Off';
+    box.onchange=()=>{const value=box.checked;close(true);run(value);};row.append(box,document.createTextNode(label),state);return row;
+   }
    const option=document.createElement('button');option.type='button';option.className='secondary-btn';option.textContent=label;option.disabled=disabled;
    if(current){option.setAttribute('aria-current','true');option.dataset.initial='';const mark=document.createElement('span');mark.setAttribute('aria-hidden','true');mark.textContent=' ✓';option.append(mark);}
    option.onclick=()=>{close(true);run();};return option;

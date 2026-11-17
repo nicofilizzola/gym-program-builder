@@ -432,7 +432,9 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   log=result.log;onChange(structuredClone(log));
   await onFinish(structuredClone(log),{recap});
  }),{signal});
- more.addEventListener('click',()=>menu.toggle(more,[...(focusChrome&&editable?[{label:log.note?'Edit workout note':'Add workout note',run:()=>{workoutNote.open();syncNoteIndicator();}}]:[]),...(focusChrome&&editable&&active&&focusView?.isEnabled()?[{label:`Weight steps · ${focusSession.read(log.id).weightIncrement} kg`,run:()=>{const n=focusSession.read(log.id).weightIncrement;menu.toggle(more,[.25,1,2.5,5].map(step=>({label:`${step} kg`,current:step===n,run:()=>focusView.setWeightIncrement(step)})));}}]:[]),active
+ // Opening or dismissing Workout actions (and its weight-step submenu) first interrupts pending Focus movement.
+ const openActions=choices=>{focusView?.cancelMovement();menu.toggle(more,choices);};
+ more.addEventListener('click',()=>{const prefs=focusChrome&&editable&&active&&focusView?.isEnabled()?focusSession.read(log.id):null;openActions([...(focusChrome&&editable?[{label:log.note?'Edit workout note':'Add workout note',run:()=>{workoutNote.open();syncNoteIndicator();}}]:[]),...(prefs?[{label:`Weight steps · ${prefs.weightIncrement} kg`,run:()=>openActions([.25,1,2.5,5].map(step=>({label:`${step} kg`,current:step===prefs.weightIncrement,run:()=>focusView.setWeightIncrement(step)})))},{label:'Auto-next',checked:prefs.autoNext,run:value=>focusView.setAutoNext(value)}]:[]),active
   ?{label:'Discard workout',run:()=>run(async()=>{
    if(!await confirmAction({title:'Discard workout?',message:'This workout and its sets will be deleted. This cannot be undone.',confirmLabel:'Discard workout',destructive:true,signal:confirmations.signal}))return;
    if(!destroyed)await onDiscard();
@@ -440,7 +442,7 @@ export function mountWorkoutLogger(root,{api,log:initial,lastTime=null,bestPerfo
   :{label:'Delete workout',run:()=>run(async()=>{
    if(!await confirmAction({title:'Delete workout?',message:'This workout will be deleted. This cannot be undone.',confirmLabel:'Delete workout',destructive:true,signal:confirmations.signal}))return;
    if(!destroyed)await onDelete();
-  })}]),{signal});
+  })}]);},{signal});
  for(const input of [dateInput,startInput,endInput])input.addEventListener('change',changeTimes,{signal});
  retryButton.addEventListener('click',()=>{Promise.resolve(onRetry()).catch(()=>{});},{signal});
 

@@ -1495,6 +1495,10 @@ button:disabled {opacity:.5;cursor:default}
 .reorder-menu {position:fixed;inset:auto;margin:0;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;padding:8px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px #0005}
 .reorder-menu:popover-open {display:flex;flex-direction:column;gap:6px}
 .reorder-menu button {text-align:left}
+/* A checkable choice: native checkbox, label and a visual On/Off state on one 44px row. */
+.reorder-menu-check {display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;cursor:pointer}
+.reorder-menu-check input {width:20px;height:20px;margin:0;accent-color:var(--accent)}
+.reorder-menu-state {margin-left:auto;padding-left:12px;color:var(--muted)}
 .reorder-hint {color:var(--muted);font-size:.8125rem;margin:8px 0 12px}
 .exercise,.superset,.workout-item,.sequence-rest-item {cursor:grab}
 :is(.exercise,.superset,.workout-item,.sequence-rest-item) :is(button,input,select,textarea,a,label,[contenteditable],[role],[tabindex]) {cursor:auto}
@@ -2437,7 +2441,7 @@ body {padding-bottom:var(--tab-bar-height)}
   :root[data-mobile-nested] .panel:not(.panel--flow):not(.program-grid .panel) {padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
   /* Nested pages have no tab bar: the body keeps the inset unless Focus (its toolbar owns it) or the Resume bar (inline padding) reserves it. */
   :root[data-mobile-nested] body:not(:has(.workout-focus)) {padding-bottom:env(safe-area-inset-bottom,0px)}
-  :root[data-mobile-nested] .focus-toolbar {padding-bottom:env(safe-area-inset-bottom,0px)}
+  :root[data-mobile-nested] .focus-toolbar {padding-bottom:calc(3px + env(safe-area-inset-bottom,0px))}
   /* Typing (body.is-typing, src/typing-state.js): the bars slide away so the keyboard does not squeeze the page; reserved padding stays. */
   body.is-typing .app-header nav {transform:translateY(100%)}
   body.is-typing .workout-bar.is-open {transform:translateY(calc(100% + var(--tab-bar-height)))}
@@ -2667,11 +2671,12 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .log-done[data-log="next"]::after {content:attr(data-label) " \2192"}
 .workout-focus .log-done[data-log="prev"]::after {content:"\2190  " attr(data-label)}
 .workout-focus .log-done:active {transform:scale(.98)}
-.focus-toolbar {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:50px;border-top:1px solid var(--border);background:var(--bg)}
+/* A 50px row (3px block padding around 44px controls) under its 1px rule; the device inset is added below it, and wrapped enlarged text grows the row. */
+.focus-toolbar {display:flex;align-items:center;gap:8px;min-height:51px;padding-block:3px;border-top:1px solid var(--border);background:var(--bg)}
 .focus-toolbar button {min-height:44px;padding:5px 0;background:none;border:0;font:inherit;font-size:.75rem;color:var(--text)}
-.focus-toolbar .focus-current {color:var(--accent);font-size:.6875rem}
-.focus-auto {display:flex;align-items:center;gap:6px;min-height:44px;color:var(--muted);font-size:.625rem;white-space:nowrap}
-.focus-auto input {width:20px;height:20px;accent-color:var(--accent)}
+.focus-toolbar .focus-overview {flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;padding:5px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2)}
+.focus-toolbar .focus-overview svg {flex:none}
+.focus-toolbar .focus-current {flex:0 1 auto;color:var(--accent);font-size:.6875rem}
 .focus-review {display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:var(--focus-feed-height);list-style:none;padding:20px 0;scroll-snap-align:start;scroll-snap-stop:always}
 .focus-review h2 {margin:0;font-family:var(--font-display);font-size:2rem;text-transform:none}
 .focus-review-copy,.focus-empty p {color:var(--muted);font-size:.875rem}

@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
-import {login,resetWorkouts,createLinkedTemplate,headers} from './workout-helper.js';
+import {login,resetWorkouts,createLinkedTemplate,headers,saveFinishedLog} from './workout-helper.js';
 import {createWorkoutLog} from '../src/workout-log.js';
 import {dragDestination} from './mobile-swipe-helper.js';
+import {mountFocusFixture} from './workout-focus-helper.js';
 test.use({viewport:{width:390,height:844},hasTouch:true});
 async function start(page,mutate=()=>{}){await login(page);await resetWorkouts(page);const {id}=await createLinkedTemplate(page,'Focus integration');const {record:template}=await (await page.request.get('/api/documents/'+id)).json();const log=createWorkoutLog({id:crypto.randomUUID(),now:new Date(),makeId:()=>crypto.randomUUID(),template});mutate(log);const r=await page.request.put('/api/workouts/'+log.id,{headers,data:{revision:0,log}});expect(r.ok(),await r.text()).toBeTruthy();await page.goto('/#/workouts/'+log.id);await expect(page.locator('.workout-focus')).toBeVisible();return log;}
 test('mobile active uses Focus without tabs and desktop uses compact',async({page})=>{
@@ -15,8 +16,44 @@ test('breakpoint preserves invalid drafts and the exact focused input and caret'
 test('breakpoint retains a composing exercise note and shared workout note',async({page})=>{
  const log=await start(page);await page.getByRole('button',{name:`Add exercise note, ${log.exercises[0].name}`,exact:true}).first().click();const note=page.getByRole('textbox',{name:`Note, ${log.exercises[0].name}`,exact:true});await note.fill('Slow descent');await note.evaluate(n=>{window.testNote=n;n.setSelectionRange(2,5);n.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));});await page.setViewportSize({width:761,height:844});await expect(note).toBeFocused();await page.setViewportSize({width:760,height:844});await expect(note).toBeFocused();expect(await note.evaluate(n=>({same:n===window.testNote,start:n.selectionStart,end:n.selectionEnd}))).toEqual({same:true,start:2,end:5});await page.getByRole('button',{name:'Workout actions',exact:true}).click();await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeVisible();
 });
+// Auto-next lives in Workout actions (no footer checkbox); a change closes the menu and returns focus to its trigger.
+const actions=page=>page.getByRole('button',{name:'Workout actions',exact:true});
+const autoBox=page=>page.getByRole('checkbox',{name:'Auto-next',exact:true});
+const actionsGroup=page=>page.getByRole('group',{name:'Workout actions',exact:true});
+async function setAutoNext(page,value){await actions(page).click();await (value?autoBox(page).check():autoBox(page).uncheck());await expect(actionsGroup(page)).toBeHidden();await expect(actions(page)).toBeFocused();}
+async function readAutoNext(page){await actions(page).click();const value=await autoBox(page).isChecked();await page.keyboard.press('Escape');await expect(actionsGroup(page)).toBeHidden();return value;}
 test('Auto-next off survives route reentry without changing the saved log',async({page})=>{
- const log=await start(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();await page.getByRole('link',{name:'Back to Home',exact:true}).click();await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.getByLabel('Auto-next',{exact:true})).not.toBeChecked();const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log).not.toHaveProperty('autoNext');
+ const log=await start(page);await setAutoNext(page,false);await page.getByRole('link',{name:'Back to Home',exact:true}).click();await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.locator('.workout-focus')).toBeVisible();expect(await readAutoNext(page)).toBe(false);const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log).not.toHaveProperty('autoNext');
+});
+test('Auto-next is a native checkbox after Weight steps that closes the menu on change',async({page})=>{
+ await start(page);await expect(page.locator('.logger-title')).toBeFocused();const more=actions(page),group=actionsGroup(page),box=autoBox(page),row=page.locator('.reorder-menu-check');
+ await expect(page.locator('.focus-toolbar input')).toHaveCount(0);await expect(page.locator('.focus-auto')).toHaveCount(0);
+ await more.click();expect(await group.evaluate(g=>[...g.children].map(n=>n.textContent))).toEqual(['Add workout note','Weight steps · 2.5 kg','Auto-nextOn','Discard workout']);
+ // Ordinary initial option focus stays on the first action; the row is a 44px label target with a visible state.
+ await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeFocused();await expect(box).toBeChecked();await expect(row).toHaveText('Auto-nextOn');
+ expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);await expect(row.locator('.reorder-menu-state')).toHaveAttribute('aria-hidden','true');
+ // Pointer on the checkbox.
+ await box.uncheck();await expect(group).toBeHidden();await expect(more).toBeFocused();
+ // Keyboard: Tab reaches it after Weight steps; Space toggles natively.
+ await more.press('Enter');await expect(box).not.toBeChecked();await expect(row).toHaveText('Auto-nextOff');await expect(box).toHaveAccessibleName('Auto-next');
+ await page.keyboard.press('Tab');await expect(page.getByRole('button',{name:'Weight steps · 2.5 kg',exact:true})).toBeFocused();await page.keyboard.press('Tab');await expect(box).toBeFocused();
+ await page.keyboard.press('Space');await expect(group).toBeHidden();await expect(more).toBeFocused();
+ // Escape dismisses without a change.
+ await more.click();await expect(box).toBeChecked();await page.keyboard.press('Escape');await expect(group).toBeHidden();await expect(more).toBeFocused();
+ // Pointer on the label text toggles too.
+ await more.click();await row.click({position:{x:60,y:10}});await expect(group).toBeHidden();await expect(more).toBeFocused();await more.click();await expect(box).not.toBeChecked();
+ // Destructive actions are unchanged.
+ await page.getByRole('button',{name:'Discard workout',exact:true}).click();const dialog=page.getByRole('dialog');await expect(dialog).toContainText('Discard workout?');await dialog.getByRole('button',{name:'Cancel',exact:true}).click();await expect(dialog).toHaveCount(0);await expect(page.locator('.workout-focus')).toBeVisible();
+ // Only editable active Focus offers it.
+ await page.setViewportSize({width:761,height:844});await more.click();await expect(page.getByRole('button',{name:'Discard workout',exact:true})).toBeVisible();await expect(box).toHaveCount(0);
+});
+test('finished and read-only records offer no Auto-next',async({page})=>{
+ await login(page);await resetWorkouts(page);const {id}=await saveFinishedLog(page,{name:'Done',startedAt:new Date(Date.now()-7200000).toISOString()});
+ await page.evaluate(id=>{location.hash='/workouts/'+id;},id);await actions(page).click();await expect(page.getByRole('button',{name:'Delete workout',exact:true})).toBeVisible();await expect(autoBox(page)).toHaveCount(0);await page.keyboard.press('Escape');
+ const hidden=await page.evaluate(async()=>{const {mountWorkoutLogger}=await import('/src/workout-logger-view.js');const {createWorkoutFocusSession}=await import('/src/workout-focus-session.js');
+  const host=document.createElement('div');document.body.append(host);const log={id:'read-only',logVersion:2,status:'finished',name:'Done',coverId:'gym',note:'',startedAt:'2026-11-08T10:00:00.000+01:00',finishedAt:'2026-11-08T11:00:00.000+01:00',source:{kind:'blank'},exercises:[]};
+  const logger=mountWorkoutLogger(host,{api:{catalog:async()=>({families:[],entries:[],tags:[]})},log,mode:'finished',readOnly:true,focusSession:createWorkoutFocusSession()});const more=host.querySelector('[aria-label="Workout actions"]');const result=[more.hidden,Boolean(host.querySelector('.workout-focus'))];logger.destroy();host.remove();return result;});
+ expect(hidden).toEqual([true,false]);
 });
 test('feed re-measures without losing the viewed set',async({page})=>{
  await start(page);const feed=page.locator('.focus-feed');const anchored=()=>feed.evaluate(f=>{const rows=[...f.querySelectorAll('.focus-card')];return {index:rows.findIndex(r=>Math.abs(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop)<2),snapped:!f.classList.contains('is-unsnapped')};});
@@ -77,10 +114,10 @@ test('horizontal swipes on the logger never change root destinations',async({pag
  await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.getByRole('navigation',{name:'Main'})).toBeHidden();await expect(page.getByRole('link',{name:'Back to Home',exact:true})).toBeVisible();
 });
 test('logging out clears Focus memory',async({page})=>{
- const log=await start(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();
+ const log=await start(page);await setAutoNext(page,false);
  await page.getByRole('link',{name:'Back to Home',exact:true}).click();await page.getByRole('link',{name:'User',exact:true}).click();await page.getByRole('button',{name:'Log out',exact:true}).click();await expect(page.getByLabel('Password',{exact:true})).toBeVisible();
  await page.getByLabel('Password',{exact:true}).fill('test-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.locator('#shell')).toBeVisible();
- await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.locator('.workout-focus')).toBeVisible();await expect(page.getByLabel('Auto-next',{exact:true})).toBeChecked();
+ await page.evaluate(id=>{location.hash='/workouts/'+id;},log.id);await expect(page.locator('.workout-focus')).toBeVisible();expect(await readAutoNext(page)).toBe(true);
 });
 test('closing the overview keeps a Focus card exercise note in that card',async({page})=>{
  const log=await start(page),name=log.exercises[0].name;
@@ -159,4 +196,125 @@ test('partner switching keeps the same canonical inputs through acknowledgement 
  await page.setViewportSize({width:760,height:844});await expect(partners.nth(1)).toHaveAttribute('aria-current','step');await expect(bReps).toBeVisible();await expect(bReps).toHaveValue('9');
  await expect(aWeight).toHaveValue('82.3');await expect(aWeight).toHaveAttribute('aria-invalid','true');expect(await same()).toBe(true);
  const {record}=await (await page.request.get('/api/workouts/'+log.id)).json();expect(record.log.exercises.flatMap(e=>e.sets).filter(s=>s.done)).toEqual([]);
+});
+
+// Workout actions interrupts movement from outside Focus: pending Auto-next, smooth travel and partner motion settle without a resume step.
+const ready=l=>{l.exercises[0].superset={restBetweenSeconds:30,restAfterRoundSeconds:90};for(const e of l.exercises)for(const s of e.sets)s.reps=8;};
+const cardOf=(page,setId)=>page.locator(`.focus-card[data-set-id="${setId}"]`);
+const feedTop=page=>page.locator('.focus-feed').evaluate(f=>f.scrollTop);
+const viewedId=page=>page.evaluate(()=>document.querySelector('.focus-card.is-viewed')?.dataset.setId??null);
+const values=page=>page.evaluate(()=>[...document.querySelectorAll('.log-set')].map(r=>[r.dataset.setId,r.classList.contains('is-done'),...[...r.querySelectorAll('input[data-field]')].map(i=>i.value)]));
+// The viewed card's page (its round, or itself) rests at the feed's scroll position, and nothing focused is a numeric field or inside an inert pane.
+// The route's content swap focuses the workout title once it settles; interact only after it.
+const startSettled=async(page,mutate)=>{const log=await start(page,mutate);await expect(page.locator('.logger-title')).toBeFocused();return log;};
+const settledOnPage=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),card=f.querySelector('.focus-card.is-viewed'),el=card?.closest('.focus-round')??card,a=document.activeElement;
+ return {card:Boolean(card),aligned:Boolean(el)&&Math.abs(el.offsetTop-(parseFloat(el.style.scrollMarginTop)||0)-f.scrollTop)<=2,input:a.matches('input'),inert:Boolean(a.closest('[inert]'))};});
+test.describe('Workout actions and Auto-next movement',()=>{
+ test.use({reducedMotion:'no-preference'});
+ test('Auto-next off stops partner and vertical movement; enabling waits for a later explicit completion',async({page})=>{
+  const log=await startSettled(page,ready),[a,b]=log.exercises,[a1,b1]=[a.sets[0].id,b.sets[0].id];
+  await setAutoNext(page,false);const top=await feedTop(page);
+  await cardOf(page,a1).locator('.log-done').click();await page.waitForTimeout(900);expect(await viewedId(page)).toBe(a1);expect(await feedTop(page)).toBe(top);
+  await page.locator('.focus-round').first().locator('.focus-partner').nth(1).click();await expect.poll(()=>viewedId(page)).toBe(b1);
+  await cardOf(page,b1).locator('.log-done').click();await expect(cardOf(page,b1)).toHaveClass(/is-done/);await page.waitForTimeout(900);expect(await viewedId(page)).toBe(b1);expect(await feedTop(page)).toBe(top);
+  // Enabling it on an already-complete round moves nothing.
+  await setAutoNext(page,true);await page.waitForTimeout(900);expect(await viewedId(page)).toBe(b1);expect(await feedTop(page)).toBe(top);
+  const done=cardOf(page,b1).locator('.log-done');await done.click();await expect(cardOf(page,b1)).not.toHaveClass(/is-done/);await done.click();
+  await expect.poll(()=>viewedId(page)).toBe(a.sets[1].id);expect(await feedTop(page)).toBeGreaterThan(top);
+ });
+ for(const how of ['actions','weight-steps','overview'])test(`opening ${how} at 649ms cancels a pending round advance`,async({page})=>{
+  await page.clock.install();const log=await startSettled(page,ready),[a,b]=log.exercises,[a1,b1,a2]=[a.sets[0].id,b.sets[0].id,a.sets[1].id];
+  await page.clock.pauseAt(new Date(Date.now()+60000));
+  // Synthetic clicks log both partners without a pointer or key that would cancel on its own; the first switches to A2 in place.
+  await page.evaluate(id=>document.querySelector(`.focus-card[data-set-id="${id}"] .log-done`).click(),a1);expect(await viewedId(page)).toBe(b1);
+  if(how==='weight-steps'){await actions(page).click();await expect(actionsGroup(page)).toBeVisible();}
+  await page.evaluate(id=>document.querySelector(`.focus-card[data-set-id="${id}"] .log-done`).click(),b1);
+  const top=await feedTop(page),before=await values(page);await page.clock.runFor(649);
+  if(how==='actions'){await actions(page).click();await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeFocused();}
+  if(how==='weight-steps'){await page.getByRole('button',{name:'Weight steps · 2.5 kg',exact:true}).click();await expect(page.getByRole('button',{name:'2.5 kg',exact:true})).toBeFocused();}
+  if(how==='overview')await page.locator('.focus-toolbar').getByRole('button',{name:'Workout overview',exact:true}).click();
+  await page.clock.runFor(1000);
+  expect(await viewedId(page)).toBe(b1);expect(await feedTop(page)).toBe(top);expect(await values(page)).toEqual(before);await expect(cardOf(page,a2).locator('.focus-context-text')).not.toBeFocused();
+  if(how==='overview'){const d=page.getByRole('dialog',{name:'Workout overview'});await d.getByRole('button',{name:'Close overview',exact:true}).click();await page.clock.runFor(300);await expect(d).toHaveCount(0);}
+  else{await page.keyboard.press('Escape');await expect(actionsGroup(page)).toBeHidden();await expect(actions(page)).toBeFocused();}
+  // Selection and scrolling keep working with no resume call.
+  await page.clock.resume();await page.locator('.focus-round').first().locator('.focus-partner').nth(0).click();await expect.poll(()=>viewedId(page)).toBe(a1);
+  await page.locator('.focus-feed').evaluate(f=>{const r=f.querySelectorAll('.focus-round')[1];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});
+  await expect.poll(()=>viewedId(page)).toBe(a2);
+ });
+ for(const motion of ['no-preference','reduce'])test(`opening Workout actions settles partner motion and travel at real pages (${motion})`,async({page})=>{
+  await page.emulateMedia({reducedMotion:motion});const log=await startSettled(page,ready),[a,b]=log.exercises,before=await values(page);
+  // Midway through a 200ms partner switch.
+  const mid=await page.evaluate(()=>{const round=document.querySelector('.focus-round'),buttons=round.querySelectorAll('.focus-partner');buttons[1].click();document.querySelector('[aria-label="Workout actions"]').click();
+   return {running:[...round.querySelectorAll('.focus-pair-pane,.focus-partner,.focus-partner-check,.focus-partner-underline')].flatMap(n=>n.getAnimations()).length,current:[...buttons].findIndex(n=>n.getAttribute('aria-current')==='step'),inert:[...round.querySelectorAll('.focus-pair-pane')].map(p=>p.inert),focused:document.activeElement.textContent};});
+  expect(mid).toEqual({running:0,current:1,inert:[true,false],focused:'Add workout note'});expect(await viewedId(page)).toBe(b.sets[0].id);
+  await page.keyboard.press('Escape');await expect(actions(page)).toBeFocused();
+  // During a smooth cross-page travel: Back to current from the last round towards A1.
+  await page.locator('.focus-feed').evaluate(f=>{const r=[...f.querySelectorAll('.focus-round')].at(-1);f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});
+  const back=page.locator('.focus-toolbar').getByRole('button',{name:'Back to current',exact:true});await expect.poll(()=>viewedId(page)).toBe(a.sets[2].id);await expect(back).toBeVisible();
+  await page.evaluate(async()=>{document.querySelector('.focus-current').click();for(let i=0;i<3;i++)await new Promise(requestAnimationFrame);document.querySelector('[aria-label="Workout actions"]').click();});
+  await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeFocused();await page.waitForTimeout(400);
+  expect(await settledOnPage(page)).toEqual({card:true,aligned:true,input:false,inert:false});
+  if(motion==='reduce')expect(await viewedId(page)).toBe(a.sets[0].id);
+  await page.keyboard.press('Escape');await expect(actions(page)).toBeFocused();expect(await values(page)).toEqual(before);
+  // Selection still works on the page it settled on.
+  const viewed=await viewedId(page),round=page.locator('.focus-round').filter({has:page.locator('.focus-card.is-viewed')}),other=round.locator('.focus-partner:not([aria-current])');
+  await other.click();await expect.poll(()=>viewedId(page)).not.toBe(viewed);
+ });
+});
+test('the footer is a filling neutral overview button with Back to current only when needed',async({page})=>{
+ await start(page);const toolbar=page.locator('.focus-toolbar'),overview=toolbar.getByRole('button',{name:'Workout overview',exact:true}),current=toolbar.getByRole('button',{name:'Back to current',exact:true});
+ const token=name=>page.evaluate(name=>{const p=document.createElement('i');p.style.color=`var(${name})`;document.body.append(p);const c=getComputedStyle(p).color;p.remove();return c;},name);
+ await expect(overview.locator('svg')).toHaveCount(1);await expect(overview).toHaveText('Workout overview');
+ await expect(overview).toHaveCSS('background-color',await token('--surface-2'));await expect(overview).toHaveCSS('border-top-width','1px');await expect(overview).toHaveCSS('border-top-color',await token('--border'));await expect(overview).toHaveCSS('color',await token('--text'));await expect(overview).toHaveCSS('min-height','44px');
+ // The row is the toolbar's padding box without the device inset (3px of its bottom padding belongs to the row).
+ const row=()=>toolbar.evaluate(t=>{const s=getComputedStyle(t),o=t.querySelector('.focus-overview').getBoundingClientRect(),c=t.querySelector('.focus-current'),r=c.hidden?null:c.getBoundingClientRect();
+  return {row:t.clientHeight-parseFloat(s.paddingBottom)+3,inner:t.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight),left:t.getBoundingClientRect().left+parseFloat(s.paddingLeft),o:{left:o.left,width:o.width,height:o.height},c:r&&{left:r.left,right:r.right,height:r.height}};});
+ await expect(current).toBeHidden();let g=await row();expect(g.row).toBe(50);expect(Math.abs(g.o.width-g.inner)).toBeLessThanOrEqual(1);
+ await page.locator('.focus-feed').evaluate(f=>{const r=f.querySelectorAll('.focus-card')[2];f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});
+ await expect(current).toBeVisible();g=await row();expect(g.row).toBe(50);expect(Math.abs(g.c.left-(g.o.left+g.o.width)-8)).toBeLessThanOrEqual(1);expect(Math.abs(g.c.right-(g.left+g.inner))).toBeLessThanOrEqual(1);expect(g.c.height).toBeGreaterThanOrEqual(44);
+ // 200% text grows the row instead of squeezing targets; nothing overlaps and the feed still ends above it.
+ await page.evaluate(()=>{document.documentElement.style.fontSize='200%';});
+ await expect.poll(async()=>(await row()).row).toBeGreaterThanOrEqual(50);g=await row();expect(g.o.height).toBeGreaterThanOrEqual(44);expect(g.c.height).toBeGreaterThanOrEqual(44);expect(g.o.left+g.o.width).toBeLessThanOrEqual(g.c.left);
+ await expect.poll(async()=>{const f=await page.locator('.focus-feed').boundingBox(),t=await toolbar.boundingBox();return f.y+f.height<=t.y+1;}).toBe(true);
+});
+test('shared menu button choices keep their behavior beside a checkable choice',async({page})=>{
+ await page.goto('/');
+ const out=await page.evaluate(async()=>{const {mountReorderMenu}=await import('/src/reorder-menu.js');const trigger=document.createElement('button');trigger.textContent='Menu';document.body.prepend(trigger);const menu=mountReorderMenu({label:'Test menu'}),ran=[],out={};
+  const choices=()=>[{label:'Move up',disabled:true,run:()=>ran.push('up')},{label:'Move down',run:()=>ran.push(['down',document.activeElement===trigger])},{label:'2.5 kg',current:true,run:()=>ran.push('kg')},{label:'Auto-next',checked:false,run:v=>ran.push(['auto',v,document.activeElement===trigger])}];
+  const popup=()=>document.querySelector('.reorder-menu');
+  menu.toggle(trigger,choices());out.current=document.activeElement.textContent;menu.close();
+  menu.toggle(trigger,choices(),{initialIndex:0});out.disabledIndex=document.activeElement.textContent;menu.close();
+  menu.toggle(trigger,choices(),{initialIndex:1});out.index=document.activeElement.textContent;document.activeElement.click();out.afterButton=popup().matches(':popover-open');
+  menu.toggle(trigger,choices(),{initialIndex:3});out.checkbox=document.activeElement.type;document.activeElement.click();out.afterCheck=popup().matches(':popover-open');
+  out.ran=ran;menu.destroy();trigger.remove();return out;});
+ expect(out).toEqual({current:'2.5 kg ✓',disabledIndex:'2.5 kg ✓',index:'Move down',afterButton:false,checkbox:'checkbox',afterCheck:false,ran:[['down',true],['auto',true,true]]});
+});
+test.describe('carried Focus cancellation and focus fixes',()=>{
+ test.use({reducedMotion:'no-preference'});
+ for(const key of ['Enter','Space'])test(`${key} on Complete still schedules Auto-next`,async({page})=>{
+  await page.clock.install();await mountFocusFixture(page);
+  await page.evaluate(()=>{const l=port.read().log;l.exercises[0].sets[0].done=true;l.exercises[0].sets[0].reps=8;l.exercises[0].sets[1].reps=8;logger.setLog(l);focusView.jump({exerciseId:'straight',setId:'s1'});});
+  await page.clock.pauseAt(new Date(Date.now()+60000));
+  await page.locator('.focus-card[data-set-id="s1"] .log-done').focus();await page.keyboard.press(key);await expect(page.locator('.focus-card[data-set-id="s1"]')).toHaveClass(/is-done/);
+  await page.clock.runFor(649);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});
+  await page.clock.runFor(1);await expect(page.locator('.focus-card[data-set-id="s2"] .focus-context-text')).toBeFocused();
+ });
+ test('a superseded deferred jump never applies after a later composition',async({page})=>{
+  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));
+  expect(await page.evaluate(()=>{const weight=port.row({exerciseId:'a',setId:'a1'}).querySelector('[data-field="weight"]');weight.focus();weight.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));
+   focusView.jump({exerciseId:'b',setId:'b1'});const deferred=focusView.visibleRef().setId;
+   // The composition never reports its end (the field lost focus); a newer jump proceeds and supersedes the deferred one.
+   weight.blur();focusView.jump({exerciseId:'straight',setId:'s1'});
+   const other=port.row({exerciseId:'straight',setId:'s1'}).querySelector('[data-field="reps"]');other.focus();other.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));other.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
+   return [deferred,focusView.visibleRef().setId];})).toEqual(['a1','s1']);
+ });
+ test('a programmatic partner switch moves focus off a relocated note action to the new context',async({page})=>{
+  await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));
+  const round=page.locator('.focus-round').first(),context=round.locator('.focus-round-context');await expect(round).toHaveClass(/is-compact/);
+  await context.getByRole('button',{name:'Add exercise note, Single-arm incline dumbbell chest press',exact:true}).focus();
+  await page.evaluate(()=>focusView.jump({exerciseId:'b',setId:'b1'}));await expect(page.locator('.focus-card[data-set-id="b1"] .focus-context-text')).toBeFocused();
+  await context.getByRole('button',{name:'Add set note, Set 1, Chest-supported row',exact:true}).focus();
+  await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));await expect(page.locator('.focus-card[data-set-id="a1"] .focus-context-text')).toBeFocused();
+ });
 });
