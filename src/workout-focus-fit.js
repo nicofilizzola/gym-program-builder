@@ -7,6 +7,6 @@ export function fitGroup({feedHeight,nameHeight,detailsHeight,contentHeights,edi
 /** Superset round: compact (selector names the exercise) once the full panes would crowd the controls; the pane reserves the larger member.
  * The decision uses the full header; a compact round then lays out under its own (tighter) header. */
 export function fitPair({feedHeight,headerHeight,fullHeights,compactHeights,compactHeaderHeight=headerHeight}){
- const compact=headerHeight+Math.max(...fullHeights)>feedHeight,header=compact?compactHeaderHeight:headerHeight,paneMinHeight=Math.max(...(compact?compactHeights:fullHeights),feedHeight-header);
- return {compact,minHeight:header+paneMinHeight,paneMinHeight};
+ const compact=headerHeight+Math.max(...fullHeights)>feedHeight,header=compact?compactHeaderHeight:headerHeight,paneMinHeight=Math.ceil(Math.max(...(compact?compactHeights:fullHeights),feedHeight-header));
+ return {compact,minHeight:Math.ceil(header+paneMinHeight),paneMinHeight};
 }

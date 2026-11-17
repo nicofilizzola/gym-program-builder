@@ -88,3 +88,8 @@ Screenshots and frames are local scratchpad artifacts; they support but do not p
 - Physical phones: partner-transition feel, ruler interaction while transitioning, scrolling through rounds and momentum, real safe areas and on-screen keyboard behavior, and tap behavior on oversized rounds — pending (user).
 - Preview/production behavior and deployment — pending (user); nothing was deployed.
 - Open design questions (user): the two identical note icons in the compact round context, the Auto-next row's plain menu text, and the `template` footer icon.
+
+## Final review fixes
+
+- Retiring a compact round (unlink, member removal) now returns relocated set/exercise note actions before panes are destroyed; the round's done button drops `aria-pressed` while its action-name override applies and regains it outside the override; `fitPair` ceils pane/min heights.
+- RED: 4 e2e failed (2 new retire tests, 2 aria-pressed assertions) and 1 unit (fractional `fitPair`). GREEN: `npx playwright test` view/motion/fit/integration/overview 260 passed; `npm test` 534 passed.

@@ -135,12 +135,14 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     b.done.dataset.label=name??(set.done?`${card.milestone??'Set complete'} · Tap to undo`:item.kind==='warmup'?'Complete warm-up':'Complete set');
     // Neutral first-partner Log; its arrow points to the partner it switches to.
     if(card.round&&!set.done&&open)b.done.dataset.log=state.autoNext?(other.member>item.member?'next':'prev'):'stay';else delete b.done.dataset.log;
-    if(name){doneName.textContent=name;b.done.setAttribute('aria-labelledby',doneName.id);}else b.done.removeAttribute('aria-labelledby');
+    // An action-name override replaces the toggle's own name, so it is not also a pressed toggle.
+    if(name){doneName.textContent=name;b.done.setAttribute('aria-labelledby',doneName.id);b.done.removeAttribute('aria-pressed');}else{b.done.removeAttribute('aria-labelledby');b.done.setAttribute('aria-pressed',String(set.done));}
+    card.done=set.done;
     const bw=row.querySelector('.focus-bodyweight');if(bw)bw.hidden=b.inputs.weight.value!==''||b.inputs.weight.placeholder!=='';
     // Canonical row inputs already carry authoritative, kind-filtered placeholders.
     for(const {kind,widget} of widgets)widget.update({value:kind==='weight'?set.weightKg:set.reps,placeholder:b.inputs[kind].placeholder===''?null:Number(b.inputs[kind].placeholder),increment:kind==='weight'?state.weightIncrement:1,range:kind==='reps'&&item.kind==='working'?ex.target?.repRange??null:null,enabled:on});
    },
-   restore(){for(const {widget} of widgets)widget.update({enabled:false});b.done.removeAttribute('aria-labelledby');port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';},
+   restore(){for(const {widget} of widgets)widget.update({enabled:false});b.done.removeAttribute('aria-labelledby');if(card.done!==undefined)b.done.setAttribute('aria-pressed',String(card.done));port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';},
    destroy(){for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();action.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed');row.style.removeProperty('--focus-card-min');row.style.removeProperty('scroll-margin-top');for(const el of observed)resize.unobserve(el);}
   };
   b.disposers.add(()=>{for(const {widget} of widgets)widget.destroy();});
@@ -259,7 +261,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    group.update(snapshot.log.exercises[unit.exerciseIndex]);
   });
   for(const [key,group] of groups)if(!taken.has(key)){groups.delete(key);retired.push(group);}
-  for(const [key,round] of rounds)if(!liveRounds.has(key)){rounds.delete(key);retired.push(...round.panes.values(),round);round.panes.clear();}
+  for(const [key,round] of rounds)if(!liveRounds.has(key)){rounds.delete(key);round.compact=false;placeNote(round);retired.push(...round.panes.values(),round);round.panes.clear();}
   // Transfer each canonical note host to a surviving block of its exercise before retiring; restoring it would hide the live editor.
   const leaving=new Set(retired.map(r=>r.presenter).filter(Boolean));
   for(const {presenter} of retired){if(!presenter?.editor.hasChildNodes())continue;

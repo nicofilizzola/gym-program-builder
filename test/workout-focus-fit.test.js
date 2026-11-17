@@ -46,3 +46,6 @@ test('fitPair reserves the taller of asymmetric members in either order',()=>{
  // An absent member is simply not measured.
  assert.deepEqual(fitPair({feedHeight:560,headerHeight:110,fullHeights:[300],compactHeights:[250]}),{compact:false,minHeight:560,paneMinHeight:450});
 });
+test('fitPair rounds fractional heights up to whole pixels',()=>{
+ assert.deepEqual(fitPair({feedHeight:600.4,headerHeight:100.2,fullHeights:[300.3],compactHeights:[250]}),{compact:false,minHeight:602,paneMinHeight:501});
+});

@@ -419,9 +419,20 @@ test('reorder, unlink and member removal keep exact rows and the viewed partner'
  await expect(page.locator('.focus-round')).toHaveCount(0);
  expect(await page.evaluate(()=>({ref:focusView.visibleRef(),row:port.row({exerciseId:'a',setId:'a1'})===row,group:row.closest('.focus-group')?.dataset.exerciseId}))).toEqual({ref:{exerciseId:'a',setId:'a1'},row:true,group:'a'});
 });
+// A compact round relocates the selected note actions into its context; retiring the round returns them to their rows.
+for(const [how,command,row] of [['unlink',{type:'unlink',exerciseId:'a'},'a1'],['member removal',{type:'remove-exercise',exerciseId:'b'},'a1']])test(`retiring a compact round (${how}) returns the relocated note actions`,async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>{focusView.jump({exerciseId:'a',setId:'a1'});focusView.setFeedHeight(300);});
+ const setNote=page.getByRole('button',{name:`Add set note, Set 1, ${A_NAME}`,exact:true}),exNote=page.getByRole('button',{name:`Add exercise note, ${A_NAME}`,exact:true});
+ await expect(page.locator('.focus-round-context').first().locator('.focus-set-note')).toHaveCount(1);
+ await setNote.focus();await page.evaluate(command=>port.command(command),command);await expect(page.locator('.focus-round')).toHaveCount(0);
+ await expect(page.locator(`.focus-card[data-set-id="${row}"] .focus-set-note`)).toHaveCount(1);await expect(setNote).toHaveCount(1);await expect(exNote).toHaveCount(1);
+ expect(await page.evaluate(()=>document.activeElement===document.body)).toBe(false);
+ await expect(page.locator('.focus-group[data-exercise-id="a"]').getByRole('button',{name:`Add exercise note, ${A_NAME}`,exact:true})).toHaveCount(1);
+ if(how==='unlink')await expect(page.locator('.focus-card[data-set-id="a2"] .focus-set-note')).toHaveCount(1);
+});
 // Completion actions say what they log; the canonical done button keeps its handler and regains its own name outside Focus.
 const doneButton=(page,id)=>page.locator(`.focus-card[data-set-id="${id}"] .log-done`);
-async function named(page,id,name){const b=doneButton(page,id);await expect(b).toHaveAccessibleName(name);await expect(b).toHaveAttribute('data-label',name);}
+async function named(page,id,name){const b=doneButton(page,id);await expect(b).toHaveAccessibleName(name);await expect(b).toHaveAttribute('data-label',name);await expect(b).not.toHaveAttribute('aria-pressed');}
 const viewAt=(page,setId)=>page.evaluate(setId=>focusView.jump({exerciseId:setId[0]==='b'?'b':'a',setId}),setId);
 test('round completion is explicit for either partner, validated and undone per member',async({page})=>{
  await mountFocusFixture(page);await viewAt(page,'a1');
@@ -445,7 +456,7 @@ test('with Auto-next off the first partner logs and stays; regular names return 
  await page.getByLabel('Set 1 reps, Single-arm incline dumbbell chest press',{exact:true}).fill('8');await doneButton(page,'a1').click();await page.waitForTimeout(800);
  expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a1'});await named(page,'a1','Undo A1 completion');
  await page.evaluate(()=>focusView.setEnabled(false));
- for(const [id,name] of [['a1','Mark set 1 done, Single-arm incline dumbbell chest press'],['b1','Mark set 1 done, Chest-supported row']]){const b=page.locator(`.log-set[data-set-id="${id}"] .log-done`);await expect(b).toHaveAccessibleName(name);await expect(b).not.toHaveAttribute('aria-labelledby');}
+ for(const [id,name] of [['a1','Mark set 1 done, Single-arm incline dumbbell chest press'],['b1','Mark set 1 done, Chest-supported row']]){const b=page.locator(`.log-set[data-set-id="${id}"] .log-done`);await expect(b).toHaveAccessibleName(name);await expect(b).not.toHaveAttribute('aria-labelledby');await expect(b).toHaveAttribute('aria-pressed',id==='a1'?'true':'false');}
 });
 
 // Composition: the composing node is never hidden, replaced or blurred; only the latest partner request applies once it ends.
