@@ -2563,10 +2563,11 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-partners[data-selected="1"] .focus-partner-underline {transform:translateX(calc(100% + var(--partner-gap) + 2px))}
 .focus-partner:disabled {cursor:default}
 .focus-partner:focus-visible {outline:2px solid var(--text);outline-offset:2px}
-.focus-partner-member {flex:none;color:var(--accent);font-weight:700}
+/* R6: the completion check sits in a 20px slot under A1/A2, reserved in both states and never taking the name's width. */
+.focus-partner-member {position:relative;flex:none;padding-bottom:20px;color:var(--accent);font-weight:700}
 .focus-partner-name {flex:1;min-width:0;overflow-wrap:anywhere}
 .focus-partner-absent {display:block;font-size:.6875rem}
-.focus-partner-check {flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent)}
+.focus-partner-check {position:absolute;bottom:0;left:50%;margin-left:-10px;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent)}
 .focus-partner-check svg {width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:3}
 .focus-pair-panes {flex:1;display:grid;grid-template-columns:minmax(0,1fr)}
 .focus-pair-pane {position:relative;grid-area:1/1;display:flex;flex-direction:column;min-width:0}

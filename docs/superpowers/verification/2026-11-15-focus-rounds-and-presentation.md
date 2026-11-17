@@ -55,7 +55,7 @@ The full browser run rewrote committed screenshots under `docs/superpowers/verif
 
 ## Browser inspection (Playwright Chromium, local test server; temporary script, not committed)
 
-Populated pair (wrapped names, Brand + two focus tags, Last time and Best):
+Populated pair (wrapped names, Brand + two focus tags, Last time and Best), first pass before ruling R6:
 
 | Viewport | Feed | Round before | Compact | Selectors | After first completion |
 |---|---|---|---|---|---|
@@ -67,15 +67,24 @@ Populated pair (wrapped names, Brand + two focus tags, Last time and Best):
 | 412×660 | 430 | 430 | yes | 44/44 | 441 |
 
 - `Log A1 & switch to A2 →` fits on one line at 360px (button 336×44 at 660, 336×50 at 844, no text overflow); `← Log A2 & switch to A1` reads the reverse direction. Inputs, RIR and Complete are inside the feed before and after the first completion at every size; no horizontal page overflow.
-- Finding: once a member is done its 20px check takes name width, so a long selector name wraps one more line (44→57px) and the 660px compact round exceeds the feed by 11px; the sticky Complete keeps RIR and Complete visible (the bottom gap scrolls). Recorded as an open design question rather than changed here.
+- Finding (fixed by R6, below): once a member was done its 20px check took name width, so a long selector name wrapped one more line (44→57px) and the 660px compact round exceeded the feed by 11px.
 - 200% text (390×844): oversized round (893px in a 545px feed), native scrolling, sticky Complete visible, `Superset A`/`Round 1 of 3` wrap; no horizontal overflow. Fine-pointer (non-touch) 390×844 matches touch geometry (selectors keep 44px).
 - Interactions (390×844, motion on): rapid A2/A1/A2 taps end on A2 with a mid-frame showing the fading pane and moving underline; a ruler press mid-switch drops running pair animations from 4 to 0, the drag writes only A1 (62.5 → 67.5) and A1 stays selected; B-first logging switches to A1 (`Complete round`), completing travels to Round 2 of 3; returning to round 1 shows `Undo A1 completion`, undo reopens only that member; Tab from the A1 selector reaches `A2, …, complete` and Enter selects it; Workout actions shows Add workout note, Weight steps, `Auto-next  On`, Discard; the overview opens with set chips. Reduced motion: a selector tap starts no animation.
 - Desktop 1366×768, 1440×900, 1920×1080: the regular tracker with its superset frame; no Focus.
 
 Screenshots and frames are local scratchpad artifacts; they support but do not prove motion.
 
+## Fix round 1 — ruling R6 (completion check never narrows the selector name)
+
+- Change: `src/workout-focus-pair.js` puts the check inside `.focus-partner-member` (identity text in its own span); `style.css` reserves a 20px slot under `A1`/`A2` (`padding-bottom:20px`, check `position:absolute; bottom:0; left:50%`). The name's width no longer depends on completion; check size, colours, 160ms fade/scale, undo reverse, persistence on unselected done members, accessible names and ≥44px selectors are unchanged.
+- New assertion `completing and undoing a partner keeps the selectors and the round the same height` (`e2e/workout-focus-fit.spec.js`, 360×660 and 390×660, representative pair): selector and round heights stay within 1px after completing A1 and after undoing it, and the round stays ≤ feed + 1.
+- RED before the fix: both sizes failed with `{"a":{"feed":430,"round":430,"selectors":[44,44]},"b":{"feed":430,"round":441.27,"selectors":[56.67,56.67]}}` (round +11.27px). GREEN after: 2 passed.
+- Measured after the fix (wrapped names, done A1): 360×660 and 390×844 selectors 44/44 → 44/44; 412×915 (full layout) 51/51 → 51/51. Full-layout selectors are 3px taller than before R6 (48 → 51) in both states because the slot is reserved; compact selectors keep their 44px minimum.
+- Feed height: 430px is the measured value at 360/390×660 in the fit spec's `isMobile` context with the 51px footer row (Task 6); Task 5 reported 431px before that footer change.
+- `npx playwright test e2e/workout-focus-fit.spec.js e2e/workout-focus-view.spec.js e2e/workout-focus-motion.spec.js e2e/workout-focus-integration.spec.js e2e/workout-overview.spec.js`: 258 passed (4.3m). `npm test`: 533 passed, 0 failed. No screenshots were rewritten.
+
 ## Not verified
 
 - Physical phones: partner-transition feel, ruler interaction while transitioning, scrolling through rounds and momentum, real safe areas and on-screen keyboard behavior, and tap behavior on oversized rounds — pending (user).
 - Preview/production behavior and deployment — pending (user); nothing was deployed.
-- Open design questions (user): the two identical note icons in the compact round context, the Auto-next row's plain menu text, the `template` footer icon, and the selector growth after completion at 660px.
+- Open design questions (user): the two identical note icons in the compact round context, the Auto-next row's plain menu text, and the `template` footer icon.

@@ -206,6 +206,21 @@ for(const [width,height] of [[360,660],[390,660],[360,740],[390,740],[360,844],[
   await expect.poll(()=>roundFit(page)).toMatchObject({inputs:true,rir:true,done:true});
   await context.close();
  });
+// Ruling R6: the completion check never narrows a selector's name, so completing or undoing a partner moves nothing.
+for(const [width,height] of [[360,660],[390,660]])
+ test(`completing and undoing a partner keeps the selectors and the round the same height at ${width}x${height}`,async({browser})=>{
+  const {page,context}=await open(browser,{width,height,history:true,previousNote:false,paired:true});
+  const round=page.locator('.focus-feed .focus-round').first(),partners=round.locator('.focus-partner');await expect(round.locator('.focus-pair-pane:not(.is-inactive) .log-best')).toBeVisible();
+  const sizes=()=>page.evaluate(()=>{const r=document.querySelector('.focus-round');return {feed:document.querySelector('.focus-feed').clientHeight,round:r.getBoundingClientRect().height,selectors:[...r.querySelectorAll('.focus-partner')].map(b=>b.getBoundingClientRect().height)};});
+  const same=(a,b)=>{expect(Math.abs(b.round-a.round),JSON.stringify({a,b})).toBeLessThanOrEqual(1);b.selectors.forEach((h,i)=>expect(Math.abs(h-a.selectors[i]),JSON.stringify({a,b})).toBeLessThanOrEqual(1));expect(b.round).toBeLessThanOrEqual(b.feed+1);};
+  await expect.poll(async()=>(await sizes()).round<=(await sizes()).feed+1).toBe(true);const before=await sizes();
+  // Log A1 (its placeholder reps) through the canonical done button; Auto-next switches to A2 in place.
+  await round.locator('.focus-card.is-viewed .log-done').evaluate(n=>n.click());await expect(partners.nth(0)).toHaveAccessibleName(`A1, ${PAIR[0]}, complete`);await expect(partners.nth(0).locator('.focus-partner-check')).toBeVisible();
+  await page.waitForTimeout(400);same(before,await sizes());
+  await partners.nth(0).click();await round.locator('.focus-card.is-viewed .log-done').evaluate(n=>n.click());await expect(partners.nth(0)).toHaveAccessibleName(`A1, ${PAIR[0]}`);
+  await page.waitForTimeout(400);same(before,await sizes());
+  await context.close();
+ });
 test('a crowded round names the exercise in its selector and moves the same note action into the round context and back',async({browser})=>{
  // A tall feed holds the full round; a 660px phone needs the compact one.
  const {page,context}=await open(browser,{width:390,height:1100,history:true,previousNote:false,paired:true});

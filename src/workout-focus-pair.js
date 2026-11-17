@@ -15,10 +15,10 @@ export function mountWorkoutFocusPair(host,{onSelect,onInteraction=()=>{},reduce
  // The latest selection's effects (pane entry, underline, selector colours) and each selector's check effect; cancelling settles the final styles.
  let motion=[];const checks=[null,null];
  const buttons=[0,1].map(i=>{
-  const button=node('button','focus-partner'),member=node('span','focus-partner-member'),name=node('span','focus-partner-name'),text=node('span',''),absent=node('span','focus-partner-absent','No set this round'),check=node('span','focus-partner-check');
-  button.type='button';check.setAttribute('aria-hidden','true');check.innerHTML=actionIcon('check');name.append(text,absent);button.append(member,name,check);group.append(button);
+  const button=node('button','focus-partner'),member=node('span','focus-partner-member'),memberText=node('span',''),name=node('span','focus-partner-name'),text=node('span',''),absent=node('span','focus-partner-absent','No set this round'),check=node('span','focus-partner-check');
+  button.type='button';check.setAttribute('aria-hidden','true');check.innerHTML=actionIcon('check');name.append(text,absent);member.append(memberText,check);button.append(member,name);group.append(button);
   button.onclick=()=>{const m=members[i];if(!m?.ref)return;onInteraction();onSelect(m.ref);};
-  return {button,member,text,absent,check};
+  return {button,member,memberText,text,absent,check};
  });
  group.append(underline);
  function stopSelection(){for(const a of motion)a.cancel();motion=[];}
@@ -45,9 +45,9 @@ export function mountWorkoutFocusPair(host,{onSelect,onInteraction=()=>{},reduce
    const letter=next[0].member[0];
    label.lastChild.textContent=`Superset ${letter}`;count.textContent=`Round ${page.round} of ${total}`;group.setAttribute('aria-label',`Superset ${letter} partners`);
    next.forEach((m,i)=>{const b=buttons[i],on=i===index;
-    b.member.textContent=m.member;b.text.textContent=m.name;b.button.disabled=!m.ref;b.absent.hidden=Boolean(m.ref);
+    b.memberText.textContent=m.member;b.text.textContent=m.name;b.button.disabled=!m.ref;b.absent.hidden=Boolean(m.ref);
     // An absent member has no set, so no completion mark at all.
-    if(m.ref){if(!checks[i])b.check.hidden=!m.done;if(!b.check.isConnected)b.button.append(b.check);}else{stopCheck(i);b.check.remove();}
+    if(m.ref){if(!checks[i])b.check.hidden=!m.done;if(!b.check.isConnected)b.member.append(b.check);}else{stopCheck(i);b.check.remove();}
     b.button.setAttribute('aria-label',[m.member,m.name,!m.ref?'No set this round':m.done?'complete':''].filter(Boolean).join(', '));
     if(on)b.button.setAttribute('aria-current','step');else b.button.removeAttribute('aria-current');
     if(m.ref&&completedKey&&m.key===completedKey)animateCheck(i,m.done);
