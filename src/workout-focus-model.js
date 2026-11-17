@@ -59,15 +59,45 @@ export function completionMilestone(before,after,ref){
  const p=projectWorkout(after),item=p.items.find(i=>i.key===setKey(ref)),ex=after.exercises.find(e=>e.id===ref.exerciseId);
  if(!item||!p.doneKeys.has(item.key))return {kind:'set',text:'Set reopened. Your values are retained.'};
  if(item.kind==='warmup')return {kind:'warmup',text:'Warm-up complete. Ready to build.'};
- const complete=e=>working(e).length>0&&working(e).every(s=>s.done);
+ const complete=e=>working(e).every(s=>s.done);
  if(item.pairId){
   const at=after.exercises.findIndex(e=>e.id===item.pairId),members=after.exercises.slice(at,at+2);
-  if(members.every(complete))return {kind:'pair',text:'Superset complete. Strong work.'};
-  const round=p.items.filter(i=>i.pairId===item.pairId&&i.round===item.round);
-  if(round.length===2&&round.every(i=>p.doneKeys.has(i.key)))return {kind:'round',text:`Round ${item.round} complete. Strong work.`};
- }else if(complete(ex))return {kind:'exercise',text:`${ex.name} complete.`};
+  if(members.some(e=>working(e).length)&&members.every(complete))return {kind:'pair',text:'Superset complete. Strong work.'};
+  const round=p.items.filter(i=>i.pairId===item.pairId&&i.round===item.round&&i.kind==='working');
+  if(round.length&&round.every(i=>p.doneKeys.has(i.key)))return {kind:'round',text:`Round ${item.round} complete. Strong work.`};
+ }else if(working(ex).length&&complete(ex))return {kind:'exercise',text:`${ex.name} complete.`};
  return {kind:'set',text:'Set complete. Keep building.'};
 }
+
+/** Vertical pages: one set, or one superset working round holding both members' real sets. */
+export function focusPages(log,items,previous=[]){
+ const units=[];
+ for(const item of items){
+  const last=units.at(-1);
+  if(item.round&&item.kind==='working'){
+   if(last?.pairId===item.pairId&&last.round===item.round){last.keys.push(item.key);continue;}
+   const at=log.exercises.findIndex(e=>e.id===item.pairId),L=item.member[0];
+   units.push({kind:'round',keys:[item.key],pairId:item.pairId,round:item.round,members:[0,1].map(n=>({exerciseId:log.exercises[at+n].id,member:`${L}${n+1}`,ref:null,key:null}))});
+  }else units.push({kind:'set',keys:[item.key],pairId:item.pairId,round:null,members:[]});
+ }
+ const byKey=new Map(items.map(i=>[i.key,i]));
+ for(const u of units)for(const m of u.members){const k=u.keys.find(k=>byKey.get(k).ref.exerciseId===m.exerciseId);if(k){m.key=k;m.ref=byKey.get(k).ref;}}
+ const taken=new Set(),usedPrev=new Set(),keys=units.map(()=>null);
+ units.forEach((u,i)=>{
+  const at=previous.findIndex((g,j)=>!usedPrev.has(j)&&!taken.has(g.key)&&g.keys.some(k=>u.keys.includes(k)));
+  if(at>=0){usedPrev.add(at);taken.add(keys[i]=previous[at].key);}
+ });
+ units.forEach((u,i)=>{
+  if(keys[i])return;
+  let k=u.keys[0],n=0;while(taken.has(k))k=`${u.keys[0]}#${++n}`;
+  taken.add(keys[i]=k);
+ });
+ const pages=units.map((u,i)=>({key:keys[i],...u})),pageByKey=new Map();
+ for(const p of pages)for(const k of p.keys)pageByKey.set(k,p);
+ return {pages,pageByKey};
+}
+
+export const roundComplete=(page,doneKeys)=>page.keys.length>0&&page.keys.every(k=>doneKeys.has(k));
 
 /** Exercise groups: runs of one exercise. A key survives regrouping by sharing an item with an unused previous group. */
 export function focusGroups(items,previous=[]){

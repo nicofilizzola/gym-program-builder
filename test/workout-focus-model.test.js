@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {focusFixture} from './fixtures/workout-focus.js';
-import {setKey,projectWorkout,focusFallback,focusGroups,repRangeHint,repsCaption,completionMilestone,progressClusters,nearestIndex} from '../src/workout-focus-model.js';
+import {setKey,projectWorkout,focusFallback,focusGroups,repRangeHint,repsCaption,completionMilestone,progressClusters,focusPages,roundComplete,nearestIndex} from '../src/workout-focus-model.js';
 
 test('projects pair warmups then rounds without changing storage',()=>{
  const log=focusFixture(),before=structuredClone(log),p=projectWorkout(log);
@@ -79,4 +79,57 @@ test('progressClusters groups working sets by exercise and superset',()=>{
 test('nearestIndex clamps to the ends',()=>{
  assert.equal(nearestIndex([10,30,50],-100),0);assert.equal(nearestIndex([10,30,50],41),2);assert.equal(nearestIndex([10,30,50],20),0);
  assert.equal(nearestIndex([10],500),0);assert.equal(nearestIndex([],5),-1);
+});
+
+test('focusPages pairs working rounds and keeps absent members out',()=>{
+ const log=focusFixture(),p=projectWorkout(log),{pages,pageByKey}=focusPages(log,p.items);
+ assert.deepEqual(pages.map(p=>p.keys.map(k=>JSON.parse(k)[1])),[['sw'],['s1'],['s2'],['aw'],['bw'],['a1','b1'],['a2']]);
+ assert.equal(pageByKey.get(setKey({exerciseId:'a',setId:'a1'})),pageByKey.get(setKey({exerciseId:'b',setId:'b1'})));
+ const last=pages.at(-1);
+ assert.deepEqual(last.members[1],{exerciseId:'b',member:'A2',ref:null,key:null});
+ assert.equal(roundComplete(last,new Set(last.keys)),true);
+ assert.equal(roundComplete({...last,keys:[]},new Set()),false);
+ assert.deepEqual(p.workingKeys.map(k=>JSON.parse(k)[1]),['s1','s2','a1','b1','a2']);
+});
+test('pages preserve IDs across repeated variants, zero counts and either longer member',()=>{
+ const log=focusFixture(),snap=structuredClone(log);
+ const check=(l,prev=[])=>{const p=projectWorkout(l),r=focusPages(l,p.items,prev);
+  const all=r.pages.flatMap(x=>x.keys);assert.deepEqual([...all].sort(),p.items.map(i=>i.key).sort());
+  assert.equal(new Set(r.pages.map(x=>x.key)).size,r.pages.length);
+  for(const pg of r.pages)for(const m of pg.members)if(!m.key)assert.equal(m.ref,null);
+  return r;};
+ const base=check(log);
+ log.exercises[1].sets=log.exercises[1].sets.filter(s=>s.kind==='warmup');
+ const zeroA=check(log,base.pages);
+ assert.deepEqual(zeroA.pages.at(-1).members[0],{exerciseId:'a',member:'A1',ref:null,key:null});
+ log.exercises[2].sets=[];check(log,zeroA.pages);
+ log.exercises.splice(1,1);check(log,zeroA.pages);
+ assert.deepEqual(snap,focusFixture());
+});
+test('page inheritance never duplicates an element after split or merge',()=>{
+ const log=focusFixture();log.exercises=log.exercises.slice(1,3);
+ log.exercises[0].sets=log.exercises[0].sets.filter(s=>s.id==='a1');
+ log.exercises[1].sets=log.exercises[1].sets.filter(s=>s.id==='b1');
+ const old=focusPages(log,projectWorkout(log).items).pages;
+ const aKey=setKey({exerciseId:'a',setId:'a1'}),bKey=setKey({exerciseId:'b',setId:'b1'});
+ assert.deepEqual(old.map(p=>p.key),[aKey]);
+ delete log.exercises[0].superset;log.exercises.reverse();
+ const split=focusPages(log,projectWorkout(log).items,old).pages;
+ assert.deepEqual(split.map(p=>p.keys),[[bKey],[aKey]]);
+ assert.deepEqual(split.map(p=>p.key),[aKey,aKey+'#1']);
+ assert.equal(new Set(split.map(p=>p.key)).size,split.length);
+});
+test('milestones use real working sets with absent partners',()=>{
+ const l=focusFixture();l.exercises[2].sets=l.exercises[2].sets.filter(s=>s.id==='bw');
+ l.exercises[1].sets.forEach(s=>s.done=true);
+ assert.equal(completionMilestone(focusFixture(),l,{exerciseId:'a',setId:'a2'}).kind,'pair');
+ const n=focusFixture();n.exercises[1].sets.find(s=>s.id==='a1').done=true;n.exercises[2].sets.find(s=>s.id==='b1').done=true;
+ n.exercises[1].sets.find(s=>s.id==='a2').done=true;
+ assert.equal(completionMilestone(focusFixture(),n,{exerciseId:'a',setId:'a2'}).kind,'pair');
+ const o=focusFixture();o.exercises[1].sets.find(s=>s.id==='a1').done=true;o.exercises[2].sets.find(s=>s.id==='b1').done=true;
+ assert.equal(completionMilestone(focusFixture(),o,{exerciseId:'a',setId:'a1'}).kind,'round');
+ const q=focusFixture();q.exercises[1].sets.find(s=>s.id==='a1').done=true;q.exercises[1].sets.find(s=>s.id==='a2').done=true;
+ q.exercises[2].sets=q.exercises[2].sets.filter(s=>s.id==='bw');
+ const r=structuredClone(q);r.exercises[1].sets.find(s=>s.id==='a2').done=false;
+ assert.equal(completionMilestone(r,q,{exerciseId:'a',setId:'a2'}).kind,'pair');
 });
