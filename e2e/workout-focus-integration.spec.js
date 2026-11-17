@@ -252,10 +252,20 @@ test.describe('Workout actions and Auto-next movement',()=>{
   // During a smooth cross-page travel: Back to current from the last round towards A1.
   await page.locator('.focus-feed').evaluate(f=>{const r=[...f.querySelectorAll('.focus-round')].at(-1);f.scrollTo({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),behavior:'instant'});});
   const back=page.locator('.focus-toolbar').getByRole('button',{name:'Back to current',exact:true});await expect.poll(()=>viewedId(page)).toBe(a.sets[2].id);await expect(back).toBeVisible();
-  await page.evaluate(async()=>{document.querySelector('.focus-current').click();for(let i=0;i<3;i++)await new Promise(requestAnimationFrame);document.querySelector('[aria-label="Workout actions"]').click();});
+  // Open the menu (synthetic click: no pointerdown or key cancels on its own) once the travel has left round 3 but not reached round 1.
+  const flight=await page.evaluate(async()=>{const f=document.querySelector('.focus-feed'),start=f.scrollTop;document.querySelector('.focus-current').click();
+   for(let i=0;i<60&&f.scrollTop>=start-1;i++)await new Promise(requestAnimationFrame);
+   const at=f.scrollTop;document.querySelector('[aria-label="Workout actions"]').click();
+   return {start,at,pages:[...f.querySelectorAll('.focus-round')].map(r=>({top:r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0),ids:[...r.querySelectorAll('.focus-card')].map(c=>c.dataset.setId)}))};});
   await expect(page.getByRole('button',{name:'Add workout note',exact:true})).toBeFocused();await page.waitForTimeout(400);
-  expect(await settledOnPage(page)).toEqual({card:true,aligned:true,input:false,inert:false});
   if(motion==='reduce')expect(await viewedId(page)).toBe(a.sets[0].id);
+  else{
+   // Mid-flight when interrupted; it stops at the actual page nearest that point (one of its existing members), never at A1's page.
+   expect(flight.at).toBeLessThan(flight.start);expect(flight.at).toBeGreaterThan(flight.pages[0].top+1);
+   const nearest=flight.pages.reduce((n,p)=>Math.abs(p.top-flight.at)<Math.abs(n.top-flight.at)?p:n);expect(nearest).not.toBe(flight.pages[0]);
+   const viewed=await viewedId(page);expect(viewed).not.toBe(a.sets[0].id);expect(nearest.ids).toContain(viewed);expect(Math.abs(await feedTop(page)-nearest.top)).toBeLessThanOrEqual(2);
+  }
+  expect(await settledOnPage(page)).toEqual({card:true,aligned:true,input:false,inert:false});
   await page.keyboard.press('Escape');await expect(actions(page)).toBeFocused();expect(await values(page)).toEqual(before);
   // Selection still works on the page it settled on.
   const viewed=await viewedId(page),round=page.locator('.focus-round').filter({has:page.locator('.focus-card.is-viewed')}),other=round.locator('.focus-partner:not([aria-current])');
