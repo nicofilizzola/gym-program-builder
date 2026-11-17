@@ -6,7 +6,7 @@ import {mountWorkoutRuler} from './workout-ruler.js';
 import {mountWorkoutTitle} from './workout-title.js';
 import {mountWorkoutHistory} from './workout-history-summary.js';
 import {actionIcon} from './action-controls.js';
-import {fitGroup,stackHeight} from './workout-focus-fit.js';
+import {fitGroup,fitPair,stackHeight} from './workout-focus-fit.js';
 import {mountProgressScrub} from './workout-progress-scrub.js';
 
 const node=(tag,className,text)=>{const el=document.createElement(tag);el.className=className;if(text!==undefined)el.textContent=text;return el;};
@@ -37,7 +37,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   onStart:()=>{advance.cancel();cancelTravel();},onRelease:ref=>{if(!same(ref,viewed))jump(ref,{animate:true,focus:true});}});
  root.append(progress,feed,empty,toolbar);root.hidden=true;host.append(root);
  const logger=host.closest('.workout-logger');
- // Section size changes (notes, wrapping, feedback) refit the peek once per frame.
+ // Section size changes (notes, wrapping, feedback) refit once per frame.
  const resize=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fitCards);});
  function interaction(type='input'){advance.cancel();onInteraction({type});syncActive();}
  // The exercise block (name row, tags, note, history) shared by straight groups and round panes.
@@ -47,7 +47,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const noteText=node('button','focus-exercise-note-text');noteText.type='button';
   const editor=node('div','focus-exercise-editor'),historyHost=node('div','focus-history');details.append(noteText,editor,historyHost);
   let tagList=null,tagKey='',title=null,history=null;
-  const presenter={name,details,editor,exerciseId:null,active:()=>false,
+  const presenter={name,details,editor,action:exerciseAction,exerciseId:null,active:()=>false,
    update(ex){
     presenter.exerciseId=ex.id;
     const note=ex.note||'';exerciseAction.setAttribute('aria-label',`${note?'Edit':'Add'} exercise note, ${ex.name}`);exerciseAction.title=note;exerciseAction.classList.toggle('has-note',Boolean(note));
@@ -61,7 +61,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    },
    // The borrowed note host stays after closing; only an open (not closing) field counts as editing.
    editing:()=>Boolean(editor.querySelector('.log-note-part:not(.is-removing) .log-note-input')),
-   sync(){exerciseAction.hidden=presenter.editing();title?.update({active:enabled&&presenter.active(),suspended:suspended||Boolean(travel)||Boolean(document.querySelector('dialog[open]'))||typingField()});},
+   sync(){exerciseAction.hidden=presenter.editing();title?.update({active:enabled&&presenter.active(),suspended:suspended||Boolean(travel)||Boolean(name.closest('.is-compact'))||Boolean(document.querySelector('dialog[open]'))||typingField()});},
    destroy(){presenters.delete(presenter);title?.destroy();history?.destroy();for(const el of [name,details])resize.unobserve(el);}
   };
   exerciseAction.onclick=noteText.onclick=()=>{holdNoteAnchor();interaction('note');port.command({type:'exercise-note',exerciseId:presenter.exerciseId,host:editor});};
@@ -82,13 +82,15 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  // One superset working round: the outer page alone snaps; each existing member gets a pane with its own exercise block and canonical row.
  function createRound(key){
   const li=node('li','focus-round');
-  const round={key,li,page:null,panes:new Map(),destroy(){for(const pane of round.panes.values())pane.destroy();round.panes.clear();round.pair.destroy();li.remove();}};
+  const round={key,li,page:null,compact:false,panes:new Map(),destroy(){round.compact=false;placeNote(round);for(const el of header)resize.unobserve(el);for(const pane of round.panes.values())pane.destroy();round.panes.clear();round.pair.destroy();li.remove();}};
   round.pair=mountWorkoutFocusPair(li,{onSelect:ref=>choose(round,ref),onInteraction:()=>interaction('partner'),reduced,relocate:port.relocate});
+  // The round context and selector band are the header the fit measures (wrapped names, a relocated note action).
+  const header=[...li.children].filter(el=>!el.classList.contains('focus-pair-panes'));for(const el of header)resize.observe(el);
   return round;
  }
  function createPane(exerciseId){
   const el=node('div','focus-pair-pane'),list=node('ol','focus-group-sets'),presenter=createPresenter();el.dataset.exerciseId=exerciseId;el.append(presenter.name,presenter.details,list);
-  const pane={el,list,presenter,keys:[],destroy(){port.relocate(()=>port.restoreExerciseNotes(el));presenter.destroy();el.remove();}};
+  const pane={el,list,presenter,keys:[],destroy(){port.relocate(()=>port.restoreExerciseNotes(el));presenter.destroy();presenter.action.remove();el.remove();}};
   presenter.active=()=>Boolean(viewed)&&pane.keys.includes(setKey(viewed));
   return pane;
  }
@@ -116,17 +118,19 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
    if(kind==='weight'){const bw=node('span','focus-bodyweight focus-only','BW');bw.setAttribute('aria-hidden','true');stepper.append(bw);const refresh=()=>{bw.hidden=input.value!==''||input.placeholder!=='';};input.addEventListener('input',refresh,{signal});refresh();disposers.push(()=>bw.remove());}
    const widget=mountWorkoutRuler(stepper,{input,kind,caption:kind==='reps'?caption:null,onAdjust:value=>b.applyValue(kind,value),onInteraction:()=>interaction('ruler')});widgets.push({kind,widget});
   }
-  const card={milestone:null,ref,key,row,b,contextText,eyebrow,label,widgets,action,feedback,borrowAll,
+  const card={milestone:null,ref,key,row,b,contextText,eyebrow,label,widgets,action,completeMarker:marker,feedback,borrowAll,
    update(item,ex,set,on){
-    label.textContent=item.preview.label;rirStrip.hidden=item.kind==='warmup';
+    const warm=item.kind==='warmup',page=pageOf(ref),other=page?.kind==='round'?page.members.find(m=>m.ref&&m.key!==key):null,open=other&&!projection.doneKeys.has(other.key);card.round=page?.kind==='round';
+    rirStrip.hidden=warm;context.classList.toggle('is-warmup',warm);
     contextText.setAttribute('aria-label',`${item.preview.label}, ${ex.name}`);
-    const partner=item.pairId?snapshot.log.exercises.find((e,i,a)=>item.member?.endsWith('1')?a[i-1]?.id===ex.id:a[i+1]?.id===ex.id):null;
-    const rest=item.pairId?`Paired with ${partner?.name||'partner'} · ${snapshot.log.exercises.find(e=>e.id===item.pairId)?.superset.restBetweenSeconds??0}s between · ${snapshot.log.exercises.find(e=>e.id===item.pairId)?.superset.restAfterRoundSeconds??0}s after round`:ex.target?`Rest ${ex.target.restSeconds}s`:ex.equipment||'';
-    eyebrow.textContent=[item.kind==='warmup'?'Warm-up':item.pairId?`Superset ${item.member}`:item.kindIndex===1?'First working set':'Next set',rest].filter(Boolean).join(' · ');
+    const partner=item.pairId?snapshot.log.exercises.find((e,i,a)=>item.member?.endsWith('1')?a[i-1]?.id===ex.id:a[i+1]?.id===ex.id):null,superset=item.pairId&&snapshot.log.exercises.find(e=>e.id===item.pairId)?.superset;
+    const rest=item.pairId?`Paired with ${partner?.name||'partner'} · ${superset?.restBetweenSeconds??0}s between · ${superset?.restAfterRoundSeconds??0}s after round`:ex.target?`Rest ${ex.target.restSeconds}s`:ex.equipment||'';
+    // A round's header and selectors already name the superset, member and round: its set context only adds the rests.
+    label.textContent=warm?`Warm-up · W${item.kindIndex}`:card.round?`Rest ${superset?.restBetweenSeconds??0}s · ${superset?.restAfterRoundSeconds??0}s after the round`:item.preview.label;
+    eyebrow.textContent=card.round?'':[warm?(item.pairId?`Superset ${item.member}`:''):item.pairId?`Superset ${item.member}`:item.kindIndex===1?'First working set':'Next set',rest].filter(Boolean).join(' · ');
     const setIndex=ex.sets.findIndex(s=>s.id===set.id),kindIndex=ex.sets.slice(0,setIndex+1).filter(s=>s.kind===set.kind).length;
     action.setAttribute('aria-label',`Add set note, ${item.kind==='warmup'?'Warm-up set':'Set'} ${kindIndex}, ${ex.name}`);action.hidden=Boolean(b.noteHost.querySelector('.log-set-note-part:not(.is-removing)'));
-    const page=pageOf(ref),other=page?.kind==='round'?page.members.find(m=>m.ref&&m.key!==key):null,open=other&&!projection.doneKeys.has(other.key);
-    card.round=page?.kind==='round';const name=!card.round?null:set.done?`Undo ${item.member} completion`:!open?'Complete round':state.autoNext?`Log ${item.member} & switch to ${other.member}`:`Log ${item.member}`;
+    const name=!card.round?null:set.done?`Undo ${item.member} completion`:!open?'Complete round':state.autoNext?`Log ${item.member} & switch to ${other.member}`:`Log ${item.member}`;
     b.done.dataset.label=name??(set.done?`${card.milestone??'Set complete'} · Tap to undo`:item.kind==='warmup'?'Complete warm-up':'Complete set');
     // Neutral first-partner Log; its arrow points to the partner it switches to.
     if(card.round&&!set.done&&open)b.done.dataset.log=state.autoNext?(other.member>item.member?'next':'prev'):'stay';else delete b.done.dataset.log;
@@ -136,7 +140,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     for(const {kind,widget} of widgets)widget.update({value:kind==='weight'?set.weightKg:set.reps,placeholder:b.inputs[kind].placeholder===''?null:Number(b.inputs[kind].placeholder),increment:kind==='weight'?state.weightIncrement:1,range:kind==='reps'&&item.kind==='working'?ex.target?.repRange??null:null,enabled:on});
    },
    restore(){for(const {widget} of widgets)widget.update({enabled:false});b.done.removeAttribute('aria-labelledby');port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';},
-   destroy(){for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();action.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed','is-peekless');row.style.removeProperty('--focus-card-min');row.style.removeProperty('scroll-margin-top');for(const el of observed)resize.unobserve(el);}
+   destroy(){for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();action.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed');row.style.removeProperty('--focus-card-min');row.style.removeProperty('scroll-margin-top');for(const el of observed)resize.unobserve(el);}
   };
   b.disposers.add(()=>{for(const {widget} of widgets)widget.destroy();});
   return card;
@@ -144,25 +148,49 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  // In-flow sections of a card, including the Focus row's own sections (its box is display:contents).
  function sections(clip){return [...clip.children].flatMap(el=>getComputedStyle(el).display==='contents'?[...el.children]:[el]).filter(el=>el.getClientRects().length&&getComputedStyle(el).position!=='absolute');}
  const height=el=>el.getBoundingClientRect().height,setStyle=(el,name,value)=>{if(el.style.getPropertyValue(name)!==value)el.style.setProperty(name,value);};
- // Reads every group, then writes: each row rests under its pinned block and leaves room for a whole peek, or fills the rest.
+ // A set page's content: its sections and gaps (its own box may be stretched to fill), plus its bottom separator.
+ function contentHeight(row){
+  const clip=row.querySelector('.log-set-clip'),cs=getComputedStyle(clip),heights=sections(clip).map(el=>{const m=getComputedStyle(el);return height(el)+parseFloat(m.marginTop)+parseFloat(m.marginBottom);});
+  // the extra rowGap is the zero-height .log-set-clip::after item that shares the residual
+  return stackHeight(heights,parseFloat(cs.rowGap)||0,parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+(parseFloat(cs.rowGap)||0))+parseFloat(getComputedStyle(row).borderBottomWidth);
+ }
+ // Both member panes are measured where they sit (the inactive one is hidden, not removed); the header is everything above them.
+ function measureRound(round,compact){
+  const li=round.li,panes=li.querySelector('.focus-pair-panes'),members=[...round.panes.values()].filter(p=>p.list.firstElementChild);
+  return {header:panes.getBoundingClientRect().top-li.getBoundingClientRect().top,heights:members.map(p=>(compact?0:height(p.presenter.name))+height(p.presenter.details)+contentHeight(p.list.firstElementChild))};
+ }
+ // Each live round is laid out once in each mode (class only, no node moves, nothing painted), so the decision never depends on the current mode.
+ function fitRounds(feedHeight){
+  const live=[...rounds.values()].filter(r=>[...r.panes.values()].some(p=>p.list.firstElementChild)),mode=on=>{for(const r of live)r.li.classList.toggle('is-compact',on);return live.map(r=>measureRound(r,on));};
+  const full=mode(false),tight=mode(true);for(const r of live)r.li.classList.toggle('is-compact',r.compact);
+  return live.map((round,i)=>{const li=round.li,border=parseFloat(getComputedStyle(li).borderBottomWidth)||0;
+   return {round,panes:li.querySelector('.focus-pair-panes'),border,fit:fitPair({feedHeight:feedHeight-border,headerHeight:full[i].header,compactHeaderHeight:tight[i].header,fullHeights:full[i].heights,compactHeights:tight[i].heights})};});
+ }
+ // Compact rounds show the selected exercise's note action and its set's note action in the round context; otherwise each sits in its own row.
+ function placeNote(round){
+  const selected=selectedOf(round.page),put=(el,parent,before=null)=>{if(el.parentElement===parent)return;const focused=document.activeElement===el;parent.insertBefore(el,before);if(focused)el.focus({preventScroll:true});};
+  for(const [id,pane] of round.panes){const here=round.compact&&selected?.exerciseId===id,card=cards.get(pane.keys[0]);
+   put(pane.presenter.action,here?round.pair.context:pane.presenter.name);
+   if(card)put(card.action,here?round.pair.context:card.completeMarker.parentElement,here?null:card.completeMarker);}
+ }
+ // Reads every page, then writes: each straight row fills the space under its pinned block; a round fills the feed (or grows) around its larger member.
  function fitCards(){
   if(!enabled||destroyed)return;syncActive();const feedHeight=feed.clientHeight;
   const anchorRow=noteAnchor?.row.isConnected?noteAnchor.row:inView().row,anchor=noteAnchor?.row===anchorRow?noteAnchor.delta:snapTop(anchorRow)-feed.scrollTop;
   const fits=lastGroups.map(g=>groups.get(g.key)).map(group=>{const li=group.li;
    const [name,details,list]=li.children,rows=[...list.children].filter(r=>r.classList.contains('focus-card'));if(!rows.length)return null;
-   const contentHeights=rows.map(row=>{const clip=row.querySelector('.log-set-clip'),cs=getComputedStyle(clip),heights=sections(clip).map(el=>{const m=getComputedStyle(el);return height(el)+parseFloat(m.marginTop)+parseFloat(m.marginBottom);});
-    // the extra rowGap is the zero-height .log-set-clip::after item that shares the residual
-    return stackHeight(heights,parseFloat(cs.rowGap)||0,parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+(parseFloat(cs.rowGap)||0))+parseFloat(getComputedStyle(row).borderBottomWidth);});
-   // Inside a group the next set's header peeks; at a boundary the next group's name row; nothing before the review card.
-   const nextName=li.nextElementSibling?.classList.contains('focus-group')?li.nextElementSibling.firstElementChild:null;
-   const peekHeights=rows.map((row,i)=>rows[i+1]?height(rows[i+1].querySelector('.focus-context')):nextName?height(nextName):0);
    const nameHeight=height(name);
-   return {li,rows,nameHeight,fit:fitGroup({feedHeight,nameHeight,detailsHeight:height(details),contentHeights,peekHeights,editing:group.editing()})};
+   return {li,rows,nameHeight,fit:fitGroup({feedHeight,nameHeight,detailsHeight:height(details),contentHeights:rows.map(contentHeight),editing:group.editing()})};
   }).filter(Boolean);
+  // Compacting moves the note actions into the header, so rounds are measured once more after any mode change.
+  const compactAll=pairs=>pairs.filter(p=>p.round.compact!==p.fit.compact).map(p=>{p.round.compact=p.fit.compact;p.round.li.classList.toggle('is-compact',p.fit.compact);placeNote(p.round);return p.round;});
+  let pairs=fitRounds(feedHeight);
+  if(compactAll(pairs).length){pairs=fitRounds(feedHeight);compactAll(pairs);syncActive();}
   for(const {li,rows,nameHeight,fit} of fits){
    li.classList.toggle('is-name-only',fit.nameOnly);setStyle(li,'--focus-name-h',nameHeight+'px');setStyle(li,'--focus-pin',fit.pinned+'px');
-   rows.forEach((row,i)=>{const r=fit.rows[i];setStyle(row,'--focus-card-min',r.minHeight+'px');setStyle(row,'scroll-margin-top',r.offset+'px');row.classList.toggle('is-peekless',r.peekless);});
+   rows.forEach((row,i)=>{const r=fit.rows[i];setStyle(row,'--focus-card-min',r.minHeight+'px');setStyle(row,'scroll-margin-top',r.offset+'px');});
   }
+  for(const {round,panes,border,fit} of pairs){setStyle(round.li,'min-height',fit.minHeight+border+'px');setStyle(panes,'min-height',fit.paneMinHeight+'px');}
   const moved=snapTop(anchorRow)-feed.scrollTop-anchor;if(!travel&&Math.abs(moved)>.5){programmatic=true;feed.scrollTop+=moved;programmatic=false;}
  }
  const pageOf=ref=>ref?pagesState.pageByKey.get(setKey(ref))??null:null;
@@ -177,7 +205,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  function renderRound(round,{animate=false}={}){
   const page=round.page,total=pagesState.pages.filter(p=>p.kind==='round'&&p.pairId===page.pairId).length;
   const members=page.members.map(m=>({...m,name:snapshot.log.exercises.find(e=>e.id===m.exerciseId)?.name??'',done:Boolean(m.key&&projection.doneKeys.has(m.key)),pane:m.ref?round.panes.get(m.exerciseId)?.el??null:null,context:m.key?cards.get(m.key)?.contextText??null:null}));
-  round.pair.update({page,members,selected:selectedOf(page),total,animate,completedKey:completing});
+  round.pair.update({page,members,selected:selectedOf(page),total,animate,completedKey:completing});placeNote(round);
  }
  // A selection shows its partner's rulers and hides the other's, on any round.
  function select(page,ref,animate=false){selection.set(page.key,ref);const round=rounds.get(page.key);if(!round)return;renderRound(round,{animate});for(const key of page.keys){const card=cards.get(key);if(card)syncRuler(card);}}

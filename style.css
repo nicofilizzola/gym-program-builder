@@ -2547,16 +2547,16 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus :is(.focus-group,.focus-round) {--focus-gap:clamp(6px,calc((100cqh - 400px) / 10),20px);margin:0}
 /* A superset round is one snap page: its context and partner selectors travel with it (nothing pins across rounds); both member panes share one grid area, the inactive one hidden and inert but still measured. */
 .workout-focus .focus-round {display:flex;flex-direction:column;gap:var(--focus-gap);min-height:var(--focus-feed-height);border-bottom:1px solid var(--border);scroll-snap-align:start;scroll-snap-stop:always}
-.focus-round-context {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding-left:12px;box-shadow:inset 3px 0 var(--accent)}
+.focus-round-context {display:flex;align-items:center;gap:8px;min-height:44px;padding-left:12px;box-shadow:inset 3px 0 var(--accent)}
 .focus-round-label {display:flex;align-items:center;gap:6px;margin:0;color:var(--accent);font-family:var(--font-display);font-size:.875rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 .focus-round-icon svg {display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
-.focus-round-count {margin:0;color:var(--muted);font-size:.75rem}
-.focus-partners {position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.focus-round-count {margin:0 0 0 auto;color:var(--muted);font-size:.75rem}
+.focus-partners {--partner-gap:8px;position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--partner-gap)}
 .focus-partner {display:flex;align-items:center;gap:8px;min-width:44px;min-height:44px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--muted);font:inherit;font-size:.8125rem;line-height:1.3;text-align:left;cursor:pointer}
 .focus-partner[aria-current=step] {background:var(--surface-2);color:var(--text)}
 /* The one selection underline: inside the selected selector's 1px border, moved (not redrawn) between the two columns. */
-.focus-partner-underline {position:absolute;left:1px;bottom:1px;width:calc((100% - 8px) / 2 - 2px);height:3px;border-radius:0 0 7px 7px;background:var(--accent);pointer-events:none}
-.focus-partners[data-selected="1"] .focus-partner-underline {transform:translateX(calc(100% + 10px))}
+.focus-partner-underline {position:absolute;left:1px;bottom:1px;width:calc((100% - var(--partner-gap)) / 2 - 2px);height:3px;border-radius:0 0 7px 7px;background:var(--accent);pointer-events:none}
+.focus-partners[data-selected="1"] .focus-partner-underline {transform:translateX(calc(100% + var(--partner-gap) + 2px))}
 .focus-partner:disabled {cursor:default}
 .focus-partner:focus-visible {outline:2px solid var(--text);outline-offset:2px}
 .focus-partner-member {flex:none;color:var(--accent);font-weight:700}
@@ -2565,13 +2565,26 @@ body {padding-bottom:var(--tab-bar-height)}
 .focus-partner-check {flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--on-accent)}
 .focus-partner-check svg {width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:3}
 .focus-pair-panes {flex:1;display:grid;grid-template-columns:minmax(0,1fr)}
-.focus-pair-pane {grid-area:1/1;display:flex;flex-direction:column;min-width:0}
+.focus-pair-pane {position:relative;grid-area:1/1;display:flex;flex-direction:column;min-width:0}
 .focus-pair-pane.is-inactive {visibility:hidden}
 .focus-pair-pane>.focus-group-sets {flex:1;display:flex;flex-direction:column}
 .focus-round :is(.focus-group-name,.focus-group-details) {position:static}
+/* Compact round (before the header crowds the controls): the selected selector names the exercise and the note action moves into the round context. The title stays one heading, visually hidden but laid out at its full width, reserving the action's room, so the full layout can still be measured. */
+.focus-round.is-compact .focus-pair-pane>.focus-group-name {position:absolute;top:0;left:0;right:0;clip-path:inset(50%);pointer-events:none}
+/* A name row whose note action sits in the round context keeps that action's room, so the full layout measures the same wherever the action is. */
+.focus-pair-pane>.focus-group-name:not(:has(>.focus-exercise-note)) {padding-right:52px}
+/* Compact trims: no context-to-selector gap, the least selector padding that keeps 44px, tags lead the details, and the set context keeps only its text and marker (its note action moved up). */
+.focus-round.is-compact .focus-partners {margin-top:calc(-1 * var(--focus-gap))}
+.focus-round.is-compact .focus-partner {padding-block:2px}
+.focus-round.is-compact .focus-tags {margin-top:0}
+.workout-focus .focus-round.is-compact .focus-card .focus-context {min-height:32px}
+/* The hidden partner's set-note action takes the relocated one's place on a switch; until then it reserves no row height, so both panes measure alike. */
+.focus-round.is-compact .focus-pair-pane.is-inactive .focus-set-note {display:none}
 .workout-focus .focus-round .focus-card {flex:1;min-height:0;border-bottom:0;scroll-snap-align:none;scroll-snap-stop:normal}
 /* Pinned block: the name row and details stick while the group's rows snap under them; the next group pushes them out, details first. */
 .focus-group-name {position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;min-height:44px;background:var(--bg)}
+/* One accent rule marks each incoming exercise block; it travels with the block's name row, never repeated per set. */
+.focus-group>.focus-group-name {border-top:2px solid var(--accent)}
 .focus-group-name>:first-child {flex:1;min-width:0}
 /* flow-root keeps the tags' top margin inside the opaque block. */
 .focus-group-details {position:sticky;top:var(--focus-name-h,44px);z-index:2;display:flow-root;background:var(--bg);border-bottom:1px solid var(--border);padding-bottom:var(--focus-gap)}
@@ -2588,7 +2601,11 @@ body {padding-bottom:var(--tab-bar-height)}
 .workout-focus .focus-context {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0}
 .focus-context-text {flex:1;min-width:0}
 .focus-eyebrow {margin:2px 0 0;color:var(--muted);font-size:.625rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;overflow-wrap:anywhere}
+.focus-eyebrow:empty {display:none}
 .focus-set-label {margin:0;color:var(--text);font-size:.8125rem;line-height:1.35}
+/* Warm-ups are quieter: a neutral band with a prominent Warm-up · W1 label (no RIR, same fields and Complete). */
+.workout-focus .focus-context.is-warmup {padding:0 0 0 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.focus-context.is-warmup .focus-set-label {font-family:var(--font-display);font-size:1rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
 .focus-complete-marker {position:relative;display:grid;place-items:center;flex:none;min-width:32px;min-height:32px;border:1px solid var(--border);border-radius:50%;font-size:.75rem;color:var(--muted)}
 .workout-focus .focus-complete-marker .log-set-number {grid-area:auto;color:inherit;font-size:inherit;transition:none}
 .focus-complete-marker svg {display:none;width:18px;height:18px;fill:none;stroke:currentColor}

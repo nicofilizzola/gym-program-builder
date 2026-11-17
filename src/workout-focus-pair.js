@@ -68,6 +68,8 @@ export function mountWorkoutFocusPair(host,{onSelect,onInteraction=()=>{},reduce
    selectedIndex=index;
   },
   cancelMotion,
+  // The view relocates the selected exercise's note action here while the round is compact.
+  context,
   destroy(){cancelMotion();events.abort();context.remove();group.remove();panes.remove();}
  };
 }

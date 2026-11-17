@@ -114,7 +114,8 @@ for(const how of ['pointer','key','body-key','wheel','input','note','dialog','re
  // Focus outside Focus (body after a tap elsewhere) still cancels on a key.
  if(how==='body-key'){await page.evaluate(()=>document.activeElement.blur());await page.keyboard.press('Shift');}
  if(how==='input')await b1.locator('[data-field="weight"]').fill('80');
- if(how==='note')await b1.getByRole('button',{name:'Add set note, Set 1, Chest-supported row',exact:true}).click();
+ // A compact round (this fixture at 390x844) carries the selected set's note action in its context.
+ if(how==='note')await page.locator('.focus-round').first().getByRole('button',{name:'Add set note, Set 1, Chest-supported row',exact:true}).click();
  if(how==='preference'){const auto=page.getByLabel('Auto-next',{exact:true});await auto.uncheck();await auto.check();}
  await page.evaluate(async how=>{const f=document.querySelector('.focus-feed');
   if(how==='pointer')f.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
@@ -232,12 +233,31 @@ test('reduced motion mid-switch, suspension, disabling and destroying settle eve
 });
 test('the title ticker runs only for the selected visible partner and holds still through travel',async({page})=>{
  const log=focusFixture();log.exercises[2].name='Chest-supported row with a long neutral grip handle and a pause';
- await mountFocusFixture(page,{log});await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));
+ // A tall feed holds the full round, so its titles are shown.
+ await page.setViewportSize({width:390,height:1000});await mountFocusFixture(page,{log});await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));
  const ZERO='translate3d(0px, 0px, 0px)',track=id=>page.evaluate(id=>document.querySelector(`.focus-pair-pane[data-exercise-id="${id}"] .workout-title-track`).style.transform,id);
  await expect.poll(()=>track('a'),{timeout:4000}).not.toBe(ZERO);expect(await track('b')).toBe(ZERO);
  await page.locator('.focus-round').first().locator('.focus-partner').nth(1).click();const held=await track('a');
  await expect.poll(()=>track('b'),{timeout:4000}).not.toBe(ZERO);expect(await track('a')).toBe(held);
+ // A compact round hides the title, so its ticker holds still.
+ await page.setViewportSize({width:390,height:844});await expect(page.locator('.focus-round').first()).toHaveClass(/is-compact/);
+ const still=await track('b');await page.waitForTimeout(500);expect(await track('b')).toBe(still);
+ await page.setViewportSize({width:390,height:1000});await expect(page.locator('.focus-round').first()).not.toHaveClass(/is-compact/);
  // Until arrival the viewed set stays b1, so only travel's suspension keeps its title still.
  const samples=await page.evaluate(()=>new Promise(resolve=>{const f=document.querySelector('.focus-feed'),t=document.querySelector('.focus-pair-pane[data-exercise-id="b"] .workout-title-track'),seen=[];f.addEventListener('scroll',()=>seen.push(t.style.transform));f.addEventListener('scrollend',()=>resolve(seen),{once:true});focusView.jump({exerciseId:'straight',setId:'sw'},{animate:true});}));
  expect(samples.length).toBeGreaterThan(2);expect(new Set(samples).size).toBe(1);
+});
+// Visible pixels, at rest, of everything after the viewed page: later sets of its group, later groups (their name rows), rounds and the review.
+const leak=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),fb=f.getBoundingClientRect(),viewed=f.querySelector('.focus-card.is-viewed'),at=viewed?viewed.closest('.focus-round')??viewed:f.querySelector('.focus-review');
+ const later=[...f.querySelectorAll('.focus-card,.focus-feed>li')].filter(el=>(at.compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING)&&!at.contains(el)&&!el.contains(at));
+ return Math.max(0,...later.map(el=>{const b=el.getBoundingClientRect();return Math.min(fb.bottom,b.bottom)-Math.max(fb.top,b.top);}));});
+for(const motion of ['reduce','no-preference'])test(`Auto-next rests on every page with nothing of the next one showing (${motion})`,async({page})=>{
+ await page.emulateMedia({reducedMotion:motion});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'sw'}));
+ // Straight warm-up → working sets → paired warm-ups → round 1 (both partners) → round 2 → review.
+ for(const [setId,next] of [['sw','s1'],['s1','s2'],['s2','aw'],['aw','bw'],['bw','a1'],['a1','b1'],['b1','a2'],['a2',null]]){
+  const card=page.locator(`.focus-card[data-set-id="${setId}"]`);await card.locator('[data-field="reps"]').fill('8');await card.locator('.log-done').click();
+  await expect.poll(()=>page.evaluate(()=>focusView.visibleRef()?.setId??null),{timeout:5000}).toBe(next);
+  await expect.poll(()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),v=f.querySelector('.focus-card.is-viewed'),at=v?v.closest('.focus-round')??v:f.querySelector('.focus-review');return Math.round(f.scrollTop-(at.offsetTop-(parseFloat(at.style.scrollMarginTop)||0)));})).toBe(0);
+  expect(await leak(page),setId+'→'+next).toBeLessThanOrEqual(0.5);
+ }
 });

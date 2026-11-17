@@ -1,25 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {focusCardFit,fitGroup,stackHeight} from '../src/workout-focus-fit.js';
+import {fitGroup,fitPair,stackHeight} from '../src/workout-focus-fit.js';
 
-test('peeks the full next header when content and header fit',()=>{
- assert.deepEqual(focusCardFit({feedHeight:598,contentHeight:500,peekHeight:43}),{minHeight:555,peekless:false});
-});
-test('exact fit still peeks',()=>{
- assert.deepEqual(focusCardFit({feedHeight:598,contentHeight:555,peekHeight:43}),{minHeight:555,peekless:false});
-});
-test('no partial peek: one pixel too tall fills the feed',()=>{
- assert.deepEqual(focusCardFit({feedHeight:598,contentHeight:556,peekHeight:43}),{minHeight:598,peekless:true});
-});
-test('no next set never peeks',()=>{
- assert.deepEqual(focusCardFit({feedHeight:598,contentHeight:300,peekHeight:0}),{minHeight:598,peekless:true});
-});
-test('fractional header rounds the min-height',()=>{
- assert.equal(focusCardFit({feedHeight:598,contentHeight:400,peekHeight:42.6}).minHeight,555);
-});
-test('content taller than the feed stays peekless',()=>{
- assert.deepEqual(focusCardFit({feedHeight:418,contentHeight:600,peekHeight:43}),{minHeight:418,peekless:true});
-});
 test('stackHeight sums seven sections',()=>{
  assert.equal(stackHeight([40,50,60,30,44,44,48],8,0),40+50+60+30+44+44+48+48);
 });
@@ -28,13 +10,39 @@ test('stackHeight adds gaps between items and padding',()=>{
  assert.equal(stackHeight([40],10,0),40);
  assert.equal(stackHeight([],10,8),8);
 });
-test('fitGroup pins the block, peeks whole rows and falls back to the name',()=>{
- const base={feedHeight:600,nameHeight:50,detailsHeight:70};
- assert.deepEqual(fitGroup({...base,contentHeights:[300,350],peekHeights:[44,50]}),{nameOnly:false,pinned:120,rows:[{offset:120,minHeight:436,peekless:false},{offset:120,minHeight:430,peekless:false}]});
- assert.deepEqual(fitGroup({...base,contentHeights:[450],peekHeights:[44]}).rows[0],{offset:120,minHeight:480,peekless:true});
- assert.deepEqual(fitGroup({...base,contentHeights:[300],peekHeights:[0]}).rows[0],{offset:120,minHeight:480,peekless:true});
- const tight={feedHeight:420,nameHeight:50,detailsHeight:120,contentHeights:[200,300],peekHeights:[44,0]};
- assert.deepEqual(fitGroup(tight),{nameOnly:true,pinned:50,rows:[{offset:170,minHeight:206,peekless:false},{offset:50,minHeight:370,peekless:true}]});
- assert.deepEqual(fitGroup({...tight,editing:true}).rows[1],{offset:170,minHeight:250,peekless:true});
- assert.equal(fitGroup({feedHeight:420,nameHeight:50,detailsHeight:70,contentHeights:[300],peekHeights:[0]}).nameOnly,false);
+test('fitGroup fills the space under the whole pinned block, with no peek',()=>{
+ assert.deepEqual(fitGroup({feedHeight:600,nameHeight:50,detailsHeight:70,contentHeights:[300,350]}),
+  {nameOnly:false,pinned:120,rows:[{offset:120,minHeight:480},{offset:120,minHeight:480}]});
+ // Content that exactly fills the space keeps the whole block pinned.
+ assert.deepEqual(fitGroup({feedHeight:600,nameHeight:50,detailsHeight:70,contentHeights:[480]}),{nameOnly:false,pinned:120,rows:[{offset:120,minHeight:480}]});
+});
+test('fitGroup falls back to the name: row 0 under the whole block, later rows under the name',()=>{
+ const tight={feedHeight:420,nameHeight:50,detailsHeight:120,contentHeights:[200,300]};
+ assert.deepEqual(fitGroup(tight),{nameOnly:true,pinned:50,rows:[{offset:170,minHeight:250},{offset:50,minHeight:370}]});
+ // An open exercise-note editor keeps the whole block pinned.
+ assert.deepEqual(fitGroup({...tight,editing:true}),{nameOnly:false,pinned:170,rows:[{offset:170,minHeight:250},{offset:170,minHeight:250}]});
+ assert.equal(fitGroup({feedHeight:420,nameHeight:50,detailsHeight:70,contentHeights:[300]}).nameOnly,false);
+ assert.equal(fitGroup({feedHeight:420,nameHeight:50,detailsHeight:70,contentHeights:[301]}).nameOnly,true);
+});
+test('fitPair compacts before controls are crowded and reserves the larger member',()=>{
+ assert.deepEqual(fitPair({feedHeight:600,headerHeight:100,fullHeights:[420,550],compactHeights:[360,430]}),{compact:true,minHeight:600,paneMinHeight:500});
+});
+test('fitPair grows an oversized round naturally',()=>{
+ assert.deepEqual(fitPair({feedHeight:420,headerHeight:100,fullHeights:[600],compactHeights:[540]}),{compact:true,minHeight:640,paneMinHeight:540});
+});
+test('fitPair keeps the full layout at an exact fit and fills the page',()=>{
+ assert.deepEqual(fitPair({feedHeight:600,headerHeight:100,fullHeights:[500,380],compactHeights:[440,320]}),{compact:false,minHeight:600,paneMinHeight:500});
+ assert.deepEqual(fitPair({feedHeight:600,headerHeight:100,fullHeights:[300,380],compactHeights:[240,320]}),{compact:false,minHeight:600,paneMinHeight:500});
+});
+test('fitPair decides with the full header and lays a compact round out under its tighter header',()=>{
+ assert.deepEqual(fitPair({feedHeight:431,headerHeight:104,compactHeaderHeight:94,fullHeights:[370],compactHeights:[330]}),{compact:true,minHeight:431,paneMinHeight:337});
+ // The full layout is chosen only when it fits under the full header.
+ assert.deepEqual(fitPair({feedHeight:431,headerHeight:104,compactHeaderHeight:94,fullHeights:[327],compactHeights:[300]}),{compact:false,minHeight:431,paneMinHeight:327});
+ assert.equal(fitPair({feedHeight:431,headerHeight:104,compactHeaderHeight:94,fullHeights:[328],compactHeights:[300]}).compact,true);
+});
+test('fitPair reserves the taller of asymmetric members in either order',()=>{
+ const one=fitPair({feedHeight:560,headerHeight:110,fullHeights:[300,520],compactHeights:[250,470]}),two=fitPair({feedHeight:560,headerHeight:110,fullHeights:[520,300],compactHeights:[470,250]});
+ assert.deepEqual(one,{compact:true,minHeight:580,paneMinHeight:470});assert.deepEqual(two,one);
+ // An absent member is simply not measured.
+ assert.deepEqual(fitPair({feedHeight:560,headerHeight:110,fullHeights:[300],compactHeights:[250]}),{compact:false,minHeight:560,paneMinHeight:450});
 });

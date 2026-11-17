@@ -82,19 +82,17 @@ test('a long unbreakable exercise name never widens the card',async({page})=>{
  const widths=await page.locator('.focus-card[data-set-id="s1"]').evaluate(card=>({card:card.getBoundingClientRect().width,clip:card.querySelector('.log-set-clip').getBoundingClientRect().width,note:card.closest('.focus-group').querySelector('.focus-exercise-note-text').getBoundingClientRect().width}));
  expect(widths.clip).toBeLessThanOrEqual(widths.card);expect(widths.note).toBeLessThanOrEqual(widths.card);
 });
-// Visible pixels of an element inside the feed's box.
-const shown=(page,selector)=>page.evaluate(selector=>{const f=document.querySelector('.focus-feed').getBoundingClientRect(),b=document.querySelector(selector).getBoundingClientRect();return {px:Math.max(0,Math.min(f.bottom,b.bottom)-Math.max(f.top,b.top)),h:b.height};},selector);
-test('last set before review never peeks',async({page})=>{
- await page.setViewportSize({width:360,height:740});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));
- await expect(page.locator('.focus-round:has([data-set-id="a2"])')).toBeVisible();
- await expect.poll(async()=>(await shown(page,'.focus-review h2')).px).toBe(0);
-});
-test('the next exercise peeks its whole name row, never its details',async({page})=>{
- await page.setViewportSize({width:360,height:900});await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s2'}));
- const next='.focus-group[data-exercise-id="a"]';
- await expect.poll(async()=>{const h=await shown(page,next+' .focus-group-name');return h.px===0||Math.abs(h.px-h.h)<=1;}).toBe(true);
- expect((await shown(page,next+' .focus-group-details')).px).toBeLessThanOrEqual(1); // offsetTop and scrollTop are whole pixels
- expect((await shown(page,'.focus-card[data-set-id="aw"] .focus-context')).px).toBeLessThanOrEqual(1);
+// Visible pixels, at rest, of everything after the viewed page: later sets of its group, later groups (their name rows), rounds and the review.
+const leak=page=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),fb=f.getBoundingClientRect(),viewed=f.querySelector('.focus-card.is-viewed'),at=viewed?viewed.closest('.focus-round')??viewed:f.querySelector('.focus-review');
+ const later=[...f.querySelectorAll('.focus-card,.focus-feed>li')].filter(el=>(at.compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING)&&!at.contains(el)&&!el.contains(at));
+ return Math.max(0,...later.map(el=>{const b=el.getBoundingClientRect();return Math.min(fb.bottom,b.bottom)-Math.max(fb.top,b.top);}));});
+for(const [width,height] of [[360,740],[360,900],[390,844]])test(`no resting page shows the next set, exercise or review at ${width}x${height}`,async({page})=>{
+ await page.setViewportSize({width,height});await mountFocusFixture(page);
+ // Straight sets, the boundary into paired warm-ups, warm-up to warm-up, warm-ups to a round, round to round and the last round before the review.
+ for(const [exerciseId,setId] of [['straight','sw'],['straight','s1'],['straight','s2'],['a','aw'],['b','bw'],['a','a1'],['a','a2']]){
+  await page.evaluate(ref=>focusView.jump(ref),{exerciseId,setId});await expect(page.locator(`.focus-card.is-viewed[data-set-id="${setId}"]`)).toHaveCount(1);
+  expect(await leak(page),setId).toBeLessThanOrEqual(0.5);
+ }
 });
 // Pinned geometry: the name row top and the viewed row top relative to the feed and the details' bottom.
 const pin=(page,setId)=>page.evaluate(setId=>{const f=document.querySelector('.focus-feed').getBoundingClientRect(),row=document.querySelector(`.focus-card[data-set-id="${setId}"]`),g=row.closest('.focus-group');
@@ -139,7 +137,7 @@ test('opening a long exercise note keeps the viewed set anchored',async({page})=
  await page.locator('.focus-group[data-exercise-id="straight"]').getByRole('button',{name:'Add exercise note, Bench press',exact:true}).click();
  await page.getByRole('textbox',{name:'Note, Bench press',exact:true}).fill('Note '.repeat(80));await page.waitForTimeout(400);
  expect(Math.abs(await delta()-before)).toBeLessThanOrEqual(2);
- await expect.poll(async()=>{const h=await shown(page,'.focus-card[data-set-id="s2"] .focus-context');return h.px<=1||Math.abs(h.px-h.h)<=1;}).toBe(true);
+ await expect.poll(()=>leak(page)).toBeLessThanOrEqual(0.5);
 });
 const snapDelta=(page,setId)=>page.evaluate(setId=>{const f=document.querySelector('.focus-feed'),r=f.querySelector(`[data-set-id="${setId}"]`);return r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)-f.scrollTop;},setId);
 // 390x740: the logger's own 14rem cap is taller than 40% of this feed, so only the Focus cap holds the editor.
@@ -322,7 +320,7 @@ test('a superset round is one page holding both canonical partners',async({page}
  expect(await page.evaluate(()=>{const f=document.querySelector('.focus-feed');return [f.querySelectorAll('.focus-group .focus-card').length+f.querySelectorAll('.focus-round').length,f.querySelectorAll('.focus-review').length];})).toEqual([7,1]);
  expect(await page.evaluate(()=>[document.querySelectorAll('input[data-field="reps"]').length,inputs.every(i=>document.querySelector('.focus-feed').contains(i)),inputs.every(i=>document.querySelectorAll('#'+CSS.escape(i.id)).length===1)])).toEqual([8,true,true]);
  expect(await page.evaluate(()=>[getComputedStyle(document.querySelector('.focus-round')).scrollSnapAlign,getComputedStyle(port.row({exerciseId:'a',setId:'a1'})).scrollSnapAlign,getComputedStyle(port.row({exerciseId:'b',setId:'b1'})).scrollSnapAlign])).toEqual(['start','none','none']);
- await expect(round.locator('.focus-round-context')).toContainText('Superset A');await expect(round.locator('.focus-round-context')).toContainText('Round 1 of 2');await expect(round.locator('.focus-round-context svg')).toHaveCount(1);
+ await expect(round.locator('.focus-round-context')).toContainText('Superset A');await expect(round.locator('.focus-round-context')).toContainText('Round 1 of 2');await expect(round.locator('.focus-round-label svg')).toHaveCount(1);
  const group=round.getByRole('group',{name:'Superset A partners'});await expect(group).toBeVisible();
  const [a,b]=[group.getByRole('button').nth(0),group.getByRole('button').nth(1)];await expect(group.getByRole('button')).toHaveCount(2);
  await expect(a).toHaveAccessibleName('A1, Single-arm incline dumbbell chest press');await expect(b).toHaveAccessibleName('A2, Chest-supported row');
@@ -494,4 +492,33 @@ test('a selector tap on a non-viewed round moves the rulers to the newly shown p
  expect(await rulers()).toEqual([true,false]);
  await page.evaluate(()=>document.querySelectorAll('.focus-round')[0].querySelectorAll('.focus-partner')[1].click());
  expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'b',setId:'bw'});expect(await rulers()).toEqual([false,true]);
+});
+const colorOf=(page,value,property='color')=>page.evaluate(([value,property])=>{const probe=document.createElement('i');probe.style[property]=value;document.body.append(probe);const c=getComputedStyle(probe)[property];probe.remove();return c;},[value,property]);
+test('each incoming exercise block carries one full-width accent rule on its name row, never per set',async({page})=>{
+ await mountFocusFixture(page);const accent=await colorOf(page,'var(--accent)');
+ const r=await page.evaluate(accent=>{const f=document.querySelector('.focus-feed'),ruled=[...f.querySelectorAll('*')].filter(el=>{const s=getComputedStyle(el);return s.borderTopWidth==='2px'&&s.borderTopStyle==='solid'&&s.borderTopColor===accent;});
+  return {ruled:ruled.map(el=>el.className),names:[...f.querySelectorAll('.focus-group>.focus-group-name')].length,full:ruled.every(el=>Math.abs(el.getBoundingClientRect().width-f.clientWidth)<=1)};},accent);
+ expect(r.ruled).toEqual(Array(r.names).fill('focus-group-name'));expect(r.names).toBe(3);expect(r.full).toBe(true);
+});
+test('warm-ups are a quieter page with a prominent label and the same targets as working sets',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'sw'}));
+ const warm=page.locator('.focus-card[data-set-id="sw"]'),work=page.locator('.focus-card[data-set-id="s1"]'),[surface,border]=await Promise.all([colorOf(page,'var(--surface)','backgroundColor'),colorOf(page,'var(--border)','borderTopColor')]);
+ await expect(warm.locator('.focus-set-label')).toHaveText('Warm-up · W1');
+ const s=await warm.locator('.focus-context').evaluate(el=>{const s=getComputedStyle(el),l=getComputedStyle(el.querySelector('.focus-set-label'));return {bg:s.backgroundColor,border:[s.borderTopWidth,s.borderTopStyle,s.borderTopColor],weight:Number(l.fontWeight)};});
+ expect(s.bg).toBe(surface);expect(s.border).toEqual(['1px','solid',border]);expect(s.weight).toBeGreaterThanOrEqual(600);
+ await expect(work.locator('.focus-context')).not.toHaveCSS('background-color',surface);
+ await expect(warm.locator('.focus-rir-strip')).toBeHidden();await expect(warm.getByRole('button',{name:'Add set note, Warm-up set 1, Bench press',exact:true})).toBeVisible();
+ const size=async card=>card.evaluate(c=>{const d=c.querySelector('.log-done').getBoundingClientRect();return {done:[Math.round(d.width),Math.round(d.height)],font:getComputedStyle(c.querySelector('[data-field="reps"]')).fontSize};});
+ const w=await size(warm);await page.evaluate(()=>focusView.jump({exerciseId:'straight',setId:'s1'}));expect(w).toEqual(await size(work));expect(w.done[1]).toBeGreaterThanOrEqual(44);
+ // A paired exercise's warm-up has no partner selector and completes on its own, with the same required reps.
+ await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'aw'}));const aw=page.locator('.focus-card[data-set-id="aw"]');
+ await expect(aw.locator('.focus-set-label')).toHaveText('Warm-up · W1');expect(await aw.evaluate(c=>[Boolean(c.closest('.focus-round')),Boolean(c.closest('.focus-group').querySelector('.focus-partners'))])).toEqual([false,false]);
+ await aw.locator('.log-done').click();expect(await page.evaluate(()=>port.read().log.exercises[1].sets[0].done)).toBe(false);
+ await aw.getByRole('textbox',{name:/reps/}).fill('10');await aw.locator('.log-done').click();expect(await page.evaluate(()=>port.read().log.exercises[1].sets[0].done)).toBe(true);
+});
+test('a round shows its set context once: no repeated superset or round eyebrow, the accessible name keeps exercise and set',async({page})=>{
+ await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a1'}));
+ const ctx=page.locator('.focus-card[data-set-id="a1"] .focus-context-text');
+ await expect(ctx).toHaveAttribute('aria-label','A1 · Round 1, Single-arm incline dumbbell chest press');
+ await expect(ctx).not.toContainText('Superset');await expect(ctx).not.toContainText('Round');await expect(ctx).not.toContainText('Paired with');
 });
