@@ -30,7 +30,7 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  const empty=node('div','focus-empty');empty.innerHTML='<h2>No sets yet</h2><p>Add an exercise or use the overview to add sets.</p><button type="button" class="secondary-btn">Add exercise</button><div class="focus-picker"></div>';
  empty.querySelector('button').onclick=()=>port.command({type:'add-exercise',host:empty.querySelector('.focus-picker')});
  const toolbar=node('div','focus-toolbar'),overview=node('button','focus-overview','Workout overview'),current=node('button','focus-current','Back to current');overview.type=current.type='button';overview.onclick=()=>{advance.cancel();onInteraction({type:'overview',opener:overview});};progress.onclick=()=>{if(scrub.consumeClick())return;advance.cancel();onInteraction({type:'overview',opener:progress});};current.onclick=()=>{advance.cancel();jump(projection.current,{animate:true,focus:true});};
- const autoLabel=node('label','focus-auto'),auto=document.createElement('input');auto.type='checkbox';auto.checked=state.autoNext;autoLabel.append(auto,document.createTextNode('Auto-next'));auto.onchange=()=>{advance.cancel();state.autoNext=auto.checked;onInteraction({type:'preference',patch:{autoNext:state.autoNext}});};toolbar.append(overview,current,autoLabel);
+ const autoLabel=node('label','focus-auto'),auto=document.createElement('input');auto.type='checkbox';auto.checked=state.autoNext;autoLabel.append(auto,document.createTextNode('Auto-next'));auto.onchange=()=>{advance.cancel();state.autoNext=auto.checked;onInteraction({type:'preference',patch:{autoNext:state.autoNext}});if(enabled)update(snapshot);};toolbar.append(overview,current,autoLabel);
  const scrub=mountProgressScrub(progress,{strip:segments,
   targets:()=>{const byKey=new Map(projection.items.map(i=>[i.key,i]));return [...segments.querySelectorAll('.focus-progress-segment')].map(el=>({ref:byKey.get(el.dataset.key)?.ref,el})).filter(t=>t.ref);},
   describe:ref=>{const item=projection.items.find(i=>same(i.ref,ref));return {exercise:snapshot.log.exercises[item.exerciseIndex].name,set:item.preview.label};},
@@ -100,6 +100,8 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
   const marker=node('span','focus-complete-marker');marker.innerHTML=actionIcon('check');context.append(contextText,action,marker);
   row.querySelector('.log-set-clip').prepend(context);row.classList.add('focus-card');row.dataset.exerciseId=ref.exerciseId;
   const controls=node('div','focus-number-controls focus-only'),rirStrip=node('div','focus-rir-strip focus-only'),notes=node('div','focus-note-area focus-only'),complete=node('div','focus-complete focus-only'),feedback=node('p','focus-feedback visually-hidden');
+  // A round's action names what it logs; aria-labelledby overrides the row's own aria-label only while borrowed.
+  const doneName=node('span','visually-hidden');doneName.id='focus-done-'+crypto.randomUUID();complete.append(doneName);
   const grid=row.querySelector('.log-set-row');grid.append(controls,rirStrip,notes,feedback);
   // Complete sits on the whole card (not the controls grid) so, when pinned, it can stick anywhere the card is in view.
   row.querySelector('.log-set-clip').append(complete);
@@ -123,12 +125,17 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
     eyebrow.textContent=[item.kind==='warmup'?'Warm-up':item.pairId?`Superset ${item.member}`:item.kindIndex===1?'First working set':'Next set',rest].filter(Boolean).join(' · ');
     const setIndex=ex.sets.findIndex(s=>s.id===set.id),kindIndex=ex.sets.slice(0,setIndex+1).filter(s=>s.kind===set.kind).length;
     action.setAttribute('aria-label',`Add set note, ${item.kind==='warmup'?'Warm-up set':'Set'} ${kindIndex}, ${ex.name}`);action.hidden=Boolean(b.noteHost.querySelector('.log-set-note-part:not(.is-removing)'));
-    b.done.dataset.label=set.done?`${card.milestone??'Set complete'} · Tap to undo`:item.kind==='warmup'?'Complete warm-up':'Complete set';
+    const page=pageOf(ref),other=page?.kind==='round'?page.members.find(m=>m.ref&&m.key!==key):null,open=other&&!projection.doneKeys.has(other.key);
+    card.round=page?.kind==='round';const name=!card.round?null:set.done?`Undo ${item.member} completion`:!open?'Complete round':state.autoNext?`Log ${item.member} & switch to ${other.member}`:`Log ${item.member}`;
+    b.done.dataset.label=name??(set.done?`${card.milestone??'Set complete'} · Tap to undo`:item.kind==='warmup'?'Complete warm-up':'Complete set');
+    // Neutral first-partner Log; its arrow points to the partner it switches to.
+    if(card.round&&!set.done&&open)b.done.dataset.log=state.autoNext?(other.member>item.member?'next':'prev'):'stay';else delete b.done.dataset.log;
+    if(name){doneName.textContent=name;b.done.setAttribute('aria-labelledby',doneName.id);}else b.done.removeAttribute('aria-labelledby');
     const bw=row.querySelector('.focus-bodyweight');if(bw)bw.hidden=b.inputs.weight.value!==''||b.inputs.weight.placeholder!=='';
     // Canonical row inputs already carry authoritative, kind-filtered placeholders.
     for(const {kind,widget} of widgets)widget.update({value:kind==='weight'?set.weightKg:set.reps,placeholder:b.inputs[kind].placeholder===''?null:Number(b.inputs[kind].placeholder),increment:kind==='weight'?state.weightIncrement:1,range:kind==='reps'&&item.kind==='working'?ex.target?.repRange??null:null,enabled:on});
    },
-   restore(){for(const {widget} of widgets)widget.update({enabled:false});port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';},
+   restore(){for(const {widget} of widgets)widget.update({enabled:false});b.done.removeAttribute('aria-labelledby');port.relocate(()=>{for(const {el,marker} of markers)if(marker.parentNode)marker.after(el);});caption.textContent='RIR';},
    destroy(){for(const {widget} of widgets)widget.destroy();card.restore();for(const dispose of disposers)dispose();for(const {marker} of markers)marker.remove();context.remove();action.remove();controls.remove();rirStrip.remove();notes.remove();complete.remove();feedback.remove();row.classList.remove('focus-card','is-viewed','is-peekless');row.style.removeProperty('--focus-card-min');row.style.removeProperty('scroll-margin-top');for(const el of observed)resize.unobserve(el);}
   };
   b.disposers.add(()=>{for(const {widget} of widgets)widget.destroy();});
@@ -295,10 +302,10 @@ export function mountWorkoutFocus(host,{port,ui,onInteraction=()=>{},onViewed=()
  root.addEventListener('input',e=>{if(!noteAnchor&&e.target.closest('.focus-exercise-editor'))holdNoteAnchor();},{signal,capture:true});
  root.addEventListener('click',e=>{if(e.target.closest('.focus-exercise-editor button'))holdNoteAnchor();},{signal,capture:true});
  feed.addEventListener('keydown',e=>{if((e.key==='Tab'&&!e.isComposing)||!typingField())noteAnchor=null;},{signal});
- root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
+ root.addEventListener('focusin',()=>interaction('focus'),{signal});root.addEventListener('keydown',()=>advance.cancel(),{signal,capture:true});root.addEventListener('focusout',()=>queueMicrotask(syncActive),{signal});
  function celebrate({before,after,ref}){
   if(!enabled)return;const key=setKey(ref),card=cards.get(key);if(!card)return;
-  card.milestone=card.feedback.textContent=completionMilestone(before,after,ref).text;card.b.done.dataset.label=`${card.milestone} · Tap to undo`;
+  card.milestone=card.feedback.textContent=completionMilestone(before,after,ref).text;if(!card.round)card.b.done.dataset.label=`${card.milestone} · Tap to undo`;
   if(rewarded.has(key))return;rewarded.add(key);if(reduced.matches)return;
   const segment=[...segments.querySelectorAll('.focus-progress-segment')].find(n=>n.dataset.key===key);card.row.classList.add('is-celebrating');segment?.classList.add('is-celebrating');
   const timer=setTimeout(()=>{card.row.classList.remove('is-celebrating');segment?.classList.remove('is-celebrating');animationTimers.delete(timer);},500);animationTimers.add(timer);

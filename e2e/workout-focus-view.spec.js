@@ -421,3 +421,31 @@ test('reorder, unlink and member removal keep exact rows and the viewed partner'
  await expect(page.locator('.focus-round')).toHaveCount(0);
  expect(await page.evaluate(()=>({ref:focusView.visibleRef(),row:port.row({exerciseId:'a',setId:'a1'})===row,group:row.closest('.focus-group')?.dataset.exerciseId}))).toEqual({ref:{exerciseId:'a',setId:'a1'},row:true,group:'a'});
 });
+// Completion actions say what they log; the canonical done button keeps its handler and regains its own name outside Focus.
+const doneButton=(page,id)=>page.locator(`.focus-card[data-set-id="${id}"] .log-done`);
+async function named(page,id,name){const b=doneButton(page,id);await expect(b).toHaveAccessibleName(name);await expect(b).toHaveAttribute('data-label',name);}
+const viewAt=(page,setId)=>page.evaluate(setId=>focusView.jump({exerciseId:setId[0]==='b'?'b':'a',setId}),setId);
+test('round completion is explicit for either partner, validated and undone per member',async({page})=>{
+ await mountFocusFixture(page);await viewAt(page,'a1');
+ await named(page,'a1','Log A1 & switch to A2');await expect(page.getByRole('button',{name:'Log A1 & switch to A2',exact:true})).toBeVisible();
+ await viewAt(page,'b1');await named(page,'b1','Log A2 & switch to A1');await viewAt(page,'a2');await named(page,'a2','Complete round');
+ // Invalid reps: the existing error field takes focus; nothing is logged, moved or inferred.
+ await viewAt(page,'a1');const top=await page.evaluate(()=>document.querySelector('.focus-feed').scrollTop);await page.getByLabel('Set 1 reps, Single-arm incline dumbbell chest press',{exact:true}).fill('0');await page.evaluate(()=>document.activeElement.blur());await doneButton(page,'a1').click();
+ await expect(page.getByLabel('Set 1 reps, Single-arm incline dumbbell chest press',{exact:true})).toBeFocused();
+ expect(await page.evaluate(()=>({ref:focusView.visibleRef(),done:port.read().log.exercises.flatMap(e=>e.sets).filter(s=>s.done).length,rir:port.read().log.exercises[1].sets[1].rir}))).toEqual({ref:{exerciseId:'a',setId:'a1'},done:0,rir:null});
+ await page.getByLabel('Set 1 reps, Single-arm incline dumbbell chest press',{exact:true}).fill('8');await doneButton(page,'a1').click();
+ expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'b',setId:'b1'});expect(await page.evaluate(()=>document.querySelector('.focus-feed').scrollTop)).toBeCloseTo(top,0);
+ await named(page,'b1','Complete round');await expect(page.locator('.focus-progress-meta')).toContainText('1 / 5 working sets');
+ await page.getByLabel('Set 1 reps, Chest-supported row',{exact:true}).fill('9');await doneButton(page,'b1').click();await named(page,'b1','Undo A2 completion');
+ await expect.poll(()=>page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a2'});
+ await viewAt(page,'a1');await named(page,'a1','Undo A1 completion');await doneButton(page,'a1').click();
+ expect(await page.evaluate(()=>port.read().log.exercises.flatMap(e=>e.sets).filter(s=>s.id==='a1'||s.id==='b1').map(s=>[s.id,s.done,s.reps]))).toEqual([['a1',false,8],['b1',true,9]]);
+ await named(page,'a1','Complete round');expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a1'});
+});
+test('with Auto-next off the first partner logs and stays; regular names return outside Focus',async({page})=>{
+ await mountFocusFixture(page);await page.getByLabel('Auto-next',{exact:true}).uncheck();await viewAt(page,'b1');await named(page,'b1','Log A2');await viewAt(page,'a1');await named(page,'a1','Log A1');
+ await page.getByLabel('Set 1 reps, Single-arm incline dumbbell chest press',{exact:true}).fill('8');await doneButton(page,'a1').click();await page.waitForTimeout(800);
+ expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a1'});await named(page,'a1','Undo A1 completion');
+ await page.evaluate(()=>focusView.setEnabled(false));
+ for(const [id,name] of [['a1','Mark set 1 done, Single-arm incline dumbbell chest press'],['b1','Mark set 1 done, Chest-supported row']]){const b=page.locator(`.log-set[data-set-id="${id}"] .log-done`);await expect(b).toHaveAccessibleName(name);await expect(b).not.toHaveAttribute('aria-labelledby');}
+});

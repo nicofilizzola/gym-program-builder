@@ -25,8 +25,11 @@ test('smooth auto-next settles on the destination without changing the viewed ID
  await page.locator('.focus-card[data-set-id="s1"] .log-done').click();await expect(page.locator('.focus-card[data-set-id="s2"] .focus-context-text')).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),r=document.querySelector('.focus-card[data-set-id="s2"]');return {gap:Math.round(f.scrollTop-(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0))),viewed:focusView.visibleRef(),heights:[...f.children].map(n=>n.offsetHeight)};})).toMatchObject({gap:0,viewed:{exerciseId:'straight',setId:'s2'}});
 });
-test('a missing-partner round earns round feedback and does not advance yet',async({page})=>{
- await page.clock.install();await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));const card=page.locator('.focus-card[data-set-id="a2"]');await card.locator('.log-done').click();await expect(card.locator('.focus-feedback')).toHaveText('Round 2 complete. Strong work.');await page.clock.runFor(1000);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'a',setId:'a2'});
+test('a missing-partner round earns round feedback and advances forward past earlier holes',async({page})=>{
+ await page.clock.install();await mountFocusFixture(page);await page.evaluate(()=>focusView.jump({exerciseId:'a',setId:'a2'}));const card=page.locator('.focus-card[data-set-id="a2"]');await card.locator('.log-done').click();await expect(card.locator('.focus-feedback')).toHaveText('Round 2 complete. Strong work.');await page.clock.runFor(1000);
+ // Nothing unfinished follows round 2, so the review card; the open straight, warm-up and round-1 sets stay as they were.
+ await expect.poll(()=>page.evaluate(()=>focusView.visibleRef())).toBe(null);
+ expect(await page.evaluate(()=>port.read().log.exercises.flatMap(e=>e.sets).filter(s=>s.done).map(s=>s.id))).toEqual(['a2']);
 });
 test('undo burst cancels advancement and delayed history stays inert',async({page})=>{
  await prepare(page);await page.evaluate(async()=>{await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});await port.command({type:'toggle',ref:{exerciseId:'straight',setId:'s1'}});logger.setBestPerformance({});logger.setStatus('Saved');});await page.clock.runFor(1200);expect(await page.evaluate(()=>focusView.visibleRef())).toEqual({exerciseId:'straight',setId:'s1'});await expect(page.locator('.is-celebrating')).toHaveCount(0);
@@ -77,4 +80,59 @@ test('an interrupted travel never sticks',async({page})=>{
 test('reduced motion jumps at once',async({page})=>{
  await mountFocusFixture(page);await page.emulateMedia({reducedMotion:'reduce'});
  expect(await page.evaluate(()=>{focusView.jump({exerciseId:'a',setId:'a2'},{animate:true});const f=document.querySelector('.focus-feed'),r=document.querySelector('.focus-card[data-set-id="a2"]').closest('.focus-round');return {gap:Math.abs(f.scrollTop-(r.offsetTop-(parseFloat(r.style.scrollMarginTop)||0)))<=1,viewed:focusView.visibleRef()?.setId};})).toEqual({gap:true,viewed:'a2'});
+});
+
+// Superset rounds: either partner first; the first completion switches in place, the round's completion travels after 650ms.
+const R={a1:{exerciseId:'a',setId:'a1'},b1:{exerciseId:'b',setId:'b1'},a2:{exerciseId:'a',setId:'a2'}};
+async function round(page,first,clock=true){
+ if(clock)await page.clock.install();await mountFocusFixture(page);
+ await page.evaluate(async first=>{for(const [exerciseId,setId] of [['a','a1'],['b','b1']])await port.command({type:'patch',ref:{exerciseId,setId},patch:{reps:8}});focusView.jump(first);},first);
+ if(clock)await page.clock.pauseAt(new Date(Date.now()+60000));
+}
+const viewedRef=page=>page.evaluate(()=>focusView.visibleRef());
+const feedTop=page=>page.evaluate(()=>document.querySelector('.focus-feed').scrollTop);
+const doneIds=page=>page.evaluate(()=>port.read().log.exercises.flatMap(e=>e.sets).filter(s=>s.done).map(s=>s.id));
+for(const [first,second] of [['a1','b1'],['b1','a1']])test(`round ${first} first: logs one member and switches in place, then travels after the round`,async({page})=>{
+ await round(page,R[first]);const top=await feedTop(page);
+ await page.locator(`.focus-card[data-set-id="${first}"] .log-done`).click();
+ expect(await viewedRef(page)).toEqual(R[second]);expect(await feedTop(page)).toBe(top);expect(await doneIds(page)).toEqual([first]);
+ await expect(page.locator('.focus-progress-meta')).toContainText('1 / 5 working sets');
+ await expect(page.locator(`.focus-card[data-set-id="${second}"] .focus-context-text`)).toBeFocused();
+ await page.clock.runFor(1000);expect(await viewedRef(page)).toEqual(R[second]);expect(await feedTop(page)).toBe(top);
+ await page.locator(`.focus-card[data-set-id="${second}"] .log-done`).click();
+ await page.clock.runFor(649);expect(await viewedRef(page)).toEqual(R[second]);expect(await feedTop(page)).toBe(top);
+ await page.clock.runFor(1);await expect(page.locator('.focus-card[data-set-id="a2"] .focus-context-text')).toBeFocused();
+ await page.clock.resume();await expect.poll(()=>viewedRef(page)).toEqual(R.a2);
+});
+for(const how of ['pointer','key','wheel','input','note','dialog','resize','hidden','preference','undo','conflict','removal','destroy'])test(`a pending round advance cancels at 649ms (${how})`,async({page})=>{
+ await round(page,R.a1);await page.locator('.focus-card[data-set-id="a1"] .log-done').click();await page.locator('.focus-card[data-set-id="b1"] .log-done').click();await page.clock.runFor(649);
+ const b1=page.locator('.focus-card[data-set-id="b1"]');
+ if(how==='key')await page.keyboard.press('Shift');
+ if(how==='input')await b1.locator('[data-field="weight"]').fill('80');
+ if(how==='note')await b1.getByRole('button',{name:'Add set note, Set 1, Chest-supported row',exact:true}).click();
+ if(how==='preference'){const auto=page.getByLabel('Auto-next',{exact:true});await auto.uncheck();await auto.check();}
+ await page.evaluate(async how=>{const f=document.querySelector('.focus-feed');
+  if(how==='pointer')f.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+  if(how==='wheel')f.dispatchEvent(new WheelEvent('wheel',{deltaY:1,bubbles:true}));
+  if(how==='dialog'){focusView.suspend(true);focusView.suspend(false);}
+  if(how==='resize')dispatchEvent(new Event('resize'));
+  if(how==='hidden'){Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));delete document.hidden;}
+  if(how==='undo')await port.command({type:'toggle',ref:{exerciseId:'a',setId:'a1'}});
+  // A conflict restoring a version where A1 is open: no edit event, so only the firing-time check can stop it.
+  if(how==='conflict'){const l=port.read().log;l.exercises[1].sets.find(s=>s.id==='a1').done=false;logger.setLog(l);}
+  if(how==='removal')await port.command({type:'remove-set',ref:{exerciseId:'a',setId:'a2'}});
+  if(how==='destroy')focusView.destroy();
+ },how);
+ const top=how==='destroy'?null:await feedTop(page);await page.clock.runFor(1000);
+ expect(await viewedRef(page)).toEqual(R.b1);if(top!==null)expect(await feedTop(page)).toBe(top);
+});
+test('reduced motion switches partners and advances rounds at once',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});await round(page,R.b1,false);
+ await page.locator('.focus-card[data-set-id="b1"] .log-done').click();expect(await viewedRef(page)).toEqual(R.a1);
+ await page.locator('.focus-card[data-set-id="a1"] .log-done').click();expect(await viewedRef(page)).toEqual(R.a2);
+});
+test('a rewarded set does not flourish again after undo and redo',async({page})=>{
+ await round(page,R.a1,false);await page.getByLabel('Auto-next',{exact:true}).uncheck();const done=page.locator('.focus-card[data-set-id="a1"] .log-done');
+ await done.click();await expect(page.locator('.is-celebrating')).toHaveCount(2);await expect(page.locator('.is-celebrating')).toHaveCount(0);
+ await done.click();await done.click();await expect(page.locator('.focus-card[data-set-id="a1"]')).toHaveClass(/is-done/);await expect(page.locator('.is-celebrating')).toHaveCount(0);
 });
