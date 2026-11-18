@@ -222,6 +222,14 @@ test.describe('Workout actions and Auto-next movement',()=>{
   const done=cardOf(page,b1).locator('.log-done');await done.click();await expect(cardOf(page,b1)).not.toHaveClass(/is-done/);await done.click();
   await expect.poll(()=>viewedId(page)).toBe(a.sets[1].id);expect(await feedTop(page)).toBeGreaterThan(top);
  });
+ // A fractional round header must not make the round 1px taller than the feed, which would let the feed rest off its snap point.
+ test('a round under a fractional header fills the feed exactly and stays snapped',async({page})=>{
+  await startSettled(page,ready);await page.addStyleTag({content:'.focus-round .focus-partner{min-height:44.4px}'});
+  await page.setViewportSize({width:390,height:845});await page.setViewportSize({width:390,height:844});
+  const geo=()=>page.evaluate(()=>{const f=document.querySelector('.focus-feed'),r=f.querySelector('.focus-round'),p=r.querySelector('.focus-pair-panes');return {feed:f.getBoundingClientRect().height,round:r.getBoundingClientRect().height,header:p.getBoundingClientRect().top-r.getBoundingClientRect().top};});
+  await expect.poll(async()=>(await geo()).header%1).not.toBe(0);const g=await geo();expect(g.round).toBe(g.feed);
+  await page.locator('.focus-feed').evaluate(f=>{f.scrollTop=1;});await expect.poll(()=>feedTop(page)).toBe(0);
+ });
  for(const how of ['actions','weight-steps','overview'])test(`opening ${how} at 649ms cancels a pending round advance`,async({page})=>{
   await page.clock.install();const log=await startSettled(page,ready),[a,b]=log.exercises,[a1,b1,a2]=[a.sets[0].id,b.sets[0].id,a.sets[1].id];
   await page.clock.pauseAt(new Date(Date.now()+60000));

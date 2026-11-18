@@ -93,3 +93,9 @@ Screenshots and frames are local scratchpad artifacts; they support but do not p
 
 - Retiring a compact round (unlink, member removal) now returns relocated set/exercise note actions before panes are destroyed; the round's done button drops `aria-pressed` while its action-name override applies and regains it outside the override; `fitPair` ceils pane/min heights.
 - RED: 4 e2e failed (2 new retire tests, 2 aria-pressed assertions) and 1 unit (fractional `fitPair`). GREEN: `npx playwright test` view/motion/fit/integration/overview 260 passed; `npm test` 534 passed.
+
+## Post-merge fix: rounds never exceed the feed
+
+- The full browser run on merged `main` failed once in roughly 110 runs: "Auto-next off stops partner and vertical movement" read `scrollTop` 1 instead of 0. Root cause: the final-review `fitPair` rounded the filled pane up and then rounded `header + pane` up again, so a fractional round header (forced to 108.39px in the probe) produced a 615px round in a 614px feed. A page taller than the snapport lets mandatory snapping rest anywhere inside it, so a 1px scroll stayed at 1.
+- Fix: a round that fits fills the feed exactly; only an oversized round grows, to whole pixels (`minHeight = max(feedHeight, ceil(header + tallest member))`).
+- RED: the new unit case expected 614 and got 615; the new integration test "a round under a fractional header fills the feed exactly and stays snapped" failed with 615 against 614. GREEN: `npm test` 534 passed; view/motion/fit/integration/overview suites 261 passed. The original failure never reproduced on demand (5 isolated runs, 3 integration-suite repeats, 13 runs at 6× CPU slowdown), so linking it to this fix is the most likely explanation, not a proven one.

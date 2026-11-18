@@ -46,6 +46,8 @@ test('fitPair reserves the taller of asymmetric members in either order',()=>{
  // An absent member is simply not measured.
  assert.deepEqual(fitPair({feedHeight:560,headerHeight:110,fullHeights:[300],compactHeights:[250]}),{compact:false,minHeight:560,paneMinHeight:450});
 });
-test('fitPair rounds fractional heights up to whole pixels',()=>{
- assert.deepEqual(fitPair({feedHeight:600.4,headerHeight:100.2,fullHeights:[300.3],compactHeights:[250]}),{compact:false,minHeight:602,paneMinHeight:501});
+test('fitPair fills the feed exactly under a fractional header and grows an oversized round to whole pixels',()=>{
+ // A round 1px taller than the feed lets the feed rest 1px past its snap point.
+ assert.deepEqual(fitPair({feedHeight:614,headerHeight:108.390625,fullHeights:[400],compactHeights:[380]}),{compact:false,minHeight:614,paneMinHeight:505.609375});
+ assert.deepEqual(fitPair({feedHeight:600,headerHeight:100.25,fullHeights:[550.5],compactHeights:[520.5]}),{compact:true,minHeight:621,paneMinHeight:520.75});
 });
